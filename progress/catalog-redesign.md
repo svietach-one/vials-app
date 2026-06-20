@@ -1,13 +1,13 @@
-Status: DESIGNED
+Status: REVIEWED
 Tech Design: docs/tech-design/catalog-redesign.md
 Code: —
 
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
-- [ ] QA tests (qa-lead)
-- [ ] Implementation (engineer)
-- [ ] Architecture review (tech-lead)
+- [x] QA tests (qa-lead)
+- [x] Implementation (engineer)
+- [x] Architecture review (tech-lead)
 
 ## Log
 
@@ -21,3 +21,12 @@ Code: —
   (placeholder stub — expo-camera not yet installed), ProductDetailScreen, ProductActionSheet.
   Wizard remains as AddProductModal (modal, not stack screens) — see Assumptions in design.
   All prior QA/engineer/review checkboxes reset to unchecked as the design baseline changed.
+
+2026-06-20 — tech-lead: architecture review complete. Status: REVIEWED. See review report below.
+
+2026-06-20 — qa-lead: integration test suite created in tests/catalog/.
+  Three test files covering 35 acceptance criteria across CatalogScreen,
+  AddProductHubScreen, ProductDetailScreen, and ProductActionSheet.
+  Test runner: Jest + @testing-library/react-native (already in devDependencies).
+  All external dependencies (Zustand stores, OBF search, navigation, modals, UI atoms)
+  are mocked; tests are runnable against the existing implementation with `npm test`.

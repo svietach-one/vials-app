@@ -18,37 +18,12 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { Tag } from '@/components/ui/core/Tag';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, space, typography } from '@/constants/tokens';
+import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
-import type { ActiveIngredientKey, Product } from '@/types';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import type { Product } from '@/types';
 
 type Props = NativeStackScreenProps<CatalogStackParamList, 'Catalog'>;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const PRODUCT_TYPE_LABELS: Record<string, string> = {
-  cleanser: 'Cleanser',
-  toner: 'Toner',
-  essence: 'Essence',
-  serum: 'Serum',
-  gel: 'Gel',
-  moisturizer: 'Moisturizer',
-  oil: 'Oil',
-  spf: 'SPF',
-};
-
-const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
-  retinol: 'Retinol',
-  aha: 'AHA',
-  bha: 'BHA',
-  vitamin_c: 'Vitamin C',
-  niacinamide: 'Niacinamide',
-  copper_peptides: 'Copper Peptides',
-  benzoyl_peroxide: 'Benzoyl Peroxide',
-  spf_chemical: 'SPF (Chemical)',
-};
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 

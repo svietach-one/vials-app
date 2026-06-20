@@ -33,16 +33,7 @@ interface StepRowProps {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const PRODUCT_TYPE_LABELS: Record<string, string> = {
-  cleanser: 'Cleanser',
-  toner: 'Toner',
-  essence: 'Essence',
-  serum: 'Serum',
-  gel: 'Gel',
-  moisturizer: 'Moisturizer',
-  oil: 'Oil',
-  spf: 'SPF',
-};
+import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
 
 const PERIOD_OPTIONS = [
   { value: 'morning', label: 'AM — Morning' },

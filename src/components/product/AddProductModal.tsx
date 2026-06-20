@@ -88,6 +88,116 @@ function keysToIngredients(keys: ActiveIngredientKey[]): ActiveIngredient[] {
   });
 }
 
+// ─── Sub-components (extracted to keep renderFormPhase under limit) ───────────
+
+interface InciFieldProps {
+  value: string;
+  onChange: (t: string) => void;
+  onDetect: () => void;
+  onScan: () => void;
+}
+function InciField({ value, onChange, onDetect, onScan }: InciFieldProps) {
+  return (
+    <View style={formStyles.fieldGroup}>
+      <View style={formStyles.fieldLabelRow}>
+        <Text style={formStyles.fieldLabel}>Full Ingredient List (INCI)</Text>
+        {value.trim().length > 5 ? (
+          <Pressable onPress={onDetect} hitSlop={8}>
+            <Text style={formStyles.detectLink}>Detect actives →</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      <View style={formStyles.inciNotice}>
+        <Text style={formStyles.inciNoticeText}>
+          ⚠️ Ingredients must be in Latin/English characters. For Asian products, look for the English "Ingredients" block on the packaging.
+        </Text>
+      </View>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder="Paste INCI text here, then tap 'Detect actives' to auto-tag…"
+        placeholderTextColor={colors.textTertiary}
+        multiline
+        numberOfLines={4}
+        textAlignVertical="top"
+        style={formStyles.textArea}
+      />
+      <Pressable
+        style={({ pressed }) => [formStyles.ocrBtn, pressed && formStyles.ocrBtnPressed]}
+        onPress={onScan}
+        accessibilityRole="button"
+        accessibilityLabel="Scan ingredients text with camera"
+      >
+        <Feather name="camera" size={18} color={colors.textPrimary} />
+        <Text style={formStyles.ocrBtnLabel}>Scan Ingredients Text</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+interface IngredientChipsProps {
+  selected: ActiveIngredient[];
+  onToggle: (ing: ActiveIngredient) => void;
+}
+function IngredientChips({ selected, onToggle }: IngredientChipsProps) {
+  return (
+    <View style={formStyles.fieldGroup}>
+      <Text style={formStyles.fieldLabel}>Confirmed Active Ingredients</Text>
+      <Text style={formStyles.fieldHint}>
+        Check the actives that are prominently present in this product.
+      </Text>
+      <View style={formStyles.ingredientWrap}>
+        {ALL_ACTIVE_INGREDIENTS.map((ing) => {
+          const active = selected.some((s) => s.key === ing.key);
+          return (
+            <Pressable
+              key={ing.key}
+              onPress={() => onToggle(ing)}
+              style={[chipStyles.chip, active && chipStyles.chipActive]}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: active }}
+            >
+              <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
+                {ing.displayName}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+interface RoutineTargetPickerProps {
+  value: RoutineTarget;
+  onChange: (v: RoutineTarget) => void;
+}
+function RoutineTargetPicker({ value, onChange }: RoutineTargetPickerProps) {
+  return (
+    <View style={formStyles.fieldGroup}>
+      <Text style={formStyles.fieldLabel}>Add to Routine</Text>
+      <View style={formStyles.routineRow}>
+        {ROUTINE_TARGET_OPTIONS.map((opt) => {
+          const active = value === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
+              onPress={() => onChange(opt.value)}
+              style={[chipStyles.chip, chipStyles.chipFlex, active && chipStyles.chipActive]}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function AddProductModal({
@@ -226,6 +336,18 @@ export function AddProductModal({
     const trimmed = fullIngredientText.trim();
     if (!trimmed) return;
     const parsedKeys = parseActiveIngredientsFromInci(trimmed);
+    setSelectedIngredients(keysToIngredients(parsedKeys));
+  }
+
+  // Simulates an OCR scan: fills the textarea with a sample INCI text and
+  // immediately runs ingredient detection so the checkboxes light up.
+  // Replace this with a real image-picker + OCR flow when a library is added.
+  function handleMockOcrScan() {
+    const sample =
+      'Water, Glycerin, Niacinamide, Centella Asiatica Extract, Sodium Hyaluronate, ' +
+      'Panthenol, Betaine, Allantoin, Carbomer, Disodium EDTA';
+    setFullIngredientText(sample);
+    const parsedKeys = parseActiveIngredientsFromInci(sample);
     setSelectedIngredients(keysToIngredients(parsedKeys));
   }
 
@@ -379,53 +501,17 @@ export function AddProductModal({
             </ScrollView>
           </View>
 
-          {/* Full ingredient text — placed before the tag grid so auto-detect flows top→down */}
-          <View style={formStyles.fieldGroup}>
-            <View style={formStyles.fieldLabelRow}>
-              <Text style={formStyles.fieldLabel}>Full Ingredient List (INCI)</Text>
-              {fullIngredientText.trim().length > 5 ? (
-                <Pressable onPress={detectFromInci} hitSlop={8}>
-                  <Text style={formStyles.detectLink}>Detect actives →</Text>
-                </Pressable>
-              ) : null}
-            </View>
-            <TextInput
-              value={fullIngredientText}
-              onChangeText={setFullIngredientText}
-              placeholder="Paste INCI text here, then tap 'Detect actives' to auto-tag…"
-              placeholderTextColor={colors.textTertiary}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              style={formStyles.textArea}
-            />
-          </View>
+          <InciField
+            value={fullIngredientText}
+            onChange={setFullIngredientText}
+            onDetect={detectFromInci}
+            onScan={handleMockOcrScan}
+          />
 
-          {/* Active ingredient checkboxes — user validates which tags to confirm */}
-          <View style={formStyles.fieldGroup}>
-            <Text style={formStyles.fieldLabel}>Confirmed Active Ingredients</Text>
-            <Text style={formStyles.fieldHint}>
-              Check the actives that are prominently present in this product.
-            </Text>
-            <View style={formStyles.ingredientWrap}>
-              {ALL_ACTIVE_INGREDIENTS.map((ing) => {
-                const active = selectedIngredients.some((s) => s.key === ing.key);
-                return (
-                  <Pressable
-                    key={ing.key}
-                    onPress={() => toggleIngredient(ing)}
-                    style={[chipStyles.chip, active && chipStyles.chipActive]}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: active }}
-                  >
-                    <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
-                      {ing.displayName}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+          <IngredientChips
+            selected={selectedIngredients}
+            onToggle={toggleIngredient}
+          />
 
           <View style={formStyles.fieldGroup}>
             <Text style={formStyles.fieldLabel}>Usage Time</Text>
@@ -438,27 +524,10 @@ export function AddProductModal({
           </View>
 
           {!editingProduct ? (
-            <View style={formStyles.fieldGroup}>
-              <Text style={formStyles.fieldLabel}>Add to Routine</Text>
-              <View style={formStyles.routineRow}>
-                {ROUTINE_TARGET_OPTIONS.map(({ value, label }) => {
-                  const active = routineTarget === value;
-                  return (
-                    <Pressable
-                      key={value}
-                      onPress={() => setRoutineTarget(value)}
-                      style={[chipStyles.chip, chipStyles.chipFlex, active && chipStyles.chipActive]}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
+            <RoutineTargetPicker
+              value={routineTarget}
+              onChange={setRoutineTarget}
+            />
           ) : null}
         </ScrollView>
 
@@ -637,6 +706,39 @@ const formStyles = StyleSheet.create({
     ...typography.caption,
     fontFamily: 'DMSans-Medium',
     color: colors.textLink,
+  },
+  inciNotice: {
+    backgroundColor: colors.surfaceSunken,
+    borderRadius: radius.sm,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    borderLeftWidth: 3,
+    borderLeftColor: colors.statusWarning,
+  },
+  inciNoticeText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  ocrBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[2],
+    paddingHorizontal: space[4],
+    paddingVertical: space[3] + 1,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceRaised,
+  },
+  ocrBtnPressed: {
+    backgroundColor: colors.surfaceSunken,
+  },
+  ocrBtnLabel: {
+    ...typography.body,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
   },
   typeRow: {
     flexDirection: 'row',

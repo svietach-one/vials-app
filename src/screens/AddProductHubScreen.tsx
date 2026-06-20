@@ -20,9 +20,8 @@ import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { searchProducts } from '@/services/openBeautyFacts/search';
 import type { OBFProduct } from '@/services/openBeautyFacts/types';
 import { useProductsStore } from '@/store/productsStore';
-import { useRoutinesStore } from '@/store/routinesStore';
-import { generateId } from '@/utils/generateId';
-import type { Product, RoutineStep } from '@/types';
+import { useRoutineLinking } from '@/hooks/useRoutineLinking';
+import type { Product } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,8 +31,7 @@ type Props = NativeStackScreenProps<CatalogStackParamList, 'AddProductHub'>;
 
 export default function AddProductHubScreen({ navigation }: Props) {
   const addProduct = useProductsStore((s) => s.addProduct);
-  const routines = useRoutinesStore((s) => s.routines);
-  const updateRoutine = useRoutinesStore((s) => s.updateRoutine);
+  const { addProductToRoutine } = useRoutineLinking();
 
   // OBF search
   const [searchText, setSearchText] = useState('');
@@ -77,29 +75,6 @@ export default function AddProductHubScreen({ navigation }: Props) {
   }, [debouncedQuery]);
 
   // ── Routine linking (Blocker 1 fix: preserved from original ProductsScreen) ─
-
-  function addProductToRoutine(product: Product, target: RoutineTarget) {
-    if (target === 'none') return;
-
-    function makeStep(): RoutineStep {
-      return {
-        id: generateId(),
-        productType: product.productType,
-        productId: product.id,
-        hidden: false,
-        scheduledDays: [],
-      };
-    }
-
-    if (target === 'morning' || target === 'both') {
-      const r = routines.find((x) => x.timeOfDay === 'morning');
-      if (r) updateRoutine(r.id, { steps: [...r.steps, makeStep()] });
-    }
-    if (target === 'evening' || target === 'both') {
-      const r = routines.find((x) => x.timeOfDay === 'evening');
-      if (r) updateRoutine(r.id, { steps: [...r.steps, makeStep()] });
-    }
-  }
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 

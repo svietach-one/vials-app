@@ -14,7 +14,9 @@
       "Bash(node *)",
       "Skill(run)",
       "Bash(npx expo *)",
-      "Bash(echo \"PID: $!\")"
+      "Bash(echo \"PID: $!\")",
+      "Bash(perl -i -pe 's/^Status: DESIGNED/Status: IN_PROGRESS/' /Users/sviatlanaivanova-klimanskaya/Documents/work/vials_app/progress/catalog-redesign.md)",
+      "Bash(perl -i -pe 's/- \\\\[ \\\\] \\(QA tests \\\\\\(qa-lead\\\\\\)\\)/- [x] $1/' /Users/sviatlanaivanova-klimanskaya/Documents/work/vials_app/progress/catalog-redesign.md)"
     ]
   }
 }

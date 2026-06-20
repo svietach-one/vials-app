@@ -43,16 +43,7 @@ function isStepForToday(step: RoutineStep, dayOfWeek: number): boolean {
   return days.length === 0 || days.includes(dayOfWeek);
 }
 
-const PRODUCT_TYPE_LABELS: Record<string, string> = {
-  cleanser: 'Cleanser',
-  toner: 'Toner',
-  essence: 'Essence',
-  serum: 'Serum',
-  gel: 'Gel',
-  moisturizer: 'Moisturizer',
-  oil: 'Oil',
-  spf: 'SPF',
-};
+import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
