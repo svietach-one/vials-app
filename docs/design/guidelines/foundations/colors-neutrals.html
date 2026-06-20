@@ -1,0 +1,30 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Base & Neutrals" subtitle="Canvas, bone surface, zinc ramp" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  body { margin: 0; background: var(--bg-base); font-family: var(--font-sans); }
+  .wrap { padding: 20px; }
+  .row { display: flex; gap: 10px; }
+  .sw { flex: 1; }
+  .chip { height: 56px; border-radius: var(--radius-sm); border: var(--border-hair) solid var(--border-divider); }
+  .name { font-size: 12px; font-weight: 600; margin-top: 7px; color: var(--text-primary); }
+  .hex { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); margin-top: 1px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:var(--white)"></div><div class="name">White</div><div class="hex">#FFFFFF</div></div>
+    <div class="sw"><div class="chip" style="background:var(--bone)"></div><div class="name">Bone</div><div class="hex">#FAF9F6</div></div>
+    <div class="sw"><div class="chip" style="background:var(--zinc-200)"></div><div class="name">Divider</div><div class="hex">#E4E4E7</div></div>
+    <div class="sw"><div class="chip" style="background:var(--zinc-400)"></div><div class="name">Zinc 400</div><div class="hex">#A1A1AA</div></div>
+    <div class="sw"><div class="chip" style="background:var(--zinc-500)"></div><div class="name">Secondary</div><div class="hex">#71717A</div></div>
+    <div class="sw"><div class="chip" style="background:var(--zinc-700)"></div><div class="name">Zinc 700</div><div class="hex">#3F3F46</div></div>
+    <div class="sw"><div class="chip" style="background:var(--black)"></div><div class="name">Off-black</div><div class="hex">#09090B</div></div>
+  </div>
+</div>
+</body>
+</html>

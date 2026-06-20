@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Vials Mobile Screen" description="iPhone routine screen scaffold using Vials components — header, status card, checklist, CTA, tab bar" -->
+<helmet>
+<script src="./ds-base.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300..800&family=Newsreader:opsz,wght@6..72,300..600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+  body { margin: 0; background: #F4F4F5; }
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px;font-family:'Hanken Grotesk',sans-serif;">
+  <div style="width:390px;height:844px;position:relative;background:#FFFFFF;border-radius:46px;border:10px solid #050506;box-shadow:0 12px 28px rgba(9,9,11,0.10),0 2px 6px rgba(9,9,11,0.06);overflow:hidden;display:flex;flex-direction:column;">
+
+    <!-- dynamic island -->
+    <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:118px;height:33px;background:#050506;border-radius:20px;z-index:50;"></div>
+
+    <!-- status bar -->
+    <div style="height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;flex:none;">
+      <span style="font-size:15px;font-weight:600;color:#09090B;">9:41</span>
+      <div style="display:flex;gap:7px;color:#09090B;">
+        <i data-lucide="signal" style="width:17px;height:17px;"></i>
+        <i data-lucide="wifi" style="width:17px;height:17px;"></i>
+        <i data-lucide="battery-full" style="width:22px;height:22px;"></i>
+      </div>
+    </div>
+
+    <!-- header -->
+    <div style="padding:10px 20px 14px;flex:none;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#A1A1AA;margin-bottom:4px;">Thursday · 24 Apr</div>
+      <div style="font-family:'Newsreader',serif;font-size:32px;font-weight:500;letter-spacing:-0.01em;color:#09090B;line-height:1;">Tonight</div>
+    </div>
+
+    <!-- scroll body -->
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:0 20px 120px;">
+
+      <!-- status card -->
+      <div style="margin-bottom:14px;">
+        <x-import component-from-global-scope="VialsDesignSystem_d5d96f.Card" variant="raised" padding="md" hint-size="100%,84px">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:54px;height:54px;border-radius:50%;border:5px solid #E4E4E7;border-top-color:#800C2E;border-right-color:#800C2E;flex:none;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#09090B;">3/5</div>
+            <div style="flex:1;">
+              <div style="font-weight:600;font-size:17px;color:#09090B;">Evening routine</div>
+              <div style="font-size:13px;color:#71717A;margin-top:2px;">Cycle Day 2 — Exfoliate night</div>
+            </div>
+            <x-import component-from-global-scope="VialsDesignSystem_d5d96f.Badge" tone="warning" dot="{{ true }}" hint-size="72px,22px">Active</x-import>
+          </div>
+        </x-import>
+      </div>
+
+      <!-- conflict alert -->
+      <x-import component-from-global-scope="VialsDesignSystem_d5d96f.InlineAlert" tone="warning" title="Ingredient conflict" hint-size="100%,64px">
+        Skip vitamin C tonight — it clashes with your exfoliant.
+      </x-import>
+
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#71717A;margin:18px 2px 10px;">Steps</div>
+
+      <!-- checklist -->
+      <x-import component-from-global-scope="VialsDesignSystem_d5d96f.Card" padding="md" hint-size="100%,200px">
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <x-import component-from-global-scope="VialsDesignSystem_d5d96f.Checkbox" checked="{{ true }}" label="Oil cleanse" sublabel="Remove SPF & makeup" hint-size="100%,40px"></x-import>
+          <x-import component-from-global-scope="VialsDesignSystem_d5d96f.Checkbox" checked="{{ true }}" label="Gentle exfoliant" sublabel="Mandelic acid 10%" hint-size="100%,40px"></x-import>
+          <x-import component-from-global-scope="VialsDesignSystem_d5d96f.Checkbox" checked="{{ false }}" label="Apply retinoid" sublabel="Pea-size · avoid eyes" hint-size="100%,40px"></x-import>
+          <x-import component-from-global-scope="VialsDesignSystem_d5d96f.Checkbox" checked="{{ false }}" label="Barrier moisturizer" sublabel="Ceramides + squalane" hint-size="100%,40px"></x-import>
+        </div>
+      </x-import>
+
+      <div style="height:16px;"></div>
+      <x-import component-from-global-scope="VialsDesignSystem_d5d96f.Button" variant="primary" fullWidth="{{ true }}" hint-size="100%,44px">Log tonight's routine</x-import>
+    </div>
+
+    <!-- tab bar -->
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:40;display:flex;padding:8px 8px 10px;background:rgba(255,255,255,0.72);backdrop-filter:blur(16px) saturate(1.1);-webkit-backdrop-filter:blur(16px) saturate(1.1);border-top:1px solid #E4E4E7;">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:#09090B;"><i data-lucide="sun" style="width:20px;height:20px;"></i><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.04em;text-transform:uppercase;">Today</span></div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:#A1A1AA;"><i data-lucide="flask-conical" style="width:20px;height:20px;"></i><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.04em;text-transform:uppercase;">Shelf</span></div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:#A1A1AA;"><i data-lucide="calendar" style="width:20px;height:20px;"></i><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.04em;text-transform:uppercase;">Cycle</span></div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:#A1A1AA;"><i data-lucide="syringe" style="width:20px;height:20px;"></i><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.04em;text-transform:uppercase;">Clinic</span></div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    const draw = () => window.lucide && window.lucide.createIcons();
+    draw();
+    setTimeout(draw, 200);
+    setTimeout(draw, 600);
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

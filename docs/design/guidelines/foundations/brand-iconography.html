@@ -1,0 +1,29 @@
+<!-- @dsCard group="Brand" viewport="700x170" name="Iconography — Lucide" subtitle="1.75px stroke line icons, 20–24px on grid" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  body { margin: 0; background: var(--bg-base); font-family: var(--font-sans); color: var(--text-primary); }
+  .wrap { padding: 24px; }
+  .icons { display: flex; gap: 22px; flex-wrap: wrap; }
+  .icons i { width: 26px; height: 26px; stroke-width: 1.75; color: var(--text-primary); }
+  .note { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="icons">
+    <i data-lucide="sun"></i><i data-lucide="moon"></i><i data-lucide="flask-conical"></i>
+    <i data-lucide="droplet"></i><i data-lucide="calendar"></i><i data-lucide="syringe"></i>
+    <i data-lucide="shield-check"></i><i data-lucide="triangle-alert"></i><i data-lucide="clock"></i>
+    <i data-lucide="bell"></i><i data-lucide="sparkles"></i><i data-lucide="layers"></i>
+    <i data-lucide="trending-up"></i><i data-lucide="plus"></i><i data-lucide="check"></i>
+  </div>
+  <div class="note">Lucide · stroke 1.75 · loaded from CDN</div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

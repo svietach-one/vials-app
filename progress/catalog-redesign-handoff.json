@@ -1,0 +1,15 @@
+{
+  "task": "catalog-redesign",
+  "phase": "design",
+  "status": "DESIGNED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/catalog-redesign.md",
+    "tech_design": "docs/tech-design/catalog-redesign.md"
+  },
+  "notes": "Tech design replaced 2026-06-20 with Add Product Hub architecture. expo-camera and expo-image-picker are absent from package.json; BarcodeScannerScreen is a placeholder stub until they are installed. Wizard remains AddProductModal (modal, not stack screens)."
+}

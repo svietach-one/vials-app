@@ -1,0 +1,81 @@
+{
+  "task": "vials-mvp-implementation",
+  "phase": "tech-lead",
+  "status": "PR_REVIEW",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/vials-mvp-implementation.md",
+    "tech_design": "docs/tech-design/vials-mvp-implementation.md",
+    "implementation_plan": "docs/IMPLEMENTATION_PLAN.md",
+    "qa_tests": [
+      "src/utils/conflictEngine.test.ts",
+      "src/utils/ingredientParser.test.ts",
+      "src/utils/timeHelpers.test.ts",
+      "src/utils/procedureLifespanHelpers.test.ts"
+    ],
+    "extracted_helpers": [
+      "src/utils/procedureLifespanHelpers.ts"
+    ]
+  },
+  "phases": [
+    {
+      "id": "P0",
+      "name": "Foundation (AsyncStorage + Types + DS components)",
+      "status": "complete",
+      "notes": "AsyncStorage chosen over MMKV to stay on Expo Go (no native build needed). Types: Product + RoutineStep extended with openedDate/paoMonths/scheduledDays. DS components ported: Button, Card, IconButton, ListRow, Tag, Input, Checkbox, Switch, SegmentedControl."
+    },
+    {
+      "id": "P1",
+      "name": "Onboarding Stack",
+      "status": "complete",
+      "notes": "MarketingSlidesScreen, SkinProfileSetupScreen, FirstProductScreen implemented. OBF search extracted to src/services/openBeautyFacts/. generateId() utility added. Tech-lead blockers B1-B4 + warnings W1-W7 resolved."
+    },
+    {
+      "id": "P2",
+      "name": "Today Screen",
+      "status": "complete",
+      "notes": "InlineAlert.tsx ported to RN. ClinicalRestrictionsBlock reads proceduresStore + date-based rehab window check. SeasonalNoticeBanner calls getCurrentSeason() + dismissedBanners gate. RoutinesScreen: collapsible AM/PM sections, RoutineStepCard with gamification-aware checkbox, EmptySlotPlaceholder with hide + navigate-to-catalog. routinesStore: seeds default AM/PM on first launch, normalises scheduledDays. AppNavigator wired to RoutinesScreen."
+    },
+    { "id": "P3", "name": "Weekly Plan", "status": "complete", "notes": "WeeklySchedulePicker (day chips, every-day ↔ specific-days toggle), ConflictWarningInline (ConflictEngine.detectConflicts across all routine steps, deduplicated amber InlineAlerts), WeeklyPlanView (AM/PM SegmentedControl + DraggableFlatList with ScaleDecorator + hidden-step preservation on drag end + ListFooterComponent conflict warnings). RoutinesScreen wired: view='today'|'weekly' state, useEffect sets headerRight 'Edit Schedule'/'Done' button + headerTitle via navigation.setOptions." },
+    { "id": "P4", "name": "Catalog Screen", "status": "complete", "notes": "ProductsScreen: FlatList with local search filter, edit/delete action icons per card, header '+' button via navigation.setOptions. AddProductModal: two-phase (OBF search with 600ms debounce → form, or manual entry); form fields: name, brand, product-type chip row, active-ingredient multi-select, usage-time SegmentedControl, INCI textarea, 'Add to routine' quick-link (none/AM/PM/AM&PM); pre-fills when editingProduct prop provided. DeleteProductModal: fade overlay with destructive confirmation. Routine linking: addProductToRoutine creates new RoutineStep in matching routine(s) on save." },
+    { "id": "P5", "name": "Clinic Screen", "status": "complete", "notes": "ProcedureLifespanCard: computeStatus() derives live status from datePerformed+config (not stored field); LifespanBar percentage-fill with status-matched color; FadingInteractivePrompt with defer (max 3×)/mostly-faded (realDuration input)/archive branches. AddProcedureModal: 6-option radio list with rehab+effect metadata; DD/MM/YYYY date input with Today quick-fill and future-date guard; live collision/seasonal/phototype InlineAlerts from ConflictEngine. ClinicScreen: MonthTimelineBar (12-month horizontal strip with per-month dots); FlatList sorted by recency (archived pushed last); header '+' via navigation.setOptions; reuses DeleteProductModal for procedure removal. computeStatus + getProgress extracted to src/utils/procedureLifespanHelpers.ts by qa-lead." },
+    { "id": "P6", "name": "Profile Screen", "status": "complete", "notes": "SkinProfileEditModal: pageSheet slide-up with all skin profile fields (gender chips, age input, skin type chips, PhototypeCard row, concerns multi-select, SPF sensitivity Switch), pre-fills from profileStore on open, Cancel+Save footer. ProfileScreen: profile summary chips (gender/age/skin type/phototype), concerns as dot-joined text, edit trigger, product+procedure counts stats bar, Gamification Switch via ListRow (settingsStore), SPF Sensitivity Switch (profileStore), local-data InlineAlert, Export via Share.share() with full JSON backup of all stores, version row." },
+    { "id": "P7", "name": "Polish & All-States Audit", "status": "complete", "notes": "All-states audit passed across all screens — hydration spinner in App.tsx covers load state; every FlatList has a ListEmptyComponent; AM/PM sections have EmptySection. Three fixes applied: (1) parseDateInput W-A: added date.getDate/getMonth cross-check after Date construction to reject overflowed dates like April 31 → May 1. (2) OBF error state: searchProducts returns {products, failed}; AddProductModal and FirstProductScreen now show 'Search unavailable' with wifi-off icon when API fails, distinct from 'No results found'. (3) tsc clean + 105/105 tests green after all changes." }
+  ],
+  "qa_summary": {
+    "test_files": 4,
+    "total_tests": 105,
+    "passed": 105,
+    "failed": 0,
+    "run_command": "npx jest --testPathPattern=\"conflictEngine|ingredientParser|timeHelpers|procedureLifespanHelpers\" --no-coverage"
+  },
+  "open_questions": [
+    {
+      "id": "OQ-1",
+      "description": "OBF API rate limits and terms of use for production scale",
+      "owner": "product-owner",
+      "resolved": false
+    },
+    {
+      "id": "OQ-2",
+      "description": "Clinical disclaimer copy sign-off from licensed practitioner",
+      "owner": "product-owner",
+      "resolved": false
+    },
+    {
+      "id": "OQ-3",
+      "description": "Expo dev client build pipeline for MMKV native module",
+      "owner": "engineer",
+      "resolved": true,
+      "resolution": "Moot — storage decision changed to AsyncStorage. Expo Go compatible, no native build required."
+    }
+  ],
+  "created_at": "2026-06-19",
+  "created_by": "planner-agent",
+  "last_updated": "2026-06-20",
+  "last_updated_by": "tech-lead"
+}

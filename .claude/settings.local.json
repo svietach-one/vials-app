@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat ~/.claude/settings.json 2>/dev/null || echo \"FILE_NOT_FOUND\")",
+      "Read(//Users/sviatlanaivanova-klimanskaya/.claude/**)",
+      "Bash(chmod +x ~/.claude/statusline.sh)",
+      "Bash(npx tsc *)",
+      "Bash(/usr/local/bin/npx tsc *)",
+      "Bash(npm --version)",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//usr/**)",
+      "Read(//Users/sviatlanaivanova-klimanskaya/**)",
+      "Bash(npx jest *)",
+      "Bash(node *)",
+      "Skill(run)",
+      "Bash(npx expo *)",
+      "Bash(echo \"PID: $!\")"
+    ]
+  }
+}

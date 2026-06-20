@@ -1,0 +1,23 @@
+<!-- @dsCard group="Colors" viewport="700x160" name="Accent tints & hairlines" subtitle="Backgrounds & borders for badges and small cards" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  body { margin: 0; background: var(--bg-base); font-family: var(--font-sans); }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 20px; }
+  .cell { display: flex; flex-direction: column; gap: 8px; }
+  .tile { height: 56px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  .name { font-size: 11px; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="cell"><div class="tile" style="background:var(--cabernet-tint);border:1px solid var(--cabernet-line);color:var(--cabernet)">SOS</div><div class="name">Cabernet tint</div></div>
+  <div class="cell"><div class="tile" style="background:var(--amber-tint);border:1px solid var(--amber-line);color:var(--amber)">Warning</div><div class="name">Amber tint</div></div>
+  <div class="cell"><div class="tile" style="background:var(--bottle-green-tint);border:1px solid var(--bottle-green-line);color:var(--bottle-green)">Safe</div><div class="name">Green tint</div></div>
+  <div class="cell"><div class="tile" style="background:var(--cobalt-tint);border:1px solid var(--cobalt-line);color:var(--cobalt)">Info</div><div class="name">Cobalt tint</div></div>
+</div>
+</body>
+</html>

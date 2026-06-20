@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Vials",
+    "slug": "vials",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F2EB"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vials.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#F5F2EB"
+      },
+      "package": "com.vials.app"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-asset"
+    ]
+  }
+}

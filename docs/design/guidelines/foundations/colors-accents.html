@@ -1,0 +1,36 @@
+<!-- @dsCard group="Colors" viewport="700x230" name="Accents — Apothecary Glass" subtitle="Functional only — never large fills or primary buttons" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>
+  body { margin: 0; background: var(--bg-base); font-family: var(--font-sans); }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 20px; }
+  .sw { border: var(--border-hair) solid var(--border-divider); border-radius: var(--radius-md); overflow: hidden; }
+  .chip { height: 64px; }
+  .meta { padding: 10px 12px; }
+  .name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .hex { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+  .use { font-size: 11px; color: var(--text-secondary); margin-top: 6px; line-height: 1.35; }
+  .lbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-tertiary); padding: 0 20px; margin-top: 6px; }
+  .lite { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 8px 20px 20px; }
+  .lchip { height: 40px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="sw"><div class="chip" style="background:var(--cabernet)"></div><div class="meta"><div class="name">Cabernet</div><div class="hex">#800C2E</div><div class="use">Active triggers · SOS · 24h rehab</div></div></div>
+  <div class="sw"><div class="chip" style="background:var(--amber)"></div><div class="meta"><div class="name">Amber</div><div class="hex">#A84C0E</div><div class="use">Warnings · expiry · transitions</div></div></div>
+  <div class="sw"><div class="chip" style="background:var(--bottle-green)"></div><div class="meta"><div class="name">Bottle Green</div><div class="hex">#0F4C3A</div><div class="use">Safe zones · soothing · recovery</div></div></div>
+  <div class="sw"><div class="chip" style="background:var(--cobalt)"></div><div class="meta"><div class="name">Cobalt</div><div class="hex">#1E3A8A</div><div class="use">Info · tracking · forecasting</div></div></div>
+</div>
+<div class="lbl">Light variants — card &amp; badge borders</div>
+<div class="lite">
+  <div class="lchip" style="background:color-mix(in srgb, var(--cabernet) 8%, var(--white));border:1.5px solid var(--cabernet-light)">Cabernet</div>
+  <div class="lchip" style="background:color-mix(in srgb, var(--amber) 8%, var(--white));border:1.5px solid var(--amber-light)">Amber</div>
+  <div class="lchip" style="background:color-mix(in srgb, var(--bottle-green) 8%, var(--white));border:1.5px solid var(--bottle-green-light)">Green</div>
+  <div class="lchip" style="background:color-mix(in srgb, var(--cobalt) 8%, var(--white));border:1.5px solid var(--cobalt-light)">Cobalt</div>
+</div>
+</body>
+</html>

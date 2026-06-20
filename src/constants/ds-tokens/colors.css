@@ -1,0 +1,131 @@
+/* ============================================================
+   Vials — Color tokens
+   Monochrome canvas + Apothecary Glass accents.
+   ACCENTS ARE NEVER large background fills or primary buttons.
+   They are reserved for text links, graphs, status indicators,
+   contextual badges, and small cards.
+   ============================================================ */
+
+:root {
+  /* ---- Base neutrals ---- */
+  --white:    #FFFFFF;
+  --black:    #09090B;   /* off-black */
+  --bone:     #FAF9F6;   /* minimalist cream / textured-paper surface */
+
+  /* Zinc ramp (cool grey) */
+  --zinc-50:  #FAFAFA;
+  --zinc-100: #F4F4F5;
+  --zinc-200: #E4E4E7;   /* dividers / 1px lines */
+  --zinc-300: #D4D4D8;
+  --zinc-400: #A1A1AA;
+  --zinc-500: #71717A;   /* text secondary */
+  --zinc-600: #52525B;
+  --zinc-700: #3F3F46;
+  --zinc-800: #27272A;
+  --zinc-900: #18181B;
+
+  /* ---- Apothecary glass accents (functional only) ---- */
+  --cabernet:     #800C2E;  /* deep wine — active triggers / SOS */
+  --amber:        #A84C0E;  /* apothecary amber — warnings / expirations */
+  --bottle-green: #0F4C3A;  /* bottle glass — safe / soothing / recovery */
+  --cobalt:       #1E3A8A;  /* lab blue — info / tracking / forecasting */
+
+  /* Accent tints — for badge / small-card backgrounds only */
+  --cabernet-tint:     color-mix(in srgb, var(--cabernet) 15%, var(--white));
+  --amber-tint:        color-mix(in srgb, var(--amber) 12%, #FFF6E8);
+  --bottle-green-tint: color-mix(in srgb, var(--bottle-green) 8%, var(--white));
+  --cobalt-tint:       color-mix(in srgb, var(--cobalt) 8%, var(--white));
+
+  /* Accent hairlines — for badge / small-card borders */
+  --cabernet-line:     color-mix(in srgb, var(--cabernet) 22%, var(--white));
+  --amber-line:        color-mix(in srgb, var(--amber) 22%, var(--white));
+  --bottle-green-line: color-mix(in srgb, var(--bottle-green) 22%, var(--white));
+  --cobalt-line:       color-mix(in srgb, var(--cobalt) 22%, var(--white));
+
+  /* Accent light variants — visible card / badge borders (stronger than hairlines) */
+  --cabernet-light:     color-mix(in srgb, var(--cabernet) 45%, var(--white));
+  --amber-light:        color-mix(in srgb, var(--amber) 45%, var(--white));
+  --bottle-green-light: color-mix(in srgb, var(--bottle-green) 45%, var(--white));
+  --cobalt-light:       color-mix(in srgb, var(--cobalt) 45%, var(--white));
+
+  /* ============================================================
+     Semantic aliases — reference these in components
+     ============================================================ */
+
+  /* Surfaces */
+  --bg-base:        var(--white);
+  --bg-subtle:      var(--zinc-50);
+  --surface-card:   var(--bone);
+  --surface-raised: var(--white);
+  --surface-sunken: var(--zinc-100);
+  --overlay-scrim:  color-mix(in srgb, var(--black) 45%, transparent);
+
+  /* Lines */
+  --border-divider: var(--zinc-200);
+  --border-strong:  var(--zinc-300);
+  --border-input:   var(--zinc-300);
+  --border-focus:   var(--black);
+
+  /* Text */
+  --text-primary:    var(--black);
+  --text-secondary:  var(--zinc-500);
+  --text-tertiary:   var(--zinc-400);
+  --text-on-dark:    var(--white);
+  --text-link:       var(--cabernet);
+
+  /* Controls (monochrome — accents never fill primary buttons) */
+  --control-fill:        var(--black);
+  --control-fill-hover:  var(--zinc-800);
+  --control-fill-press:  var(--zinc-700);
+  --control-on:          var(--white);
+
+  /* Functional status — text / icon / graph / badge */
+  --status-sos:     var(--cabernet);      /* active trigger / SOS / 24h rehab */
+  --status-warning: var(--amber);         /* conflict / PAO expiry / fading zone */
+  --status-safe:    var(--bottle-green);  /* safe zone / soothing / rest day */
+  --status-info:    var(--cobalt);        /* tracking / forecasting / UV */
+
+  --status-sos-tint:     var(--cabernet-tint);
+  --status-warning-tint: var(--amber-tint);
+  --status-safe-tint:    var(--bottle-green-tint);
+  --status-info-tint:    var(--cobalt-tint);
+}
+
+/* ============================================================
+   Dark mode — pure #09090B canvas
+   ============================================================ */
+[data-theme="dark"] {
+  --bg-base:        var(--black);
+  --bg-subtle:      var(--zinc-900);
+  --surface-card:   #111113;          /* near-black raised card */
+  --surface-raised: #161618;
+  --surface-sunken: #0D0D0F;
+  --overlay-scrim:  color-mix(in srgb, #000 65%, transparent);
+
+  --border-divider: var(--zinc-800);
+  --border-strong:  var(--zinc-700);
+  --border-input:   var(--zinc-700);
+  --border-focus:   var(--white);
+
+  --text-primary:   #FAFAFA;
+  --text-secondary: var(--zinc-400);
+  --text-tertiary:  var(--zinc-600);
+  --text-on-dark:   var(--white);
+  --text-link:      color-mix(in srgb, var(--cabernet) 55%, var(--white));
+
+  --control-fill:       var(--white);
+  --control-fill-hover: var(--zinc-200);
+  --control-fill-press: var(--zinc-300);
+  --control-on:         var(--black);
+
+  /* Accents brightened for legibility on dark glass */
+  --status-sos:     color-mix(in srgb, var(--cabernet) 55%, var(--white));
+  --status-warning: color-mix(in srgb, var(--amber) 55%, var(--white));
+  --status-safe:    color-mix(in srgb, var(--bottle-green) 55%, var(--white));
+  --status-info:    color-mix(in srgb, var(--cobalt) 55%, var(--white));
+
+  --status-sos-tint:     color-mix(in srgb, var(--cabernet) 18%, var(--black));
+  --status-warning-tint: color-mix(in srgb, var(--amber) 18%, var(--black));
+  --status-safe-tint:    color-mix(in srgb, var(--bottle-green) 18%, var(--black));
+  --status-info-tint:    color-mix(in srgb, var(--cobalt) 18%, var(--black));
+}
