@@ -16,7 +16,14 @@
       "Bash(npx expo *)",
       "Bash(echo \"PID: $!\")",
       "Bash(perl -i -pe 's/^Status: DESIGNED/Status: IN_PROGRESS/' /Users/sviatlanaivanova-klimanskaya/Documents/work/vials_app/progress/catalog-redesign.md)",
-      "Bash(perl -i -pe 's/- \\\\[ \\\\] \\(QA tests \\\\\\(qa-lead\\\\\\)\\)/- [x] $1/' /Users/sviatlanaivanova-klimanskaya/Documents/work/vials_app/progress/catalog-redesign.md)"
+      "Bash(perl -i -pe 's/- \\\\[ \\\\] \\(QA tests \\\\\\(qa-lead\\\\\\)\\)/- [x] $1/' /Users/sviatlanaivanova-klimanskaya/Documents/work/vials_app/progress/catalog-redesign.md)",
+      "mcp__claude_ai_Figma__get_metadata",
+      "mcp__claude_ai_Figma__use_figma",
+      "mcp__claude_ai_Figma__get_screenshot",
+      "Bash(adb devices *)",
+      "Bash(xcode-select -p)",
+      "Bash(/Applications/Xcode.app/Contents/Developer/usr/bin/simctl list *)",
+      "Bash(mdfind \"kMDItemKind == 'Application'\")"
     ]
   }
 }

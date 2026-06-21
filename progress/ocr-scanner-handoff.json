@@ -1,0 +1,12 @@
+{
+  "task": "ocr-scanner",
+  "status": "DESIGNED",
+  "planner": {
+    "spec": "docs/specs/ocr-scanner.md",
+    "tech_design": "docs/tech-design/ocr-scanner.md",
+    "completed_at": "2026-06-21"
+  },
+  "qa_lead": { "status": "PENDING" },
+  "engineer": { "status": "PENDING" },
+  "tech_lead": { "status": "PENDING" }
+}

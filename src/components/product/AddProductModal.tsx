@@ -22,6 +22,7 @@ import { searchProducts } from '@/services/openBeautyFacts/search';
 import type { OBFProduct } from '@/services/openBeautyFacts/types';
 import { parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 import { generateId } from '@/utils/generateId';
+import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
 import type { ActiveIngredient, ActiveIngredientKey, Product, ProductType } from '@/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -107,11 +108,22 @@ function InciField({ value, onChange, onDetect, onScan }: InciFieldProps) {
           </Pressable>
         ) : null}
       </View>
-      <View style={formStyles.inciNotice}>
-        <Text style={formStyles.inciNoticeText}>
-          ⚠️ Ingredients must be in Latin/English characters. For Asian products, look for the English "Ingredients" block on the packaging.
-        </Text>
-      </View>
+      {value.length > 0 ? (
+        <View style={formStyles.inciNoticeOcr}>
+          <Text style={formStyles.inciNoticeOcrTitle}>⚠️ Scanner Demo Mode</Text>
+          <Text style={formStyles.inciNoticeOcrBody}>
+            The ingredients were detected via OCR and may contain text artifacts or typos
+            due to packaging print quality. Please review the scanned list carefully and
+            edit any incorrect words manually.
+          </Text>
+        </View>
+      ) : (
+        <View style={formStyles.inciNotice}>
+          <Text style={formStyles.inciNoticeText}>
+            ⚠️ Ingredients must be in Latin/English characters. For Asian products, look for the English "Ingredients" block on the packaging.
+          </Text>
+        </View>
+      )}
       <TextInput
         value={value}
         onChangeText={onChange}
@@ -226,6 +238,7 @@ export function AddProductModal({
   const [routineTarget, setRoutineTarget] = useState<RoutineTarget>('none');
   const [nameError, setNameError] = useState<string | null>(null);
   const [obfId, setObfId] = useState<string | null>(null);
+  const [showOcrScanner, setShowOcrScanner] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -339,16 +352,10 @@ export function AddProductModal({
     setSelectedIngredients(keysToIngredients(parsedKeys));
   }
 
-  // Simulates an OCR scan: fills the textarea with a sample INCI text and
-  // immediately runs ingredient detection so the checkboxes light up.
-  // Replace this with a real image-picker + OCR flow when a library is added.
-  function handleMockOcrScan() {
-    const sample =
-      'Water, Glycerin, Niacinamide, Centella Asiatica Extract, Sodium Hyaluronate, ' +
-      'Panthenol, Betaine, Allantoin, Carbomer, Disodium EDTA';
-    setFullIngredientText(sample);
-    const parsedKeys = parseActiveIngredientsFromInci(sample);
-    setSelectedIngredients(keysToIngredients(parsedKeys));
+  function handleOcrResult(text: string) {
+    setFullIngredientText(text);
+    setSelectedIngredients(keysToIngredients(parseActiveIngredientsFromInci(text)));
+    setShowOcrScanner(false);
   }
 
   function handleSave() {
@@ -505,7 +512,7 @@ export function AddProductModal({
             value={fullIngredientText}
             onChange={setFullIngredientText}
             onDetect={detectFromInci}
-            onScan={handleMockOcrScan}
+            onScan={() => setShowOcrScanner(true)}
           />
 
           <IngredientChips
@@ -543,40 +550,53 @@ export function AddProductModal({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={onClose}
       >
-        <SafeAreaView style={styles.safe}>
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>
-              {editingProduct
-                ? 'Edit Product'
-                : mode === 'form'
-                ? 'Add Product'
-                : 'Find Product'}
-            </Text>
-            <Pressable
-              onPress={onClose}
-              style={styles.closeBtn}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Feather name="x" size={20} color={colors.textSecondary} />
-            </Pressable>
-          </View>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <SafeAreaView style={styles.safe}>
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>
+                {editingProduct
+                  ? 'Edit Product'
+                  : mode === 'form'
+                  ? 'Add Product'
+                  : 'Find Product'}
+              </Text>
+              <Pressable
+                onPress={onClose}
+                style={styles.closeBtn}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Feather name="x" size={20} color={colors.textSecondary} />
+              </Pressable>
+            </View>
 
-          {mode === 'search' ? renderSearchPhase() : renderFormPhase()}
-        </SafeAreaView>
-      </KeyboardAvoidingView>
-    </Modal>
+            {mode === 'search' ? renderSearchPhase() : renderFormPhase()}
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/*
+        Rendered outside the parent Modal so the hidden WebView can preload
+        tesseract.js while the image picker is open. The OcrScannerSheet's
+        own processing overlay Modal will appear on top of everything.
+      */}
+      <OcrScannerSheet
+        visible={showOcrScanner}
+        onClose={() => setShowOcrScanner(false)}
+        onResult={handleOcrResult}
+      />
+    </>
   );
 }
 
@@ -716,6 +736,26 @@ const formStyles = StyleSheet.create({
     borderLeftColor: colors.statusWarning,
   },
   inciNoticeText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  inciNoticeOcr: {
+    backgroundColor: colors.statusWarningTint,
+    borderRadius: radius.sm,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2] + 2,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.statusWarning,
+    gap: space[1],
+  },
+  inciNoticeOcrTitle: {
+    ...typography.caption,
+    fontFamily: 'DMSans-Medium',
+    color: colors.statusWarning,
+    lineHeight: 18,
+  },
+  inciNoticeOcrBody: {
     ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,
