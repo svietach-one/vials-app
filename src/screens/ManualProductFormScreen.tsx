@@ -13,6 +13,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
 import { Input } from '@/components/ui/forms/Input';
 import { SegmentedControl } from '@/components/ui/forms/SegmentedControl';
 import { Button } from '@/components/ui/core/Button';
@@ -99,11 +100,22 @@ function InciField({ value, onChange, onDetect, onScan }: InciFieldProps) {
           </Pressable>
         ) : null}
       </View>
-      <View style={formStyles.inciNotice}>
-        <Text style={formStyles.inciNoticeText}>
-          ⚠️ Ingredients must be in Latin/English characters. For Asian products, look for the English "Ingredients" block on the packaging.
-        </Text>
-      </View>
+      {value.length > 0 ? (
+        <View style={formStyles.inciNoticeOcr}>
+          <Text style={formStyles.inciNoticeOcrTitle}>⚠️ Scanner Demo Mode</Text>
+          <Text style={formStyles.inciNoticeOcrBody}>
+            The ingredients were detected via OCR and may contain text artifacts or typos
+            due to packaging print quality. Please review the scanned list carefully and
+            edit any incorrect words manually.
+          </Text>
+        </View>
+      ) : (
+        <View style={formStyles.inciNotice}>
+          <Text style={formStyles.inciNoticeText}>
+            ⚠️ Ingredients must be in Latin/English characters. For Asian products, look for the English "Ingredients" block on the packaging.
+          </Text>
+        </View>
+      )}
       <TextInput
         value={value}
         onChangeText={onChange}
@@ -215,6 +227,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [routineTarget, setRoutineTarget] = useState<RoutineTarget>('none');
   const [nameError, setNameError] = useState<string | null>(null);
   const [obfId, setObfId] = useState<string | null>(null);
+  const [showOcrScanner, setShowOcrScanner] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -264,13 +277,11 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     setSelectedIngredients(keysToIngredients(parsedKeys));
   }
 
-  function handleMockOcrScan() {
-    const sample =
-      'Water, Glycerin, Niacinamide, Centella Asiatica Extract, Sodium Hyaluronate, ' +
-      'Panthenol, Betaine, Allantoin, Carbomer, Disodium EDTA';
-    setFullIngredientText(sample);
-    const parsedKeys = parseActiveIngredientsFromInci(sample);
+  function handleOcrResult(text: string) {
+    setFullIngredientText(text);
+    const parsedKeys = parseActiveIngredientsFromInci(text);
     setSelectedIngredients(keysToIngredients(parsedKeys));
+    setShowOcrScanner(false);
   }
 
   function handleSave() {
@@ -371,7 +382,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
             value={fullIngredientText}
             onChange={setFullIngredientText}
             onDetect={detectFromInci}
-            onScan={handleMockOcrScan}
+            onScan={() => setShowOcrScanner(true)}
           />
 
           <IngredientChips
@@ -400,6 +411,12 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
           </Button>
         </View>
       </SafeAreaView>
+
+      <OcrScannerSheet
+        visible={showOcrScanner}
+        onClose={() => setShowOcrScanner(false)}
+        onResult={handleOcrResult}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -461,6 +478,26 @@ const formStyles = StyleSheet.create({
     borderLeftColor: colors.statusWarning,
   },
   inciNoticeText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  inciNoticeOcr: {
+    backgroundColor: colors.statusWarningTint,
+    borderRadius: radius.sm,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2] + 2,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.statusWarning,
+    gap: space[1],
+  },
+  inciNoticeOcrTitle: {
+    ...typography.caption,
+    fontFamily: 'DMSans-Medium',
+    color: colors.statusWarning,
+    lineHeight: 18,
+  },
+  inciNoticeOcrBody: {
     ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,
