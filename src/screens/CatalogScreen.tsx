@@ -9,7 +9,6 @@ import {
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { AddProductModal } from '@/components/product/AddProductModal';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { Button } from '@/components/ui/core/Button';
@@ -34,8 +33,6 @@ export default function CatalogScreen({ navigation }: Props) {
 
   const [searchText, setSearchText] = useState('');
   const [actionTarget, setActionTarget] = useState<Product | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [editModalVisible, setEditModalVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
   // Header "+" button — navigates to the Add Product Hub
@@ -68,12 +65,6 @@ export default function CatalogScreen({ navigation }: Props) {
     : products;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
-
-  function handleEditSave(product: Product) {
-    updateProduct(product.id, product);
-    setEditModalVisible(false);
-    setEditingProduct(null);
-  }
 
   function handleDeleteConfirm() {
     if (deleteTarget) {
@@ -162,25 +153,13 @@ export default function CatalogScreen({ navigation }: Props) {
         product={actionTarget}
         onEdit={(p) => {
           setActionTarget(null);
-          setEditingProduct(p);
-          setEditModalVisible(true);
+          navigation.navigate('ManualProductForm', { editingProductId: p.id });
         }}
         onDelete={(p) => {
           setActionTarget(null);
           setDeleteTarget(p);
         }}
         onClose={() => setActionTarget(null)}
-      />
-
-      {/* Edit modal — only for editing existing products; adding goes via Hub */}
-      <AddProductModal
-        visible={editModalVisible}
-        editingProduct={editingProduct}
-        onClose={() => {
-          setEditModalVisible(false);
-          setEditingProduct(null);
-        }}
-        onSave={(product) => handleEditSave(product)}
       />
 
       <DeleteProductModal

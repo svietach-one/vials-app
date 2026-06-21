@@ -125,6 +125,10 @@ export interface Product {
   paoMonths: number | null;
 }
 
+// ─── Routine target ───────────────────────────────────────────────────────────
+
+export type RoutineTarget = 'none' | 'morning' | 'evening' | 'both';
+
 // ─── Routines ─────────────────────────────────────────────────────────────────
 
 export interface RoutineStep {

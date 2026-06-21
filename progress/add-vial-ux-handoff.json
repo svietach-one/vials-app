@@ -1,0 +1,16 @@
+{
+  "task": "add-vial-ux",
+  "phase": "qa",
+  "status": "IN_PROGRESS",
+  "qa_status": "complete",
+  "qa_test_file": "tests/components/product/AddProductModal.test.tsx",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/add-vial-ux.md",
+    "tech_design": "docs/tech-design/add-vial-ux.md"
+  }
+}
