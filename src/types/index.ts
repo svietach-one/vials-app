@@ -99,7 +99,17 @@ export type ProductType =
   | 'gel'
   | 'moisturizer'
   | 'oil'
-  | 'spf';
+  | 'spf'
+  | 'makeup_remover'
+  | 'peeling'
+  | 'ampoule'
+  | 'lotion'
+  | 'cream'
+  | 'eye_cream'
+  | 'mask'
+  | 'balm'
+  | 'spot_treatment'
+  | 'other';
 
 export interface Product {
   id: string;

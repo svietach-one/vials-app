@@ -57,6 +57,16 @@ const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
   { value: 'moisturizer', label: 'Moisturizer' },
   { value: 'oil', label: 'Oil' },
   { value: 'spf', label: 'SPF' },
+  { value: 'makeup_remover', label: 'Makeup Remover' },
+  { value: 'peeling', label: 'Peeling' },
+  { value: 'ampoule', label: 'Ampoule' },
+  { value: 'lotion', label: 'Lotion' },
+  { value: 'cream', label: 'Cream' },
+  { value: 'eye_cream', label: 'Eye Cream' },
+  { value: 'mask', label: 'Mask' },
+  { value: 'balm', label: 'Balm' },
+  { value: 'spot_treatment', label: 'Spot Treatment' },
+  { value: 'other', label: 'Other' },
 ];
 
 const USAGE_OPTIONS = [
@@ -88,8 +98,9 @@ interface InciFieldProps {
   onChange: (t: string) => void;
   onDetect: () => void;
   onScan: () => void;
+  ocrScanned: boolean;
 }
-function InciField({ value, onChange, onDetect, onScan }: InciFieldProps) {
+function InciField({ value, onChange, onDetect, onScan, ocrScanned }: InciFieldProps) {
   return (
     <View style={formStyles.fieldGroup}>
       <View style={formStyles.fieldLabelRow}>
@@ -100,13 +111,11 @@ function InciField({ value, onChange, onDetect, onScan }: InciFieldProps) {
           </Pressable>
         ) : null}
       </View>
-      {value.length > 0 ? (
+      {ocrScanned ? (
         <View style={formStyles.inciNoticeOcr}>
           <Text style={formStyles.inciNoticeOcrTitle}>⚠️ Scanner Demo Mode</Text>
           <Text style={formStyles.inciNoticeOcrBody}>
-            The ingredients were detected via OCR and may contain text artifacts or typos
-            due to packaging print quality. Please review the scanned list carefully and
-            edit any incorrect words manually.
+            Please review the scanned text carefully for any punctuation or typo mistakes.
           </Text>
         </View>
       ) : (
@@ -228,6 +237,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [nameError, setNameError] = useState<string | null>(null);
   const [obfId, setObfId] = useState<string | null>(null);
   const [showOcrScanner, setShowOcrScanner] = useState(false);
+  const [ocrScanned, setOcrScanned] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -281,6 +291,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     setFullIngredientText(text);
     const parsedKeys = parseActiveIngredientsFromInci(text);
     setSelectedIngredients(keysToIngredients(parsedKeys));
+    setOcrScanned(true);
     setShowOcrScanner(false);
   }
 
@@ -380,9 +391,13 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
 
           <InciField
             value={fullIngredientText}
-            onChange={setFullIngredientText}
+            onChange={(t) => {
+              setFullIngredientText(t);
+              if (t === '') setOcrScanned(false);
+            }}
             onDetect={detectFromInci}
             onScan={() => setShowOcrScanner(true)}
+            ocrScanned={ocrScanned}
           />
 
           <IngredientChips

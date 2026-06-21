@@ -9,6 +9,16 @@ export const PRODUCT_TYPE_LABELS: Record<string, string> = {
   moisturizer: 'Moisturizer',
   oil: 'Oil',
   spf: 'SPF',
+  makeup_remover: 'Makeup Remover',
+  peeling: 'Peeling',
+  ampoule: 'Ampoule',
+  lotion: 'Lotion',
+  cream: 'Cream',
+  eye_cream: 'Eye Cream',
+  mask: 'Mask',
+  balm: 'Balm',
+  spot_treatment: 'Spot Treatment',
+  other: 'Other',
 };
 
 export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
