@@ -353,6 +353,7 @@ describe('AC-29: action sheet Edit opens AddProductModal and save calls updatePr
         product={FULL_PRODUCT}
         onEdit={mockOnEdit}
         onDelete={mockOnDelete}
+        onToggleHidden={jest.fn()}
         onClose={mockOnClose}
       />,
     );
@@ -374,6 +375,7 @@ describe('AC-30: delete confirmation calls removeProduct and goBack', () => {
         product={FULL_PRODUCT}
         onEdit={jest.fn()}
         onDelete={mockOnConfirm}
+        onToggleHidden={jest.fn()}
         onClose={jest.fn()}
       />,
     );
@@ -391,6 +393,7 @@ describe('AC-31: ProductActionSheet is hidden when product prop is null', () => 
         product={null}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
+        onToggleHidden={jest.fn()}
         onClose={jest.fn()}
       />,
     );
@@ -409,6 +412,7 @@ describe('AC-32: Edit row calls onEdit with the product and then onClose', () =>
         product={FULL_PRODUCT}
         onEdit={mockOnEdit}
         onDelete={jest.fn()}
+        onToggleHidden={jest.fn()}
         onClose={mockOnClose}
       />,
     );
@@ -423,6 +427,7 @@ describe('AC-32: Edit row calls onEdit with the product and then onClose', () =>
         product={FULL_PRODUCT}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
+        onToggleHidden={jest.fn()}
         onClose={mockOnClose}
       />,
     );
@@ -439,6 +444,7 @@ describe('AC-33: Delete row calls onDelete with the product and then onClose', (
         product={FULL_PRODUCT}
         onEdit={jest.fn()}
         onDelete={mockOnDelete}
+        onToggleHidden={jest.fn()}
         onClose={jest.fn()}
       />,
     );
@@ -453,6 +459,7 @@ describe('AC-33: Delete row calls onDelete with the product and then onClose', (
         product={FULL_PRODUCT}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
+        onToggleHidden={jest.fn()}
         onClose={mockOnClose}
       />,
     );
@@ -471,6 +478,7 @@ describe('AC-34: Cancel row calls only onClose', () => {
         product={FULL_PRODUCT}
         onEdit={mockOnEdit}
         onDelete={mockOnDelete}
+        onToggleHidden={jest.fn()}
         onClose={mockOnClose}
       />,
     );
@@ -489,6 +497,7 @@ describe('AC-35: backdrop press calls onClose', () => {
         product={FULL_PRODUCT}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
+        onToggleHidden={jest.fn()}
         onClose={mockOnClose}
       />,
     );

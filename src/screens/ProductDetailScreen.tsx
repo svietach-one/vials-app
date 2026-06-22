@@ -157,6 +157,10 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           setActionSheetVisible(false);
           setDeleteTarget(product);
         }}
+        onToggleHidden={(p) => {
+          updateProduct(p.id, { isHidden: !p.isHidden });
+          setActionSheetVisible(false);
+        }}
         onClose={() => setActionSheetVisible(false)}
       />
 

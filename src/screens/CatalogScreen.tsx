@@ -94,8 +94,12 @@ export default function CatalogScreen({ navigation }: Props) {
         style={styles.card}
       >
         <View style={styles.cardInner}>
-          <View style={styles.cardContent}>
+          {/* Content layer — dimmed independently so the three-dot button stays opaque */}
+          <View style={[styles.cardContent, item.isHidden && styles.cardContentHidden]}>
             <View style={styles.nameRow}>
+              {item.isHidden ? (
+                <Feather name="eye-off" size={12} color={colors.textTertiary} />
+              ) : null}
               <Text style={styles.productName} numberOfLines={1}>
                 {item.name}
               </Text>
@@ -110,7 +114,7 @@ export default function CatalogScreen({ navigation }: Props) {
             ) : null}
           </View>
 
-          {/* Three-dot — inner Pressable captures the responder; card onPress won't fire */}
+          {/* Three-dot — sibling of cardContent, always opacity 1 even on hidden cards */}
           <IconButton
             icon={<Feather name="more-vertical" size={18} color={colors.textSecondary} />}
             label={`Options for ${item.name}`}
@@ -168,6 +172,10 @@ export default function CatalogScreen({ navigation }: Props) {
         onDelete={(p) => {
           setActionTarget(null);
           setDeleteTarget(p);
+        }}
+        onToggleHidden={(p) => {
+          updateProduct(p.id, { isHidden: !p.isHidden });
+          setActionTarget(null);
         }}
         onClose={() => setActionTarget(null)}
       />
@@ -260,6 +268,9 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 3,
     minWidth: 0,
+  },
+  cardContentHidden: {
+    opacity: 0.4,
   },
   nameRow: {
     flexDirection: 'row',

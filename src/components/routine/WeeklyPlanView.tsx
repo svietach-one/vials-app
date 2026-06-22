@@ -203,7 +203,11 @@ export function WeeklyPlanView() {
     (r) => r.timeOfDay === activePeriod,
   );
 
-  const visibleSteps = (activeRoutine?.steps ?? []).filter((s) => !s.hidden);
+  const visibleSteps = (activeRoutine?.steps ?? []).filter(
+    (s) =>
+      !s.hidden &&
+      !(s.productId && products.find((p) => p.id === s.productId)?.isHidden),
+  );
   const hiddenSteps = (activeRoutine?.steps ?? []).filter((s) => s.hidden);
 
   function handleDragEnd({ data }: { data: RoutineStep[] }) {
