@@ -1,0 +1,14 @@
+{
+  "task": "routine-scheduler-sheet",
+  "phase": "design",
+  "status": "DESIGNED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/routine-scheduler-sheet.md",
+    "tech_design": "docs/tech-design/routine-scheduler-sheet.md"
+  }
+}
