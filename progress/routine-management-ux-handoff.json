@@ -1,0 +1,15 @@
+{
+  "task": "routine-management-ux",
+  "phase": "design",
+  "status": "DESIGNED",
+  "supersedes": "decouple-routine-from-form",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/routine-management-ux.md",
+    "tech_design": "docs/tech-design/routine-management-ux.md"
+  }
+}
