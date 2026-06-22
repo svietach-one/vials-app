@@ -1,0 +1,28 @@
+{
+  "task_slug": "hide-vial-bottomshield",
+  "status": "DESIGNED",
+  "current_agent": "tech-lead",
+  "next_agent": "engineer",
+  "tech_lead_verdict": "APPROVED",
+  "tech_lead_notes": [
+    "FE-2: also update ProductActionSheetProps exported interface to include onToggleHidden: (p: Product) => void",
+    "FE-4: eye-off badge must use size=12 and color=colors.textTertiary (not textSecondary)",
+    "WARNING: WeeklyPlanView (src/components/routine/WeeklyPlanView.tsx) may derive its own step lists — read it before FE-5 and apply the isHidden filter there too if it does"
+  ],
+  "spec": "docs/specs/hide-vial-bottomshield.md",
+  "tech_design": "docs/tech-design/hide-vial-bottomshield.md",
+  "progress": "progress/hide-vial-bottomshield.md",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "summary": "Adds a reversible soft-hide toggle for catalog products. Users can hide/show a product via a new ActionSheet row (eye-off/eye Feather icons). Hidden cards render at 0.4 opacity with the three-dot button kept fully interactive. Hidden products are automatically excluded from routine step lists. Implemented by adding isHidden?: boolean to the Product type and touching four existing files only.",
+  "files_to_modify": [
+    "src/types/index.ts",
+    "src/components/product/ProductActionSheet.tsx",
+    "src/screens/CatalogScreen.tsx",
+    "src/screens/RoutinesScreen.tsx"
+  ],
+  "open_questions": []
+}

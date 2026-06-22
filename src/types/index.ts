@@ -123,6 +123,8 @@ export interface Product {
   openedDate: string | null;
   /** Period-After-Opening in months. Combined with openedDate to compute expiry. */
   paoMonths: number | null;
+  /** Soft-hide flag. When true the product is excluded from routine step lists and rendered dimmed in the catalog. Absence is treated as false. */
+  isHidden?: boolean;
 }
 
 // ─── Routines ─────────────────────────────────────────────────────────────────

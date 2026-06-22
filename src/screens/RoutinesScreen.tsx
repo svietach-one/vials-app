@@ -84,10 +84,16 @@ export default function RoutinesScreen({ navigation }: Props) {
   const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
 
   const amSteps = (morningRoutine?.steps ?? []).filter(
-    (s) => !s.hidden && isStepForToday(s, todayDow),
+    (s) =>
+      !s.hidden &&
+      isStepForToday(s, todayDow) &&
+      !(s.productId && products.find((p) => p.id === s.productId)?.isHidden),
   );
   const pmSteps = (eveningRoutine?.steps ?? []).filter(
-    (s) => !s.hidden && isStepForToday(s, todayDow),
+    (s) =>
+      !s.hidden &&
+      isStepForToday(s, todayDow) &&
+      !(s.productId && products.find((p) => p.id === s.productId)?.isHidden),
   );
 
   function toggleComplete(stepId: string) {
