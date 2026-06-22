@@ -16,7 +16,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { Input } from '@/components/ui/forms/Input';
-import { SegmentedControl } from '@/components/ui/forms/SegmentedControl';
 import { Button } from '@/components/ui/core/Button';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
@@ -66,12 +65,6 @@ const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
   { value: 'balm', label: 'Balm' },
   { value: 'spot_treatment', label: 'Spot Treatment' },
   { value: 'other', label: 'Other' },
-];
-
-const USAGE_OPTIONS = [
-  { value: 'morning', label: 'Morning' },
-  { value: 'evening', label: 'Evening' },
-  { value: 'both', label: 'Both' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -193,7 +186,6 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [productType, setProductType] = useState<ProductType>('serum');
   const [selectedIngredients, setSelectedIngredients] = useState<ActiveIngredient[]>([]);
   const [fullIngredientText, setFullIngredientText] = useState('');
-  const [usageTime, setUsageTime] = useState<'morning' | 'evening' | 'both'>('both');
   const [nameError, setNameError] = useState<string | null>(null);
   const [obfId, setObfId] = useState<string | null>(null);
   const [showOcrScanner, setShowOcrScanner] = useState(false);
@@ -213,7 +205,6 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       setBrand(editingProduct.brand ?? '');
       setProductType(editingProduct.productType);
       setFullIngredientText(editingProduct.fullIngredientText ?? '');
-      setUsageTime(editingProduct.usageTime);
       setObfId(editingProduct.openBeautyFactsId);
       const tagKeys: ActiveIngredientKey[] =
         editingProduct.activeTags ?? editingProduct.activeIngredients.map((i) => i.key);
@@ -224,7 +215,6 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       setFullIngredientText(prefillOBFProduct.ingredientsText);
       setObfId(prefillOBFProduct.obfId);
       setProductType('serum');
-      setUsageTime('both');
       const parsedKeys = parseActiveIngredientsFromInci(prefillOBFProduct.ingredientsText);
       setSelectedIngredients(keysToIngredients(parsedKeys));
     }
@@ -274,7 +264,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       activeIngredients: selectedIngredients,
       activeTags: selectedIngredients.map((i) => i.key),
       fullIngredientText: fullIngredientText.trim() || null,
-      usageTime,
+      usageTime: editingProduct?.usageTime ?? 'both',
       openBeautyFactsId: obfId,
       addedAt: editingProduct?.addedAt ?? new Date().toISOString(),
       notes: null,
@@ -365,16 +355,6 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
             onToggle={toggleIngredient}
           />
 
-          <View style={formStyles.fieldGroup}>
-            <Text style={formStyles.fieldLabel}>Usage Time</Text>
-            <SegmentedControl
-              options={USAGE_OPTIONS}
-              value={usageTime}
-              onValueChange={(v) => setUsageTime(v as 'morning' | 'evening' | 'both')}
-              fullWidth
-            />
-          </View>
-
         </ScrollView>
 
         <View style={styles.footer}>
@@ -394,6 +374,8 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         visible={schedulerProduct !== null}
         productId={schedulerProduct?.id ?? ''}
         productType={schedulerProduct?.productType ?? 'serum'}
+        cancelLabel="Skip"
+        saveLabel="Save & Next"
         onClose={() => {
           setSchedulerProduct(null);
           navigation.navigate('Catalog');
@@ -526,10 +508,6 @@ const formStyles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     includeFontPadding: false,
   },
-  routineRow: {
-    flexDirection: 'row',
-    gap: space[2],
-  },
 });
 
 const chipStyles = StyleSheet.create({
@@ -540,10 +518,6 @@ const chipStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderStrong,
     backgroundColor: colors.surfaceRaised,
-  },
-  chipFlex: {
-    flex: 1,
-    alignItems: 'center',
   },
   chipActive: {
     backgroundColor: palette.black,

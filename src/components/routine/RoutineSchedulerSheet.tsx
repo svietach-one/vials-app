@@ -17,6 +17,9 @@ export interface RoutineSchedulerSheetProps {
   productId: string;
   productType: ProductType;
   onClose: () => void;
+  title?: string;
+  cancelLabel?: string;
+  saveLabel?: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -26,6 +29,9 @@ export function RoutineSchedulerSheet({
   productId,
   productType,
   onClose,
+  title,
+  cancelLabel = 'Cancel',
+  saveLabel = 'Save',
 }: RoutineSchedulerSheetProps) {
   const upsertProductStep = useRoutinesStore((s) => s.upsertProductStep);
   const removeProductStep = useRoutinesStore((s) => s.removeProductStep);
@@ -33,12 +39,16 @@ export function RoutineSchedulerSheet({
   const [morning, setMorning] = useState(false);
   const [evening, setEvening] = useState(false);
   const [scheduledDays, setScheduledDays] = useState<number[]>([]);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Pre-populate from current store state when the sheet opens.
   // Reading store state imperatively avoids re-populating while the sheet
   // is already open if an unrelated store update fires.
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      setValidationError(null);
+      return;
+    }
     const current = deriveProductSchedule(
       useRoutinesStore.getState().routines,
       productId,
@@ -49,6 +59,12 @@ export function RoutineSchedulerSheet({
   }, [visible, productId]);
 
   function handleSave() {
+    if (!morning && !evening) {
+      setValidationError('Please select when you will be using this product (Morning, Evening, or Both)');
+      return;
+    }
+    setValidationError(null);
+
     const { routines } = useRoutinesStore.getState();
     const morningRoutine = routines.find((r) => r.timeOfDay === 'morning');
     const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
@@ -74,7 +90,7 @@ export function RoutineSchedulerSheet({
 
   return (
     <BottomSheet
-      title="Add to Routine"
+      title={title ?? 'Add to Routine'}
       visible={visible}
       onClose={onClose}
       dismissOnBackdrop={false}
@@ -88,16 +104,22 @@ export function RoutineSchedulerSheet({
             icon="sun"
             label="Morning"
             active={morning}
-            onPress={() => setMorning((v) => !v)}
+            onPress={() => { setMorning((v) => !v); setValidationError(null); }}
           />
           <TimeChip
             icon="moon"
             label="Evening"
             active={evening}
-            onPress={() => setEvening((v) => !v)}
+            onPress={() => { setEvening((v) => !v); setValidationError(null); }}
           />
         </View>
       </View>
+
+      {validationError ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{validationError}</Text>
+        </View>
+      ) : null}
 
       {/* Section 2: Weekly Planner */}
       <View style={styles.section}>
@@ -108,10 +130,10 @@ export function RoutineSchedulerSheet({
       {/* Section 3: Actions */}
       <View style={styles.actions}>
         <Button variant="secondary" onPress={onClose} style={styles.actionBtn}>
-          Cancel
+          {cancelLabel}
         </Button>
         <Button onPress={handleSave} style={styles.actionBtn}>
-          Save
+          {saveLabel}
         </Button>
       </View>
     </BottomSheet>
@@ -194,6 +216,20 @@ const styles = StyleSheet.create({
   },
   timeChipLabelActive: {
     color: palette.white,
+  },
+  errorBanner: {
+    backgroundColor: colors.statusSOSTint,
+    borderRadius: radius.sm,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    borderLeftWidth: 3,
+    borderLeftColor: colors.statusSOS,
+    marginBottom: space[5],
+  },
+  errorBannerText: {
+    ...typography.caption,
+    color: colors.statusSOS,
+    lineHeight: 18,
   },
   actions: {
     flexDirection: 'row',

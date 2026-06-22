@@ -1,4 +1,4 @@
-Status: IN_PROGRESS
+Status: SUPERSEDED
 Tech Design: docs/tech-design/decouple-routine-from-form.md
 Code: —
 
@@ -22,3 +22,7 @@ Code: —
   All acceptance criteria from spec are covered via AddProductModal integration tests.
   Stories 1-3 drive onSave callback assertions; Story 4 asserts Feather icon presence
   and absence of emoji characters in INCI notice banners.
+
+2026-06-22: SUPERSEDED by routine-management-ux. The cleanup scope (Usage Time
+  removal) is absorbed into routine-management-ux FE-1. This task is closed.
+  Do not implement this task independently.
