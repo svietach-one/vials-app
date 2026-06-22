@@ -99,7 +99,17 @@ export type ProductType =
   | 'gel'
   | 'moisturizer'
   | 'oil'
-  | 'spf';
+  | 'spf'
+  | 'makeup_remover'
+  | 'peeling'
+  | 'ampoule'
+  | 'lotion'
+  | 'cream'
+  | 'eye_cream'
+  | 'mask'
+  | 'balm'
+  | 'spot_treatment'
+  | 'other';
 
 export interface Product {
   id: string;
@@ -126,6 +136,10 @@ export interface Product {
   /** Soft-hide flag. When true the product is excluded from routine step lists and rendered dimmed in the catalog. Absence is treated as false. */
   isHidden?: boolean;
 }
+
+// ─── Routine target ───────────────────────────────────────────────────────────
+
+export type RoutineTarget = 'none' | 'morning' | 'evening' | 'both';
 
 // ─── Routines ─────────────────────────────────────────────────────────────────
 

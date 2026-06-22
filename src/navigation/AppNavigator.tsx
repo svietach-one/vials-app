@@ -22,6 +22,7 @@ import ProfileScreen from '@/screens/ProfileScreen';
 
 import CatalogScreen from '@/screens/CatalogScreen';
 import AddProductHubScreen from '@/screens/AddProductHubScreen';
+import ManualProductFormScreen from '@/screens/ManualProductFormScreen';
 import ProductDetailScreen from '@/screens/ProductDetailScreen';
 import BarcodeScannerScreen from '@/screens/BarcodeScannerScreen';
 
@@ -36,6 +37,10 @@ export type OnboardingStackParamList = {
 export type CatalogStackParamList = {
   Catalog: undefined;
   AddProductHub: undefined;
+  ManualProductForm: {
+    prefillOBFProduct?: { obfId: string; name: string; brand: string; ingredientsText: string };
+    editingProductId?: string;
+  };
   ProductDetail: { productId: string };
   BarcodeScanner: undefined;
 };
@@ -89,6 +94,11 @@ function CatalogNavigator() {
       <CatalogStack.Screen
         name="AddProductHub"
         component={AddProductHubScreen}
+        options={{ title: 'Add Product' }}
+      />
+      <CatalogStack.Screen
+        name="ManualProductForm"
+        component={ManualProductFormScreen}
         options={{ title: 'Add Product' }}
       />
       <CatalogStack.Screen

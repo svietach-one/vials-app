@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -13,32 +11,33 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
 import { Input } from '@/components/ui/forms/Input';
 import { SegmentedControl } from '@/components/ui/forms/SegmentedControl';
 import { Button } from '@/components/ui/core/Button';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
-import { searchProducts } from '@/services/openBeautyFacts/search';
-import type { OBFProduct } from '@/services/openBeautyFacts/types';
 import { parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 import { generateId } from '@/utils/generateId';
-import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
-import type { ActiveIngredient, ActiveIngredientKey, Product, ProductType } from '@/types';
+import type {
+  ActiveIngredient,
+  ActiveIngredientKey,
+  Product,
+  ProductType,
+  RoutineTarget,
+} from '@/types';
+import type { CatalogStackParamList } from '@/navigation/AppNavigator';
+import { useProductsStore } from '@/store/productsStore';
+import { useRoutineLinking } from '@/hooks/useRoutineLinking';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Props = NativeStackScreenProps<CatalogStackParamList, 'ManualProductForm'>;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
-  { value: 'cleanser', label: 'Cleanser' },
-  { value: 'toner', label: 'Toner' },
-  { value: 'essence', label: 'Essence' },
-  { value: 'serum', label: 'Serum' },
-  { value: 'gel', label: 'Gel' },
-  { value: 'moisturizer', label: 'Moisturizer' },
-  { value: 'oil', label: 'Oil' },
-  { value: 'spf', label: 'SPF' },
-];
-
-export const ALL_ACTIVE_INGREDIENTS: ActiveIngredient[] = [
+const ALL_ACTIVE_INGREDIENTS: ActiveIngredient[] = [
   { key: 'retinol', displayName: 'Retinol' },
   { key: 'aha', displayName: 'AHA' },
   { key: 'bha', displayName: 'BHA' },
@@ -49,13 +48,32 @@ export const ALL_ACTIVE_INGREDIENTS: ActiveIngredient[] = [
   { key: 'spf_chemical', displayName: 'SPF (Chemical)' },
 ];
 
+const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
+  { value: 'cleanser', label: 'Cleanser' },
+  { value: 'toner', label: 'Toner' },
+  { value: 'essence', label: 'Essence' },
+  { value: 'serum', label: 'Serum' },
+  { value: 'gel', label: 'Gel' },
+  { value: 'moisturizer', label: 'Moisturizer' },
+  { value: 'oil', label: 'Oil' },
+  { value: 'spf', label: 'SPF' },
+  { value: 'makeup_remover', label: 'Makeup Remover' },
+  { value: 'peeling', label: 'Peeling' },
+  { value: 'ampoule', label: 'Ampoule' },
+  { value: 'lotion', label: 'Lotion' },
+  { value: 'cream', label: 'Cream' },
+  { value: 'eye_cream', label: 'Eye Cream' },
+  { value: 'mask', label: 'Mask' },
+  { value: 'balm', label: 'Balm' },
+  { value: 'spot_treatment', label: 'Spot Treatment' },
+  { value: 'other', label: 'Other' },
+];
+
 const USAGE_OPTIONS = [
   { value: 'morning', label: 'Morning' },
   { value: 'evening', label: 'Evening' },
   { value: 'both', label: 'Both' },
 ];
-
-export type RoutineTarget = 'none' | 'morning' | 'evening' | 'both';
 
 const ROUTINE_TARGET_OPTIONS: { value: RoutineTarget; label: string }[] = [
   { value: 'none', label: 'Skip' },
@@ -63,22 +81,6 @@ const ROUTINE_TARGET_OPTIONS: { value: RoutineTarget; label: string }[] = [
   { value: 'evening', label: 'PM' },
   { value: 'both', label: 'AM & PM' },
 ];
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface AddProductModalProps {
-  visible: boolean;
-  editingProduct?: Product | null;
-  /**
-   * Pre-fills the form from an OBF search result (e.g. when the user taps a
-   * result on AddProductHubScreen). Triggers "add" mode — not "edit" mode.
-   */
-  prefillOBFProduct?: OBFProduct | null;
-  onClose: () => void;
-  onSave: (product: Product, routineTarget: RoutineTarget) => void;
-}
-
-type Mode = 'search' | 'form';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -89,15 +91,16 @@ function keysToIngredients(keys: ActiveIngredientKey[]): ActiveIngredient[] {
   });
 }
 
-// ─── Sub-components (extracted to keep renderFormPhase under limit) ───────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 interface InciFieldProps {
   value: string;
   onChange: (t: string) => void;
   onDetect: () => void;
   onScan: () => void;
+  ocrScanned: boolean;
 }
-function InciField({ value, onChange, onDetect, onScan }: InciFieldProps) {
+function InciField({ value, onChange, onDetect, onScan, ocrScanned }: InciFieldProps) {
   return (
     <View style={formStyles.fieldGroup}>
       <View style={formStyles.fieldLabelRow}>
@@ -108,13 +111,11 @@ function InciField({ value, onChange, onDetect, onScan }: InciFieldProps) {
           </Pressable>
         ) : null}
       </View>
-      {value.length > 0 ? (
+      {ocrScanned ? (
         <View style={formStyles.inciNoticeOcr}>
           <Text style={formStyles.inciNoticeOcrTitle}>⚠️ Scanner Demo Mode</Text>
           <Text style={formStyles.inciNoticeOcrBody}>
-            The ingredients were detected via OCR and may contain text artifacts or typos
-            due to packaging print quality. Please review the scanned list carefully and
-            edit any incorrect words manually.
+            Please review the scanned text carefully for any punctuation or typo mistakes.
           </Text>
         </View>
       ) : (
@@ -210,25 +211,22 @@ function RoutineTargetPicker({ value, onChange }: RoutineTargetPickerProps) {
   );
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
-export function AddProductModal({
-  visible,
-  editingProduct,
-  prefillOBFProduct,
-  onClose,
-  onSave,
-}: AddProductModalProps) {
-  const [mode, setMode] = useState<Mode>('search');
+export default function ManualProductFormScreen({ route, navigation }: Props) {
+  const { prefillOBFProduct, editingProductId } = route.params;
 
-  // Search state (used in modal's own search phase when no Hub pre-fill)
-  const [searchText, setSearchText] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<OBFProduct[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searchFailed, setSearchFailed] = useState(false);
+  const products = useProductsStore((s) => s.products);
+  const addProduct = useProductsStore((s) => s.addProduct);
+  const updateProduct = useProductsStore((s) => s.updateProduct);
+  const { addProductToRoutine } = useRoutineLinking();
 
-  // Form fields
+  const editingProduct = editingProductId
+    ? (products.find((p) => p.id === editingProductId) ?? null)
+    : null;
+
+  const isEditMode = !!editingProduct;
+
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
   const [productType, setProductType] = useState<ProductType>('serum');
@@ -239,103 +237,40 @@ export function AddProductModal({
   const [nameError, setNameError] = useState<string | null>(null);
   const [obfId, setObfId] = useState<string | null>(null);
   const [showOcrScanner, setShowOcrScanner] = useState(false);
+  const [ocrScanned, setOcrScanned] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
-  // ── Reset / pre-fill when modal opens ──────────────────────────────────────
   useEffect(() => {
-    if (!visible) return;
+    navigation.setOptions({ title: isEditMode ? 'Edit Product' : 'Add Product' });
+  }, [navigation, isEditMode]);
 
+  // Pre-fill once on mount from navigation params
+  useEffect(() => {
     if (editingProduct) {
-      // Edit mode: restore from saved product
-      setMode('form');
       setName(editingProduct.name);
       setBrand(editingProduct.brand ?? '');
       setProductType(editingProduct.productType);
       setFullIngredientText(editingProduct.fullIngredientText ?? '');
       setUsageTime(editingProduct.usageTime);
       setObfId(editingProduct.openBeautyFactsId);
-      setRoutineTarget('none');
-      setNameError(null);
-      // Restore ingredient selection from activeTags (user-validated) with fallback
-      // to activeIngredients for legacy products saved before activeTags was added.
       const tagKeys: ActiveIngredientKey[] =
         editingProduct.activeTags ?? editingProduct.activeIngredients.map((i) => i.key);
       setSelectedIngredients(keysToIngredients(tagKeys));
     } else if (prefillOBFProduct) {
-      // OBF pre-fill from Hub: go straight to form mode, skip in-modal search
-      setMode('form');
       setName(prefillOBFProduct.name);
       setBrand(prefillOBFProduct.brand);
       setFullIngredientText(prefillOBFProduct.ingredientsText);
-      setObfId(prefillOBFProduct.obfId || null);
+      setObfId(prefillOBFProduct.obfId);
       setProductType('serum');
       setUsageTime('both');
-      setRoutineTarget('none');
-      setNameError(null);
       const parsedKeys = parseActiveIngredientsFromInci(prefillOBFProduct.ingredientsText);
       setSelectedIngredients(keysToIngredients(parsedKeys));
-    } else {
-      // New product — start at search
-      setMode('search');
-      setSearchText('');
-      setDebouncedQuery('');
-      setSearchResults([]);
-      setSearchFailed(false);
-      setName('');
-      setBrand('');
-      setProductType('serum');
-      setSelectedIngredients([]);
-      setFullIngredientText('');
-      setUsageTime('both');
-      setObfId(null);
-      setRoutineTarget('none');
-      setNameError(null);
     }
-  }, [visible, editingProduct, prefillOBFProduct]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ── Debounce search ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (searchText.trim().length < 3) {
-      setSearchResults([]);
-      setDebouncedQuery('');
-      setSearchFailed(false);
-      return;
-    }
-    const t = setTimeout(() => setDebouncedQuery(searchText.trim()), 600);
-    return () => clearTimeout(t);
-  }, [searchText]);
-
-  // ── Fetch OBF results ──────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!debouncedQuery) {
-      setSearchResults([]);
-      return;
-    }
-    let cancelled = false;
-    setSearching(true);
-    searchProducts(debouncedQuery).then(({ products, failed }) => {
-      if (!cancelled) {
-        setSearchResults(products);
-        setSearchFailed(failed);
-        setSearching(false);
-      }
-    });
-    return () => { cancelled = true; };
-  }, [debouncedQuery]);
-
-  // ── Handlers ───────────────────────────────────────────────────────────────
-
-  function selectOBFProduct(item: OBFProduct) {
-    setObfId(item.obfId || null);
-    setName(item.name);
-    setBrand(item.brand);
-    setFullIngredientText(item.ingredientsText);
-    const parsedKeys = parseActiveIngredientsFromInci(item.ingredientsText);
-    setSelectedIngredients(keysToIngredients(parsedKeys));
-    setMode('form');
-    setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 50);
-  }
+  // ── Handlers ─────────────────────────────────────────────────────────────
 
   function toggleIngredient(ing: ActiveIngredient) {
     setSelectedIngredients((prev) =>
@@ -354,7 +289,9 @@ export function AddProductModal({
 
   function handleOcrResult(text: string) {
     setFullIngredientText(text);
-    setSelectedIngredients(keysToIngredients(parseActiveIngredientsFromInci(text)));
+    const parsedKeys = parseActiveIngredientsFromInci(text);
+    setSelectedIngredients(keysToIngredients(parsedKeys));
+    setOcrScanned(true);
     setShowOcrScanner(false);
   }
 
@@ -374,7 +311,6 @@ export function AddProductModal({
       productType,
       imageUrl: null,
       activeIngredients: selectedIngredients,
-      // User-validated active ingredient keys — clean array for reliable filtering
       activeTags: selectedIngredients.map((i) => i.key),
       fullIngredientText: fullIngredientText.trim() || null,
       usageTime,
@@ -385,86 +321,31 @@ export function AddProductModal({
       paoMonths: editingProduct?.paoMonths ?? null,
     };
 
-    onSave(product, routineTarget);
+    if (isEditMode) {
+      updateProduct(product.id, product);
+      navigation.goBack();
+    } else {
+      addProduct(product);
+      addProductToRoutine(product, routineTarget);
+      navigation.navigate('Catalog');
+    }
   }
 
-  // ── Sub-renders ────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
-  function renderSearchPhase() {
-    return (
-      <>
-        <View style={searchStyles.inputWrap}>
-          <Input
-            icon={<Feather name="search" size={16} color={colors.textTertiary} />}
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder="Search by name or brand…"
-            returnKeyType="search"
-            autoFocus
-            clearButtonMode="while-editing"
-          />
-        </View>
-
-        <ScrollView style={searchStyles.results} keyboardShouldPersistTaps="handled">
-          {searching ? (
-            <ActivityIndicator
-              size="small"
-              color={colors.textSecondary}
-              style={searchStyles.loader}
-            />
-          ) : searchText.trim().length < 3 ? (
-            <Text style={searchStyles.hint}>Type at least 3 characters to search Open Beauty Facts</Text>
-          ) : searchFailed ? (
-            <Text style={searchStyles.hint}>Search unavailable — add your product manually below.</Text>
-          ) : searchResults.length === 0 ? (
-            <Text style={searchStyles.hint}>No results found for "{searchText.trim()}"</Text>
-          ) : (
-            searchResults.map((item) => (
-              <Pressable
-                key={item.obfId || item.name}
-                style={({ pressed }) => [searchStyles.resultRow, pressed && searchStyles.resultRowPressed]}
-                onPress={() => selectOBFProduct(item)}
-              >
-                <View style={searchStyles.resultContent}>
-                  <Text style={searchStyles.resultName} numberOfLines={1}>{item.name}</Text>
-                  {item.brand ? (
-                    <Text style={searchStyles.resultBrand} numberOfLines={1}>{item.brand}</Text>
-                  ) : null}
-                </View>
-                <Feather name="plus" size={18} color={colors.textSecondary} />
-              </Pressable>
-            ))
-          )}
-
-          <View style={searchStyles.manualWrap}>
-            <Text style={searchStyles.manualLabel}>Product not found?</Text>
-            <Pressable onPress={() => setMode('form')} hitSlop={8}>
-              <Text style={searchStyles.manualLink}>Add manually →</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </>
-    );
-  }
-
-  function renderFormPhase() {
-    return (
-      <>
+  return (
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <SafeAreaView style={styles.safe}>
         <ScrollView
           ref={scrollRef}
-          style={formStyles.scroll}
-          contentContainerStyle={formStyles.content}
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Back to search — hidden when editing or when OBF pre-fill came from Hub */}
-          {!editingProduct && !prefillOBFProduct && (
-            <Pressable onPress={() => setMode('search')} style={formStyles.backRow} hitSlop={8}>
-              <Feather name="arrow-left" size={14} color={colors.textLink} />
-              <Text style={formStyles.backText}>Back to search</Text>
-            </Pressable>
-          )}
-
           <Input
             label="Product Name *"
             value={name}
@@ -510,9 +391,13 @@ export function AddProductModal({
 
           <InciField
             value={fullIngredientText}
-            onChange={setFullIngredientText}
+            onChange={(t) => {
+              setFullIngredientText(t);
+              if (t === '') setOcrScanned(false);
+            }}
             onDetect={detectFromInci}
             onScan={() => setShowOcrScanner(true)}
+            ocrScanned={ocrScanned}
           />
 
           <IngredientChips
@@ -530,73 +415,24 @@ export function AddProductModal({
             />
           </View>
 
-          {!editingProduct ? (
-            <RoutineTargetPicker
-              value={routineTarget}
-              onChange={setRoutineTarget}
-            />
+          {!isEditMode ? (
+            <RoutineTargetPicker value={routineTarget} onChange={setRoutineTarget} />
           ) : null}
         </ScrollView>
 
-        <View style={formStyles.footer}>
+        <View style={styles.footer}>
           <Button fullWidth onPress={handleSave} disabled={!name.trim()}>
-            {editingProduct ? 'Save Changes' : 'Add to Catalog'}
+            {isEditMode ? 'Save Changes' : 'Add to Catalog'}
           </Button>
         </View>
-      </>
-    );
-  }
+      </SafeAreaView>
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
-  return (
-    <>
-      <Modal
-        visible={visible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={onClose}
-      >
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <SafeAreaView style={styles.safe}>
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>
-                {editingProduct
-                  ? 'Edit Product'
-                  : mode === 'form'
-                  ? 'Add Product'
-                  : 'Find Product'}
-              </Text>
-              <Pressable
-                onPress={onClose}
-                style={styles.closeBtn}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-              >
-                <Feather name="x" size={20} color={colors.textSecondary} />
-              </Pressable>
-            </View>
-
-            {mode === 'search' ? renderSearchPhase() : renderFormPhase()}
-          </SafeAreaView>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/*
-        Rendered outside the parent Modal so the hidden WebView can preload
-        tesseract.js while the image picker is open. The OcrScannerSheet's
-        own processing overlay Modal will appear on top of everything.
-      */}
       <OcrScannerSheet
         visible={showOcrScanner}
         onClose={() => setShowOcrScanner(false)}
         onResult={handleOcrResult}
       />
-    </>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -608,84 +444,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bgBase,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.gutterScreen,
-    paddingVertical: space[4],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderDivider,
-  },
-  headerTitle: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunken,
-  },
-});
-
-const searchStyles = StyleSheet.create({
-  inputWrap: {
-    paddingHorizontal: space.gutterScreen,
-    paddingTop: space[4],
-    paddingBottom: space[2],
-  },
-  results: { flex: 1 },
-  loader: { marginTop: space[8] },
-  hint: {
-    ...typography.body,
-    color: colors.textTertiary,
-    textAlign: 'center',
-    marginTop: space[8],
-    paddingHorizontal: space[6],
-  },
-  resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space.gutterScreen,
-    paddingVertical: space[3] + 2,
-    gap: space[3],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderDivider,
-  },
-  resultRowPressed: { backgroundColor: colors.surfaceSunken },
-  resultContent: { flex: 1, gap: 2 },
-  resultName: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
-  },
-  resultBrand: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  manualWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[2],
-    paddingVertical: space[6],
-  },
-  manualLabel: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  manualLink: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textLink,
-  },
-});
-
-const formStyles = StyleSheet.create({
   scroll: { flex: 1 },
   content: {
     paddingHorizontal: space.gutterScreen,
@@ -693,17 +451,16 @@ const formStyles = StyleSheet.create({
     paddingBottom: space[6],
     gap: space[5],
   },
-  backRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[1],
-    marginBottom: -space[2],
+  footer: {
+    paddingHorizontal: space.gutterScreen,
+    paddingVertical: space[4],
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
+    backgroundColor: colors.bgBase,
   },
-  backText: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textLink,
-  },
+});
+
+const formStyles = StyleSheet.create({
   fieldGroup: { gap: space[2] },
   fieldLabelRow: {
     flexDirection: 'row',
@@ -805,13 +562,6 @@ const formStyles = StyleSheet.create({
   routineRow: {
     flexDirection: 'row',
     gap: space[2],
-  },
-  footer: {
-    paddingHorizontal: space.gutterScreen,
-    paddingVertical: space[4],
-    borderTopWidth: 1,
-    borderTopColor: colors.borderDivider,
-    backgroundColor: colors.bgBase,
   },
 });
 

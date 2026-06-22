@@ -1,7 +1,7 @@
 import { useRoutinesStore } from '@/store/routinesStore';
 import { generateId } from '@/utils/generateId';
 import type { Product, RoutineStep } from '@/types';
-import type { RoutineTarget } from '@/components/product/AddProductModal';
+import type { RoutineTarget } from '@/types';
 
 /**
  * Returns a stable callback that adds a product to the morning and/or

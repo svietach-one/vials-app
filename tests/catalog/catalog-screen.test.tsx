@@ -9,7 +9,7 @@
  *   AC-5  Tapping "+" header button navigates to AddProductHub
  *   AC-6  Tapping a Card navigates to ProductDetail with productId param
  *   AC-7  Three-dot button opens ProductActionSheet for the tapped product
- *   AC-8  Action sheet "Edit" opens AddProductModal; save calls updateProduct
+ *   AC-8  Action sheet "Edit" navigates to ManualProductForm with editingProductId
  *   AC-9  Action sheet "Delete" opens DeleteProductModal; confirm calls removeProduct
  *   AC-10 Search field is rendered in the list header
  */
@@ -77,27 +77,6 @@ jest.mock('@/store/productsStore', () => ({
     return selector(state);
   }),
 }));
-
-// Child modals — render lightweight stubs so we can assert visibility without
-// needing the full modal implementations.
-jest.mock('@/components/product/AddProductModal', () => {
-  const { View, Text, Pressable } = require('react-native');
-  return {
-    AddProductModal: ({ visible, onSave, onClose, editingProduct }: any) => {
-      if (!visible) return null;
-      return (
-        <View testID="add-product-modal">
-          <Text testID="modal-editing-id">{editingProduct?.id ?? 'none'}</Text>
-          <Pressable
-            testID="modal-save-btn"
-            onPress={() => onSave({ ...editingProduct, name: 'Edited Name' })}
-          />
-          <Pressable testID="modal-close-btn" onPress={onClose} />
-        </View>
-      );
-    },
-  };
-});
 
 jest.mock('@/components/product/DeleteProductModal', () => {
   const { View, Pressable } = require('react-native');
@@ -416,31 +395,19 @@ describe('AC-7: three-dot icon button opens ProductActionSheet for the tapped pr
 
 // ── AC-8: Edit flow via action sheet ─────────────────────────────────────────
 
-describe('AC-8: action sheet Edit opens AddProductModal and save calls updateProduct', () => {
-  it('should show AddProductModal when Edit is selected in the action sheet', () => {
+describe('AC-8: action sheet Edit navigates to ManualProductForm with editingProductId', () => {
+  it('should navigate to ManualProductForm with the product id when Edit is selected', () => {
     renderScreen();
     fireEvent.press(screen.getByLabelText('Options for Hydra Boost Serum'));
     fireEvent.press(screen.getByTestId('action-edit-btn'));
-    expect(screen.getByTestId('add-product-modal')).toBeTruthy();
+    expect(mockNavigate).toHaveBeenCalledWith('ManualProductForm', { editingProductId: 'p1' });
   });
 
-  it('should call updateProduct with the saved product when modal save is triggered', () => {
+  it('should close the action sheet after pressing Edit', () => {
     renderScreen();
     fireEvent.press(screen.getByLabelText('Options for Hydra Boost Serum'));
     fireEvent.press(screen.getByTestId('action-edit-btn'));
-    fireEvent.press(screen.getByTestId('modal-save-btn'));
-    expect(mockUpdateProduct).toHaveBeenCalledWith(
-      'p1',
-      expect.objectContaining({ id: 'p1', name: 'Edited Name' }),
-    );
-  });
-
-  it('should close the edit modal when its close button is pressed', () => {
-    renderScreen();
-    fireEvent.press(screen.getByLabelText('Options for Hydra Boost Serum'));
-    fireEvent.press(screen.getByTestId('action-edit-btn'));
-    fireEvent.press(screen.getByTestId('modal-close-btn'));
-    expect(screen.queryByTestId('add-product-modal')).toBeNull();
+    expect(screen.queryByTestId('product-action-sheet')).toBeNull();
   });
 });
 

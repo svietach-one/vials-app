@@ -9,7 +9,6 @@ import {
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { AddProductModal } from '@/components/product/AddProductModal';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { Button } from '@/components/ui/core/Button';
@@ -35,7 +34,6 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   const product = products.find((p) => p.id === productId) ?? null;
 
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
   // Wire the three-dot button into the navigation header
@@ -79,11 +77,6 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
     product.activeTags ?? product.activeIngredients.map((i) => i.key);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
-
-  function handleEditSave(updated: Product) {
-    updateProduct(updated.id, updated);
-    setEditModalVisible(false);
-  }
 
   function handleDeleteConfirm() {
     if (deleteTarget) {
@@ -151,7 +144,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
         product={actionSheetVisible ? product : null}
         onEdit={(_p) => {
           setActionSheetVisible(false);
-          setEditModalVisible(true);
+          navigation.navigate('ManualProductForm', { editingProductId: product.id });
         }}
         onDelete={(_p) => {
           setActionSheetVisible(false);
@@ -162,13 +155,6 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           setActionSheetVisible(false);
         }}
         onClose={() => setActionSheetVisible(false)}
-      />
-
-      <AddProductModal
-        visible={editModalVisible}
-        editingProduct={product}
-        onClose={() => setEditModalVisible(false)}
-        onSave={(updated) => handleEditSave(updated)}
       />
 
       <DeleteProductModal

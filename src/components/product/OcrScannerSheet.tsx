@@ -116,9 +116,7 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
 
   function startScanTimeout() {
     clearScanTimeout();
-    console.log('[OCR] ⏱ Timeout started (10 s)');
     timeoutRef.current = setTimeout(() => {
-      console.log('[OCR] ⏱ TIMEOUT — 10 s elapsed with no result; resetting state');
       setLoading(false);
       // Must call onClose so showOcrScanner resets to false in the parent.
       // Without this the scan button becomes permanently unresponsive because
@@ -134,7 +132,6 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
 
   useEffect(() => {
     if (!visible) {
-      console.log('[OCR] visible → false: clearing timeout and resetting loading state');
       clearScanTimeout();
       setLoading(false);
       // workerReadyRef intentionally NOT reset: the WebView is NOT unmounted when
@@ -144,7 +141,6 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
       return;
     }
 
-    console.log('[OCR] visible → true: opening picker alert');
     showPickerAlert();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -155,7 +151,6 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
   // ── Picker ─────────────────────────────────────────────────────────────────
 
   function showPickerAlert() {
-    console.log('[OCR] Alert.alert shown (Take Photo / Gallery / Cancel)');
     Alert.alert(
       'Scan Ingredient Label',
       undefined,
@@ -168,9 +163,7 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
   }
 
   async function handleCamera() {
-    console.log('[OCR] User tapped "Take Photo" — requesting camera permission');
     const { granted } = await ImagePicker.requestCameraPermissionsAsync();
-    console.log('[OCR] Camera permission result:', granted ? 'GRANTED' : 'DENIED');
     if (!granted) {
       Alert.alert(
         'Camera Access Needed',
@@ -179,19 +172,12 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
       );
       return;
     }
-    console.log('[OCR] Launching camera (launchCameraAsync)');
     const result = await ImagePicker.launchCameraAsync({
       quality: 0.5,
       base64: true,
       allowsEditing: true,
     });
-    console.log(
-      '[OCR] launchCameraAsync result — canceled:', result.canceled,
-      '| base64 present:', !!result.assets?.[0]?.base64,
-      '| base64 length:', result.assets?.[0]?.base64?.length ?? 0,
-    );
     if (result.canceled) {
-      console.log('[OCR] Camera canceled — calling onClose()');
       onClose();
       return;
     }
@@ -199,9 +185,7 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
   }
 
   async function handleGallery() {
-    console.log('[OCR] User tapped "Choose from Gallery" — requesting media library permission');
     const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    console.log('[OCR] Media library permission result:', granted ? 'GRANTED' : 'DENIED');
     if (!granted) {
       Alert.alert(
         'Photo Access Needed',
@@ -210,20 +194,13 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
       );
       return;
     }
-    console.log('[OCR] Launching image library (launchImageLibraryAsync)');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.5,
       base64: true,
       allowsEditing: true,
     });
-    console.log(
-      '[OCR] launchImageLibraryAsync result — canceled:', result.canceled,
-      '| base64 present:', !!result.assets?.[0]?.base64,
-      '| base64 length:', result.assets?.[0]?.base64?.length ?? 0,
-    );
     if (result.canceled) {
-      console.log('[OCR] Gallery canceled — calling onClose()');
       onClose();
       return;
     }
@@ -233,73 +210,57 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
   // ── OCR pipeline ──────────────────────────────────────────────────────────
 
   function handlePickedImage(base64: string | null | undefined) {
-    console.log('[OCR] handlePickedImage — base64 length:', base64?.length ?? 'null/undefined');
     if (!base64) {
-      console.log('[OCR] No base64 data received — closing');
       onClose();
       return;
     }
 
     // ▶ Show the loading overlay IMMEDIATELY, before any WebView work.
-    console.log('[OCR] Calling setLoading(true) — spinner Modal should render NOW');
     setLoading(true);
     startScanTimeout();
 
     // Read from ref, not state — this function may have been captured in an Alert
     // callback before workerReady changed, so a state variable would be stale here.
     if (workerReadyRef.current) {
-      console.log('[OCR] Worker is ready (ref=true) — calling injectImage() immediately');
       injectImage(base64);
     } else {
-      console.log('[OCR] Worker not ready yet (ref=false) — storing base64 in pendingBase64 ref');
       pendingBase64.current = base64;
     }
   }
 
   function injectImage(base64: string) {
-    console.log('[OCR] injectJavaScript("processImage(...)") — base64 length:', base64.length);
     webviewRef.current?.injectJavaScript(`processImage(${JSON.stringify(base64)}); true;`);
   }
 
   function handleWebViewMessage(event: WebViewMessageEvent) {
     const raw = event.nativeEvent.data;
-    console.log('[OCR] onMessage from WebView — raw (first 120 chars):', raw.slice(0, 120));
 
     let msg: WebViewMsg;
     try {
       msg = JSON.parse(raw) as WebViewMsg;
     } catch (err) {
-      console.log('[OCR] JSON.parse failed on WebView message — err:', err);
       showOcrError();
       return;
     }
 
-    console.log('[OCR] Parsed message type:', msg.type);
 
     if (msg.type === 'WORKER_READY') {
-      console.log('[OCR] WORKER_READY received — setting workerReadyRef.current = true');
       workerReadyRef.current = true;
       if (pendingBase64.current) {
-        console.log('[OCR] Pending base64 exists — injecting now');
         injectImage(pendingBase64.current);
         pendingBase64.current = null;
       } else {
-        console.log('[OCR] No pending base64 — waiting for user to pick an image');
       }
       return;
     }
 
     if (msg.type === 'OCR_RESULT') {
-      console.log('[OCR] OCR_RESULT received — raw text length:', msg.text?.length ?? 0);
       clearScanTimeout();
       const { cleanedText, hadNonLatin } = ocrTextCleaner(msg.text ?? '');
-      console.log('[OCR] ocrTextCleaner output — cleaned length:', cleanedText.length, '| hadNonLatin:', hadNonLatin);
       if (!cleanedText.trim()) {
-        console.log('[OCR] Cleaned text is empty — showing OCR error');
         showOcrError();
         return;
       }
-      console.log('[OCR] Success — calling setLoading(false) and delivering result');
       setLoading(false);
       if (hadNonLatin) {
         Alert.alert(
@@ -314,7 +275,6 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
     }
 
     // OCR_ERROR or any unrecognised message type
-    console.log('[OCR] OCR_ERROR (or unknown type):', msg.type, '— message:', msg.message);
     showOcrError();
   }
 
@@ -322,12 +282,10 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
     // Always surface the error — showOcrError is idempotent (no-ops if not loading).
     // Guarding on `loading` here would capture a stale closure value and silently
     // skip the error dialog if the WebView crashes after a timeout already reset state.
-    console.log('[OCR] WebView onError fired');
     showOcrError();
   }
 
   function showOcrError() {
-    console.log('[OCR] showOcrError() — clearing timeout, setLoading(false)');
     clearScanTimeout();
     setLoading(false);
     Alert.alert(
@@ -338,7 +296,6 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
   }
 
   function handleCancelPress() {
-    console.log('[OCR] User pressed Cancel during loading — resetting');
     clearScanTimeout();
     setLoading(false);
     pendingBase64.current = null;
