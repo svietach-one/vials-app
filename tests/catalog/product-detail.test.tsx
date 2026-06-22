@@ -327,9 +327,9 @@ describe('AC-29: action sheet Edit navigates to ManualProductForm with editingPr
       <ProductActionSheet
         product={FULL_PRODUCT}
         onEdit={mockOnEdit}
-        onDelete={mockOnDelete}
+        onDelete={jest.fn()}
         onToggleHidden={jest.fn()}
-        onClose={mockOnClose}
+        onClose={jest.fn()}
       />,
     );
     expect(screen.getByLabelText('Edit product')).toBeTruthy();

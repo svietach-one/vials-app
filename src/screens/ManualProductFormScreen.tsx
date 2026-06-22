@@ -14,6 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
+import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { Input } from '@/components/ui/forms/Input';
 import { SegmentedControl } from '@/components/ui/forms/SegmentedControl';
 import { Button } from '@/components/ui/core/Button';
@@ -25,11 +26,9 @@ import type {
   ActiveIngredientKey,
   Product,
   ProductType,
-  RoutineTarget,
 } from '@/types';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
-import { useRoutineLinking } from '@/hooks/useRoutineLinking';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,13 +72,6 @@ const USAGE_OPTIONS = [
   { value: 'morning', label: 'Morning' },
   { value: 'evening', label: 'Evening' },
   { value: 'both', label: 'Both' },
-];
-
-const ROUTINE_TARGET_OPTIONS: { value: RoutineTarget; label: string }[] = [
-  { value: 'none', label: 'Skip' },
-  { value: 'morning', label: 'AM' },
-  { value: 'evening', label: 'PM' },
-  { value: 'both', label: 'AM & PM' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -181,36 +173,6 @@ function IngredientChips({ selected, onToggle }: IngredientChipsProps) {
   );
 }
 
-interface RoutineTargetPickerProps {
-  value: RoutineTarget;
-  onChange: (v: RoutineTarget) => void;
-}
-function RoutineTargetPicker({ value, onChange }: RoutineTargetPickerProps) {
-  return (
-    <View style={formStyles.fieldGroup}>
-      <Text style={formStyles.fieldLabel}>Add to Routine</Text>
-      <View style={formStyles.routineRow}>
-        {ROUTINE_TARGET_OPTIONS.map((opt) => {
-          const active = value === opt.value;
-          return (
-            <Pressable
-              key={opt.value}
-              onPress={() => onChange(opt.value)}
-              style={[chipStyles.chip, chipStyles.chipFlex, active && chipStyles.chipActive]}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
-                {opt.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ManualProductFormScreen({ route, navigation }: Props) {
@@ -219,7 +181,6 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const products = useProductsStore((s) => s.products);
   const addProduct = useProductsStore((s) => s.addProduct);
   const updateProduct = useProductsStore((s) => s.updateProduct);
-  const { addProductToRoutine } = useRoutineLinking();
 
   const editingProduct = editingProductId
     ? (products.find((p) => p.id === editingProductId) ?? null)
@@ -233,11 +194,11 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [selectedIngredients, setSelectedIngredients] = useState<ActiveIngredient[]>([]);
   const [fullIngredientText, setFullIngredientText] = useState('');
   const [usageTime, setUsageTime] = useState<'morning' | 'evening' | 'both'>('both');
-  const [routineTarget, setRoutineTarget] = useState<RoutineTarget>('none');
   const [nameError, setNameError] = useState<string | null>(null);
   const [obfId, setObfId] = useState<string | null>(null);
   const [showOcrScanner, setShowOcrScanner] = useState(false);
   const [ocrScanned, setOcrScanned] = useState(false);
+  const [schedulerProduct, setSchedulerProduct] = useState<Product | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -326,8 +287,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       navigation.goBack();
     } else {
       addProduct(product);
-      addProductToRoutine(product, routineTarget);
-      navigation.navigate('Catalog');
+      setSchedulerProduct(product);
     }
   }
 
@@ -415,9 +375,6 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
             />
           </View>
 
-          {!isEditMode ? (
-            <RoutineTargetPicker value={routineTarget} onChange={setRoutineTarget} />
-          ) : null}
         </ScrollView>
 
         <View style={styles.footer}>
@@ -431,6 +388,16 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         visible={showOcrScanner}
         onClose={() => setShowOcrScanner(false)}
         onResult={handleOcrResult}
+      />
+
+      <RoutineSchedulerSheet
+        visible={schedulerProduct !== null}
+        productId={schedulerProduct?.id ?? ''}
+        productType={schedulerProduct?.productType ?? 'serum'}
+        onClose={() => {
+          setSchedulerProduct(null);
+          navigation.navigate('Catalog');
+        }}
       />
     </KeyboardAvoidingView>
   );
