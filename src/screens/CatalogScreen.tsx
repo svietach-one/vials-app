@@ -21,7 +21,9 @@ import { colors, space, typography } from '@/constants/tokens';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
+import { useRoutinesStore } from '@/store/routinesStore';
 import type { Product } from '@/types';
+import { getProductRoutineStatus, type RoutineStatusResult } from '@/utils/routineStatus';
 
 type Props = NativeStackScreenProps<CatalogStackParamList, 'Catalog'>;
 
@@ -31,6 +33,7 @@ export default function CatalogScreen({ navigation }: Props) {
   const products = useProductsStore((s) => s.products);
   const updateProduct = useProductsStore((s) => s.updateProduct);
   const removeProduct = useProductsStore((s) => s.removeProduct);
+  const routines = useRoutinesStore((s) => s.routines);
 
   const [searchText, setSearchText] = useState('');
   const [actionTarget, setActionTarget] = useState<Product | null>(null);
@@ -85,6 +88,7 @@ export default function CatalogScreen({ navigation }: Props) {
   // ── Render item ───────────────────────────────────────────────────────────
 
   function renderItem({ item }: { item: Product }) {
+    const routineStatus = getProductRoutineStatus(item.id, routines);
     return (
       <Card
         variant="surface"
@@ -102,6 +106,7 @@ export default function CatalogScreen({ navigation }: Props) {
               <Tag tone="neutral">
                 {PRODUCT_TYPE_LABELS[item.productType] ?? item.productType}
               </Tag>
+              <RoutineBadge status={routineStatus} />
             </View>
             {item.brand ? (
               <Text style={styles.brand} numberOfLines={1}>
@@ -191,6 +196,34 @@ export default function CatalogScreen({ navigation }: Props) {
     </SafeAreaView>
   );
 }
+
+// ─── Routine badge ────────────────────────────────────────────────────────────
+
+function RoutineBadge({ status }: { status: RoutineStatusResult }) {
+  if (status === 'none') return null;
+  return (
+    <View style={badgeStyles.pill}>
+      {(status === 'morning' || status === 'both') && (
+        <Feather name="sun" size={13} color={colors.textSecondary} />
+      )}
+      {(status === 'evening' || status === 'both') && (
+        <Feather name="moon" size={13} color={colors.textSecondary} />
+      )}
+    </View>
+  );
+}
+
+const badgeStyles = StyleSheet.create({
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: space[2],
+    paddingVertical: 3,
+    borderRadius: 99,
+    backgroundColor: colors.borderDivider,
+  },
+});
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
