@@ -99,7 +99,17 @@ export type ProductType =
   | 'gel'
   | 'moisturizer'
   | 'oil'
-  | 'spf';
+  | 'spf'
+  | 'makeup_remover'
+  | 'peeling'
+  | 'ampoule'
+  | 'lotion'
+  | 'cream'
+  | 'eye_cream'
+  | 'mask'
+  | 'balm'
+  | 'spot_treatment'
+  | 'other';
 
 export interface Product {
   id: string;
@@ -123,7 +133,13 @@ export interface Product {
   openedDate: string | null;
   /** Period-After-Opening in months. Combined with openedDate to compute expiry. */
   paoMonths: number | null;
+  /** Soft-hide flag. When true the product is excluded from routine step lists and rendered dimmed in the catalog. Absence is treated as false. */
+  isHidden?: boolean;
 }
+
+// ─── Routine target ───────────────────────────────────────────────────────────
+
+export type RoutineTarget = 'none' | 'morning' | 'evening' | 'both';
 
 // ─── Routines ─────────────────────────────────────────────────────────────────
 
@@ -190,3 +206,20 @@ export interface AppSettings {
   /** Keys of banners the user has permanently dismissed, e.g. 'banner_2026_summer'. */
   dismissedBanners: string[];
 }
+
+// ─── Catalog filters ──────────────────────────────────────────────────────────
+
+export type CategoryFilter = 'All' | 'Serums' | 'Moisturizers' | 'SPF';
+export type BiomarkerTag = 'Soothing' | 'Actives' | 'Hydration';
+
+export interface CatalogFilterState {
+  searchQuery: string;
+  selectedCategory: CategoryFilter;
+  selectedBiomarkers: BiomarkerTag[];
+}
+
+export const CATALOG_FILTER_DEFAULT: CatalogFilterState = {
+  searchQuery: '',
+  selectedCategory: 'All',
+  selectedBiomarkers: [],
+};

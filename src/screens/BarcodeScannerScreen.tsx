@@ -11,17 +11,12 @@ import {
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { AddProductModal } from '@/components/product/AddProductModal';
-import type { RoutineTarget } from '@/components/product/AddProductModal';
 import { Button } from '@/components/ui/core/Button';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { lookupByBarcode } from '@/services/openBeautyFacts/search';
 import type { OBFProduct } from '@/services/openBeautyFacts/types';
-import { useProductsStore } from '@/store/productsStore';
-import { useRoutineLinking } from '@/hooks/useRoutineLinking';
-import type { Product } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,13 +41,13 @@ function CameraPermissionScreen({ permission, onRequest, onBack }: CameraPermiss
           Allow camera access to scan product barcodes and look them up in Open Beauty Facts.
         </Text>
         {permission.canAskAgain ? (
-          <Button variant="primary" onPress={onRequest}>Allow Camera Access</Button>
+          <Button variant="primary" size="lg" onPress={onRequest}>Allow Camera Access</Button>
         ) : (
           <InlineAlert tone="warning" title="Permission denied">
             Open Settings and grant camera access to Expo Go, then return here.
           </InlineAlert>
         )}
-        <Button variant="ghost" onPress={onBack}>Go Back</Button>
+        <Button variant="ghost" size="lg" onPress={onBack}>Go Back</Button>
       </View>
     </SafeAreaView>
   );
@@ -124,13 +119,9 @@ export default function BarcodeScannerScreen({ navigation }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanState, setScanState] = useState<ScanState>('scanning');
   const [obfResult, setObfResult] = useState<OBFProduct | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
 
   // Cooldown prevents duplicate scans from firing while a lookup is in flight
   const locked = useRef(false);
-
-  const addProduct = useProductsStore((s) => s.addProduct);
-  const { addProductToRoutine } = useRoutineLinking();
 
   // Clear lock when the screen unmounts so it's clean if the user comes back
   useEffect(() => () => { locked.current = false; }, []);
@@ -157,13 +148,6 @@ export default function BarcodeScannerScreen({ navigation }: Props) {
   }, []);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
-
-  function handleSave(product: Product, routineTarget: RoutineTarget) {
-    addProduct(product);
-    addProductToRoutine(product, routineTarget);
-    setModalVisible(false);
-    navigation.goBack();
-  }
 
   function resetScanner() {
     setObfResult(null);
@@ -236,16 +220,16 @@ export default function BarcodeScannerScreen({ navigation }: Props) {
       <ScanResultCard
         scanState={scanState}
         obfResult={obfResult}
-        onAdd={() => setModalVisible(true)}
-        onAddManually={() => { setObfResult(null); setModalVisible(true); }}
+        onAdd={() => {
+          if (obfResult) {
+            navigation.navigate('ManualProductForm', { prefillOBFProduct: obfResult });
+          }
+        }}
+        onAddManually={() => {
+          setObfResult(null);
+          navigation.navigate('ManualProductForm', {});
+        }}
         onScanAgain={resetScanner}
-      />
-
-      <AddProductModal
-        visible={modalVisible}
-        prefillOBFProduct={obfResult}
-        onClose={() => { setModalVisible(false); resetScanner(); }}
-        onSave={handleSave}
       />
     </View>
   );

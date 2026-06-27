@@ -12,6 +12,7 @@ export interface ProductActionSheetProps {
   product: Product | null;
   onEdit: (p: Product) => void;
   onDelete: (p: Product) => void;
+  onToggleHidden: (p: Product) => void;
   onClose: () => void;
 }
 
@@ -21,6 +22,7 @@ export function ProductActionSheet({
   product,
   onEdit,
   onDelete,
+  onToggleHidden,
   onClose,
 }: ProductActionSheetProps) {
   return (
@@ -50,6 +52,28 @@ export function ProductActionSheet({
           >
             <Feather name="edit-2" size={18} color={colors.textPrimary} />
             <Text style={styles.rowLabel}>Edit Product</Text>
+          </Pressable>
+
+          {/* Hide / Show */}
+          <Pressable
+            style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+            onPress={() => {
+              if (product) {
+                onToggleHidden(product);
+                onClose();
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={product?.isHidden ? 'Show product' : 'Hide product'}
+          >
+            <Feather
+              name={product?.isHidden ? 'eye' : 'eye-off'}
+              size={18}
+              color={colors.textPrimary}
+            />
+            <Text style={styles.rowLabel}>
+              {product?.isHidden ? 'Show Product' : 'Hide Product'}
+            </Text>
           </Pressable>
 
           {/* Delete */}

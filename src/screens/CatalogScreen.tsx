@@ -9,12 +9,13 @@ import {
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { AddProductModal } from '@/components/product/AddProductModal';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
+import { CatalogFilterHeader } from '@/components/catalog/CatalogFilterHeader';
 import { Button } from '@/components/ui/core/Button';
 import { Card } from '@/components/ui/core/Card';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { Badge } from '@/components/ui/feedback/Badge';
 import { Tag } from '@/components/ui/core/Tag';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, space, typography } from '@/constants/tokens';
@@ -22,10 +23,74 @@ import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/label
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
-import type { Product } from '@/types';
+import type {
+  ActiveIngredientKey,
+  BiomarkerTag,
+  CatalogFilterState,
+  CategoryFilter,
+  Product,
+  ProductType,
+} from '@/types';
+import { CATALOG_FILTER_DEFAULT } from '@/types';
 import { getProductRoutineStatus, type RoutineStatusResult } from '@/utils/routineStatus';
+import { getProductPaoStatus } from '@/utils/paoHelpers';
 
 type Props = NativeStackScreenProps<CatalogStackParamList, 'Catalog'>;
+
+// ─── Module-level filter constants ────────────────────────────────────────────
+
+const CATEGORY_PRODUCT_TYPES: Record<Exclude<CategoryFilter, 'All'>, ProductType[]> = {
+  Serums:       ['serum', 'essence', 'ampoule'],
+  Moisturizers: ['moisturizer', 'cream', 'lotion', 'oil'],
+  SPF:          ['spf'],
+};
+
+const ACTIVES_KEYS: ActiveIngredientKey[] = ['retinol', 'aha', 'bha', 'vitamin_c', 'benzoyl_peroxide'];
+const SOOTHING_KEYS: ActiveIngredientKey[] = ['niacinamide', 'copper_peptides'];
+const HYDRATION_TYPES: ProductType[] = ['moisturizer', 'cream', 'lotion', 'oil', 'essence', 'toner'];
+
+const PAO_AMBER = '#D97706';
+
+// ─── applyFilters ─────────────────────────────────────────────────────────────
+
+export function applyFilters(
+  products: Product[],
+  { searchQuery, selectedCategory, selectedBiomarkers }: CatalogFilterState,
+): Product[] {
+  return products.filter((p) => {
+    // Gate 1 — text search
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      const nameMatch = p.name.toLowerCase().includes(q);
+      const brandMatch = (p.brand ?? '').toLowerCase().includes(q);
+      const tagMatch = (p.activeTags ?? []).some((k) =>
+        ACTIVE_INGREDIENT_LABELS[k]?.toLowerCase().includes(q),
+      );
+      if (!nameMatch && !brandMatch && !tagMatch) return false;
+    }
+
+    // Gate 2 — category
+    if (selectedCategory !== 'All') {
+      const allowed = CATEGORY_PRODUCT_TYPES[selectedCategory];
+      if (!allowed.includes(p.productType)) return false;
+    }
+
+    // Gate 3 — biomarkers (ALL selected must pass)
+    for (const biomarker of selectedBiomarkers) {
+      if (biomarker === 'Actives') {
+        if (!(p.activeTags ?? []).some((k) => ACTIVES_KEYS.includes(k))) return false;
+      }
+      if (biomarker === 'Soothing') {
+        if (!(p.activeTags ?? []).some((k) => SOOTHING_KEYS.includes(k))) return false;
+      }
+      if (biomarker === 'Hydration') {
+        if (!HYDRATION_TYPES.includes(p.productType)) return false;
+      }
+    }
+
+    return true;
+  });
+}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -35,10 +100,8 @@ export default function CatalogScreen({ navigation }: Props) {
   const removeProduct = useProductsStore((s) => s.removeProduct);
   const routines = useRoutinesStore((s) => s.routines);
 
-  const [searchText, setSearchText] = useState('');
+  const [filterState, setFilterState] = useState<CatalogFilterState>(CATALOG_FILTER_DEFAULT);
   const [actionTarget, setActionTarget] = useState<Product | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [editModalVisible, setEditModalVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
   // Header "+" button — navigates to the Add Product Hub
@@ -58,25 +121,13 @@ export default function CatalogScreen({ navigation }: Props) {
     });
   }, [navigation]);
 
-  // Filter on name, brand, and validated activeTags (reliable — no raw text search)
-  const query = searchText.trim().toLowerCase();
-  const filteredProducts = query
-    ? products.filter((p) => {
-        if (p.name.toLowerCase().includes(query)) return true;
-        if ((p.brand ?? '').toLowerCase().includes(query)) return true;
-        return (p.activeTags ?? []).some((key) =>
-          ACTIVE_INGREDIENT_LABELS[key]?.toLowerCase().includes(query),
-        );
-      })
-    : products;
+  const filteredProducts = applyFilters(products, filterState);
+  const hasActiveFilters =
+    filterState.searchQuery.trim() !== '' ||
+    filterState.selectedCategory !== 'All' ||
+    filterState.selectedBiomarkers.length > 0;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
-
-  function handleEditSave(product: Product) {
-    updateProduct(product.id, product);
-    setEditModalVisible(false);
-    setEditingProduct(null);
-  }
 
   function handleDeleteConfirm() {
     if (deleteTarget) {
@@ -98,8 +149,12 @@ export default function CatalogScreen({ navigation }: Props) {
         style={styles.card}
       >
         <View style={styles.cardInner}>
-          <View style={styles.cardContent}>
+          {/* Content layer — dimmed independently so the three-dot button stays opaque */}
+          <View style={[styles.cardContent, item.isHidden && styles.cardContentHidden]}>
             <View style={styles.nameRow}>
+              {item.isHidden ? (
+                <Feather name="eye-off" size={12} color={colors.textTertiary} />
+              ) : null}
               <Text style={styles.productName} numberOfLines={1}>
                 {item.name}
               </Text>
@@ -113,6 +168,7 @@ export default function CatalogScreen({ navigation }: Props) {
                 {item.brand}
               </Text>
             ) : null}
+            <PaoChip product={item} />
           </View>
 
           {/* Three-dot — inner Pressable captures the responder; card onPress won't fire */}
@@ -147,17 +203,20 @@ export default function CatalogScreen({ navigation }: Props) {
           <View style={styles.searchWrap}>
             <Input
               icon={<Feather name="search" size={15} color={colors.textTertiary} />}
-              value={searchText}
-              onChangeText={setSearchText}
+              value={filterState.searchQuery}
+              onChangeText={(t) => setFilterState((s) => ({ ...s, searchQuery: t }))}
               placeholder="Search by name, brand or ingredient…"
               clearButtonMode="while-editing"
               returnKeyType="search"
+              containerStyle={styles.searchInput}
             />
+            <CatalogFilterHeader filterState={filterState} onFilterChange={setFilterState} />
           </View>
         }
         ListEmptyComponent={
           <CatalogEmptyState
             hasProducts={products.length > 0}
+            hasActiveFilters={hasActiveFilters}
             onAdd={() => navigation.navigate('AddProductHub')}
           />
         }
@@ -167,25 +226,17 @@ export default function CatalogScreen({ navigation }: Props) {
         product={actionTarget}
         onEdit={(p) => {
           setActionTarget(null);
-          setEditingProduct(p);
-          setEditModalVisible(true);
+          navigation.navigate('ManualProductForm', { editingProductId: p.id });
         }}
         onDelete={(p) => {
           setActionTarget(null);
           setDeleteTarget(p);
         }}
-        onClose={() => setActionTarget(null)}
-      />
-
-      {/* Edit modal — only for editing existing products; adding goes via Hub */}
-      <AddProductModal
-        visible={editModalVisible}
-        editingProduct={editingProduct}
-        onClose={() => {
-          setEditModalVisible(false);
-          setEditingProduct(null);
+        onToggleHidden={(p) => {
+          updateProduct(p.id, { isHidden: !p.isHidden });
+          setActionTarget(null);
         }}
-        onSave={(product) => handleEditSave(product)}
+        onClose={() => setActionTarget(null)}
       />
 
       <DeleteProductModal
@@ -201,27 +252,41 @@ export default function CatalogScreen({ navigation }: Props) {
 
 function RoutineBadge({ status }: { status: RoutineStatusResult }) {
   if (status === 'none') return null;
+  const label =
+    status === 'both' ? 'AM · PM' : status === 'morning' ? 'AM' : 'PM';
+  return <Badge status="Default" type="Light">{label}</Badge>;
+}
+
+// ─── PAO expiry chip ──────────────────────────────────────────────────────────
+
+function PaoChip({ product }: { product: Product }) {
+  const pao = getProductPaoStatus(product);
+  if (!pao || (!pao.isExpired && !pao.isExpiringSoon)) return null;
+
+  const label = pao.isExpired
+    ? 'Expired'
+    : pao.daysRemaining === 0
+    ? 'Expires today'
+    : `Expires in ${pao.daysRemaining}d`;
+
   return (
-    <View style={badgeStyles.pill}>
-      {(status === 'morning' || status === 'both') && (
-        <Feather name="sun" size={13} color={colors.textSecondary} />
-      )}
-      {(status === 'evening' || status === 'both') && (
-        <Feather name="moon" size={13} color={colors.textSecondary} />
-      )}
+    <View style={paoStyles.row}>
+      <Feather name="alert-triangle" size={12} color={PAO_AMBER} />
+      <Text style={paoStyles.text}>{label}</Text>
     </View>
   );
 }
 
-const badgeStyles = StyleSheet.create({
-  pill: {
+const paoStyles = StyleSheet.create({
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: space[2],
-    paddingVertical: 3,
-    borderRadius: 99,
-    backgroundColor: colors.borderDivider,
+    gap: 4,
+    marginTop: 2,
+  },
+  text: {
+    ...typography.caption,
+    color: PAO_AMBER,
   },
 });
 
@@ -229,25 +294,32 @@ const badgeStyles = StyleSheet.create({
 
 function CatalogEmptyState({
   hasProducts,
+  hasActiveFilters,
   onAdd,
 }: {
   hasProducts: boolean;
+  hasActiveFilters: boolean;
   onAdd: () => void;
 }) {
+  const title = !hasProducts
+    ? 'Your catalog is empty'
+    : hasActiveFilters
+    ? 'No products match the current filters'
+    : 'No matching products';
+
+  const body = !hasProducts
+    ? 'Add your first product by searching Open Beauty Facts, scanning a barcode, or entering it manually.'
+    : 'Try adjusting your filters or search query.';
+
   return (
     <View style={emptyStyles.wrap}>
       <Feather name="package" size={32} color={colors.textTertiary} />
-      <Text style={emptyStyles.title}>
-        {hasProducts ? 'No matching products' : 'Your catalog is empty'}
-      </Text>
-      <Text style={emptyStyles.body}>
-        {hasProducts
-          ? 'Try a different name, brand, or ingredient.'
-          : 'Add your first product by searching Open Beauty Facts, scanning a barcode, or entering it manually.'}
-      </Text>
+      <Text style={emptyStyles.title}>{title}</Text>
+      <Text style={emptyStyles.body}>{body}</Text>
       {!hasProducts ? (
         <Button
           variant="primary"
+          size="lg"
           icon={<Feather name="plus" size={16} color={colors.textOnDark} />}
           onPress={onAdd}
           style={emptyStyles.addBtn}
@@ -274,6 +346,9 @@ const styles = StyleSheet.create({
     paddingTop: space[4],
     paddingBottom: space[3],
   },
+  searchInput: {
+    marginBottom: space[2],
+  },
   listContent: {
     paddingHorizontal: space.gutterScreen,
     paddingBottom: space[12],
@@ -293,6 +368,9 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 3,
     minWidth: 0,
+  },
+  cardContentHidden: {
+    opacity: 0.4,
   },
   nameRow: {
     flexDirection: 'row',

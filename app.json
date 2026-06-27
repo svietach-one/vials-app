@@ -25,7 +25,14 @@
     },
     "plugins": [
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Vials to access your photos to scan ingredient labels.",
+          "cameraPermission": "Allow Vials to take photos of ingredient labels."
+        }
+      ]
     ]
   }
 }

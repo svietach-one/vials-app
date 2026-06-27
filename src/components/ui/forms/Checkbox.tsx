@@ -34,8 +34,8 @@ export function Checkbox({
   disabled = false,
   style,
 }: CheckboxProps) {
-  const dim = size === 'sm' ? 18 : 22;
-  const iconSize = size === 'sm' ? 11 : 13;
+  const dim = size === 'sm' ? 18 : 24;
+  const iconSize = size === 'sm' ? 11 : 14;
   const hasText = !!(label || sublabel);
 
   return (
@@ -108,15 +108,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.xs,
   },
   boxUnchecked: {
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: colors.borderStrong,
+    borderColor: palette.cabernet,
   },
-  // Cabernet fill — "active checklist trigger" state per DS spec
   boxChecked: {
     backgroundColor: palette.cabernet,
-    borderWidth: 1,
-    borderColor: palette.cabernet,
+    borderWidth: 0,
   },
 
   textBlock: {

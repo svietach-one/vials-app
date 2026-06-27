@@ -27,6 +27,7 @@ export const palette = {
   zinc900: '#18181B',
 
   cabernet: '#800C2E',
+  red: '#B40018',
   amber: '#A84C0E',
   bottleGreen: '#0F4C3A',
   cobalt: '#1E3A8A',

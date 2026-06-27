@@ -1,0 +1,27 @@
+{
+  "task": "decouple-routine-from-form",
+  "phase": "qa",
+  "status": "IN_PROGRESS",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/decouple-routine-from-form.md",
+    "tech_design": "docs/tech-design/decouple-routine-from-form.md",
+    "qa_tests": "tests/catalog/hide-product.test.tsx"
+  },
+  "qa_summary": {
+    "test_file": "tests/catalog/hide-product.test.tsx",
+    "test_count": 17,
+    "stories_covered": [
+      "Story 1: onSave called with product+routineTarget='none'; product has a valid id; empty name blocks save",
+      "Story 2: RoutineTargetPicker chips (Skip/AM/PM/AM & PM) and section heading absent in both add and edit mode",
+      "Story 3: edit mode calls onSave with existing product.id; reflects updated name; button label is 'Save Changes'",
+      "Story 4: no emoji ⚠️ in either INCI notice; Feather alert-triangle icon present in both; text content preserved"
+    ],
+    "component_under_test": "src/components/product/AddProductModal.tsx",
+    "test_runner": "jest (jest-expo preset)"
+  }
+}

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 import { loadJson, saveJson, STORAGE_KEYS } from '@/services/storage';
 import { generateId } from '@/utils/generateId';
-import type { Routine } from '@/types';
+import type { ProductType, Routine } from '@/types';
 
 // ─── Default routines ─────────────────────────────────────────────────────────
 
@@ -31,6 +31,10 @@ interface RoutinesState {
   updateRoutine: (id: string, patch: Partial<Routine>) => void;
   /** Hide or restore a single step without replacing the full routine. */
   setStepHidden: (routineId: string, stepId: string, hidden: boolean) => void;
+  /** Add or update the step for a product in a routine. */
+  upsertProductStep: (routineId: string, productId: string, productType: ProductType, scheduledDays: number[]) => void;
+  /** Remove the step for a product from a routine. */
+  removeProductStep: (routineId: string, productId: string) => void;
 }
 
 export const useRoutinesStore = create<RoutinesState>((set, get) => ({
@@ -76,6 +80,30 @@ export const useRoutinesStore = create<RoutinesState>((set, get) => ({
         ...r,
         steps: r.steps.map((s) => (s.id === stepId ? { ...s, hidden } : s)),
       };
+    });
+    set({ routines });
+    void saveJson(STORAGE_KEYS.routines, routines);
+  },
+
+  upsertProductStep: (routineId, productId, productType, scheduledDays) => {
+    const routines = get().routines.map((r) => {
+      if (r.id !== routineId) return r;
+      const exists = r.steps.some((s) => s.productId === productId);
+      const steps = exists
+        ? r.steps.map((s) =>
+            s.productId === productId ? { ...s, scheduledDays, hidden: false } : s,
+          )
+        : [...r.steps, { id: generateId(), productType, productId, hidden: false, scheduledDays }];
+      return { ...r, steps };
+    });
+    set({ routines });
+    void saveJson(STORAGE_KEYS.routines, routines);
+  },
+
+  removeProductStep: (routineId, productId) => {
+    const routines = get().routines.map((r) => {
+      if (r.id !== routineId) return r;
+      return { ...r, steps: r.steps.filter((s) => s.productId !== productId) };
     });
     set({ routines });
     void saveJson(STORAGE_KEYS.routines, routines);

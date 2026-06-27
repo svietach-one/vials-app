@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,9 +10,10 @@ import {
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { AddProductModal } from '@/components/product/AddProductModal';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
+import { RemoveRoutineActionSheet } from '@/components/routine/RemoveRoutineActionSheet';
+import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
@@ -20,6 +22,8 @@ import { colors, space, typography } from '@/constants/tokens';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
+import { useRoutinesStore } from '@/store/routinesStore';
+import { deriveProductSchedule, formatRoutineLabel } from '@/utils/routineLabel';
 import type { ActiveIngredientKey, Product } from '@/types';
 
 type Props = NativeStackScreenProps<CatalogStackParamList, 'ProductDetail'>;
@@ -34,9 +38,12 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
 
   const product = products.find((p) => p.id === productId) ?? null;
 
+  const routines = useRoutinesStore((s) => s.routines);
+
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [schedulerVisible, setSchedulerVisible] = useState(false);
+  const [removeSheetVisible, setRemoveSheetVisible] = useState(false);
 
   // Wire the three-dot button into the navigation header
   useEffect(() => {
@@ -65,7 +72,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           <InlineAlert tone="sos" title="Product not found">
             This product may have been deleted from your catalog.
           </InlineAlert>
-          <Button variant="secondary" onPress={() => navigation.goBack()}>
+          <Button variant="secondary" size="lg" onPress={() => navigation.goBack()}>
             Go Back
           </Button>
         </View>
@@ -73,17 +80,15 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
     );
   }
 
+  const schedule = deriveProductSchedule(routines, product.id);
+  const routineLabel: string | null = formatRoutineLabel(schedule);
+
   // Resolve active tags: use saved activeTags; fall back to activeIngredients keys
   // for products saved before activeTags was introduced.
   const activeTags: ActiveIngredientKey[] =
     product.activeTags ?? product.activeIngredients.map((i) => i.key);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
-
-  function handleEditSave(updated: Product) {
-    updateProduct(updated.id, updated);
-    setEditModalVisible(false);
-  }
 
   function handleDeleteConfirm() {
     if (deleteTarget) {
@@ -147,30 +152,65 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
         ) : null}
       </ScrollView>
 
+      {/* ── Routine footer ──────────────────────────────────────────────── */}
+      <View style={styles.footer}>
+        <Button
+          fullWidth
+          size="lg"
+          variant={routineLabel !== null ? 'secondary' : 'primary'}
+          onPress={() => setSchedulerVisible(true)}
+        >
+          {routineLabel !== null ? routineLabel : 'Add to Routine'}
+        </Button>
+        {routineLabel !== null ? (
+          <Pressable
+            style={styles.removeLink}
+            onPress={() => setRemoveSheetVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Remove from routine"
+          >
+            <Text style={styles.removeLinkText}>Remove from Routine</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
       <ProductActionSheet
         product={actionSheetVisible ? product : null}
         onEdit={(_p) => {
           setActionSheetVisible(false);
-          setEditModalVisible(true);
+          navigation.navigate('ManualProductForm', { editingProductId: product.id });
         }}
         onDelete={(_p) => {
           setActionSheetVisible(false);
           setDeleteTarget(product);
         }}
+        onToggleHidden={(p) => {
+          updateProduct(p.id, { isHidden: !p.isHidden });
+          setActionSheetVisible(false);
+        }}
         onClose={() => setActionSheetVisible(false)}
-      />
-
-      <AddProductModal
-        visible={editModalVisible}
-        editingProduct={product}
-        onClose={() => setEditModalVisible(false)}
-        onSave={(updated) => handleEditSave(updated)}
       />
 
       <DeleteProductModal
         product={deleteTarget}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <RoutineSchedulerSheet
+        visible={schedulerVisible}
+        productId={product.id}
+        productType={product.productType}
+        title={routineLabel !== null ? 'Edit Routine Settings' : 'Add to Routine'}
+        cancelLabel="Cancel"
+        saveLabel="Save"
+        onClose={() => setSchedulerVisible(false)}
+      />
+
+      <RemoveRoutineActionSheet
+        visible={removeSheetVisible}
+        product={product}
+        onClose={() => setRemoveSheetVisible(false)}
       />
     </SafeAreaView>
   );
@@ -195,8 +235,25 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.gutterScreen,
     paddingTop: space[6],
-    paddingBottom: space[12],
+    paddingBottom: space[16],
     gap: space[6],
+  },
+  footer: {
+    paddingHorizontal: space.gutterScreen,
+    paddingVertical: space[4],
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
+    backgroundColor: colors.bgBase,
+    gap: space[3],
+  },
+  removeLink: {
+    alignItems: 'center',
+    paddingVertical: space[2],
+  },
+  removeLinkText: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: colors.statusSOS,
   },
   headerBlock: {
     gap: space[2],

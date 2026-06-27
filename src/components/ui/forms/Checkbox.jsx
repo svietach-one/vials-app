@@ -15,7 +15,7 @@ export function Checkbox({
   style = {},
   ...rest
 }) {
-  const dim = size === "sm" ? 18 : 22;
+  const dim = size === "sm" ? 18 : 24;
 
   const box = (
     <span
@@ -28,9 +28,9 @@ export function Checkbox({
         flex: "none",
         borderRadius: "var(--radius-xs)",
         border: checked
-          ? "var(--border-hair) solid var(--cabernet)"
-          : "var(--border-thick) solid var(--border-strong)",
-        background: checked ? "var(--cabernet)" : "var(--surface-raised)",
+          ? "none"
+          : "1.5px solid var(--cabernet)",
+        background: checked ? "var(--cabernet)" : "transparent",
         color: "var(--white)",
         transition: "background var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard)",
       }}

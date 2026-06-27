@@ -249,10 +249,10 @@ export function SkinProfileEditModal({
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Button variant="secondary" onPress={onClose} style={styles.footerBtn}>
+            <Button variant="secondary" size="lg" onPress={onClose} style={styles.footerBtn}>
               Cancel
             </Button>
-            <Button onPress={handleSave} style={styles.footerBtn}>
+            <Button size="lg" onPress={handleSave} style={styles.footerBtn}>
               Save
             </Button>
           </View>

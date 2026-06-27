@@ -14,7 +14,8 @@ version: 1.1 (gap-fix revision)
 
 * **The Core Value Intersection:** Daily skincare and medical cosmetic tracking combined into an inseparable local engine.
 * **The Trust Anchor:** 100% data confidentiality. Personal data never leaves the device — no cloud backend, no analytics, no trackers.
-* **Connectivity note:** The app's *data* is local-only. One feature — Catalog product lookup (Section 4.3) — calls the public Open Beauty Facts API to autocomplete product details. This requires a network connection at the moment of lookup only; no user data is sent in that call, and a full manual-entry fallback exists for offline use. Every other feature works with zero connectivity.
+* **Connectivity Architecture (The Hybrid Engine):** The application operates on a hybrid data model. The user's personal shelf (`catalogStore`), routine schedules/checklists (`routineStore`), and the ingredient conflict verification engine (`conflictEngine.ts`) run strictly offline-first and local-only (Zustand + MMKV).
+Global search, barcode scanning, label text recognition (OCR), and crowdsourced product suggestions function strictly online-only. In the absence of a network connection, these features gracefully degrade, forcing the UI into manual input mode.
 
 ---
 
@@ -48,7 +49,7 @@ The viewport system eliminates layout clutter by routing all configurations into
    * **Sub-View A: Today (Default):** Executable AM/PM routine checklist filtered for the active system day.
    * **Sub-View B: Weekly Plan (Header Toggle):** The operational core of Skin Cycling. Allows weekday product assignments and processes ingredient conflicts.
 2. **TAB 2: CATALOG (`Feather: package`)**
-   * **Purpose:** Physical product inventory list with automated Open Beauty Facts API ingestion and a strict manual fallback entry layer.
+   * **Purpose:** Physical product inventory list with proprietary Vials API integration, barcode/OCR scanning, and a strict manual fallback entry layer.
 3. **TAB 3: CLINIC (`Feather: activity`)**
    * **Purpose:** A 12-month forecasting aesthetic timeline, lifecycle progress engine, and self-calibrating metabolism tracker.
 4. **TAB 4: PROFILE (`Feather: user`)**
@@ -87,7 +88,11 @@ The viewport system eliminates layout clutter by routing all configurations into
   * *Level 1 (Category Pills):* `[All] [Serums] [Moisturizers] [SPF]`.
   * *Level 2 (Biomarker Toggles):* Filters by auto-parsed INCI categories: `[🍾 Soothing]` (Centella, Ceramides — Deep Bottle Green), `[🫙 Actives]` (Retinoids, Vitamin C — Rich Amber), `[🧪 Hydration]` (Hyaluronic Acid — Cobalt Apothecary).
 * **`ProductHeaderAction`:** Top-right corner button context (`+ Add Product`), styled as a secondary black outline button to summon entry modules.
-* **`ProductForm`:** Driven by Open Beauty Facts API autocomplete (requires connectivity). If nothing is resolved **or the device is offline**, it triggers an instant manual text input form for Brand, Name, Type dropdown, and a multi-line raw INCI text field — this manual path is always available regardless of network state.
+* **Product Ingestion (Proprietary Database Integration):** Instead of calling the third-party Open Beauty Facts API directly, the app queries the dedicated Vials API connected to a self-hosted PostgreSQL dump.
+* **Universal Scanner Loop:** Product lookup is triggered via a unified camera button. The system scans the frame pipeline simultaneously for a barcode (`GET /api/v1/products/lookup`) and product label text/OCR (`GET /api/v1/products/search`). Barcode recognition takes absolute priority. Text search utilizes server-side trigram matching to handle and compensate for OCR recognition typos.
+* **Crowdsourcing & Manual Fallback:** If a product is missing from the global database, the user fills out a manual form. Upon saving:
+  * **Instant Local Activation:** The product is immediately saved to `catalogStore` with `source: 'manual'`, making it available for routines and ingredient conflict checks without waiting for server approval.
+  * **Asynchronous Background Sync:** The app dispatches a `POST /api/v1/products/suggest` request to the server in the background with `status: 'pending'` for admin review. The user is never blocked by a "waiting for moderation" screen.
 * **`DeleteProductModal` (`US-08.1`):** Triggered on item deletion. If the item is active in Tab 1, it renders a confirmation prompt: *"Deleting will remove this step from your routine."* On click, it simultaneously purges the item from both stores.
 
 ### 4.4. Tab 3: Clinic Screen (Aesthetics Hub)
@@ -157,4 +162,4 @@ When a raw ingredient text string (INCI) is inputted or loaded from the API, a r
 ## 6. Open Items for Clinical/Legal Review Before Launch
 * Section 5.3 procedure-spacing table needs sign-off from a licensed practitioner.
 * Confirm in-app copy clearly disclaims the app is not a substitute for professional medical advice, particularly on `ClinicalRestrictionsBlock` and `FadingInteractivePrompt`.
-* Confirm Open Beauty Facts API terms of use permit this ingestion pattern at expected scale.
+* Confirm the Vials API moderation queue workflow (admin review of `pending` crowdsourced suggestions) is defined and staffed before launch.

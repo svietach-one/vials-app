@@ -28,7 +28,7 @@ The application consolidates navigation into 4 high-priority bottom tabs.
    * **Sub-View A: Today (Default):** Daily AM/PM execution checklist.
    * **Sub-View B: Weekly Plan (Toggle via "Edit Schedule" Header Button):** Core strategy view for scheduling specific product days and managing ingredient conflicts.
 2. **TAB 2: CATALOG (`Feather: package`)**
-   * **Purpose:** Physical product inventory list with biomarker/category filtering, a standalone manual entry form, and Open Beauty Facts API search.
+   * **Purpose:** Physical product inventory list with biomarker/category filtering, proprietary Vials API search via barcode/OCR scanning, and a standalone manual entry form.
 3. **TAB 3: CLINIC (`Feather: activity`)**
    * **Purpose:** 12-month interactive aesthetic procedure timeline and longevity calculator.
 4. **TAB 4: PROFILE (`Feather: user`)**
@@ -69,8 +69,14 @@ The application consolidates navigation into 4 high-priority bottom tabs.
   * *Level 1 (Category Pills):* `[All] [Serums] [Moisturizers] [SPF]`.
   * *Level 2 (Biomarker Toggles):* `[🍾 Soothing]` (Centella, Ceramides — Deep Bottle Green), `[🫙 Actives]` (Retinoids, Vitamin C — Rich Amber), `[🧪 Hydration]` (Hyaluronic Acid — Cobalt Apothecary).
 * **`ProductHeaderAction`:** Top-right corner button (`+ Add Product`) rendered as a clean secondary black outline button to invoke creation modes.
-* **`ProductSearchInput`:** Drives queries to the Open Beauty Facts autocompletion API. Requires connectivity.
-* **`ProductForm` (Manual Fallback):** Text inputs for Brand, Name, Type dropdown, and a multi-line raw INCI ingredient field. Triggers automatically when the API returns no match, **or immediately when the device is offline** — this path is always available regardless of network state.
+* **Universal Scanner Screen (Overlay):** A single full-screen camera overlay featuring a central rectangular focus bracket (viewfinder).
+  * Helper Placeholder Text: *"Focus camera on the barcode or product name on the vial"*.
+  * Loading State (OCR Indicator): When the system detects a static block of text, the viewfinder frame pulses in **Cobalt** (`#1E3A8A`), signaling active text processing.
+  * Offline State: If the device loses its internet connection, a system banner appears above the viewfinder frame: *"Offline Mode. Scanning unavailable. Switch to manual entry"*. The scanning trigger is disabled, and the UI automatically forces a transition to an empty `ProductForm` for manual data entry.
+* **`ProductForm` (Manual Fallback):** Text inputs for Brand, Name, Type dropdown, and a multi-line raw INCI ingredient field. Triggers automatically when the API returns no match, when the user selects no match from results, **or immediately when the device is offline** — this path is always available regardless of network state.
+  * **Pre-fill State:** If accessed via a failed Universal Scan, `brand` and `name` fields are automatically populated with strings extracted by the OCR layer, minimizing typing friction.
+  * **Ingredient Input Field:** A large text area for pasting or typing the raw INCI ingredients (`inci_raw`).
+  * **Submission UI Feedback:** Upon pressing "Save", the screen dismisses immediately to the user's Shelf with a success toast ("Product added to your shelf"). No loader or blocking state is shown for the background server sync.
 * **`DeleteProductModal` (`US-08.1`):** Triggered on item deletion. If the item is active in Tab 1, it renders a confirmation prompt: *"Deleting will remove this step from your routine."* On click, it simultaneously purges the item from both stores.
 
 ---

@@ -11,17 +11,11 @@ import {
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { AddProductModal } from '@/components/product/AddProductModal';
-import type { RoutineTarget } from '@/components/product/AddProductModal';
-import { Button } from '@/components/ui/core/Button';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { searchProducts } from '@/services/openBeautyFacts/search';
 import type { OBFProduct } from '@/services/openBeautyFacts/types';
-import { useProductsStore } from '@/store/productsStore';
-import { useRoutineLinking } from '@/hooks/useRoutineLinking';
-import type { Product } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,19 +24,11 @@ type Props = NativeStackScreenProps<CatalogStackParamList, 'AddProductHub'>;
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function AddProductHubScreen({ navigation }: Props) {
-  const addProduct = useProductsStore((s) => s.addProduct);
-  const { addProductToRoutine } = useRoutineLinking();
-
-  // OBF search
   const [searchText, setSearchText] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [searchResults, setSearchResults] = useState<OBFProduct[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchFailed, setSearchFailed] = useState(false);
-
-  // Add modal
-  const [modalVisible, setModalVisible] = useState(false);
-  const [prefillOBF, setPrefillOBF] = useState<OBFProduct | null>(null);
 
   // Debounce
   useEffect(() => {
@@ -73,33 +59,6 @@ export default function AddProductHubScreen({ navigation }: Props) {
     });
     return () => { cancelled = true; };
   }, [debouncedQuery]);
-
-  // ── Routine linking (Blocker 1 fix: preserved from original ProductsScreen) ─
-
-  // ── Handlers ─────────────────────────────────────────────────────────────
-
-  function handleSave(product: Product, routineTarget: RoutineTarget) {
-    addProduct(product);
-    addProductToRoutine(product, routineTarget);
-    setModalVisible(false);
-    setPrefillOBF(null);
-    navigation.goBack();
-  }
-
-  function openWithOBF(item: OBFProduct) {
-    setPrefillOBF(item);
-    setModalVisible(true);
-  }
-
-  function openManual() {
-    setPrefillOBF(null);
-    setModalVisible(true);
-  }
-
-  function closeModal() {
-    setModalVisible(false);
-    setPrefillOBF(null);
-  }
 
   const hasTypedEnough = searchText.trim().length >= 3;
   const showNotFound = hasTypedEnough && !searching && !searchFailed && searchResults.length === 0;
@@ -146,7 +105,9 @@ export default function AddProductHubScreen({ navigation }: Props) {
                   styles.resultRow,
                   pressed && styles.resultRowPressed,
                 ]}
-                onPress={() => openWithOBF(item)}
+                onPress={() =>
+                  navigation.navigate('ManualProductForm', { prefillOBFProduct: item })
+                }
                 accessibilityRole="button"
                 accessibilityLabel={`Add ${item.name}`}
               >
@@ -169,9 +130,21 @@ export default function AddProductHubScreen({ navigation }: Props) {
             <Text style={styles.hint}>
               No results for "{searchText.trim()}"
             </Text>
-            <Button variant="secondary" onPress={openManual}>
-              Add Manually
-            </Button>
+            <Pressable
+              style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
+              onPress={() => navigation.navigate('ManualProductForm', {})}
+              accessibilityRole="button"
+              accessibilityLabel="Create product manually"
+            >
+              <View style={styles.actionIconWrap}>
+                <Feather name="edit-3" size={20} color={colors.textPrimary} />
+              </View>
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Add Manually</Text>
+                <Text style={styles.actionSubtitle}>Enter details yourself</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={colors.textTertiary} />
+            </Pressable>
           </View>
         ) : null}
 
@@ -200,17 +173,25 @@ export default function AddProductHubScreen({ navigation }: Props) {
         {/* ── Manual Entry ───────────────────────────────────────────────── */}
         <View style={styles.divider} />
         <Text style={styles.sectionLabel}>Manual Entry</Text>
-        <Button variant="secondary" fullWidth onPress={openManual}>
-          Create Product Manually
-        </Button>
+        <Pressable
+          style={({ pressed }) => [
+            styles.actionRow,
+            pressed && styles.actionRowPressed,
+          ]}
+          onPress={() => navigation.navigate('ManualProductForm', {})}
+          accessibilityRole="button"
+          accessibilityLabel="Create product manually"
+        >
+          <View style={styles.actionIconWrap}>
+            <Feather name="edit-3" size={20} color={colors.textPrimary} />
+          </View>
+          <View style={styles.actionContent}>
+            <Text style={styles.actionTitle}>Create Product Manually</Text>
+            <Text style={styles.actionSubtitle}>Enter details yourself</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.textTertiary} />
+        </Pressable>
       </ScrollView>
-
-      <AddProductModal
-        visible={modalVisible}
-        prefillOBFProduct={prefillOBF}
-        onClose={closeModal}
-        onSave={handleSave}
-      />
     </SafeAreaView>
   );
 }
@@ -275,9 +256,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   notFoundWrap: {
-    alignItems: 'center',
     gap: space[3],
-    paddingVertical: space[2],
   },
   divider: {
     height: 1,

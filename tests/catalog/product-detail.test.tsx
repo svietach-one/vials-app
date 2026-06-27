@@ -10,7 +10,7 @@
  *   AC-26 Full formula text renders; "Not available" shown when absent
  *   AC-27 Notes section renders when notes are non-null; hidden when null
  *   AC-28 Header three-dot opens ProductActionSheet
- *   AC-29 Action sheet "Edit" opens AddProductModal; save calls updateProduct
+ *   AC-29 Action sheet "Edit" navigates to ManualProductForm with editingProductId
  *   AC-30 Action sheet "Delete" opens DeleteProductModal; confirm calls removeProduct and goBack
  *
  * ProductActionSheet component contract (standalone):
@@ -81,28 +81,6 @@ jest.mock('@/store/productsStore', () => ({
     }),
   ),
 }));
-
-// Child modals
-jest.mock('@/components/product/AddProductModal', () => {
-  const { View, Pressable, Text } = require('react-native');
-  return {
-    AddProductModal: ({ visible, editingProduct, onSave, onClose }: any) => {
-      if (!visible) return null;
-      return (
-        <View testID="add-product-modal">
-          <Text testID="modal-editing-id">{editingProduct?.id ?? 'none'}</Text>
-          <Pressable
-            testID="modal-save-btn"
-            onPress={() =>
-              onSave({ ...editingProduct, name: 'Updated Serum' })
-            }
-          />
-          <Pressable testID="modal-close-btn" onPress={onClose} />
-        </View>
-      );
-    },
-  };
-});
 
 jest.mock('@/components/product/DeleteProductModal', () => {
   const { View, Pressable } = require('react-native');
@@ -342,18 +320,16 @@ describe('AC-28: header three-dot opens ProductActionSheet', () => {
 
 // ── AC-29: Edit flow ──────────────────────────────────────────────────────────
 
-describe('AC-29: action sheet Edit opens AddProductModal and save calls updateProduct', () => {
-  it('should show ProductActionSheet when it is triggered externally', () => {
-    // Simulate the screen rendering the sheet with a product (action sheet visible = true)
+describe('AC-29: action sheet Edit navigates to ManualProductForm with editingProductId', () => {
+  it('should render the Edit action in the action sheet', () => {
     const mockOnEdit = jest.fn();
-    const mockOnDelete = jest.fn();
-    const mockOnClose = jest.fn();
     render(
       <ProductActionSheet
         product={FULL_PRODUCT}
         onEdit={mockOnEdit}
-        onDelete={mockOnDelete}
-        onClose={mockOnClose}
+        onDelete={jest.fn()}
+        onToggleHidden={jest.fn()}
+        onClose={jest.fn()}
       />,
     );
     expect(screen.getByLabelText('Edit product')).toBeTruthy();
@@ -374,6 +350,7 @@ describe('AC-30: delete confirmation calls removeProduct and goBack', () => {
         product={FULL_PRODUCT}
         onEdit={jest.fn()}
         onDelete={mockOnConfirm}
+        onToggleHidden={jest.fn()}
         onClose={jest.fn()}
       />,
     );
@@ -391,6 +368,7 @@ describe('AC-31: ProductActionSheet is hidden when product prop is null', () => 
         product={null}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
+        onToggleHidden={jest.fn()}
         onClose={jest.fn()}
       />,
     );
@@ -409,6 +387,7 @@ describe('AC-32: Edit row calls onEdit with the product and then onClose', () =>
         product={FULL_PRODUCT}
         onEdit={mockOnEdit}
         onDelete={jest.fn()}
+        onToggleHidden={jest.fn()}
         onClose={mockOnClose}
       />,
     );
@@ -423,6 +402,7 @@ describe('AC-32: Edit row calls onEdit with the product and then onClose', () =>
         product={FULL_PRODUCT}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
+        onToggleHidden={jest.fn()}
         onClose={mockOnClose}
       />,
     );
@@ -439,6 +419,7 @@ describe('AC-33: Delete row calls onDelete with the product and then onClose', (
         product={FULL_PRODUCT}
         onEdit={jest.fn()}
         onDelete={mockOnDelete}
+        onToggleHidden={jest.fn()}
         onClose={jest.fn()}
       />,
     );
@@ -453,6 +434,7 @@ describe('AC-33: Delete row calls onDelete with the product and then onClose', (
         product={FULL_PRODUCT}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
+        onToggleHidden={jest.fn()}
         onClose={mockOnClose}
       />,
     );
@@ -471,6 +453,7 @@ describe('AC-34: Cancel row calls only onClose', () => {
         product={FULL_PRODUCT}
         onEdit={mockOnEdit}
         onDelete={mockOnDelete}
+        onToggleHidden={jest.fn()}
         onClose={mockOnClose}
       />,
     );
@@ -489,6 +472,7 @@ describe('AC-35: backdrop press calls onClose', () => {
         product={FULL_PRODUCT}
         onEdit={jest.fn()}
         onDelete={jest.fn()}
+        onToggleHidden={jest.fn()}
         onClose={mockOnClose}
       />,
     );
