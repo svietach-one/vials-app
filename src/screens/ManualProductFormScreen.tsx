@@ -551,7 +551,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         </ScrollView>
 
         <View style={styles.footer}>
-          <Button fullWidth onPress={handleSave} disabled={!name.trim()}>
+          <Button fullWidth size="lg" onPress={handleSave} disabled={!name.trim()}>
             {isEditMode ? 'Save Changes' : 'Add to Catalog'}
           </Button>
         </View>

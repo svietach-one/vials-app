@@ -129,10 +129,10 @@ export function RoutineSchedulerSheet({
 
       {/* Section 3: Actions */}
       <View style={styles.actions}>
-        <Button variant="secondary" onPress={onClose} style={styles.actionBtn}>
+        <Button variant="secondary" size="lg" onPress={onClose} style={styles.actionBtn}>
           {cancelLabel}
         </Button>
-        <Button onPress={handleSave} style={styles.actionBtn}>
+        <Button size="lg" onPress={handleSave} style={styles.actionBtn}>
           {saveLabel}
         </Button>
       </View>

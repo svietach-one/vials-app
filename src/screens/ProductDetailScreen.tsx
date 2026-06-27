@@ -72,7 +72,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           <InlineAlert tone="sos" title="Product not found">
             This product may have been deleted from your catalog.
           </InlineAlert>
-          <Button variant="secondary" onPress={() => navigation.goBack()}>
+          <Button variant="secondary" size="lg" onPress={() => navigation.goBack()}>
             Go Back
           </Button>
         </View>
@@ -156,6 +156,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
       <View style={styles.footer}>
         <Button
           fullWidth
+          size="lg"
           variant={routineLabel !== null ? 'secondary' : 'primary'}
           onPress={() => setSchedulerVisible(true)}
         >

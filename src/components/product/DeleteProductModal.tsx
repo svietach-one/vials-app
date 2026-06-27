@@ -36,6 +36,7 @@ export function DeleteProductModal({ product, onConfirm, onCancel }: DeleteProdu
           <View style={styles.row}>
             <Button
               variant="secondary"
+              size="lg"
               onPress={onCancel}
               style={styles.btn}
             >
@@ -43,6 +44,7 @@ export function DeleteProductModal({ product, onConfirm, onCancel }: DeleteProdu
             </Button>
             <Button
               variant="destructive"
+              size="lg"
               onPress={onConfirm}
               style={styles.btn}
             >

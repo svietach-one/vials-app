@@ -192,7 +192,7 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
           </Button>
           <Button
             variant="ghost"
-            size="md"
+            size="lg"
             fullWidth
             onPress={handleSkip}
           >

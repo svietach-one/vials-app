@@ -15,6 +15,7 @@ import { CatalogFilterHeader } from '@/components/catalog/CatalogFilterHeader';
 import { Button } from '@/components/ui/core/Button';
 import { Card } from '@/components/ui/core/Card';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { Badge } from '@/components/ui/feedback/Badge';
 import { Tag } from '@/components/ui/core/Tag';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, space, typography } from '@/constants/tokens';
@@ -251,29 +252,10 @@ export default function CatalogScreen({ navigation }: Props) {
 
 function RoutineBadge({ status }: { status: RoutineStatusResult }) {
   if (status === 'none') return null;
-  return (
-    <View style={badgeStyles.pill}>
-      {(status === 'morning' || status === 'both') && (
-        <Feather name="sun" size={13} color={colors.textSecondary} />
-      )}
-      {(status === 'evening' || status === 'both') && (
-        <Feather name="moon" size={13} color={colors.textSecondary} />
-      )}
-    </View>
-  );
+  const label =
+    status === 'both' ? 'AM · PM' : status === 'morning' ? 'AM' : 'PM';
+  return <Badge status="Default" type="Outline">{label}</Badge>;
 }
-
-const badgeStyles = StyleSheet.create({
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: space[2],
-    paddingVertical: 3,
-    borderRadius: 99,
-    backgroundColor: colors.borderDivider,
-  },
-});
 
 // ─── PAO expiry chip ──────────────────────────────────────────────────────────
 
@@ -337,6 +319,7 @@ function CatalogEmptyState({
       {!hasProducts ? (
         <Button
           variant="primary"
+          size="lg"
           icon={<Feather name="plus" size={16} color={colors.textOnDark} />}
           onPress={onAdd}
           style={emptyStyles.addBtn}

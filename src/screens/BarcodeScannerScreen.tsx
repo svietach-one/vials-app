@@ -41,13 +41,13 @@ function CameraPermissionScreen({ permission, onRequest, onBack }: CameraPermiss
           Allow camera access to scan product barcodes and look them up in Open Beauty Facts.
         </Text>
         {permission.canAskAgain ? (
-          <Button variant="primary" onPress={onRequest}>Allow Camera Access</Button>
+          <Button variant="primary" size="lg" onPress={onRequest}>Allow Camera Access</Button>
         ) : (
           <InlineAlert tone="warning" title="Permission denied">
             Open Settings and grant camera access to Expo Go, then return here.
           </InlineAlert>
         )}
-        <Button variant="ghost" onPress={onBack}>Go Back</Button>
+        <Button variant="ghost" size="lg" onPress={onBack}>Go Back</Button>
       </View>
     </SafeAreaView>
   );
