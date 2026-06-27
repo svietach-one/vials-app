@@ -11,14 +11,16 @@ import { Feather } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 import { ClinicalRestrictionsBlock } from '@/components/routine/ClinicalRestrictionsBlock';
+import { ConflictWarningInline } from '@/components/routine/ConflictWarningInline';
+import { PlannerBlock } from '@/components/routine/PlannerBlock';
 import { RemoveRoutineActionSheet } from '@/components/routine/RemoveRoutineActionSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
 import { WeeklyPlanView } from '@/components/routine/WeeklyPlanView';
 import { Button } from '@/components/ui/core/Button';
-import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
@@ -28,15 +30,13 @@ import type { Product, ProductType, Routine, RoutineStep } from '@/types';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Routine Hub'>;
+type Mode = 'view' | 'edit';
+type Period = 'morning' | 'evening';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-const MONTH_NAMES = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function formatTodayLabel(date: Date): string {
   return `${DAY_NAMES[date.getDay()]}, ${date.getDate()} ${MONTH_NAMES[date.getMonth()]}`;
@@ -54,7 +54,8 @@ export default function RoutinesScreen({ navigation }: Props) {
   const routines = useRoutinesStore((s) => s.routines);
   const setStepHidden = useRoutinesStore((s) => s.setStepHidden);
 
-  const [view, setView] = useState<'today' | 'weekly'>('today');
+  const [mode, setMode] = useState<Mode>('view');
+  const [activePeriod, setActivePeriod] = useState<Period>('morning');
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [amCollapsed, setAmCollapsed] = useState(false);
   const [pmCollapsed, setPmCollapsed] = useState(false);
@@ -71,22 +72,31 @@ export default function RoutinesScreen({ navigation }: Props) {
 
   useEffect(() => {
     navigation.setOptions({
-      headerTitle: view === 'today' ? 'Routine Hub' : 'Edit Schedule',
-      headerRight: () => (
-        <Pressable
-          onPress={() => setView((v) => (v === 'today' ? 'weekly' : 'today'))}
-          style={styles.headerBtn}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={view === 'today' ? 'Edit schedule' : 'Back to today'}
-        >
-          <Text style={styles.headerBtnText}>
-            {view === 'today' ? 'Edit Schedule' : 'Done'}
-          </Text>
-        </Pressable>
-      ),
+      headerTitle: mode === 'view' ? 'Routine' : 'Edit Schedule',
+      headerRight: () =>
+        mode === 'view' ? (
+          <Pressable
+            onPress={() => setMode('edit')}
+            style={styles.headerBtn}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Edit routine order"
+          >
+            <Feather name="calendar" size={20} color={palette.black} />
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => setMode('view')}
+            style={styles.headerBtn}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Done editing"
+          >
+            <Text style={styles.headerBtnText}>Done</Text>
+          </Pressable>
+        ),
     });
-  }, [navigation, view]);
+  }, [navigation, mode]);
 
   const today = new Date();
   const todayDow = today.getDay();
@@ -123,6 +133,11 @@ export default function RoutinesScreen({ navigation }: Props) {
     return { amSteps: am, pmSteps: pm, conflictMap: map };
   }, [routines, products, todayDow]);
 
+  // Planner block data — schedule shown for the selected period
+  const activeRoutine = activePeriod === 'morning' ? morningRoutine : eveningRoutine;
+  const plannerDays = activeRoutine?.steps.find((s) => !s.hidden)?.scheduledDays ?? [];
+  const plannerStepCount = activePeriod === 'morning' ? amSteps.length : pmSteps.length;
+
   function toggleComplete(stepId: string) {
     setCompleted((prev) => {
       const next = new Set(prev);
@@ -152,10 +167,10 @@ export default function RoutinesScreen({ navigation }: Props) {
     setStepHidden(routine.id, stepId, true);
   }
 
-  if (view === 'weekly') {
+  if (mode === 'edit') {
     return (
       <SafeAreaView style={styles.safe}>
-        <WeeklyPlanView />
+        <WeeklyPlanView initialPeriod={activePeriod} />
       </SafeAreaView>
     );
   }
@@ -167,14 +182,26 @@ export default function RoutinesScreen({ navigation }: Props) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Page header */}
+        {/* Large page title */}
         <View style={styles.pageHeader}>
-          <Text style={styles.pageTitle}>Today</Text>
+          <Text style={styles.pageTitle}>Routine</Text>
           <Text style={styles.dateLabel}>{formatTodayLabel(today)}</Text>
         </View>
 
+        {/* Scheduling control block */}
+        <PlannerBlock
+          activePeriod={activePeriod}
+          onPeriodChange={setActivePeriod}
+          scheduledDays={plannerDays}
+          stepCount={plannerStepCount}
+          onEditPress={() => setMode('edit')}
+        />
+
         {/* Clinical restrictions (only shows during rehab windows) */}
         <ClinicalRestrictionsBlock />
+
+        {/* Ingredient conflicts */}
+        <ConflictWarningInline routines={routines} products={products} />
 
         {/* Seasonal tip (dismissible) */}
         <SeasonalNoticeBanner />
@@ -190,7 +217,7 @@ export default function RoutinesScreen({ navigation }: Props) {
           {amSteps.length === 0 ? (
             <EmptySection
               message="No steps scheduled for this morning."
-              hint="Set up your routine in the Weekly Plan tab."
+              hint="Tap Edit order above to set up your routine."
             />
           ) : (
             amSteps.map((step) => {
@@ -241,7 +268,7 @@ export default function RoutinesScreen({ navigation }: Props) {
           {pmSteps.length === 0 ? (
             <EmptySection
               message="No steps scheduled for this evening."
-              hint="Set up your routine in the Weekly Plan tab."
+              hint="Tap Edit order above to set up your routine."
             />
           ) : (
             pmSteps.map((step) => {
@@ -331,7 +358,6 @@ function RoutineSection({
 
   return (
     <View style={sectionStyles.wrap}>
-      {/* Section header */}
       <Pressable
         style={sectionStyles.header}
         onPress={onToggleCollapse}
@@ -357,7 +383,6 @@ function RoutineSection({
         />
       </Pressable>
 
-      {/* Section body */}
       {!collapsed ? (
         <View style={sectionStyles.body}>{children}</View>
       ) : null}
@@ -396,14 +421,14 @@ const sectionStyles = StyleSheet.create({
     backgroundColor: colors.surfaceSunken,
   },
   badgeDone: {
-    backgroundColor: palette.bottleGreenTint,
+    backgroundColor: palette.cabernetTint,
   },
   badgeText: {
     ...typography.caption,
     color: colors.textSecondary,
   },
   badgeTextDone: {
-    color: palette.bottleGreen,
+    color: palette.cabernet,
   },
   body: {
     borderTopWidth: 1,
@@ -548,10 +573,9 @@ const styles = StyleSheet.create({
 
   pageHeader: {
     gap: space[1],
-    marginBottom: space[2],
   },
   pageTitle: {
-    ...typography.h2,
+    ...typography.h1,
     color: colors.textPrimary,
   },
   dateLabel: {

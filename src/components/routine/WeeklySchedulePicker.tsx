@@ -8,7 +8,11 @@ import { colors, radius, space, typography } from '@/constants/tokens';
 export interface WeeklySchedulePickerProps {
   /** 0 = Sunday … 6 = Saturday. Empty array means every day. */
   scheduledDays: number[];
-  onUpdate: (days: number[]) => void;
+  onUpdate?: (days: number[]) => void;
+  /** When true, chips are display-only (not pressable). */
+  readOnly?: boolean;
+  /** Active chip fill color. Defaults to controlFill (black). */
+  accentColor?: string;
 }
 
 // ─── Day chip definitions ─────────────────────────────────────────────────────
@@ -31,24 +35,28 @@ const DAY_CHIPS: { dow: number; label: string }[] = [
  * Deselecting a chip when in every-day mode switches to specific-days mode.
  * Selecting all 7 chips converts back to every-day mode.
  */
-export function WeeklySchedulePicker({ scheduledDays, onUpdate }: WeeklySchedulePickerProps) {
+export function WeeklySchedulePicker({
+  scheduledDays,
+  onUpdate,
+  readOnly = false,
+  accentColor,
+}: WeeklySchedulePickerProps) {
   const isEveryDay = scheduledDays.length === 0;
+  const fill = accentColor ?? colors.controlFill;
 
   function isDayActive(dow: number): boolean {
     return isEveryDay || scheduledDays.includes(dow);
   }
 
   function toggleDay(dow: number) {
+    if (readOnly || !onUpdate) return;
     if (isEveryDay) {
-      // Switch to specific-days: all 7 selected minus the tapped one
       onUpdate(DAY_CHIPS.map((d) => d.dow).filter((d) => d !== dow));
     } else if (scheduledDays.includes(dow)) {
       const next = scheduledDays.filter((d) => d !== dow);
-      // If zero remain, fall back to every-day
       onUpdate(next.length === 0 ? [] : next);
     } else {
       const next = [...scheduledDays, dow];
-      // If all 7 selected, convert to every-day
       onUpdate(next.length === 7 ? [] : next);
     }
   }
@@ -57,11 +65,25 @@ export function WeeklySchedulePicker({ scheduledDays, onUpdate }: WeeklySchedule
     <View style={styles.row}>
       {DAY_CHIPS.map(({ dow, label }) => {
         const active = isDayActive(dow);
+        const activeStyle = active
+          ? { backgroundColor: fill, borderColor: fill }
+          : undefined;
+
+        if (readOnly) {
+          return (
+            <View key={dow} style={[styles.chip, activeStyle]}>
+              <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
+                {label}
+              </Text>
+            </View>
+          );
+        }
+
         return (
           <Pressable
             key={dow}
             onPress={() => toggleDay(dow)}
-            style={[styles.chip, active && styles.chipActive]}
+            style={[styles.chip, activeStyle]}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: active }}
             accessibilityLabel={`${label}, ${active ? 'selected' : 'not selected'}`}
@@ -94,10 +116,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  chipActive: {
-    backgroundColor: colors.controlFill,
-    borderColor: colors.controlFill,
   },
   chipLabel: {
     ...typography.caption,
