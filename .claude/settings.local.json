@@ -23,7 +23,26 @@
       "Bash(adb devices *)",
       "Bash(xcode-select -p)",
       "Bash(/Applications/Xcode.app/Contents/Developer/usr/bin/simctl list *)",
-      "Bash(mdfind \"kMDItemKind == 'Application'\")"
+      "Bash(mdfind \"kMDItemKind == 'Application'\")",
+      "Bash(curl -s \"http://localhost:8081/index.bundle?platform=ios&dev=true&hot=false\")",
+      "Bash(curl -s \"http://localhost:8081/logs\")",
+      "Bash(curl *)",
+      "Bash(awk '{print $2, $11, $12}')",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(perl -i -pe 's/^Status: DESIGNED/Status: IN_PROGRESS/' /Users/sviatlanaivanova-klimanskaya/Documents/work/vials_app/progress/decouple-routine-from-form.md)",
+      "Bash(perl -i -pe 's/- \\\\[ \\\\] \\(QA tests \\\\\\(qa-lead\\\\\\)\\)/- [x] $1/' /Users/sviatlanaivanova-klimanskaya/Documents/work/vials_app/progress/decouple-routine-from-form.md)",
+      "Bash(git restore *)",
+      "Bash(git rebase *)",
+      "Bash(kill 57267)",
+      "Bash(pkill -f \"expo start\")",
+      "Bash(pkill -f \"metro\")",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

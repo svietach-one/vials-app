@@ -16,28 +16,36 @@ The project has a working Expo SDK 52 shell with:
 - Screen stubs in `src/screens/` — currently holding hardcoded mock data, not wired to stores
 
 What does NOT yet exist:
-- react-native-mmkv installed or wired (storage layer is AsyncStorage)
 - Onboarding stack (no MarketingSlidesScreen, SkinProfileSetupScreen, FirstProductScreen)
 - Real screen implementations connected to Zustand stores and DS components
-- Open Beauty Facts API integration
+- Vials API client service (`src/services/vialsApi/`)
+- Universal Scanner overlay with barcode + OCR dual-stream pipeline
 - Export/Import backup utilities
 
 ---
 
 ## Option B — AsyncStorage retained (CONFIRMED)
 
-AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run in Expo Go without a custom native build. MMKV is deferred to a future infrastructure pass.
+AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run in Expo Go without a custom native build. All Zustand store hydration and persistence reads/writes use AsyncStorage throughout Phase 1 — no alternative storage driver is introduced in this phase. Any future migration to a faster storage backend is deferred to a post-MVP infrastructure pass.
 
 ---
 
-## Phase 0 — Foundation (Types + DS Component Ports)
+## Phase 0 — Foundation (Types + DS Component Ports + Network Infrastructure)
 
-**Goal:** Close the two gaps that block all screen work: missing type fields and missing React Native DS components.
+**Goal:** Close the gaps that block all screen work: missing type fields, missing React Native DS components, and the network client infrastructure required by the Universal Scanner.
 
 **Scope:**
 1. Update `src/types/index.ts` — add `deferralCount`, `realDuration`, `'overdue'` status, `individualDurationMonths`, `dismissedBanners`
 2. Update `src/store/settingsStore.ts` — add `dismissedBanners: string[]` field and `dismissBanner(key)` action
 3. Port remaining web DS components to React Native `.tsx`: `Input`, `Checkbox`, `Switch`, `SegmentedControl` (needed by Phase 1–3 screens)
+4. Scaffold `src/services/vialsApi/` network client infrastructure:
+   - `src/services/vialsApi/client.ts` — base fetch client pointed at the Vials API base URL (read from `EXPO_PUBLIC_VIALS_API_URL` env var); handles request timeout and generic error normalization
+   - `src/services/vialsApi/products.ts` — three named exports:
+     - `lookupBarcode(code: string)` → `GET /api/v1/products/lookup`
+     - `searchByText(query: string)` → `GET /api/v1/products/search` (leverages backend trigram `pg_trgm` matching)
+     - `suggestProduct(payload: SuggestPayload)` → `POST /api/v1/products/suggest`
+
+**Dependencies to install in Phase 0:** `expo-camera` — required by `UniversalScannerOverlay` in Phases 1 and 4; installed now to avoid a breaking re-install mid-phase.
 
 ---
 
@@ -48,7 +56,7 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 **Screens to build:**
 - `MarketingSlidesScreen` — 3 swipeable slides, black primary CTA
 - `SkinProfileSetupScreen` — age, gender, skin type, phototype selector (3 unlabeled cards with accessibilityLabel)
-- `FirstProductScreen` — OBF search bar + manual fallback form + "Skip for now" outline button
+- `FirstProductScreen` — text search bar querying the Vials API (`searchByText`) + `UniversalScannerOverlay` camera button + `ProductForm` manual fallback + "Skip for now" outline button
 
 **Navigation change:** AppNavigator must check `profileStore.onboardingCompleted` on launch and route to the onboarding stack or main tabs accordingly.
 
@@ -83,16 +91,24 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 
 ## Phase 4 — Catalog Screen (Tab 2)
 
-**Goal:** Replace hardcoded mock data with real store data, add add-product flow with OBF API + manual fallback.
+**Goal:** Replace hardcoded mock data with real store data; implement the Universal Scanner + Vials API ingestion pipeline with crowdsourced manual fallback.
 
 **Components to build:**
 - `CatalogList` — reads productsStore, computes PAO expiry from `product.openedDate + paoMonths`, shows Amber label if within 30 days
 - `CatalogFilterHeader` — category pills + biomarker toggles (Soothing/Actives/Hydration) using DS Tag/Chip
-- `ProductSearchInput` — debounced OBF API call (`src/services/openBeautyFacts/`)
-- `ProductForm` — manual entry fallback, triggered immediately if offline or no OBF result
+- `UniversalScannerOverlay` — full-screen camera overlay (built on `expo-camera`) with a central rectangular viewfinder bracket:
+  - Simultaneously runs a barcode decoder (`EAN-13 / UPC`) and an OCR text-frame capture pipeline on the same live camera feed
+  - Barcode recognition takes absolute priority: a successful decode immediately fires `lookupBarcode(code)` → `GET /api/v1/products/lookup` and halts the OCR pipeline
+  - When no barcode is detected but a stable block of text is visible in the viewfinder, fires `searchByText(query)` → `GET /api/v1/products/search`; the viewfinder frame pulses Cobalt (`#1E3A8A`) during active OCR processing
+  - **Offline state:** If the network is unavailable, a banner mounts above the viewfinder: *"Offline Mode. Scanning unavailable. Switch to manual entry"*. The scan trigger is disabled and the UI automatically transitions to an empty `ProductForm`
+  - **No-result state:** If both `/lookup` and `/search` return an empty array, a *"Product Not Found. Add Manually"* button is presented; tapping it opens `ProductForm` pre-filled with any text extracted by the OCR layer
+- `ProductForm` (Manual Fallback + Crowdsourcing) — text inputs for Brand, Name, Type dropdown, and a large multi-line raw INCI field (`inci_raw`):
+  - **Pre-fill:** When accessed via a failed Universal Scan, `brand` and `name` fields are auto-populated with OCR-extracted strings, minimizing typing friction
+  - **Instant local activation on save:** The new record is immediately written to `productsStore` with `source: 'manual'`, making it available for routines and conflict checks without any server round-trip
+  - **Asynchronous background sync:** After the local write, the app fires `suggestProduct(payload)` → `POST /api/v1/products/suggest` in the background with `status: 'pending'`. The save action never awaits this call — the user sees an immediate success toast ("Product added to your shelf") and is returned to the Shelf with no loader or blocking state
 - `DeleteProductModal` — checks routinesStore for active steps before deleting, DS modal pattern
 
-**New service to build:** `src/services/openBeautyFacts/search.ts` — wraps OBF search endpoint, handles offline gracefully.
+**Service consumed:** `src/services/vialsApi/products.ts` (scaffolded in Phase 0).
 
 ---
 
@@ -116,8 +132,8 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 **Components to build:**
 - `SkinProfileEditor` — form bound to profileStore (age, gender, skin issues, phototype cards reused from onboarding)
 - `GamificationToggle` — DS Switch bound to settingsStore.gamificationEnabled
-- `ExportBackupUtility` — serializes all MMKV keys to JSON string, triggers native share sheet via `expo-sharing`
-- `ImportRestoreUtility` — document picker via `expo-document-picker`, schema validation, Replace/Merge confirmation, summary screen before commit
+- `ExportBackupUtility` — reads all AsyncStorage keys belonging to the Zustand persistence namespace, serializes the full dataset to a single tagged `.json` file (with schema version header), and triggers the native share sheet via `expo-sharing`
+- `ImportRestoreUtility` — accepts a previously exported `.json` via `expo-document-picker`, validates schema version against the current AsyncStorage schema, and offers **Replace** (clears current AsyncStorage store, loads file as-is) or **Merge** (adds records from file that don't already exist locally by ID, skips exact duplicates) before a confirmation summary screen ("This will add 12 products, 3 procedures...") and final commit
 - `LocalDataWarningModal` — shown once per install (guarded by `settingsStore.hasSeenLocalDataWarning`)
 
 **New dependencies:** `expo-sharing`, `expo-document-picker` (check Expo SDK 52 compatibility before installing).
@@ -131,7 +147,7 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 **Tasks:**
 - Audit every screen against the four-state rule (loading / empty / error / data)
 - Add skeleton loaders for catalog list and clinic timeline
-- Wire error boundaries around OBF API calls
+- Wire error boundaries around Vials API calls
 - Add haptic feedback on checkbox toggle (via `expo-haptics`)
 - Replace all emoji icon stubs (`⚙️`, `⚠️`, `🔍`) with Feather icons from `@expo/vector-icons`
 - Replace all hardcoded Russian comment strings with English
@@ -141,13 +157,13 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 
 ## Dependency Installation Checklist
 
-| Package | Phase | Status |
-|---|---|---|
-| react-native-mmkv | 0 | Not installed |
-| react-native-draggable-flatlist | 3 | Not installed |
-| expo-sharing | 6 | Not installed |
-| expo-document-picker | 6 | Not installed |
-| expo-haptics | 7 | Not installed |
+| Package | Phase | Expo Go Compatible? | Status |
+|---|---|---|---|
+| expo-camera | 1, 4 | ✅ Yes | Not installed |
+| react-native-draggable-flatlist | 3 | ✅ Yes | Not installed |
+| expo-sharing | 6 | ✅ Yes | Not installed |
+| expo-document-picker | 6 | ✅ Yes | Not installed |
+| expo-haptics | 7 | ✅ Yes | Not installed |
 
 All above require `npx expo install <package>` (not `npm install`) for correct SDK 52 version pinning.
 
@@ -155,8 +171,10 @@ All above require `npx expo install <package>` (not `npm install`) for correct S
 
 ## Architecture Constraints (apply to all phases)
 
-- No network calls store user data — only OBF product lookup sends data outbound, and it sends only the search string
-- All stores remain synchronous after MMKV migration (no `await` on writes)
-- ConflictEngine is never called from inside a store — only from screen/component render cycle
+- **Hybrid Ingestion Anonymity:** No personal configurations, user profiles, or routine schedules are ever transmitted outbound. The Vials API endpoints interact exclusively with anonymous product metadata strings during barcode/OCR scanning and item suggestion payloads — no user identity is attached to any outbound network request.
+- **Fuzzy Search Resilience:** UI elements displaying server search results must gracefully handle and rank items based on backend trigram score weights (`pg_trgm`), keeping the product-selection workflow smooth even when OCR introduces minor recognition typos.
+- **Offline Manual Infallibility:** If network lookup services fail or are unavailable, the UI must seamlessly unlock the manual `ProductForm` so the user's shelf-addition flow remains entirely unblocked — no dead-ends and no error screens requiring a network retry.
+- All stores remain synchronous after hydration (no `await` on writes); persistence is via AsyncStorage throughout Phase 1
+- ConflictEngine is never called from inside a store — only from the screen/component render cycle
 - Gamification default is OFF — settingsStore initializes `gamificationEnabled: false`
 - No AI features ship in Phase 1 MVP — Anthropic service files remain stubs

@@ -160,3 +160,21 @@ This document defines the complete functional requirements and behavior specific
 * `FirstProductScreen` includes a secondary "Skip for now" outline button alongside the quick-search input.
 * Tapping skip instantiates `catalogStore` empty and proceeds directly into the main tab navigator.
 * On first arrival at Tab 2 with an empty catalog, `CatalogList` renders its standard empty state (not an error or blank screen), prompting the user to add their first product via `ProductHeaderAction`.
+
+---
+
+### US-22 · Universal Scanning & Database Crowdsourcing
+
+**As a** user who owns a product without a barcode (or with a discarded outer box)
+**I want to** point my camera at the vial to automatically extract the brand and name, or suggest my product to the global database
+**So that** I don't have to manually type out long INCI ingredient lists.
+
+**Acceptance criteria:**
+
+* The camera view combines barcode scanning and text OCR into a single unified screen (using Google ML Kit / expo-ocr).
+* If a barcode is found, the app queries `GET /api/v1/products/lookup`. If no barcode is detected but a stable block of brand/product text is visible in the viewfinder, it sends the string to `GET /api/v1/products/search`.
+* The server processes the OCR string using fuzzy trigram search (`pg_trgm`), returning the top 20 most relevant matches, even if the text contains typos.
+* If `GET /api/v1/products/search` or `/lookup` returns an empty array, the app presents a *"Product Not Found. Add Manually"* button.
+* Clicking it transitions the user to `ProductForm`, which is pre-filled with whatever text the OCR camera managed to extract (e.g., the recognized brand and name), minimizing typing friction.
+* Saving the manual form adds the product to the user's shelf instantly (local-first), while queuing a background request to the global database.
+* When saved manually, the newly created item instantly appears in the local `catalogStore` with `source: 'manual'`, while a copy is dispatched to the server via `POST /api/v1/products/suggest` with `status: 'pending'` for admin review.
