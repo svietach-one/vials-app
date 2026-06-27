@@ -13,7 +13,9 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { ClinicalRestrictionsBlock } from '@/components/routine/ClinicalRestrictionsBlock';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
 import { WeeklyPlanView } from '@/components/routine/WeeklyPlanView';
+import { Badge } from '@/components/ui/feedback/Badge';
 import { Button } from '@/components/ui/core/Button';
+import { Checkbox } from '@/components/ui/forms/Checkbox';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
@@ -173,7 +175,6 @@ export default function RoutinesScreen({ navigation }: Props) {
                   product={product}
                   index={index}
                   checked={completed.has(step.id)}
-                  gamificationEnabled={gamificationEnabled}
                   onToggle={() => toggleComplete(step.id)}
                 />
               );
@@ -218,7 +219,6 @@ export default function RoutinesScreen({ navigation }: Props) {
                   product={product}
                   index={index}
                   checked={completed.has(step.id)}
-                  gamificationEnabled={gamificationEnabled}
                   onToggle={() => toggleComplete(step.id)}
                 />
               );
@@ -338,18 +338,14 @@ function RoutineStepCard({
   product,
   index,
   checked,
-  gamificationEnabled,
   onToggle,
 }: {
   step: RoutineStep;
   product: Product;
   index: number;
   checked: boolean;
-  gamificationEnabled: boolean;
   onToggle: () => void;
 }) {
-  const checkboxFill = gamificationEnabled ? palette.cabernet : palette.black;
-
   return (
     <Pressable
       style={({ pressed }) => [cardStyles.row, pressed && cardStyles.rowPressed]}
@@ -376,22 +372,15 @@ function RoutineStepCard({
               {product.brand}
             </Text>
           ) : null}
-          <View style={cardStyles.typeBadge}>
-            <Text style={cardStyles.typeText}>
-              {PRODUCT_TYPE_LABELS[product.productType] ?? product.productType}
-            </Text>
-          </View>
+          <Badge status="Default" type="Outline">
+            {PRODUCT_TYPE_LABELS[product.productType] ?? product.productType}
+          </Badge>
         </View>
       </View>
 
-      {/* Right: checkbox */}
-      <View
-        style={[
-          cardStyles.checkbox,
-          checked && { backgroundColor: checkboxFill, borderColor: checkboxFill },
-        ]}
-      >
-        {checked ? <Feather name="check" size={12} color={palette.white} /> : null}
+      {/* Right: checkbox — pointer-events disabled so the outer Pressable owns the tap */}
+      <View pointerEvents="none">
+        <Checkbox checked={checked} size="md" />
       </View>
     </Pressable>
   );
@@ -451,29 +440,7 @@ const cardStyles = StyleSheet.create({
     color: colors.textSecondary,
     flexShrink: 1,
   },
-  typeBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radius.xs,
-    backgroundColor: colors.surfaceSunken,
-    flexShrink: 0,
-  },
-  typeText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
 
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceRaised,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
 });
 
 // ─── EmptySlotPlaceholder ─────────────────────────────────────────────────────
