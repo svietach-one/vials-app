@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   SafeAreaView,
@@ -11,17 +11,19 @@ import { Feather } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 import { ClinicalRestrictionsBlock } from '@/components/routine/ClinicalRestrictionsBlock';
+import { RemoveRoutineActionSheet } from '@/components/routine/RemoveRoutineActionSheet';
+import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
+import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
 import { WeeklyPlanView } from '@/components/routine/WeeklyPlanView';
-import { Badge } from '@/components/ui/feedback/Badge';
 import { Button } from '@/components/ui/core/Button';
-import { Checkbox } from '@/components/ui/forms/Checkbox';
+import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
-import { useSettingsStore } from '@/store/settingsStore';
-import type { Product, Routine, RoutineStep } from '@/types';
+import { ConflictEngine } from '@/utils/conflictEngine';
+import type { Product, ProductType, Routine, RoutineStep } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,20 +47,27 @@ function isStepForToday(step: RoutineStep, dayOfWeek: number): boolean {
   return days.length === 0 || days.includes(dayOfWeek);
 }
 
-import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function RoutinesScreen({ navigation }: Props) {
   const products = useProductsStore((s) => s.products);
   const routines = useRoutinesStore((s) => s.routines);
   const setStepHidden = useRoutinesStore((s) => s.setStepHidden);
-  const gamificationEnabled = useSettingsStore((s) => s.gamificationEnabled);
 
   const [view, setView] = useState<'today' | 'weekly'>('today');
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [amCollapsed, setAmCollapsed] = useState(false);
   const [pmCollapsed, setPmCollapsed] = useState(false);
+
+  // Schedule sheet state
+  const [scheduleSheet, setScheduleSheet] = useState<{
+    productId: string;
+    productType: ProductType;
+    productName: string;
+  } | null>(null);
+
+  // Remove action sheet state
+  const [removeSheetProduct, setRemoveSheetProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     navigation.setOptions({
@@ -85,18 +94,34 @@ export default function RoutinesScreen({ navigation }: Props) {
   const morningRoutine = routines.find((r) => r.timeOfDay === 'morning');
   const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
 
-  const amSteps = (morningRoutine?.steps ?? []).filter(
-    (s) =>
+  // Derive visible steps and conflict map together so useMemo uses stable deps
+  // (routines + products come from Zustand selectors and are referentially stable
+  //  across renders that don't change them).
+  const { amSteps, pmSteps, conflictMap } = useMemo(() => {
+    const isVisible = (s: RoutineStep) =>
       !s.hidden &&
       isStepForToday(s, todayDow) &&
-      !(s.productId && products.find((p) => p.id === s.productId)?.isHidden),
-  );
-  const pmSteps = (eveningRoutine?.steps ?? []).filter(
-    (s) =>
-      !s.hidden &&
-      isStepForToday(s, todayDow) &&
-      !(s.productId && products.find((p) => p.id === s.productId)?.isHidden),
-  );
+      !(s.productId && products.find((p) => p.id === s.productId)?.isHidden);
+
+    const am = (morningRoutine?.steps ?? []).filter(isVisible);
+    const pm = (eveningRoutine?.steps ?? []).filter(isVisible);
+    const allSteps = [...am, ...pm];
+
+    const conflicts = ConflictEngine.detectConflicts(allSteps, products);
+    const map = new Map<string, string>();
+    for (const c of conflicts) {
+      const stepA = allSteps.find((s) => s.id === c.stepIdA);
+      const stepB = allSteps.find((s) => s.id === c.stepIdB);
+      const productA = stepA?.productId ? products.find((p) => p.id === stepA.productId) : null;
+      const productB = stepB?.productId ? products.find((p) => p.id === stepB.productId) : null;
+      if (productA && productB) {
+        if (!map.has(c.stepIdA)) map.set(c.stepIdA, productB.name);
+        if (!map.has(c.stepIdB)) map.set(c.stepIdB, productA.name);
+      }
+    }
+
+    return { amSteps: am, pmSteps: pm, conflictMap: map };
+  }, [routines, products, todayDow]);
 
   function toggleComplete(stepId: string) {
     setCompleted((prev) => {
@@ -105,6 +130,22 @@ export default function RoutinesScreen({ navigation }: Props) {
       else next.add(stepId);
       return next;
     });
+  }
+
+  function openScheduleSheet(product: Product) {
+    setScheduleSheet({
+      productId: product.id,
+      productType: product.productType,
+      productName: product.name,
+    });
+  }
+
+  function hideProductFromAllRoutines(productId: string) {
+    const state = useRoutinesStore.getState();
+    for (const routine of state.routines) {
+      const step = routine.steps.find((s) => s.productId === productId);
+      if (step) state.setStepHidden(routine.id, step.id, true);
+    }
   }
 
   function handleHideStep(routine: Routine, stepId: string) {
@@ -152,7 +193,7 @@ export default function RoutinesScreen({ navigation }: Props) {
               hint="Set up your routine in the Weekly Plan tab."
             />
           ) : (
-            amSteps.map((step, index) => {
+            amSteps.map((step) => {
               const product = step.productId
                 ? products.find((p) => p.id === step.productId) ?? null
                 : null;
@@ -173,9 +214,16 @@ export default function RoutinesScreen({ navigation }: Props) {
                   key={step.id}
                   step={step}
                   product={product}
-                  index={index}
                   checked={completed.has(step.id)}
                   onToggle={() => toggleComplete(step.id)}
+                  onCardPress={() =>
+                    navigation.navigate('Vials', {
+                      screen: 'ProductDetail',
+                      params: { productId: product.id },
+                    })
+                  }
+                  onSchedulePress={() => openScheduleSheet(product)}
+                  conflictingProductName={conflictMap.get(step.id) ?? null}
                 />
               );
             })
@@ -196,7 +244,7 @@ export default function RoutinesScreen({ navigation }: Props) {
               hint="Set up your routine in the Weekly Plan tab."
             />
           ) : (
-            pmSteps.map((step, index) => {
+            pmSteps.map((step) => {
               const product = step.productId
                 ? products.find((p) => p.id === step.productId) ?? null
                 : null;
@@ -217,15 +265,47 @@ export default function RoutinesScreen({ navigation }: Props) {
                   key={step.id}
                   step={step}
                   product={product}
-                  index={index}
                   checked={completed.has(step.id)}
                   onToggle={() => toggleComplete(step.id)}
+                  onCardPress={() =>
+                    navigation.navigate('Vials', {
+                      screen: 'ProductDetail',
+                      params: { productId: product.id },
+                    })
+                  }
+                  onSchedulePress={() => openScheduleSheet(product)}
+                  conflictingProductName={conflictMap.get(step.id) ?? null}
                 />
               );
             })
           )}
         </RoutineSection>
       </ScrollView>
+
+      {/* Schedule editing sheet */}
+      {scheduleSheet ? (
+        <RoutineSchedulerSheet
+          visible
+          productId={scheduleSheet.productId}
+          productType={scheduleSheet.productType}
+          title={scheduleSheet.productName}
+          onClose={() => setScheduleSheet(null)}
+          onHide={() => hideProductFromAllRoutines(scheduleSheet.productId)}
+          onRemove={() => {
+            const product = products.find((p) => p.id === scheduleSheet.productId);
+            if (product) setRemoveSheetProduct(product);
+          }}
+        />
+      ) : null}
+
+      {/* Remove from routine action sheet */}
+      {removeSheetProduct ? (
+        <RemoveRoutineActionSheet
+          visible
+          product={removeSheetProduct}
+          onClose={() => setRemoveSheetProduct(null)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -328,119 +408,9 @@ const sectionStyles = StyleSheet.create({
   body: {
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
-  },
-});
-
-// ─── RoutineStepCard ──────────────────────────────────────────────────────────
-
-function RoutineStepCard({
-  step,
-  product,
-  index,
-  checked,
-  onToggle,
-}: {
-  step: RoutineStep;
-  product: Product;
-  index: number;
-  checked: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <Pressable
-      style={({ pressed }) => [cardStyles.row, pressed && cardStyles.rowPressed]}
-      onPress={onToggle}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
-      accessibilityLabel={`${product.name}, step ${index + 1}`}
-    >
-      {/* Left: order badge + content */}
-      <View style={cardStyles.orderBadge}>
-        <Text style={cardStyles.orderText}>{index + 1}</Text>
-      </View>
-
-      <View style={cardStyles.content}>
-        <Text
-          style={[cardStyles.name, checked && cardStyles.nameChecked]}
-          numberOfLines={1}
-        >
-          {product.name}
-        </Text>
-        <View style={cardStyles.meta}>
-          {product.brand ? (
-            <Text style={cardStyles.brand} numberOfLines={1}>
-              {product.brand}
-            </Text>
-          ) : null}
-          <Badge status="Default" type="Outline">
-            {PRODUCT_TYPE_LABELS[product.productType] ?? product.productType}
-          </Badge>
-        </View>
-      </View>
-
-      {/* Right: checkbox — pointer-events disabled so the outer Pressable owns the tap */}
-      <View pointerEvents="none">
-        <Checkbox checked={checked} size="md" />
-      </View>
-    </Pressable>
-  );
-}
-
-const cardStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space[4],
-    paddingVertical: space[3] + 2,
-    gap: space[3],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderDivider,
-    backgroundColor: colors.bgBase,
-  },
-  rowPressed: {
-    backgroundColor: colors.surfaceSunken,
-  },
-
-  orderBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: radius.xs,
-    backgroundColor: colors.surfaceSunken,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  orderText: {
-    ...typography.caption,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textSecondary,
-  },
-
-  content: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  name: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
-  },
-  nameChecked: {
-    textDecorationLine: 'line-through',
-    color: colors.textTertiary,
-  },
-  meta: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    padding: space[3],
     gap: space[2],
   },
-  brand: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    flexShrink: 1,
-  },
-
 });
 
 // ─── EmptySlotPlaceholder ─────────────────────────────────────────────────────
@@ -484,11 +454,12 @@ const emptySlotStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: space[4],
+    paddingHorizontal: space[3],
     paddingVertical: space[3],
     gap: space[3],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderDivider,
+    borderWidth: 1,
+    borderColor: colors.borderDivider,
+    borderRadius: radius.md,
     backgroundColor: colors.bgBase,
   },
   content: {
