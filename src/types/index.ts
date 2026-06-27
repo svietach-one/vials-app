@@ -206,3 +206,20 @@ export interface AppSettings {
   /** Keys of banners the user has permanently dismissed, e.g. 'banner_2026_summer'. */
   dismissedBanners: string[];
 }
+
+// ─── Catalog filters ──────────────────────────────────────────────────────────
+
+export type CategoryFilter = 'All' | 'Serums' | 'Moisturizers' | 'SPF';
+export type BiomarkerTag = 'Soothing' | 'Actives' | 'Hydration';
+
+export interface CatalogFilterState {
+  searchQuery: string;
+  selectedCategory: CategoryFilter;
+  selectedBiomarkers: BiomarkerTag[];
+}
+
+export const CATALOG_FILTER_DEFAULT: CatalogFilterState = {
+  searchQuery: '',
+  selectedCategory: 'All',
+  selectedBiomarkers: [],
+};
