@@ -254,7 +254,7 @@ function RoutineBadge({ status }: { status: RoutineStatusResult }) {
   if (status === 'none') return null;
   const label =
     status === 'both' ? 'AM · PM' : status === 'morning' ? 'AM' : 'PM';
-  return <Badge status="Default" type="Outline">{label}</Badge>;
+  return <Badge status="Default" type="Light">{label}</Badge>;
 }
 
 // ─── PAO expiry chip ──────────────────────────────────────────────────────────
