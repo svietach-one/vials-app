@@ -154,11 +154,11 @@ const variantContainerPressed = StyleSheet.create({
     borderColor: 'transparent',
   },
   textActive: {
-    backgroundColor: palette.cabernetTint,
+    backgroundColor: palette.zinc100,
     borderColor: 'transparent',
   },
   destructive: {
-    backgroundColor: palette.cabernetTint,
+    backgroundColor: palette.zinc100,
     borderColor: palette.red,
   },
 });

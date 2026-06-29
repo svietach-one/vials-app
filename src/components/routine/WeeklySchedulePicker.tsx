@@ -54,7 +54,8 @@ export function WeeklySchedulePicker({
       onUpdate(DAY_CHIPS.map((d) => d.dow).filter((d) => d !== dow));
     } else if (scheduledDays.includes(dow)) {
       const next = scheduledDays.filter((d) => d !== dow);
-      onUpdate(next.length === 0 ? [] : next);
+      if (next.length === 0) return;
+      onUpdate(next);
     } else {
       const next = [...scheduledDays, dow];
       onUpdate(next.length === 7 ? [] : next);
@@ -108,9 +109,9 @@ const styles = StyleSheet.create({
     marginTop: space[2],
   },
   chip: {
-    width: 30,
-    height: 26,
-    borderRadius: radius.xs,
+    flex: 1,
+    height: 30,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.borderStrong,
     backgroundColor: colors.surfaceRaised,

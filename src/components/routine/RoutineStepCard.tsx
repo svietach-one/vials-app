@@ -39,9 +39,51 @@ export interface RoutineStepCardProps {
   checked: boolean;
   onToggle: () => void;
   onCardPress: () => void;
-  onSchedulePress: () => void;
   conflictingProductName?: string | null;
+  /** When provided, a drag handle is rendered and long-pressing it initiates drag. */
+  onDrag?: () => void;
 }
+
+// ─── Drag handle ──────────────────────────────────────────────────────────────
+
+function DragHandle({ onDrag }: { onDrag: () => void }) {
+  return (
+    <Pressable
+      onLongPress={onDrag}
+      style={dragStyles.container}
+      hitSlop={8}
+      accessibilityLabel="Hold to reorder"
+    >
+      <View style={dragStyles.dotsGrid}>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <View key={i} style={dragStyles.dot} />
+        ))}
+      </View>
+    </Pressable>
+  );
+}
+
+const dragStyles = StyleSheet.create({
+  container: {
+    width: 20,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  dotsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: 10,
+    gap: 3,
+  },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: palette.zinc300,
+  },
+});
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -51,12 +93,11 @@ export function RoutineStepCard({
   checked,
   onToggle,
   onCardPress,
-  onSchedulePress,
   conflictingProductName,
+  onDrag,
 }: RoutineStepCardProps) {
   const hasConflict = !!conflictingProductName;
 
-  // Resolve active ingredient label (prefer confirmed activeTags, fall back to activeIngredients)
   const activeKey = product.activeTags?.[0] ?? product.activeIngredients?.[0]?.key ?? null;
   const activeLabel = activeKey ? (ACTIVE_INGREDIENT_LABELS[activeKey] ?? null) : null;
 
@@ -75,8 +116,10 @@ export function RoutineStepCard({
       accessibilityRole="button"
       accessibilityLabel={`${product.name}, tap to view product detail`}
     >
-      {/* Main row: left content + right badges/checkbox */}
+      {/* Main row: drag handle (optional) + left content + right badges/checkbox */}
       <View style={styles.mainRow}>
+        {onDrag ? <DragHandle onDrag={onDrag} /> : null}
+
         {/* Left column */}
         <View style={styles.leftCol}>
           <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
@@ -85,17 +128,11 @@ export function RoutineStepCard({
             <Text style={styles.brandName} numberOfLines={1}>{product.brand}</Text>
           ) : null}
 
-          {/* Schedule row — own Pressable so it doesn't trigger card navigation */}
-          <Pressable
-            onPress={onSchedulePress}
-            style={styles.scheduleRow}
-            accessibilityRole="button"
-            accessibilityLabel={`Schedule: ${scheduleLabel}, tap to edit`}
-            hitSlop={6}
-          >
+          {/* Schedule row — display only, not pressable */}
+          <View style={styles.scheduleRow}>
             <Feather name="calendar" size={11} color={palette.cabernet} />
             <Text style={styles.scheduleText}>{scheduleLabel}</Text>
-          </Pressable>
+          </View>
         </View>
 
         {/* Right column: badges (top) + checkbox (bottom) */}
@@ -118,12 +155,11 @@ export function RoutineStepCard({
             </View>
           </View>
 
-          {/* Checkbox — inner Pressable captures its own tap, outer card press won't fire */}
           <Checkbox checked={checked} onValueChange={() => onToggle()} size="md" />
         </View>
       </View>
 
-      {/* Conflict row — shown only when there is an active conflict */}
+      {/* Conflict row */}
       {hasConflict ? (
         <View style={styles.conflictRow}>
           <Feather name="alert-triangle" size={11} color={palette.amber} />
@@ -142,10 +178,10 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: palette.white,
     borderWidth: 1,
-    borderColor: palette.zinc100,
-    borderRadius: radius.md,
-    paddingHorizontal: space[3],
-    paddingVertical: space[3],
+    borderColor: palette.zinc200,
+    borderRadius: radius.xl,
+    paddingHorizontal: space[4],
+    paddingVertical: space[4],
   },
   cardConflict: {
     borderColor: palette.amber,
@@ -160,11 +196,10 @@ const styles = StyleSheet.create({
     gap: space[3],
   },
 
-  // Left column
   leftCol: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
+    gap: 4,
   },
   productName: {
     ...typography.body,
@@ -180,14 +215,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
-    marginTop: 1,
+    marginTop: 2,
   },
   scheduleText: {
     ...typography.caption,
     color: colors.textSecondary,
   },
 
-  // Right column
   rightCol: {
     alignItems: 'flex-end',
     justifyContent: 'space-between',
@@ -202,17 +236,19 @@ const styles = StyleSheet.create({
     maxWidth: 140,
   },
   activeBadge: {
-    backgroundColor: palette.black,
+    backgroundColor: palette.white,
     borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: palette.zinc300,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    maxWidth: 80,
+    maxWidth: 90,
   },
   activeBadgeText: {
     fontFamily: 'DMSans-Medium',
     fontSize: 10,
     lineHeight: 14,
-    color: palette.white,
+    color: palette.black,
   },
   typeBadge: {
     borderRadius: radius.pill,
@@ -226,7 +262,6 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
 
-  // Conflict row
   conflictRow: {
     flexDirection: 'row',
     alignItems: 'center',

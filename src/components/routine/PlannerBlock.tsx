@@ -2,7 +2,6 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { WeeklySchedulePicker } from '@/components/routine/WeeklySchedulePicker';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -10,11 +9,44 @@ import { colors, palette, radius, shadow, space, typography } from '@/constants/
 export interface PlannerBlockProps {
   activePeriod: 'morning' | 'evening';
   onPeriodChange: (p: 'morning' | 'evening') => void;
-  /** Scheduled days for the active routine (empty = every day). */
-  scheduledDays: number[];
-  /** Count of visible steps for today in the active period. */
-  stepCount: number;
-  onEditPress: () => void;
+  /** Currently selected day of week (0 = Sun … 6 = Sat). */
+  selectedDow: number;
+  onDaySelect: (dow: number) => void;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Mo … Su ordered for display (matching JS dow: Mon=1 … Sat=6, Sun=0)
+const DAY_CHIPS: { dow: number; label: string }[] = [
+  { dow: 1, label: 'Mo' },
+  { dow: 2, label: 'Tu' },
+  { dow: 3, label: 'We' },
+  { dow: 4, label: 'Th' },
+  { dow: 5, label: 'Fr' },
+  { dow: 6, label: 'Sa' },
+  { dow: 0, label: 'Su' },
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the date of the nearest (today or upcoming) occurrence of targetDow.
+ * If targetDow === today.getDay(), returns today's date.
+ */
+function getDateForDow(today: Date, targetDow: number): Date {
+  const daysOffset = (targetDow - today.getDay() + 7) % 7;
+  const d = new Date(today);
+  d.setDate(today.getDate() + daysOffset);
+  return d;
+}
+
+function buildDateLabel(selectedDate: Date, isToday: boolean): string {
+  const dayName = DAY_NAMES[selectedDate.getDay()];
+  const dateStr = `${selectedDate.getDate()} ${MONTH_NAMES[selectedDate.getMonth()]}`;
+  return isToday ? `Today, ${dayName}, ${dateStr}` : `${dayName}, ${dateStr}`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -22,95 +54,77 @@ export interface PlannerBlockProps {
 export function PlannerBlock({
   activePeriod,
   onPeriodChange,
-  scheduledDays,
-  stepCount,
-  onEditPress,
+  selectedDow,
+  onDaySelect,
 }: PlannerBlockProps) {
+  const today = new Date();
+  const todayDow = today.getDay();
+  const selectedDate = getDateForDow(today, selectedDow);
+  const dateLabel = buildDateLabel(selectedDate, selectedDow === todayDow);
+
   return (
-    // Outer wrapper carries the shadow; inner card clips children to border-radius.
-    // Splitting the two prevents iOS from clipping the shadow via overflow:hidden.
     <View style={styles.shadowWrap}>
       <View style={styles.card}>
-        {/* Period toggle */}
-        <View style={styles.periodRow}>
-          <PeriodChip
-            icon="sun"
-            label="Morning"
-            active={activePeriod === 'morning'}
-            onPress={() => onPeriodChange('morning')}
-          />
-          <View style={styles.periodSeparator} />
-          <PeriodChip
-            icon="moon"
-            label="Evening"
-            active={activePeriod === 'evening'}
-            onPress={() => onPeriodChange('evening')}
-          />
-        </View>
-
-        {/* Weekly day chips (read-only, cabernet accent) */}
-        <View style={styles.dayRow}>
-          <WeeklySchedulePicker
-            scheduledDays={scheduledDays}
-            readOnly
-            accentColor={palette.cabernet}
-          />
-        </View>
-
-        {/* Footer: step count + edit link */}
-        <View style={styles.footer}>
-          <Text style={styles.stepCount}>
-            {stepCount > 0 ? `${stepCount} steps today` : 'No steps today'}
+        {/* Row 1: date text (left) + morning/evening toggle (right) */}
+        <View style={styles.headerRow}>
+          <Text style={styles.dateText} numberOfLines={1} adjustsFontSizeToFit>
+            {dateLabel}
           </Text>
-          <Pressable
-            onPress={onEditPress}
-            style={styles.editBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Edit routine order"
-            hitSlop={8}
-          >
-            <Text style={styles.editLabel}>Edit order</Text>
-            <Feather name="arrow-right" size={13} color={palette.cabernet} />
-          </Pressable>
+          <View style={styles.toggleGroup}>
+            <Pressable
+              style={[styles.toggleBtn, activePeriod === 'morning' && styles.toggleBtnActive]}
+              onPress={() => onPeriodChange('morning')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: activePeriod === 'morning' }}
+              accessibilityLabel="Morning routine"
+              hitSlop={4}
+            >
+              <Feather
+                name="sun"
+                size={16}
+                color={activePeriod === 'morning' ? palette.white : colors.textTertiary}
+              />
+            </Pressable>
+            <Pressable
+              style={[styles.toggleBtn, activePeriod === 'evening' && styles.toggleBtnActive]}
+              onPress={() => onPeriodChange('evening')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: activePeriod === 'evening' }}
+              accessibilityLabel="Evening routine"
+              hitSlop={4}
+            >
+              <Feather
+                name="moon"
+                size={16}
+                color={activePeriod === 'evening' ? palette.white : colors.textTertiary}
+              />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Row 2: weekday navigation — single active day, tapping changes selection */}
+        <View style={styles.dayRow}>
+          {DAY_CHIPS.map(({ dow, label }) => {
+            const active = selectedDow === dow;
+            return (
+              <Pressable
+                key={dow}
+                style={[styles.dayChip, active && styles.dayChipActive]}
+                onPress={() => onDaySelect(dow)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`${DAY_NAMES[dow]}, ${active ? 'selected' : ''}`}
+                hitSlop={4}
+              >
+                <Text style={[styles.dayChipLabel, active && styles.dayChipLabelActive]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
     </View>
-  );
-}
-
-// ─── Period chip ──────────────────────────────────────────────────────────────
-
-function PeriodChip({
-  icon,
-  label,
-  active,
-  onPress,
-}: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        chipStyles.chip,
-        active ? chipStyles.chipActive : pressed && chipStyles.chipPressed,
-      ]}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      accessibilityLabel={label}
-    >
-      <Feather
-        name={icon}
-        size={14}
-        color={active ? palette.white : colors.textSecondary}
-      />
-      <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -122,77 +136,72 @@ const styles = StyleSheet.create({
     ...shadow.sm,
   },
   card: {
-    backgroundColor: colors.surfaceCard,
+    backgroundColor: palette.white,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderDivider,
     overflow: 'hidden',
-  },
-
-  periodRow: {
-    flexDirection: 'row',
-    height: 44,
-  },
-  periodSeparator: {
-    width: 1,
-    backgroundColor: colors.borderDivider,
-  },
-
-  dayRow: {
     paddingHorizontal: space[4],
-    paddingTop: space[1],
-    paddingBottom: space[3],
-    borderTopWidth: 1,
-    borderTopColor: colors.borderDivider,
+    paddingTop: space[3],
+    paddingBottom: space[4],
+    gap: space[2],
   },
 
-  footer: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: space[4],
-    paddingVertical: space[3],
-    borderTopWidth: 1,
-    borderTopColor: colors.borderDivider,
+    gap: space[3],
   },
-  stepCount: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  editLabel: {
-    ...typography.bodySmall,
+  dateText: {
+    ...typography.body,
     fontFamily: 'DMSans-Medium',
-    color: palette.cabernet,
-  },
-});
-
-const chipStyles = StyleSheet.create({
-  chip: {
+    color: colors.textPrimary,
     flex: 1,
-    height: '100%',
+  },
+  toggleGroup: {
     flexDirection: 'row',
+    gap: space[1],
+    flexShrink: 0,
+  },
+  toggleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceSunken,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[2],
-    backgroundColor: colors.surfaceSunken,
   },
-  chipActive: {
-    backgroundColor: palette.cabernet,
+  toggleBtnActive: {
+    backgroundColor: palette.black,
   },
-  chipPressed: {
-    backgroundColor: colors.surfaceCard,
+
+  dayRow: {
+    flexDirection: 'row',
+    gap: space[1],
+    marginTop: space[1],
   },
-  label: {
-    ...typography.bodySmall,
+  dayChip: {
+    flex: 1,
+    height: 30,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayChipActive: {
+    backgroundColor: palette.black,
+    borderColor: palette.black,
+  },
+  dayChipLabel: {
     fontFamily: 'DMSans-Medium',
+    fontSize: 11,
+    lineHeight: 14,
     color: colors.textSecondary,
   },
-  labelActive: {
+  dayChipLabelActive: {
     color: palette.white,
   },
 });

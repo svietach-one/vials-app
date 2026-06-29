@@ -1,50 +1,38 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
+import type { RenderItemParams } from 'react-native-draggable-flatlist';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from '@react-navigation/native';
 
-import { ClinicalRestrictionsBlock } from '@/components/routine/ClinicalRestrictionsBlock';
-import { ConflictWarningInline } from '@/components/routine/ConflictWarningInline';
+import { AddToRoutineSheet } from '@/components/routine/AddToRoutineSheet';
 import { PlannerBlock } from '@/components/routine/PlannerBlock';
 import { RemoveRoutineActionSheet } from '@/components/routine/RemoveRoutineActionSheet';
-import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
-import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
-import { WeeklyPlanView } from '@/components/routine/WeeklyPlanView';
-import { Button } from '@/components/ui/core/Button';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
-import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
-import type { Product, ProductType, Routine, RoutineStep } from '@/types';
+import type { Product, RoutineStep } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Routine Hub'>;
-type Mode = 'view' | 'edit';
 type Period = 'morning' | 'evening';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function formatTodayLabel(date: Date): string {
-  return `${DAY_NAMES[date.getDay()]}, ${date.getDate()} ${MONTH_NAMES[date.getMonth()]}`;
-}
-
-function isStepForToday(step: RoutineStep, dayOfWeek: number): boolean {
+function isStepForDay(step: RoutineStep, dow: number): boolean {
   const days = step.scheduledDays ?? [];
-  return days.length === 0 || days.includes(dayOfWeek);
+  return days.length === 0 || days.includes(dow);
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -52,65 +40,28 @@ function isStepForToday(step: RoutineStep, dayOfWeek: number): boolean {
 export default function RoutinesScreen({ navigation }: Props) {
   const products = useProductsStore((s) => s.products);
   const routines = useRoutinesStore((s) => s.routines);
-  const setStepHidden = useRoutinesStore((s) => s.setStepHidden);
+  const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
 
-  const [mode, setMode] = useState<Mode>('view');
   const [activePeriod, setActivePeriod] = useState<Period>('morning');
   const [completed, setCompleted] = useState<Set<string>>(new Set());
-  const [amCollapsed, setAmCollapsed] = useState(false);
-  const [pmCollapsed, setPmCollapsed] = useState(false);
-
-  // Schedule sheet state
-  const [scheduleSheet, setScheduleSheet] = useState<{
-    productId: string;
-    productType: ProductType;
-    productName: string;
-  } | null>(null);
-
-  // Remove action sheet state
+  const [selectedDow, setSelectedDow] = useState<number>(() => new Date().getDay());
   const [removeSheetProduct, setRemoveSheetProduct] = useState<Product | null>(null);
+  const [addSheetVisible, setAddSheetVisible] = useState(false);
 
-  useEffect(() => {
-    navigation.setOptions({
-      headerTitle: mode === 'view' ? 'Routine' : 'Edit Schedule',
-      headerRight: () =>
-        mode === 'view' ? (
-          <Pressable
-            onPress={() => setMode('edit')}
-            style={styles.headerBtn}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Edit routine order"
-          >
-            <Feather name="calendar" size={20} color={palette.black} />
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={() => setMode('view')}
-            style={styles.headerBtn}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Done editing"
-          >
-            <Text style={styles.headerBtnText}>Done</Text>
-          </Pressable>
-        ),
-    });
-  }, [navigation, mode]);
-
-  const today = new Date();
-  const todayDow = today.getDay();
+  // Always restore today's day when the screen gains focus.
+  useFocusEffect(
+    useCallback(() => {
+      setSelectedDow(new Date().getDay());
+    }, []),
+  );
 
   const morningRoutine = routines.find((r) => r.timeOfDay === 'morning');
   const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
 
-  // Derive visible steps and conflict map together so useMemo uses stable deps
-  // (routines + products come from Zustand selectors and are referentially stable
-  //  across renders that don't change them).
   const { amSteps, pmSteps, conflictMap } = useMemo(() => {
     const isVisible = (s: RoutineStep) =>
       !s.hidden &&
-      isStepForToday(s, todayDow) &&
+      isStepForDay(s, selectedDow) &&
       !(s.productId && products.find((p) => p.id === s.productId)?.isHidden);
 
     const am = (morningRoutine?.steps ?? []).filter(isVisible);
@@ -131,12 +82,19 @@ export default function RoutinesScreen({ navigation }: Props) {
     }
 
     return { amSteps: am, pmSteps: pm, conflictMap: map };
-  }, [routines, products, todayDow]);
+  }, [routines, products, selectedDow]);
 
-  // Planner block data — schedule shown for the selected period
   const activeRoutine = activePeriod === 'morning' ? morningRoutine : eveningRoutine;
-  const plannerDays = activeRoutine?.steps.find((s) => !s.hidden)?.scheduledDays ?? [];
-  const plannerStepCount = activePeriod === 'morning' ? amSteps.length : pmSteps.length;
+  const activeSteps = activePeriod === 'morning' ? amSteps : pmSteps;
+
+  // Date label for the AddToRoutineSheet subtitle — derived from the selected day, not today.
+  const sheetDateLabel = useMemo(() => {
+    const today = new Date();
+    const offset = (selectedDow - today.getDay() + 7) % 7;
+    const d = new Date(today);
+    d.setDate(today.getDate() + offset);
+    return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+  }, [selectedDow]);
 
   function toggleComplete(stepId: string) {
     setCompleted((prev) => {
@@ -147,185 +105,88 @@ export default function RoutinesScreen({ navigation }: Props) {
     });
   }
 
-  function openScheduleSheet(product: Product) {
-    setScheduleSheet({
-      productId: product.id,
-      productType: product.productType,
-      productName: product.name,
-    });
-  }
-
-  function hideProductFromAllRoutines(productId: string) {
-    const state = useRoutinesStore.getState();
-    for (const routine of state.routines) {
-      const step = routine.steps.find((s) => s.productId === productId);
-      if (step) state.setStepHidden(routine.id, step.id, true);
+  function handleDragEnd(reorderedVisible: RoutineStep[]) {
+    if (!activeRoutine) return;
+    const visibleSet = new Set(reorderedVisible.map((s) => s.id));
+    const result: RoutineStep[] = [];
+    let idx = 0;
+    for (const step of activeRoutine.steps) {
+      result.push(visibleSet.has(step.id) ? reorderedVisible[idx++] : step);
     }
+    if (idx !== reorderedVisible.length) return;
+    reorderSteps(activeRoutine.id, result);
   }
 
-  function handleHideStep(routine: Routine, stepId: string) {
-    setStepHidden(routine.id, stepId, true);
-  }
+  function renderItem({ item, drag, isActive: _isActive }: RenderItemParams<RoutineStep>) {
+    const product = item.productId
+      ? products.find((p) => p.id === item.productId) ?? null
+      : null;
 
-  if (mode === 'edit') {
+    if (!product) return null;
+
     return (
-      <SafeAreaView style={styles.safe}>
-        <WeeklyPlanView initialPeriod={activePeriod} />
-      </SafeAreaView>
+      <ScaleDecorator>
+        <View style={styles.cardWrapper}>
+          <RoutineStepCard
+            step={item}
+            product={product}
+            checked={completed.has(item.id)}
+            onToggle={() => toggleComplete(item.id)}
+            onCardPress={() =>
+              navigation.navigate('Vials', {
+                screen: 'ProductDetail',
+                params: { productId: product.id },
+              })
+            }
+            conflictingProductName={conflictMap.get(item.id) ?? null}
+            onDrag={drag}
+          />
+        </View>
+      </ScaleDecorator>
     );
   }
 
-  return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Large page title */}
-        <View style={styles.pageHeader}>
-          <Text style={styles.pageTitle}>Routine</Text>
-          <Text style={styles.dateLabel}>{formatTodayLabel(today)}</Text>
-        </View>
-
-        {/* Scheduling control block */}
+  const listHeader = useMemo(
+    () => (
+      <View style={styles.listHeader}>
+        <Text style={styles.pageTitle}>Routine</Text>
         <PlannerBlock
           activePeriod={activePeriod}
           onPeriodChange={setActivePeriod}
-          scheduledDays={plannerDays}
-          stepCount={plannerStepCount}
-          onEditPress={() => setMode('edit')}
+          selectedDow={selectedDow}
+          onDaySelect={setSelectedDow}
         />
+      </View>
+    ),
+    [activePeriod, selectedDow],
+  );
 
-        {/* Clinical restrictions (only shows during rehab windows) */}
-        <ClinicalRestrictionsBlock />
+  return (
+    <SafeAreaView style={styles.safe}>
+      <DraggableFlatList
+        data={activeSteps}
+        keyExtractor={(item) => item.id}
+        onDragEnd={({ data }) => handleDragEnd(data)}
+        renderItem={renderItem}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={<EmptyRoutine />}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
 
-        {/* Ingredient conflicts */}
-        <ConflictWarningInline routines={routines} products={products} />
-
-        {/* Seasonal tip (dismissible) */}
-        <SeasonalNoticeBanner />
-
-        {/* AM Section */}
-        <RoutineSection
-          title="AM"
-          collapsed={amCollapsed}
-          onToggleCollapse={() => setAmCollapsed((v) => !v)}
-          stepCount={amSteps.length}
-          completedCount={amSteps.filter((s) => completed.has(s.id)).length}
+      {/* Fixed bottom: Add product button */}
+      <View style={styles.bottomBar}>
+        <Pressable
+          style={({ pressed }) => [styles.addBtn, pressed && styles.addBtnPressed]}
+          onPress={() => setAddSheetVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Add product to routine"
         >
-          {amSteps.length === 0 ? (
-            <EmptySection
-              message="No steps scheduled for this morning."
-              hint="Tap Edit order above to set up your routine."
-            />
-          ) : (
-            amSteps.map((step) => {
-              const product = step.productId
-                ? products.find((p) => p.id === step.productId) ?? null
-                : null;
+          <Feather name="sun" size={16} color={palette.black} />
+          <Text style={styles.addBtnText}>Add product</Text>
+        </Pressable>
+      </View>
 
-              if (!product) {
-                return morningRoutine ? (
-                  <EmptySlotPlaceholder
-                    key={step.id}
-                    step={step}
-                    onHide={() => handleHideStep(morningRoutine, step.id)}
-                    onAddFromCatalog={() => navigation.navigate('Vials', { screen: 'Catalog' })}
-                  />
-                ) : null;
-              }
-
-              return (
-                <RoutineStepCard
-                  key={step.id}
-                  step={step}
-                  product={product}
-                  checked={completed.has(step.id)}
-                  onToggle={() => toggleComplete(step.id)}
-                  onCardPress={() =>
-                    navigation.navigate('Vials', {
-                      screen: 'ProductDetail',
-                      params: { productId: product.id },
-                    })
-                  }
-                  onSchedulePress={() => openScheduleSheet(product)}
-                  conflictingProductName={conflictMap.get(step.id) ?? null}
-                />
-              );
-            })
-          )}
-        </RoutineSection>
-
-        {/* PM Section */}
-        <RoutineSection
-          title="PM"
-          collapsed={pmCollapsed}
-          onToggleCollapse={() => setPmCollapsed((v) => !v)}
-          stepCount={pmSteps.length}
-          completedCount={pmSteps.filter((s) => completed.has(s.id)).length}
-        >
-          {pmSteps.length === 0 ? (
-            <EmptySection
-              message="No steps scheduled for this evening."
-              hint="Tap Edit order above to set up your routine."
-            />
-          ) : (
-            pmSteps.map((step) => {
-              const product = step.productId
-                ? products.find((p) => p.id === step.productId) ?? null
-                : null;
-
-              if (!product) {
-                return eveningRoutine ? (
-                  <EmptySlotPlaceholder
-                    key={step.id}
-                    step={step}
-                    onHide={() => handleHideStep(eveningRoutine, step.id)}
-                    onAddFromCatalog={() => navigation.navigate('Vials', { screen: 'Catalog' })}
-                  />
-                ) : null;
-              }
-
-              return (
-                <RoutineStepCard
-                  key={step.id}
-                  step={step}
-                  product={product}
-                  checked={completed.has(step.id)}
-                  onToggle={() => toggleComplete(step.id)}
-                  onCardPress={() =>
-                    navigation.navigate('Vials', {
-                      screen: 'ProductDetail',
-                      params: { productId: product.id },
-                    })
-                  }
-                  onSchedulePress={() => openScheduleSheet(product)}
-                  conflictingProductName={conflictMap.get(step.id) ?? null}
-                />
-              );
-            })
-          )}
-        </RoutineSection>
-      </ScrollView>
-
-      {/* Schedule editing sheet */}
-      {scheduleSheet ? (
-        <RoutineSchedulerSheet
-          visible
-          productId={scheduleSheet.productId}
-          productType={scheduleSheet.productType}
-          title={scheduleSheet.productName}
-          onClose={() => setScheduleSheet(null)}
-          onHide={() => hideProductFromAllRoutines(scheduleSheet.productId)}
-          onRemove={() => {
-            const product = products.find((p) => p.id === scheduleSheet.productId);
-            if (product) setRemoveSheetProduct(product);
-          }}
-        />
-      ) : null}
-
-      {/* Remove from routine action sheet */}
       {removeSheetProduct ? (
         <RemoveRoutineActionSheet
           visible
@@ -333,214 +194,37 @@ export default function RoutinesScreen({ navigation }: Props) {
           onClose={() => setRemoveSheetProduct(null)}
         />
       ) : null}
+
+      <AddToRoutineSheet
+        visible={addSheetVisible}
+        onClose={() => setAddSheetVisible(false)}
+        dateLabel={sheetDateLabel}
+        activePeriod={activePeriod}
+      />
     </SafeAreaView>
   );
 }
 
-// ─── RoutineSection ───────────────────────────────────────────────────────────
+// ─── Empty state ──────────────────────────────────────────────────────────────
 
-function RoutineSection({
-  title,
-  collapsed,
-  onToggleCollapse,
-  stepCount,
-  completedCount,
-  children,
-}: {
-  title: string;
-  collapsed: boolean;
-  onToggleCollapse: () => void;
-  stepCount: number;
-  completedCount: number;
-  children: React.ReactNode;
-}) {
-  const allDone = stepCount > 0 && completedCount === stepCount;
-
+function EmptyRoutine() {
   return (
-    <View style={sectionStyles.wrap}>
-      <Pressable
-        style={sectionStyles.header}
-        onPress={onToggleCollapse}
-        accessibilityRole="button"
-        accessibilityLabel={`${title} routine, ${collapsed ? 'expand' : 'collapse'}`}
-        accessibilityState={{ expanded: !collapsed }}
-        hitSlop={8}
-      >
-        <View style={sectionStyles.headerLeft}>
-          <Text style={sectionStyles.title}>{title}</Text>
-          {stepCount > 0 ? (
-            <View style={[sectionStyles.badge, allDone && sectionStyles.badgeDone]}>
-              <Text style={[sectionStyles.badgeText, allDone && sectionStyles.badgeTextDone]}>
-                {completedCount}/{stepCount}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-        <Feather
-          name={collapsed ? 'chevron-down' : 'chevron-up'}
-          size={18}
-          color={colors.textSecondary}
-        />
-      </Pressable>
-
-      {!collapsed ? (
-        <View style={sectionStyles.body}>{children}</View>
-      ) : null}
+    <View style={emptyStyles.wrap}>
+      <Feather name="inbox" size={28} color={colors.textTertiary} />
+      <Text style={emptyStyles.text}>No products scheduled for today.</Text>
     </View>
   );
 }
 
-const sectionStyles = StyleSheet.create({
+const emptyStyles = StyleSheet.create({
   wrap: {
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceCard,
-  },
-  header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space[4],
-    paddingVertical: space[4],
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-  },
-  title: {
-    ...typography.label,
-    color: colors.textPrimary,
-  },
-  badge: {
-    paddingHorizontal: space[2],
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunken,
-  },
-  badgeDone: {
-    backgroundColor: palette.cabernetTint,
-  },
-  badgeText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  badgeTextDone: {
-    color: palette.cabernet,
-  },
-  body: {
-    borderTopWidth: 1,
-    borderTopColor: colors.borderDivider,
-    padding: space[3],
-    gap: space[2],
-  },
-});
-
-// ─── EmptySlotPlaceholder ─────────────────────────────────────────────────────
-
-function EmptySlotPlaceholder({
-  step,
-  onHide,
-  onAddFromCatalog,
-}: {
-  step: RoutineStep;
-  onHide: () => void;
-  onAddFromCatalog: () => void;
-}) {
-  return (
-    <View style={emptySlotStyles.row}>
-      <View style={emptySlotStyles.content}>
-        <Text style={emptySlotStyles.label}>Step empty</Text>
-        <Text style={emptySlotStyles.type}>
-          {PRODUCT_TYPE_LABELS[step.productType] ?? step.productType}
-        </Text>
-      </View>
-      <View style={emptySlotStyles.actions}>
-        <Button variant="secondary" size="sm" onPress={onAddFromCatalog}>
-          + Add from catalog
-        </Button>
-        <Pressable
-          onPress={onHide}
-          style={emptySlotStyles.hideLink}
-          accessibilityRole="button"
-          accessibilityLabel="Hide this step"
-          hitSlop={8}
-        >
-          <Text style={emptySlotStyles.hideLinkText}>Hide step</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-const emptySlotStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space[3],
-    paddingVertical: space[3],
+    paddingVertical: space[12],
     gap: space[3],
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
-    borderRadius: radius.md,
-    backgroundColor: colors.bgBase,
   },
-  content: {
-    flex: 1,
-    gap: 2,
-  },
-  label: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textTertiary,
-  },
-  type: {
-    ...typography.caption,
-    color: colors.textTertiary,
-  },
-  actions: {
-    alignItems: 'flex-end',
-    gap: space[2],
-    flexShrink: 0,
-  },
-  hideLink: {
-    alignSelf: 'flex-end',
-  },
-  hideLinkText: {
-    ...typography.bodySmall,
-    color: colors.textLink,
-  },
-});
-
-// ─── EmptySection ─────────────────────────────────────────────────────────────
-
-function EmptySection({ message, hint }: { message: string; hint?: string }) {
-  return (
-    <View style={emptySectionStyles.wrap}>
-      <Feather name="inbox" size={24} color={colors.textTertiary} />
-      <Text style={emptySectionStyles.message}>{message}</Text>
-      {hint ? <Text style={emptySectionStyles.hint}>{hint}</Text> : null}
-    </View>
-  );
-}
-
-const emptySectionStyles = StyleSheet.create({
-  wrap: {
-    alignItems: 'center',
-    paddingVertical: space[8],
-    paddingHorizontal: space[6],
-    gap: space[2],
-  },
-  message: {
+  text: {
     ...typography.body,
     color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  hint: {
-    ...typography.bodySmall,
-    color: colors.textTertiary,
     textAlign: 'center',
   },
 });
@@ -550,36 +234,53 @@ const emptySectionStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: palette.zinc100,
   },
-  scroll: {
-    flex: 1,
-  },
-  content: {
+
+  listContent: {
     paddingHorizontal: space.gutterScreen,
     paddingTop: space[6],
-    paddingBottom: space[12],
+    paddingBottom: space[4],
+  },
+
+  listHeader: {
     gap: space[4],
+    marginBottom: space[4],
   },
 
-  headerBtn: {
-    paddingRight: space.gutterScreen,
-  },
-  headerBtnText: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: palette.black,
-  },
-
-  pageHeader: {
-    gap: space[1],
-  },
   pageTitle: {
     ...typography.h1,
     color: colors.textPrimary,
   },
-  dateLabel: {
+
+  cardWrapper: {
+    marginBottom: space[3],
+  },
+
+  bottomBar: {
+    paddingHorizontal: space.gutterScreen,
+    paddingVertical: space[3],
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
+    backgroundColor: palette.white,
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[2],
+    paddingVertical: space[4],
+    borderWidth: 1.5,
+    borderColor: palette.black,
+    borderRadius: radius.lg,
+    backgroundColor: palette.white,
+  },
+  addBtnPressed: {
+    backgroundColor: palette.zinc50,
+  },
+  addBtnText: {
     ...typography.body,
-    color: colors.textSecondary,
+    fontFamily: 'DMSans-Medium',
+    color: palette.black,
   },
 });

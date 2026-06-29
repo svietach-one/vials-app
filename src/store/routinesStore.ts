@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 import { loadJson, saveJson, STORAGE_KEYS } from '@/services/storage';
 import { generateId } from '@/utils/generateId';
-import type { ProductType, Routine } from '@/types';
+import type { ProductType, Routine, RoutineStep } from '@/types';
 
 // ─── Default routines ─────────────────────────────────────────────────────────
 
@@ -35,6 +35,8 @@ interface RoutinesState {
   upsertProductStep: (routineId: string, productId: string, productType: ProductType, scheduledDays: number[]) => void;
   /** Remove the step for a product from a routine. */
   removeProductStep: (routineId: string, productId: string) => void;
+  /** Replace the steps array for a routine (used for drag-and-drop reordering). */
+  reorderSteps: (routineId: string, steps: RoutineStep[]) => void;
 }
 
 export const useRoutinesStore = create<RoutinesState>((set, get) => ({
@@ -105,6 +107,14 @@ export const useRoutinesStore = create<RoutinesState>((set, get) => ({
       if (r.id !== routineId) return r;
       return { ...r, steps: r.steps.filter((s) => s.productId !== productId) };
     });
+    set({ routines });
+    void saveJson(STORAGE_KEYS.routines, routines);
+  },
+
+  reorderSteps: (routineId, steps) => {
+    const routines = get().routines.map((r) =>
+      r.id === routineId ? { ...r, steps } : r,
+    );
     set({ routines });
     void saveJson(STORAGE_KEYS.routines, routines);
   },

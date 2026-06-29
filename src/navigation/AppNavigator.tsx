@@ -142,7 +142,7 @@ function MainTabs() {
         ),
       })}
     >
-      <Tab.Screen name="Routine Hub" component={RoutinesScreen} />
+      <Tab.Screen name="Routine Hub" component={RoutinesScreen} options={{ headerShown: false }} />
       {/* Vials tab: headerShown:false because CatalogNavigator provides its own header */}
       <Tab.Screen
         name="Vials"
