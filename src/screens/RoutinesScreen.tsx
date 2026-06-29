@@ -45,7 +45,6 @@ export default function RoutinesScreen({ navigation }: Props) {
   const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
 
   const [activePeriod, setActivePeriod] = useState<Period>('morning');
-  const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [selectedDow, setSelectedDow] = useState<number>(() => new Date().getDay());
   const [addSheetVisible, setAddSheetVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -108,15 +107,6 @@ export default function RoutinesScreen({ navigation }: Props) {
     return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
   }, [selectedDow]);
 
-  function toggleComplete(stepId: string) {
-    setCompleted((prev) => {
-      const next = new Set(prev);
-      if (next.has(stepId)) next.delete(stepId);
-      else next.add(stepId);
-      return next;
-    });
-  }
-
   function handleDragEnd(reorderedVisible: RoutineStep[]) {
     if (!isEditMode || !activeRoutine) return;
     const visibleSet = new Set(reorderedVisible.map((s) => s.id));
@@ -142,8 +132,6 @@ export default function RoutinesScreen({ navigation }: Props) {
           <View style={styles.cardWrapper}>
             <RoutineStepCard
               product={product}
-              checked={completed.has(item.id)}
-              onToggle={() => toggleComplete(item.id)}
               onCardPress={
                 isEditMode
                   ? undefined
@@ -166,7 +154,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         </ScaleDecorator>
       );
     },
-    [isEditMode, activeRoutine, selectedDow, completed, conflictMap, products, navigation, removeStepFromDay],
+    [isEditMode, activeRoutine, selectedDow, conflictMap, products, navigation, removeStepFromDay],
   );
 
   const listHeader = useMemo(

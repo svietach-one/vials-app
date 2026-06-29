@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 
-import { Checkbox } from '@/components/ui/forms/Checkbox';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { Product, ProductType } from '@/types';
@@ -35,8 +34,6 @@ const DEFAULT_TYPE_COLOR = { bg: palette.zinc100, text: palette.zinc600 };
 
 export interface RoutineStepCardProps {
   product: Product;
-  checked: boolean;
-  onToggle: () => void;
   onCardPress?: () => void;
   conflictingProductName?: string | null;
   /**
@@ -54,8 +51,6 @@ export interface RoutineStepCardProps {
 
 export function RoutineStepCard({
   product,
-  checked,
-  onToggle,
   onCardPress,
   conflictingProductName,
   drag,
@@ -111,7 +106,7 @@ export function RoutineStepCard({
           ) : null}
         </View>
 
-        {/* Bottom row: badges (left) + checkbox or delete (right) */}
+        {/* Bottom row: badges (left) + delete button in edit mode (right) */}
         <View style={styles.bottomRow}>
           <View style={styles.badgesRow}>
             <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
@@ -143,9 +138,7 @@ export function RoutineStepCard({
             >
               <Feather name="trash-2" size={18} color={palette.zinc500} />
             </TouchableOpacity>
-          ) : (
-            <Checkbox checked={checked} onValueChange={() => onToggle()} size="md" />
-          )}
+          ) : null}
         </View>
       </View>
     </View>
