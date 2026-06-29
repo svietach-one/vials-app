@@ -47,7 +47,7 @@ export function BottomSheet({
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={dismissOnBackdrop ? onClose : undefined}
+      onRequestClose={dismissOnBackdrop ? onClose : () => {}}
       statusBarTranslucent
     >
       <Pressable

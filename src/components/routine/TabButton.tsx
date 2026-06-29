@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   active: {
-    backgroundColor: palette.cabernet,
+    backgroundColor: palette.black,
     // Figma: drop-shadow(0px 1px 0.5px rgba(9,9,11,0.12)) — no matching system token
     shadowColor: palette.black,
     shadowOffset: { width: 0, height: 1 },
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   inactivePressed: {
-    backgroundColor: palette.cabernetTint,
+    backgroundColor: palette.zinc100,
   },
   activePressed: {
     opacity: 0.8,
