@@ -22,11 +22,11 @@ const TYPE_COLORS: Partial<Record<ProductType, { bg: string; text: string }>> = 
   lotion:        { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
   oil:           { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
   spf:           { bg: palette.amberTint,        text: palette.amber },
-  eye_cream:     { bg: palette.cabernetTint,     text: palette.cabernet },
-  mask:          { bg: palette.cabernetTint,     text: palette.cabernet },
-  peeling:       { bg: palette.cabernetTint,     text: palette.cabernet },
-  spot_treatment:{ bg: palette.cabernetTint,     text: palette.cabernet },
-  balm:          { bg: palette.cabernetTint,     text: palette.cabernet },
+  eye_cream:     { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
+  mask:          { bg: palette.amberTint,        text: palette.amber },
+  peeling:       { bg: palette.amberTint,        text: palette.amber },
+  spot_treatment:{ bg: palette.amberTint,        text: palette.amber },
+  balm:          { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
 };
 
 const DEFAULT_TYPE_COLOR = { bg: palette.zinc100, text: palette.zinc600 };
@@ -130,7 +130,7 @@ export function RoutineStepCard({
 
           {/* Schedule row — display only, not pressable */}
           <View style={styles.scheduleRow}>
-            <Feather name="calendar" size={11} color={palette.cabernet} />
+            <Feather name="calendar" size={11} color={colors.textTertiary} />
             <Text style={styles.scheduleText}>{scheduleLabel}</Text>
           </View>
         </View>

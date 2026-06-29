@@ -90,9 +90,8 @@ export default function RoutinesScreen({ navigation }: Props) {
   // Date label for the AddToRoutineSheet subtitle — derived from the selected day, not today.
   const sheetDateLabel = useMemo(() => {
     const today = new Date();
-    const offset = (selectedDow - today.getDay() + 7) % 7;
     const d = new Date(today);
-    d.setDate(today.getDate() + offset);
+    d.setDate(today.getDate() + (selectedDow - today.getDay()));
     return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
   }, [selectedDow]);
 

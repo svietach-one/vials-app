@@ -16,6 +16,7 @@ import { ProductPickerCard } from '@/components/routine/ProductPickerCard';
 import { WeeklySchedulePicker } from '@/components/routine/WeeklySchedulePicker';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
+import { deriveProductSchedule } from '@/utils/routineLabel';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { Product, ProductType } from '@/types';
 
@@ -94,10 +95,15 @@ export function AddToRoutineSheet({
   }, [visible]);
 
   function handleProductSelect(product: Product) {
+    const existing = deriveProductSchedule(
+      useRoutinesStore.getState().routines,
+      product.id,
+    );
+    const isNew = !existing.morning && !existing.evening;
     setPendingProduct(product);
-    setMorning(activePeriod === 'morning');
-    setEvening(activePeriod === 'evening');
-    setScheduledDays([]);
+    setMorning(isNew ? activePeriod === 'morning' : existing.morning);
+    setEvening(isNew ? activePeriod === 'evening' : existing.evening);
+    setScheduledDays(existing.scheduledDays);
     setValidationError(null);
     setStep('schedule');
   }
@@ -129,11 +135,10 @@ export function AddToRoutineSheet({
     onClose();
   }
 
-  const resolvedDate = dateLabel ?? new Date().toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'short',
-  });
+  const resolvedDate = useMemo(
+    () => dateLabel ?? new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }),
+    [dateLabel],
+  );
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -151,7 +156,7 @@ export function AddToRoutineSheet({
   }, [products, searchQuery, selectedCategory]);
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} dismissOnBackdrop={step === 'pick'}>
+    <BottomSheet visible={visible} onClose={onClose} dismissOnBackdrop={step === 'pick'} contentStyle={styles.sheetContent}>
       {step === 'pick' ? (
         <>
           {/* ── Step 1: Header ─────────────────────────────────────────────── */}
@@ -327,6 +332,12 @@ function TimeChip({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  // Prevents the sheet from collapsing to step 2's shorter intrinsic height
+  // when transitioning from the product list (step 1) to schedule config (step 2).
+  sheetContent: {
+    minHeight: 360,
+  },
+
   // ── Shared header
   header: {
     flexDirection: 'row',
