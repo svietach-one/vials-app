@@ -217,7 +217,6 @@ export default function RoutinesScreen({ navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Add product to routine"
         >
-          <Feather name="sun" size={16} color={palette.black} />
           <Text style={styles.addBtnText}>Add product</Text>
         </Pressable>
       </View>
@@ -283,18 +282,17 @@ const styles = StyleSheet.create({
     paddingVertical: space[3],
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
-    backgroundColor: palette.white,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: space[2],
-    paddingVertical: space[4],
+    paddingVertical: 10,
     borderWidth: 1.5,
     borderColor: palette.black,
     borderRadius: radius.lg,
-    backgroundColor: palette.white,
+    width: '100%',
   },
   addBtnPressed: {
     backgroundColor: palette.zinc50,

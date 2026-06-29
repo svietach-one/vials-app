@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 
@@ -84,11 +84,13 @@ export function RoutineStepCard({
     <View style={styles.mainRow}>
       {/* Drag handle — only in edit mode, directly calls the RNDFL drag fn */}
       {isEditMode && drag ? (
-        <TouchableOpacity
+        // RN Pressable (not RNGH) so RNDFL's GestureDetector can claim the
+        // touch after drag() is called without a competing RNGH handler.
+        <Pressable
           onLongPress={drag}
-          activeOpacity={0.4}
-          style={dragStyles.container}
+          delayLongPress={150}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={dragStyles.container}
           accessibilityLabel="Hold to reorder"
         >
           <View style={dragStyles.dotsGrid}>
@@ -96,7 +98,7 @@ export function RoutineStepCard({
               <View key={i} style={dragStyles.dot} />
             ))}
           </View>
-        </TouchableOpacity>
+        </Pressable>
       ) : null}
 
       {/* Content area */}
