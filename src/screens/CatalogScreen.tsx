@@ -13,6 +13,7 @@ import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { ProductShelfCard } from '@/components/product/ProductShelfCard';
 import { CatalogFilterHeader } from '@/components/catalog/CatalogFilterHeader';
+import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { Card } from '@/components/ui/core/Card';
@@ -105,6 +106,7 @@ export default function CatalogScreen({ navigation }: Props) {
 
   const [filterState, setFilterState] = useState<CatalogFilterState>(CATALOG_FILTER_DEFAULT);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [schedulerTarget, setSchedulerTarget] = useState<Product | null>(null);
 
   const filteredProducts = applyFilters(products, filterState);
   const hasActiveFilters =
@@ -143,9 +145,7 @@ export default function CatalogScreen({ navigation }: Props) {
         onDelete={(p) => {
           setDeleteTarget(p);
         }}
-        onAddToRoutine={() => {
-          // Navigate to routine assignment — no dedicated screen in Phase 1, no-op placeholder
-        }}
+        onAddToRoutine={(p) => setSchedulerTarget(p)}
         onRemoveFromRoutine={(p) => {
           updateProduct(p.id, { isHidden: true });
         }}
@@ -208,6 +208,16 @@ export default function CatalogScreen({ navigation }: Props) {
         product={deleteTarget}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <RoutineSchedulerSheet
+        visible={schedulerTarget !== null}
+        productId={schedulerTarget?.id ?? ''}
+        productType={schedulerTarget?.productType ?? 'serum'}
+        title="Add to Routine"
+        cancelLabel="Cancel"
+        saveLabel="Add to routine"
+        onClose={() => setSchedulerTarget(null)}
       />
     </SafeAreaView>
   );

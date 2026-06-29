@@ -141,7 +141,6 @@ export default function RoutinesScreen({ navigation }: Props) {
         <ScaleDecorator>
           <View style={styles.cardWrapper}>
             <RoutineStepCard
-              step={item}
               product={product}
               checked={completed.has(item.id)}
               onToggle={() => toggleComplete(item.id)}
@@ -155,7 +154,7 @@ export default function RoutinesScreen({ navigation }: Props) {
                       })
               }
               conflictingProductName={conflictMap.get(item.id) ?? null}
-              onDrag={isEditMode ? drag : undefined}
+              drag={drag}
               isEditMode={isEditMode}
               onDelete={
                 isEditMode && activeRoutine

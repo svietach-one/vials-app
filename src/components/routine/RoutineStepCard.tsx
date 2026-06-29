@@ -1,12 +1,12 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 
 import { Checkbox } from '@/components/ui/forms/Checkbox';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
-import { formatScheduleDays } from '@/utils/routineLabel';
-import type { Product, ProductType, RoutineStep } from '@/types';
+import type { Product, ProductType } from '@/types';
 
 // ─── Product type → badge color ───────────────────────────────────────────────
 
@@ -34,38 +34,156 @@ const DEFAULT_TYPE_COLOR = { bg: palette.zinc100, text: palette.zinc600 };
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface RoutineStepCardProps {
-  step: RoutineStep;
   product: Product;
   checked: boolean;
   onToggle: () => void;
   onCardPress?: () => void;
   conflictingProductName?: string | null;
-  /** When provided, a drag handle is rendered and long-pressing it initiates drag. */
-  onDrag?: () => void;
-  /** When true, the card switches to edit mode: drag handle + delete button, no checkbox. */
+  /**
+   * The raw `drag` callback from DraggableFlatList's renderItem.
+   * Only rendered (via the drag handle) when isEditMode is true.
+   */
+  drag?: () => void;
+  /** Switches the card between normal mode (checkbox) and edit mode (drag handle + delete). */
   isEditMode?: boolean;
   /** Called when the user taps the delete button in edit mode. */
   onDelete?: () => void;
 }
 
-// ─── Drag handle ──────────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────────
 
-function DragHandle({ onDrag }: { onDrag: () => void }) {
-  return (
-    <Pressable
-      onLongPress={onDrag}
-      style={dragStyles.container}
-      hitSlop={8}
-      accessibilityLabel="Hold to reorder"
-    >
-      <View style={dragStyles.dotsGrid}>
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <View key={i} style={dragStyles.dot} />
-        ))}
+export function RoutineStepCard({
+  product,
+  checked,
+  onToggle,
+  onCardPress,
+  conflictingProductName,
+  drag,
+  isEditMode = false,
+  onDelete,
+}: RoutineStepCardProps) {
+  const hasConflict = !!conflictingProductName;
+
+  const activeKey = product.activeTags?.[0] ?? product.activeIngredients?.[0]?.key ?? null;
+  const activeLabel = activeKey ? (ACTIVE_INGREDIENT_LABELS[activeKey] ?? null) : null;
+
+  const typeLabel = PRODUCT_TYPE_LABELS[product.productType] ?? product.productType;
+  const typeColor = TYPE_COLORS[product.productType] ?? DEFAULT_TYPE_COLOR;
+
+  const cardStyle = [styles.card, hasConflict && styles.cardConflict];
+
+  // ── Shared card body ──────────────────────────────────────────────────────
+  //
+  // In edit mode the card root is a plain View so there is no RNGH touch
+  // responder competing with the drag handle's TouchableOpacity.
+  // In normal mode the root is an RNGH TouchableOpacity for navigation.
+  // Keeping the two branches explicit avoids the nested-RNGH-handler problem
+  // that caused drag gestures to be swallowed by the outer touch responder.
+
+  const mainRow = (
+    <View style={styles.mainRow}>
+      {/* Drag handle — only in edit mode, directly calls the RNDFL drag fn */}
+      {isEditMode && drag ? (
+        <TouchableOpacity
+          onLongPress={drag}
+          activeOpacity={0.4}
+          style={dragStyles.container}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Hold to reorder"
+        >
+          <View style={dragStyles.dotsGrid}>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <View key={i} style={dragStyles.dot} />
+            ))}
+          </View>
+        </TouchableOpacity>
+      ) : null}
+
+      {/* Content area */}
+      <View style={styles.contentArea}>
+        {/* Top row: product name (left, up to 2 lines) + brand (right, 1 line) */}
+        <View style={styles.topRow}>
+          <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+          {product.brand ? (
+            <Text style={styles.brandName} numberOfLines={1}>{product.brand}</Text>
+          ) : null}
+        </View>
+
+        {/* Bottom row: badges (left) + checkbox or delete (right) */}
+        <View style={styles.bottomRow}>
+          <View style={styles.badgesRow}>
+            <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
+              <Text
+                style={[styles.typeBadgeText, { color: typeColor.text }]}
+                numberOfLines={1}
+              >
+                {typeLabel}
+              </Text>
+            </View>
+            {activeLabel ? (
+              <View style={styles.activeBadge}>
+                <Text style={styles.activeBadgeText} numberOfLines={1}>
+                  {activeLabel}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {isEditMode ? (
+            <TouchableOpacity
+              onPress={onDelete}
+              disabled={!onDelete}
+              activeOpacity={0.5}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ opacity: onDelete ? 1 : 0.35 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${product.name}`}
+            >
+              <Feather name="trash-2" size={18} color={palette.zinc500} />
+            </TouchableOpacity>
+          ) : (
+            <Checkbox checked={checked} onValueChange={() => onToggle()} size="md" />
+          )}
+        </View>
       </View>
-    </Pressable>
+    </View>
+  );
+
+  const conflictRow = hasConflict ? (
+    <View style={styles.conflictRow}>
+      <Feather name="alert-triangle" size={11} color={palette.amber} />
+      <Text style={styles.conflictText} numberOfLines={1}>
+        Conflicts with {conflictingProductName}
+      </Text>
+    </View>
+  ) : null;
+
+  // Edit mode: plain View root — no RNGH handler competing with drag handle
+  if (isEditMode) {
+    return (
+      <View style={cardStyle}>
+        {mainRow}
+        {conflictRow}
+      </View>
+    );
+  }
+
+  // Normal mode: RNGH TouchableOpacity for tap-to-navigate
+  return (
+    <TouchableOpacity
+      onPress={onCardPress}
+      activeOpacity={onCardPress ? 0.92 : 1}
+      style={cardStyle}
+      accessibilityRole="button"
+      accessibilityLabel={`${product.name}, tap to view product detail`}
+    >
+      {mainRow}
+      {conflictRow}
+    </TouchableOpacity>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const dragStyles = StyleSheet.create({
   container: {
@@ -89,109 +207,6 @@ const dragStyles = StyleSheet.create({
   },
 });
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
-export function RoutineStepCard({
-  step,
-  product,
-  checked,
-  onToggle,
-  onCardPress,
-  conflictingProductName,
-  onDrag,
-  isEditMode = false,
-  onDelete,
-}: RoutineStepCardProps) {
-  const hasConflict = !!conflictingProductName;
-
-  const activeKey = product.activeTags?.[0] ?? product.activeIngredients?.[0]?.key ?? null;
-  const activeLabel = activeKey ? (ACTIVE_INGREDIENT_LABELS[activeKey] ?? null) : null;
-
-  const typeLabel = PRODUCT_TYPE_LABELS[product.productType] ?? product.productType;
-  const typeColor = TYPE_COLORS[product.productType] ?? DEFAULT_TYPE_COLOR;
-  const scheduleLabel = formatScheduleDays(step.scheduledDays);
-
-  return (
-    <Pressable
-      onPress={onCardPress}
-      style={({ pressed }) => [
-        styles.card,
-        hasConflict && styles.cardConflict,
-        pressed && !isEditMode && styles.cardPressed,
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={`${product.name}, tap to view product detail`}
-    >
-      {/* Main row: drag handle (optional) + left content + right badges/checkbox */}
-      <View style={styles.mainRow}>
-        {onDrag ? <DragHandle onDrag={onDrag} /> : null}
-
-        {/* Left column */}
-        <View style={styles.leftCol}>
-          <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
-
-          {product.brand ? (
-            <Text style={styles.brandName} numberOfLines={1}>{product.brand}</Text>
-          ) : null}
-
-          {/* Schedule row — display only, not pressable */}
-          <View style={styles.scheduleRow}>
-            <Feather name="calendar" size={11} color={colors.textTertiary} />
-            <Text style={styles.scheduleText}>{scheduleLabel}</Text>
-          </View>
-        </View>
-
-        {/* Right column: badges (top) + checkbox or delete button (bottom) */}
-        <View style={styles.rightCol}>
-          <View style={styles.badgesRow}>
-            {activeLabel ? (
-              <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText} numberOfLines={1}>
-                  {activeLabel}
-                </Text>
-              </View>
-            ) : null}
-            <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
-              <Text
-                style={[styles.typeBadgeText, { color: typeColor.text }]}
-                numberOfLines={1}
-              >
-                {typeLabel}
-              </Text>
-            </View>
-          </View>
-
-          {isEditMode ? (
-            <Pressable
-              onPress={onDelete}
-              disabled={!onDelete}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={`Remove ${product.name}`}
-            >
-              <Feather name="minus-circle" size={22} color={palette.black} />
-            </Pressable>
-          ) : (
-            <Checkbox checked={checked} onValueChange={() => onToggle()} size="md" />
-          )}
-        </View>
-      </View>
-
-      {/* Conflict row */}
-      {hasConflict ? (
-        <View style={styles.conflictRow}>
-          <Feather name="alert-triangle" size={11} color={palette.amber} />
-          <Text style={styles.conflictText} numberOfLines={1}>
-            Conflicts with {conflictingProductName}
-          </Text>
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   card: {
     backgroundColor: palette.white,
@@ -199,13 +214,10 @@ const styles = StyleSheet.create({
     borderColor: palette.zinc200,
     borderRadius: radius.xl,
     paddingHorizontal: space[4],
-    paddingVertical: space[4],
+    paddingVertical: space[3],
   },
   cardConflict: {
     borderColor: palette.amber,
-  },
-  cardPressed: {
-    backgroundColor: colors.bgSubtle,
   },
 
   mainRow: {
@@ -214,12 +226,19 @@ const styles = StyleSheet.create({
     gap: space[3],
   },
 
-  leftCol: {
+  contentArea: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
+    gap: space[2],
+  },
+
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[2],
   },
   productName: {
+    flex: 1,
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: palette.black,
@@ -227,31 +246,33 @@ const styles = StyleSheet.create({
   brandName: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-  },
-  scheduleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  scheduleText: {
-    ...typography.caption,
-    color: colors.textSecondary,
+    flexShrink: 0,
+    maxWidth: 110,
+    textAlign: 'right',
   },
 
-  rightCol: {
-    alignItems: 'flex-end',
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    flexShrink: 0,
   },
   badgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[1],
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
-    maxWidth: 140,
+    flexShrink: 1,
+    flexWrap: 'nowrap',
+  },
+  typeBadge: {
+    borderRadius: radius.pill,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    maxWidth: 96,
+  },
+  typeBadgeText: {
+    fontFamily: 'DMSans-Medium',
+    fontSize: 10,
+    lineHeight: 14,
   },
   activeBadge: {
     backgroundColor: palette.white,
@@ -267,17 +288,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 14,
     color: palette.black,
-  },
-  typeBadge: {
-    borderRadius: radius.pill,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    maxWidth: 96,
-  },
-  typeBadgeText: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 10,
-    lineHeight: 14,
   },
 
   conflictRow: {
