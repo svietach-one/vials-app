@@ -38,10 +38,14 @@ export interface RoutineStepCardProps {
   product: Product;
   checked: boolean;
   onToggle: () => void;
-  onCardPress: () => void;
+  onCardPress?: () => void;
   conflictingProductName?: string | null;
   /** When provided, a drag handle is rendered and long-pressing it initiates drag. */
   onDrag?: () => void;
+  /** When true, the card switches to edit mode: drag handle + delete button, no checkbox. */
+  isEditMode?: boolean;
+  /** Called when the user taps the delete button in edit mode. */
+  onDelete?: () => void;
 }
 
 // ─── Drag handle ──────────────────────────────────────────────────────────────
@@ -95,6 +99,8 @@ export function RoutineStepCard({
   onCardPress,
   conflictingProductName,
   onDrag,
+  isEditMode = false,
+  onDelete,
 }: RoutineStepCardProps) {
   const hasConflict = !!conflictingProductName;
 
@@ -111,7 +117,7 @@ export function RoutineStepCard({
       style={({ pressed }) => [
         styles.card,
         hasConflict && styles.cardConflict,
-        pressed && styles.cardPressed,
+        pressed && !isEditMode && styles.cardPressed,
       ]}
       accessibilityRole="button"
       accessibilityLabel={`${product.name}, tap to view product detail`}
@@ -135,7 +141,7 @@ export function RoutineStepCard({
           </View>
         </View>
 
-        {/* Right column: badges (top) + checkbox (bottom) */}
+        {/* Right column: badges (top) + checkbox or delete button (bottom) */}
         <View style={styles.rightCol}>
           <View style={styles.badgesRow}>
             {activeLabel ? (
@@ -155,7 +161,19 @@ export function RoutineStepCard({
             </View>
           </View>
 
-          <Checkbox checked={checked} onValueChange={() => onToggle()} size="md" />
+          {isEditMode ? (
+            <Pressable
+              onPress={onDelete}
+              disabled={!onDelete}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${product.name}`}
+            >
+              <Feather name="minus-circle" size={22} color={palette.black} />
+            </Pressable>
+          ) : (
+            <Checkbox checked={checked} onValueChange={() => onToggle()} size="md" />
+          )}
         </View>
       </View>
 

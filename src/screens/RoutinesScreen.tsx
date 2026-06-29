@@ -14,14 +14,13 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import { AddToRoutineSheet } from '@/components/routine/AddToRoutineSheet';
 import { PlannerBlock } from '@/components/routine/PlannerBlock';
-import { RemoveRoutineActionSheet } from '@/components/routine/RemoveRoutineActionSheet';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
-import type { Product, RoutineStep } from '@/types';
+import type { RoutineStep } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,19 +40,31 @@ export default function RoutinesScreen({ navigation }: Props) {
   const products = useProductsStore((s) => s.products);
   const routines = useRoutinesStore((s) => s.routines);
   const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
+  const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
 
   const [activePeriod, setActivePeriod] = useState<Period>('morning');
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [selectedDow, setSelectedDow] = useState<number>(() => new Date().getDay());
-  const [removeSheetProduct, setRemoveSheetProduct] = useState<Product | null>(null);
   const [addSheetVisible, setAddSheetVisible] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
-  // Always restore today's day when the screen gains focus.
+  // Restore today's day and exit edit mode when the screen gains focus.
   useFocusEffect(
     useCallback(() => {
       setSelectedDow(new Date().getDay());
+      setIsEditMode(false);
     }, []),
   );
+
+  const handlePeriodChange = useCallback((p: Period) => {
+    setActivePeriod(p);
+    setIsEditMode(false);
+  }, []);
+
+  const handleDaySelect = useCallback((dow: number) => {
+    setSelectedDow(dow);
+    setIsEditMode(false);
+  }, []);
 
   const morningRoutine = routines.find((r) => r.timeOfDay === 'morning');
   const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
@@ -105,7 +116,7 @@ export default function RoutinesScreen({ navigation }: Props) {
   }
 
   function handleDragEnd(reorderedVisible: RoutineStep[]) {
-    if (!activeRoutine) return;
+    if (!isEditMode || !activeRoutine) return;
     const visibleSet = new Set(reorderedVisible.map((s) => s.id));
     const result: RoutineStep[] = [];
     let idx = 0;
@@ -116,48 +127,72 @@ export default function RoutinesScreen({ navigation }: Props) {
     reorderSteps(activeRoutine.id, result);
   }
 
-  function renderItem({ item, drag, isActive: _isActive }: RenderItemParams<RoutineStep>) {
-    const product = item.productId
-      ? products.find((p) => p.id === item.productId) ?? null
-      : null;
+  const renderItem = useCallback(
+    ({ item, drag, isActive: _isActive }: RenderItemParams<RoutineStep>) => {
+      const product = item.productId
+        ? products.find((p) => p.id === item.productId) ?? null
+        : null;
 
-    if (!product) return null;
+      if (!product) return null;
 
-    return (
-      <ScaleDecorator>
-        <View style={styles.cardWrapper}>
-          <RoutineStepCard
-            step={item}
-            product={product}
-            checked={completed.has(item.id)}
-            onToggle={() => toggleComplete(item.id)}
-            onCardPress={() =>
-              navigation.navigate('Vials', {
-                screen: 'ProductDetail',
-                params: { productId: product.id },
-              })
-            }
-            conflictingProductName={conflictMap.get(item.id) ?? null}
-            onDrag={drag}
-          />
-        </View>
-      </ScaleDecorator>
-    );
-  }
+      return (
+        <ScaleDecorator>
+          <View style={styles.cardWrapper}>
+            <RoutineStepCard
+              step={item}
+              product={product}
+              checked={completed.has(item.id)}
+              onToggle={() => toggleComplete(item.id)}
+              onCardPress={
+                isEditMode
+                  ? undefined
+                  : () =>
+                      navigation.navigate('Vials', {
+                        screen: 'ProductDetail',
+                        params: { productId: product.id },
+                      })
+              }
+              conflictingProductName={conflictMap.get(item.id) ?? null}
+              onDrag={isEditMode ? drag : undefined}
+              isEditMode={isEditMode}
+              onDelete={
+                isEditMode && activeRoutine
+                  ? () => removeStepFromDay(activeRoutine.id, item.id, selectedDow)
+                  : undefined
+              }
+            />
+          </View>
+        </ScaleDecorator>
+      );
+    },
+    [isEditMode, activeRoutine, selectedDow, completed, conflictMap, products, navigation, removeStepFromDay],
+  );
 
   const listHeader = useMemo(
     () => (
       <View style={styles.listHeader}>
-        <Text style={styles.pageTitle}>Routine</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.pageTitle}>Routine</Text>
+          <Pressable
+            onPress={() => setIsEditMode((prev) => !prev)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={isEditMode ? 'Done editing' : 'Edit routine'}
+          >
+            <Text style={[styles.editToggle, isEditMode && styles.editToggleDone]}>
+              {isEditMode ? 'Done' : 'Edit'}
+            </Text>
+          </Pressable>
+        </View>
         <PlannerBlock
           activePeriod={activePeriod}
-          onPeriodChange={setActivePeriod}
+          onPeriodChange={handlePeriodChange}
           selectedDow={selectedDow}
-          onDaySelect={setSelectedDow}
+          onDaySelect={handleDaySelect}
         />
       </View>
     ),
-    [activePeriod, selectedDow],
+    [activePeriod, selectedDow, isEditMode, handlePeriodChange, handleDaySelect],
   );
 
   return (
@@ -185,14 +220,6 @@ export default function RoutinesScreen({ navigation }: Props) {
           <Text style={styles.addBtnText}>Add product</Text>
         </Pressable>
       </View>
-
-      {removeSheetProduct ? (
-        <RemoveRoutineActionSheet
-          visible
-          product={removeSheetProduct}
-          onClose={() => setRemoveSheetProduct(null)}
-        />
-      ) : null}
 
       <AddToRoutineSheet
         visible={addSheetVisible}
@@ -247,8 +274,23 @@ const styles = StyleSheet.create({
     marginBottom: space[4],
   },
 
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
   pageTitle: {
     ...typography.h1,
+    color: colors.textPrimary,
+  },
+
+  editToggle: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  editToggleDone: {
+    fontFamily: 'DMSans-Medium',
     color: colors.textPrimary,
   },
 
