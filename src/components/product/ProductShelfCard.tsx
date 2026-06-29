@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.white,
     borderWidth: 1,
     borderColor: palette.zinc200,
-    borderRadius: radius.xl,
+    borderRadius: radius.sm,
     paddingHorizontal: space[4],
     paddingVertical: space[4],
     gap: space[2],

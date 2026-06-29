@@ -46,9 +46,9 @@ export type CatalogStackParamList = {
 };
 
 export type RootTabParamList = {
-  'Routine Hub': undefined;
   // NavigatorScreenParams allows typed deep-linking into the nested stack
   Vials: NavigatorScreenParams<CatalogStackParamList>;
+  'Routine Hub': undefined;
   Clinic: undefined;
   Profile: undefined;
 };
@@ -112,13 +112,13 @@ function MainTabs() {
         ),
       })}
     >
-      <Tab.Screen name="Routine Hub" component={RoutinesScreen} options={{ headerShown: false }} />
       {/* Vials tab: headerShown:false because CatalogNavigator provides its own header */}
       <Tab.Screen
         name="Vials"
         component={CatalogNavigator}
         options={{ headerShown: false }}
       />
+      <Tab.Screen name="Routine Hub" component={RoutinesScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Clinic" component={ClinicScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>

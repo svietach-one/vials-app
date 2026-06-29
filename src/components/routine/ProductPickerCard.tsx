@@ -77,7 +77,7 @@ export function ProductPickerCard({ product, onAdd }: ProductPickerCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.lg,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.borderDivider,
   },
