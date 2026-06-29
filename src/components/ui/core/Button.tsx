@@ -192,7 +192,7 @@ const variantLabel = StyleSheet.create({
   primary: { color: palette.white },
   secondary: { color: palette.zinc900 },
   ghost: { color: palette.zinc900 },
-  textActive: { color: palette.zinc900 },
+  textActive: { color: palette.bottleGreen },
   destructive: { color: palette.red },
 });
 

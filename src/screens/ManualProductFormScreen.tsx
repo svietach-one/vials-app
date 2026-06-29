@@ -16,8 +16,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
-import { Input } from '@/components/ui/forms/Input';
+import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
+import { Input } from '@/components/ui/forms/Input';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 import { generateId } from '@/utils/generateId';
@@ -330,10 +332,6 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
 
   const scrollRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
-    navigation.setOptions({ title: isEditMode ? 'Edit Product' : 'Add Product' });
-  }, [navigation, isEditMode]);
-
   // Pre-fill once on mount from navigation params
   useEffect(() => {
     if (editingProduct) {
@@ -465,6 +463,18 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <SafeAreaView style={styles.safe}>
+        <AppHeader
+          title={isEditMode ? 'Edit Product' : 'Add Product'}
+          leftAction={
+            <IconButton
+              icon={<Feather name="arrow-left" size={20} color={colors.textPrimary} />}
+              label="Back"
+              variant="ghost"
+              size="sm"
+              onPress={() => navigation.goBack()}
+            />
+          }
+        />
         <ScrollView
           ref={scrollRef}
           style={styles.scroll}
@@ -624,7 +634,7 @@ const formStyles = StyleSheet.create({
   detectLink: {
     ...typography.caption,
     fontFamily: 'DMSans-Medium',
-    color: colors.textLink,
+    color: palette.bottleGreen,
   },
   inciNotice: {
     backgroundColor: colors.surfaceSunken,

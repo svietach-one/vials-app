@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   todayLink: {
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
-    color: colors.textLink,
+    color: palette.bottleGreen,
   },
   footer: {
     paddingHorizontal: space.gutterScreen,

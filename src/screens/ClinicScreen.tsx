@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -14,6 +14,8 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { AddProcedureModal } from '@/components/clinic/AddProcedureModal';
 import { ProcedureLifespanCard } from '@/components/clinic/ProcedureLifespanCard';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
+import { AppHeader } from '@/components/ui/core/AppHeader';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import { useProceduresStore } from '@/store/proceduresStore';
@@ -202,23 +204,6 @@ export default function ClinicScreen({ navigation }: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
-  // Header "+" button
-  useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <Pressable
-          onPress={() => setModalVisible(true)}
-          style={styles.headerBtn}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Log procedure"
-        >
-          <Feather name="plus" size={22} color={palette.black} />
-        </Pressable>
-      ),
-    });
-  }, [navigation]);
-
   // Sort: most recent first; archived pushed to the end
   const sorted = [...procedures].sort((a, b) => {
     if (a.status === 'archived' && b.status !== 'archived') return 1;
@@ -252,6 +237,18 @@ export default function ClinicScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppHeader
+        title="Clinic"
+        rightAction={
+          <IconButton
+            icon={<Feather name="plus" size={20} color={palette.black} />}
+            label="Log procedure"
+            variant="ghost"
+            size="sm"
+            onPress={() => setModalVisible(true)}
+          />
+        }
+      />
       <FlatList
         data={sorted}
         keyExtractor={(item) => item.id}
@@ -301,9 +298,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.bgBase,
-  },
-  headerBtn: {
-    paddingRight: space.gutterScreen,
   },
   list: {
     paddingHorizontal: space.gutterScreen,

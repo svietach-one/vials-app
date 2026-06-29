@@ -11,6 +11,8 @@ import {
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { AppHeader } from '@/components/ui/core/AppHeader';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
@@ -67,6 +69,18 @@ export default function AddProductHubScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppHeader
+        title="Add Product"
+        leftAction={
+          <IconButton
+            icon={<Feather name="arrow-left" size={20} color={colors.textPrimary} />}
+            label="Back"
+            variant="ghost"
+            size="sm"
+            onPress={() => navigation.goBack()}
+          />
+        }
+      />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"

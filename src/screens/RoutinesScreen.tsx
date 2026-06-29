@@ -15,6 +15,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { AddToRoutineSheet } from '@/components/routine/AddToRoutineSheet';
 import { PlannerBlock } from '@/components/routine/PlannerBlock';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
+import { AppHeader } from '@/components/ui/core/AppHeader';
+import { Button } from '@/components/ui/core/Button';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
@@ -171,19 +173,6 @@ export default function RoutinesScreen({ navigation }: Props) {
   const listHeader = useMemo(
     () => (
       <View style={styles.listHeader}>
-        <View style={styles.titleRow}>
-          <Text style={styles.pageTitle}>Routine</Text>
-          <Pressable
-            onPress={() => setIsEditMode((prev) => !prev)}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={isEditMode ? 'Done editing' : 'Edit routine'}
-          >
-            <Text style={[styles.editToggle, isEditMode && styles.editToggleDone]}>
-              {isEditMode ? 'Done' : 'Edit'}
-            </Text>
-          </Pressable>
-        </View>
         <PlannerBlock
           activePeriod={activePeriod}
           onPeriodChange={handlePeriodChange}
@@ -192,11 +181,24 @@ export default function RoutinesScreen({ navigation }: Props) {
         />
       </View>
     ),
-    [activePeriod, selectedDow, isEditMode, handlePeriodChange, handleDaySelect],
+    [activePeriod, selectedDow, handlePeriodChange, handleDaySelect],
   );
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppHeader
+        title="Routine"
+        rightAction={
+          <Button
+            variant="textActive"
+            size="sm"
+            onPress={() => setIsEditMode((prev) => !prev)}
+            accessibilityLabel={isEditMode ? 'Done editing' : 'Edit routine'}
+          >
+            {isEditMode ? 'Done' : 'Edit'}
+          </Button>
+        }
+      />
       <DraggableFlatList
         data={activeSteps}
         keyExtractor={(item) => item.id}
@@ -270,28 +272,7 @@ const styles = StyleSheet.create({
   },
 
   listHeader: {
-    gap: space[4],
     marginBottom: space[4],
-  },
-
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  pageTitle: {
-    ...typography.h1,
-    color: colors.textPrimary,
-  },
-
-  editToggle: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  editToggleDone: {
-    fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
   },
 
   cardWrapper: {

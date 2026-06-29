@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   FlatList,
   SafeAreaView,
@@ -12,6 +12,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { CatalogFilterHeader } from '@/components/catalog/CatalogFilterHeader';
+import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { Card } from '@/components/ui/core/Card';
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -104,23 +105,6 @@ export default function CatalogScreen({ navigation }: Props) {
   const [actionTarget, setActionTarget] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
-  // Header "+" button — navigates to the Add Product Hub
-  useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <IconButton
-          icon={<Feather name="plus" size={20} color={colors.textOnDark} />}
-          label="Add product"
-          variant="filled"
-          size="sm"
-          round
-          onPress={() => navigation.navigate('AddProductHub')}
-          style={styles.headerBtn}
-        />
-      ),
-    });
-  }, [navigation]);
-
   const filteredProducts = applyFilters(products, filterState);
   const hasActiveFilters =
     filterState.searchQuery.trim() !== '' ||
@@ -188,6 +172,19 @@ export default function CatalogScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppHeader
+        title="My Shelf"
+        rightAction={
+          <IconButton
+            icon={<Feather name="plus" size={20} color={colors.textOnDark} />}
+            label="Add product"
+            variant="filled"
+            size="sm"
+            round
+            onPress={() => navigation.navigate('AddProductHub')}
+          />
+        }
+      />
       <FlatList
         data={filteredProducts}
         keyExtractor={(item) => item.id}
@@ -337,9 +334,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.bgBase,
-  },
-  headerBtn: {
-    marginRight: space.gutterScreen,
   },
   searchWrap: {
     paddingHorizontal: space.gutterScreen,

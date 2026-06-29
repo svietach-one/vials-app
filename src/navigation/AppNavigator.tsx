@@ -66,13 +66,6 @@ const TAB_ICONS: Record<keyof RootTabParamList, keyof typeof Feather.glyphMap> =
   Profile: 'user',
 };
 
-const SHARED_HEADER_OPTIONS = {
-  headerStyle: { backgroundColor: colors.bgBase },
-  headerTintColor: colors.textPrimary,
-  headerTitleStyle: { fontFamily: 'DMSans-Medium', fontSize: 16 },
-  headerBackTitleVisible: false,
-} as const;
-
 function OnboardingNavigator() {
   return (
     <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
@@ -85,32 +78,12 @@ function OnboardingNavigator() {
 
 function CatalogNavigator() {
   return (
-    <CatalogStack.Navigator screenOptions={SHARED_HEADER_OPTIONS}>
-      <CatalogStack.Screen
-        name="Catalog"
-        component={CatalogScreen}
-        options={{ title: 'Vials' }}
-      />
-      <CatalogStack.Screen
-        name="AddProductHub"
-        component={AddProductHubScreen}
-        options={{ title: 'Add Product' }}
-      />
-      <CatalogStack.Screen
-        name="ManualProductForm"
-        component={ManualProductFormScreen}
-        options={{ title: 'Add Product' }}
-      />
-      <CatalogStack.Screen
-        name="ProductDetail"
-        component={ProductDetailScreen}
-        options={{ title: '' }}
-      />
-      <CatalogStack.Screen
-        name="BarcodeScanner"
-        component={BarcodeScannerScreen}
-        options={{ title: 'Scan Barcode' }}
-      />
+    <CatalogStack.Navigator screenOptions={{ headerShown: false }}>
+      <CatalogStack.Screen name="Catalog" component={CatalogScreen} />
+      <CatalogStack.Screen name="AddProductHub" component={AddProductHubScreen} />
+      <CatalogStack.Screen name="ManualProductForm" component={ManualProductFormScreen} />
+      <CatalogStack.Screen name="ProductDetail" component={ProductDetailScreen} />
+      <CatalogStack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
     </CatalogStack.Navigator>
   );
 }
@@ -119,9 +92,6 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerStyle: { backgroundColor: colors.bgBase },
-        headerTintColor: colors.textPrimary,
-        headerTitleStyle: { fontFamily: 'DMSans-Medium', fontSize: 16 },
         tabBarActiveTintColor: palette.black,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
@@ -149,8 +119,8 @@ function MainTabs() {
         component={CatalogNavigator}
         options={{ headerShown: false }}
       />
-      <Tab.Screen name="Clinic" component={ClinicScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Clinic" component={ClinicScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 }

@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { IconButton } from '@/components/ui/core/IconButton';
+import { colors, radius, space } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,16 +60,19 @@ export function BottomSheet({
         <View style={[styles.sheet, contentStyle]} onStartShouldSetResponder={() => true}>
           {title ? (
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>{title}</Text>
-              <Pressable
-                onPress={onClose}
-                style={styles.closeBtn}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-              >
-                <Feather name="x" size={18} color={colors.textSecondary} />
-              </Pressable>
+              <View style={styles.headerSpacer} />
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {title}
+              </Text>
+              <View style={styles.headerClose}>
+                <IconButton
+                  icon={<Feather name="x" size={18} color={colors.textSecondary} />}
+                  label="Close"
+                  variant="ghost"
+                  size="sm"
+                  onPress={onClose}
+                />
+              </View>
             </View>
           ) : (
             <View style={styles.handle} />
@@ -107,20 +111,22 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingTop: space[2],
     paddingBottom: space[4],
   },
-  headerTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
+  headerSpacer: {
+    width: 44,
   },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunken,
+  headerTitle: {
+    flex: 1,
+    fontFamily: 'DMSans-Medium',
+    fontSize: 16,
+    lineHeight: 22,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  headerClose: {
+    width: 44,
+    alignItems: 'flex-end',
   },
 });

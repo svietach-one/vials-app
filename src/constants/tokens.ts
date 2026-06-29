@@ -64,7 +64,7 @@ export const colors = {
   textSecondary: palette.zinc500,
   textTertiary: palette.zinc400,
   textOnDark: palette.white,
-  textLink: palette.cabernet,
+  textLink: palette.bottleGreen,
 
   // Controls (monochrome)
   controlFill: palette.black,
