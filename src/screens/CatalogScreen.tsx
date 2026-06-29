@@ -11,6 +11,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
+import { ProductShelfCard } from '@/components/product/ProductShelfCard';
 import { CatalogFilterHeader } from '@/components/catalog/CatalogFilterHeader';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
@@ -35,6 +36,7 @@ import type {
 import { CATALOG_FILTER_DEFAULT } from '@/types';
 import { getProductRoutineStatus, type RoutineStatusResult } from '@/utils/routineStatus';
 import { getProductPaoStatus } from '@/utils/paoHelpers';
+import { formatScheduleDays } from '@/utils/routineLabel';
 
 type Props = NativeStackScreenProps<CatalogStackParamList, 'Catalog'>;
 
@@ -102,7 +104,6 @@ export default function CatalogScreen({ navigation }: Props) {
   const routines = useRoutinesStore((s) => s.routines);
 
   const [filterState, setFilterState] = useState<CatalogFilterState>(CATALOG_FILTER_DEFAULT);
-  const [actionTarget, setActionTarget] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
   const filteredProducts = applyFilters(products, filterState);
@@ -123,48 +124,32 @@ export default function CatalogScreen({ navigation }: Props) {
   // ── Render item ───────────────────────────────────────────────────────────
 
   function renderItem({ item }: { item: Product }) {
-    const routineStatus = getProductRoutineStatus(item.id, routines);
-    return (
-      <Card
-        variant="surface"
-        padding="sm"
-        interactive
-        onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-        style={styles.card}
-      >
-        <View style={styles.cardInner}>
-          {/* Content layer — dimmed independently so the three-dot button stays opaque */}
-          <View style={[styles.cardContent, item.isHidden && styles.cardContentHidden]}>
-            <View style={styles.nameRow}>
-              {item.isHidden ? (
-                <Feather name="eye-off" size={12} color={colors.textTertiary} />
-              ) : null}
-              <Text style={styles.productName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Tag tone="neutral">
-                {PRODUCT_TYPE_LABELS[item.productType] ?? item.productType}
-              </Tag>
-              <RoutineBadge status={routineStatus} />
-            </View>
-            {item.brand ? (
-              <Text style={styles.brand} numberOfLines={1}>
-                {item.brand}
-              </Text>
-            ) : null}
-            <PaoChip product={item} />
-          </View>
+    const isInRoutine = routines.some((r) => r.steps.some((s) => s.productId === item.id));
+    const matchingStep = routines
+      .flatMap((r) => r.steps)
+      .find((s) => s.productId === item.id);
+    const scheduleLabel = formatScheduleDays(matchingStep?.scheduledDays ?? []);
 
-          {/* Three-dot — inner Pressable captures the responder; card onPress won't fire */}
-          <IconButton
-            icon={<Feather name="more-vertical" size={18} color={colors.textSecondary} />}
-            label={`Options for ${item.name}`}
-            variant="ghost"
-            size="sm"
-            onPress={() => setActionTarget(item)}
-          />
-        </View>
-      </Card>
+    return (
+      <ProductShelfCard
+        product={item}
+        isInRoutine={isInRoutine}
+        scheduleLabel={scheduleLabel}
+        usageTime={item.usageTime}
+        onCardPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+        onEdit={(p) => {
+          navigation.navigate('ManualProductForm', { editingProductId: p.id });
+        }}
+        onDelete={(p) => {
+          setDeleteTarget(p);
+        }}
+        onAddToRoutine={() => {
+          // Navigate to routine assignment — no dedicated screen in Phase 1, no-op placeholder
+        }}
+        onRemoveFromRoutine={(p) => {
+          updateProduct(p.id, { isHidden: true });
+        }}
+      />
     );
   }
 
@@ -217,23 +202,6 @@ export default function CatalogScreen({ navigation }: Props) {
             onAdd={() => navigation.navigate('AddProductHub')}
           />
         }
-      />
-
-      <ProductActionSheet
-        product={actionTarget}
-        onEdit={(p) => {
-          setActionTarget(null);
-          navigation.navigate('ManualProductForm', { editingProductId: p.id });
-        }}
-        onDelete={(p) => {
-          setActionTarget(null);
-          setDeleteTarget(p);
-        }}
-        onToggleHidden={(p) => {
-          updateProduct(p.id, { isHidden: !p.isHidden });
-          setActionTarget(null);
-        }}
-        onClose={() => setActionTarget(null)}
       />
 
       <DeleteProductModal

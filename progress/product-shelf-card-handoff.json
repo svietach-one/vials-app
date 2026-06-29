@@ -1,0 +1,34 @@
+{
+  "task": "product-shelf-card",
+  "phase": "done",
+  "status": "APPROVED",
+  "qa_status": "DONE",
+  "tech_lead_status": "APPROVED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/product-shelf-card.md",
+    "tech_design": "docs/tech-design/product-shelf-card.md"
+  },
+  "qa_test_files": [
+    "tests/product-shelf-card/fixtures.ts",
+    "tests/product-shelf-card/ProductShelfCard.test.tsx",
+    "tests/product-shelf-card/ProductActionSheet.extended.test.tsx"
+  ],
+  "code_files": [
+    "src/components/product/ProductShelfCard.tsx",
+    "src/components/product/ProductActionSheet.tsx",
+    "src/screens/CatalogScreen.tsx",
+    "src/utils/routineLabel.test.ts"
+  ],
+  "warnings": [
+    "W1: Test fixture usageTime typed as literal 'both' — spread overrides fail tsc in test files",
+    "W2: Dead import of ProductActionSheet in CatalogScreen (card manages its own sheet now)",
+    "W3: Dead style entries in CatalogScreen (card/cardInner/cardContent/nameRow/brand)",
+    "W4: onAddToRoutine is a no-op placeholder — needs implementation before Add-to-Routine flow ships",
+    "W5: TYPE_COLORS duplicated between RoutineStepCard and ProductShelfCard — acceptable for now"
+  ]
+}

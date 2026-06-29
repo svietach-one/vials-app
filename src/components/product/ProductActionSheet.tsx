@@ -14,6 +14,8 @@ export interface ProductActionSheetProps {
   onDelete: (p: Product) => void;
   onToggleHidden: (p: Product) => void;
   onClose: () => void;
+  onAddToRoutine?: (p: Product) => void;
+  onRemoveFromRoutine?: (p: Product) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -24,6 +26,8 @@ export function ProductActionSheet({
   onDelete,
   onToggleHidden,
   onClose,
+  onAddToRoutine,
+  onRemoveFromRoutine,
 }: ProductActionSheetProps) {
   return (
     <Modal
@@ -54,27 +58,59 @@ export function ProductActionSheet({
             <Text style={styles.rowLabel}>Edit Product</Text>
           </Pressable>
 
-          {/* Hide / Show */}
-          <Pressable
-            style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
-            onPress={() => {
-              if (product) {
-                onToggleHidden(product);
-                onClose();
-              }
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={product?.isHidden ? 'Show product' : 'Hide product'}
-          >
-            <Feather
-              name={product?.isHidden ? 'eye' : 'eye-off'}
-              size={18}
-              color={colors.textPrimary}
-            />
-            <Text style={styles.rowLabel}>
-              {product?.isHidden ? 'Show Product' : 'Hide Product'}
-            </Text>
-          </Pressable>
+          {/* Add/Remove from routine — or Hide/Show when no routine callbacks provided */}
+          {onAddToRoutine ? (
+            <Pressable
+              style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+              onPress={() => {
+                if (product) {
+                  onAddToRoutine(product);
+                  onClose();
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Add to routine"
+            >
+              <Feather name="plus-circle" size={18} color={colors.textPrimary} />
+              <Text style={styles.rowLabel}>Add to routine</Text>
+            </Pressable>
+          ) : onRemoveFromRoutine ? (
+            <Pressable
+              style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+              onPress={() => {
+                if (product) {
+                  onRemoveFromRoutine(product);
+                  onClose();
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Remove from routine"
+            >
+              <Feather name="minus-circle" size={18} color={colors.textPrimary} />
+              <Text style={styles.rowLabel}>Remove from routine</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+              onPress={() => {
+                if (product) {
+                  onToggleHidden(product);
+                  onClose();
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={product?.isHidden ? 'Show product' : 'Hide product'}
+            >
+              <Feather
+                name={product?.isHidden ? 'eye' : 'eye-off'}
+                size={18}
+                color={colors.textPrimary}
+              />
+              <Text style={styles.rowLabel}>
+                {product?.isHidden ? 'Show Product' : 'Hide Product'}
+              </Text>
+            </Pressable>
+          )}
 
           {/* Delete */}
           <Pressable
