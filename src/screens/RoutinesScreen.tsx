@@ -26,7 +26,7 @@ import type { RoutineStep } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Props = BottomTabScreenProps<RootTabParamList, 'Routine Hub'>;
+type Props = BottomTabScreenProps<RootTabParamList, 'Routines'>;
 type Period = 'morning' | 'evening';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -174,7 +174,7 @@ export default function RoutinesScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.safe}>
       <AppHeader
-        title="Routine"
+        title="Routines"
         rightAction={
           <Button
             variant="textActive"

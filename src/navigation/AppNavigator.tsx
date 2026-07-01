@@ -47,8 +47,8 @@ export type CatalogStackParamList = {
 
 export type RootTabParamList = {
   // NavigatorScreenParams allows typed deep-linking into the nested stack
-  Vials: NavigatorScreenParams<CatalogStackParamList>;
-  'Routine Hub': undefined;
+  'My Vials': NavigatorScreenParams<CatalogStackParamList>;
+  Routines: undefined;
   Clinic: undefined;
   Profile: undefined;
 };
@@ -60,8 +60,8 @@ const CatalogStack = createNativeStackNavigator<CatalogStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 const TAB_ICONS: Record<keyof RootTabParamList, keyof typeof Feather.glyphMap> = {
-  'Routine Hub': 'calendar',
-  Vials: 'package',
+  Routines: 'calendar',
+  'My Vials': 'package',
   Clinic: 'activity',
   Profile: 'user',
 };
@@ -112,13 +112,13 @@ function MainTabs() {
         ),
       })}
     >
-      {/* Vials tab: headerShown:false because CatalogNavigator provides its own header */}
+      {/* My Vials tab: headerShown:false because CatalogNavigator provides its own header */}
       <Tab.Screen
-        name="Vials"
+        name="My Vials"
         component={CatalogNavigator}
         options={{ headerShown: false }}
       />
-      <Tab.Screen name="Routine Hub" component={RoutinesScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Routines" component={RoutinesScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Clinic" component={ClinicScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
