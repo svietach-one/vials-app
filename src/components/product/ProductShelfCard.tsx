@@ -132,16 +132,13 @@ export function ProductShelfCard({
           <View style={styles.badgesRow}>
             {activeLabel ? (
               <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText} numberOfLines={1}>
+                <Text style={styles.activeBadgeText}>
                   {activeLabel}
                 </Text>
               </View>
             ) : null}
             <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
-              <Text
-                style={[styles.typeBadgeText, { color: typeColor.text }]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
                 {typeLabel}
               </Text>
             </View>
@@ -260,6 +257,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space[1],
     flexShrink: 1,
+    flexWrap: 'wrap',
   },
   activeBadge: {
     backgroundColor: palette.white,
@@ -268,23 +266,23 @@ const styles = StyleSheet.create({
     borderColor: palette.zinc300,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    maxWidth: 90,
   },
   activeBadgeText: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: typography.bodySmall.fontSize,
+    lineHeight: typography.bodySmall.lineHeight,
+    includeFontPadding: false,
     color: palette.black,
   },
   typeBadge: {
     borderRadius: radius.pill,
     paddingHorizontal: 7,
     paddingVertical: 2,
-    maxWidth: 96,
   },
   typeBadgeText: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: typography.bodySmall.fontSize,
+    lineHeight: typography.bodySmall.lineHeight,
+    includeFontPadding: false,
   },
 });

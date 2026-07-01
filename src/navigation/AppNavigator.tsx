@@ -47,7 +47,7 @@ export type CatalogStackParamList = {
 
 export type RootTabParamList = {
   // NavigatorScreenParams allows typed deep-linking into the nested stack
-  'My Vials': NavigatorScreenParams<CatalogStackParamList>;
+  'My Shelf': NavigatorScreenParams<CatalogStackParamList>;
   Routines: undefined;
   Clinic: undefined;
   Profile: undefined;
@@ -61,7 +61,7 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 
 const TAB_ICONS: Record<keyof RootTabParamList, keyof typeof Feather.glyphMap> = {
   Routines: 'calendar',
-  'My Vials': 'package',
+  'My Shelf': 'package',
   Clinic: 'activity',
   Profile: 'user',
 };
@@ -112,9 +112,9 @@ function MainTabs() {
         ),
       })}
     >
-      {/* My Vials tab: headerShown:false because CatalogNavigator provides its own header */}
+      {/* My Shelf tab: headerShown:false because CatalogNavigator provides its own header */}
       <Tab.Screen
-        name="My Vials"
+        name="My Shelf"
         component={CatalogNavigator}
         options={{ headerShown: false }}
       />

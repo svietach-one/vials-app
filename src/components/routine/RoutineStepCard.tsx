@@ -110,16 +110,13 @@ export function RoutineStepCard({
         <View style={styles.bottomRow}>
           <View style={styles.badgesRow}>
             <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
-              <Text
-                style={[styles.typeBadgeText, { color: typeColor.text }]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
                 {typeLabel}
               </Text>
             </View>
             {activeLabel ? (
               <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText} numberOfLines={1}>
+                <Text style={styles.activeBadgeText}>
                   {activeLabel}
                 </Text>
               </View>
@@ -256,18 +253,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space[1],
     flexShrink: 1,
-    flexWrap: 'nowrap',
+    flexWrap: 'wrap',
   },
   typeBadge: {
     borderRadius: radius.pill,
     paddingHorizontal: 7,
     paddingVertical: 2,
-    maxWidth: 96,
   },
   typeBadgeText: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: typography.bodySmall.fontSize,
+    lineHeight: typography.bodySmall.lineHeight,
+    includeFontPadding: false,
   },
   activeBadge: {
     backgroundColor: palette.white,
@@ -276,12 +273,12 @@ const styles = StyleSheet.create({
     borderColor: palette.zinc300,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    maxWidth: 90,
   },
   activeBadgeText: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: typography.bodySmall.fontSize,
+    lineHeight: typography.bodySmall.lineHeight,
+    includeFontPadding: false,
     color: palette.black,
   },
 
