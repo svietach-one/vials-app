@@ -2,10 +2,10 @@
  * Integration tests — CatalogFilterHeader (shelf-filtering feature)
  *
  * Covers:
- *   SF-CFH-1  Renders all category pills: All, Serums, Moisturizers, SPF
+ *   SF-CFH-1  Renders category pills for every product type: All, Serum, Moisturizer, Cream, Lotion, SPF, Cleanser
  *   SF-CFH-2  Renders all biomarker badges: Soothing, Actives, Hydration
- *   SF-CFH-3  Category pill selected: pressing "Serums" calls onFilterChange with selectedCategory "Serums"
- *   SF-CFH-4  Category pill deselect: pressing the already-selected "Serums" calls onFilterChange with selectedCategory "All"
+ *   SF-CFH-3  Category pill selected: pressing "Serum" calls onFilterChange with selectedCategory "serum"
+ *   SF-CFH-4  Category pill deselect: pressing the already-selected "Serum" calls onFilterChange with selectedCategory "All"
  *   SF-CFH-5  Biomarker badge adds to array: pressing "Actives" from empty selection calls onFilterChange with ["Actives"]
  *   SF-CFH-6  Biomarker badge removes from array: pressing "Actives" when already selected calls onFilterChange with []
  *   SF-CFH-7  Multiple biomarkers: pressing "Soothing" when "Actives" is selected calls onFilterChange with ["Actives", "Soothing"]
@@ -58,7 +58,7 @@ beforeEach(() => {
 
 // ── SF-CFH-1: All category pills render ───────────────────────────────────────
 
-describe('SF-CFH-1: all category pills are rendered', () => {
+describe('SF-CFH-1: a category pill is rendered for every product type', () => {
   it('should render the All pill', () => {
     render(
       <CatalogFilterHeader
@@ -69,24 +69,54 @@ describe('SF-CFH-1: all category pills are rendered', () => {
     expect(screen.getByText('All')).toBeTruthy();
   });
 
-  it('should render the Serums pill', () => {
+  it('should render the Serum pill', () => {
     render(
       <CatalogFilterHeader
         filterState={makeFilterState()}
         onFilterChange={jest.fn()}
       />,
     );
-    expect(screen.getByText('Serums')).toBeTruthy();
+    expect(screen.getByText('Serum')).toBeTruthy();
   });
 
-  it('should render the Moisturizers pill', () => {
+  it('should render the Moisturizer pill', () => {
     render(
       <CatalogFilterHeader
         filterState={makeFilterState()}
         onFilterChange={jest.fn()}
       />,
     );
-    expect(screen.getByText('Moisturizers')).toBeTruthy();
+    expect(screen.getByText('Moisturizer')).toBeTruthy();
+  });
+
+  it('should render the Cream pill', () => {
+    render(
+      <CatalogFilterHeader
+        filterState={makeFilterState()}
+        onFilterChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('Cream')).toBeTruthy();
+  });
+
+  it('should render the Lotion pill', () => {
+    render(
+      <CatalogFilterHeader
+        filterState={makeFilterState()}
+        onFilterChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('Lotion')).toBeTruthy();
+  });
+
+  it('should render the Cleanser pill', () => {
+    render(
+      <CatalogFilterHeader
+        filterState={makeFilterState()}
+        onFilterChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('Cleanser')).toBeTruthy();
   });
 
   it('should render the SPF pill', () => {
@@ -137,7 +167,7 @@ describe('SF-CFH-2: all biomarker badges are rendered', () => {
 // ── SF-CFH-3: Category pill selected state ────────────────────────────────────
 
 describe('SF-CFH-3: pressing a category pill calls onFilterChange with the selected category', () => {
-  it('should call onFilterChange with selectedCategory "Serums" when the Serums pill is pressed', () => {
+  it('should call onFilterChange with selectedCategory "serum" when the Serum pill is pressed', () => {
     const onFilterChange = jest.fn();
     render(
       <CatalogFilterHeader
@@ -145,10 +175,10 @@ describe('SF-CFH-3: pressing a category pill calls onFilterChange with the selec
         onFilterChange={onFilterChange}
       />,
     );
-    fireEvent.press(screen.getByLabelText('Filter by Serums'));
+    fireEvent.press(screen.getByLabelText('Filter by Serum'));
     expect(onFilterChange).toHaveBeenCalledTimes(1);
     expect(onFilterChange).toHaveBeenCalledWith(
-      expect.objectContaining({ selectedCategory: 'Serums' }),
+      expect.objectContaining({ selectedCategory: 'serum' }),
     );
   });
 });
@@ -156,15 +186,15 @@ describe('SF-CFH-3: pressing a category pill calls onFilterChange with the selec
 // ── SF-CFH-4: Category pill deselect ──────────────────────────────────────────
 
 describe('SF-CFH-4: pressing the already-selected category pill reverts selectedCategory to "All"', () => {
-  it('should call onFilterChange with selectedCategory "All" when the already-selected Serums pill is pressed', () => {
+  it('should call onFilterChange with selectedCategory "All" when the already-selected Serum pill is pressed', () => {
     const onFilterChange = jest.fn();
     render(
       <CatalogFilterHeader
-        filterState={makeFilterState({ selectedCategory: 'Serums' })}
+        filterState={makeFilterState({ selectedCategory: 'serum' })}
         onFilterChange={onFilterChange}
       />,
     );
-    fireEvent.press(screen.getByLabelText('Filter by Serums'));
+    fireEvent.press(screen.getByLabelText('Filter by Serum'));
     expect(onFilterChange).toHaveBeenCalledTimes(1);
     expect(onFilterChange).toHaveBeenCalledWith(
       expect.objectContaining({ selectedCategory: 'All' }),

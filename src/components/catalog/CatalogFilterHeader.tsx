@@ -2,13 +2,21 @@ import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { FilterChip } from '@/components/ui/core/FilterChip';
+import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { space } from '@/constants/tokens';
-import type { BiomarkerTag, CatalogFilterState, CategoryFilter } from '@/types';
+import type { BiomarkerTag, CatalogFilterState, CategoryFilter, ProductType } from '@/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CATEGORIES: CategoryFilter[] = ['All', 'Serums', 'Moisturizers', 'SPF'];
+// Derived from PRODUCT_TYPE_LABELS so every known product type gets its own filter
+// chip and stays in sync with the label copy in one place.
+const PRODUCT_CATEGORIES = Object.keys(PRODUCT_TYPE_LABELS) as ProductType[];
+const CATEGORIES: CategoryFilter[] = ['All', ...PRODUCT_CATEGORIES];
 const BIOMARKERS: BiomarkerTag[] = ['Soothing', 'Actives', 'Hydration'];
+
+function categoryLabel(cat: CategoryFilter): string {
+  return cat === 'All' ? 'All' : PRODUCT_TYPE_LABELS[cat];
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -38,10 +46,11 @@ export function CatalogFilterHeader({ filterState, onFilterChange }: CatalogFilt
 
   return (
     <View style={styles.wrapper}>
-      {/* Row 1 — Category */}
+      {/* Single row — categories + biomarkers together */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.rowScroll}
         contentContainerStyle={styles.row}
       >
         {CATEGORIES.map((cat) => (
@@ -49,19 +58,14 @@ export function CatalogFilterHeader({ filterState, onFilterChange }: CatalogFilt
             key={cat}
             selected={cat === selectedCategory}
             onPress={() => handleCategoryPress(cat)}
-            accessibilityLabel={cat === 'All' ? 'Show all products' : `Filter by ${cat}`}
+            accessibilityLabel={cat === 'All' ? 'Show all products' : `Filter by ${categoryLabel(cat)}`}
           >
-            {cat}
+            {categoryLabel(cat)}
           </FilterChip>
         ))}
-      </ScrollView>
-
-      {/* Row 2 — Biomarkers */}
-      <View style={styles.biomarkerRow}>
         {BIOMARKERS.map((tag) => (
           <FilterChip
             key={tag}
-            size="sm"
             selected={selectedBiomarkers.includes(tag)}
             onPress={() => handleBiomarkerPress(tag)}
             accessibilityLabel={`Filter by ${tag}`}
@@ -69,7 +73,7 @@ export function CatalogFilterHeader({ filterState, onFilterChange }: CatalogFilt
             {tag}
           </FilterChip>
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -81,15 +85,16 @@ const styles = StyleSheet.create({
     gap: space[2],
     paddingBottom: space[2],
   },
+  // Negates the parent screen's gutter padding so the row can scroll edge-to-edge,
+  // then re-applies it via contentContainerStyle to keep the first chip aligned
+  // with the search field and cards above/below (same bleed pattern as
+  // AddToRoutineSheet's filtersScroll).
+  rowScroll: {
+    marginHorizontal: -space.gutterScreen,
+  },
   row: {
     gap: space[2],
     paddingHorizontal: space.gutterScreen,
     paddingVertical: space[1],
-  },
-  biomarkerRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space[2],
-    paddingHorizontal: space.gutterScreen,
   },
 });

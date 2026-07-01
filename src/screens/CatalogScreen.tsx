@@ -30,7 +30,6 @@ import type {
   ActiveIngredientKey,
   BiomarkerTag,
   CatalogFilterState,
-  CategoryFilter,
   Product,
   ProductType,
 } from '@/types';
@@ -42,12 +41,6 @@ import { formatScheduleDays } from '@/utils/routineLabel';
 type Props = NativeStackScreenProps<CatalogStackParamList, 'Catalog'>;
 
 // ─── Module-level filter constants ────────────────────────────────────────────
-
-const CATEGORY_PRODUCT_TYPES: Record<Exclude<CategoryFilter, 'All'>, ProductType[]> = {
-  Serums:       ['serum', 'essence', 'ampoule'],
-  Moisturizers: ['moisturizer', 'cream', 'lotion', 'oil'],
-  SPF:          ['spf'],
-};
 
 const ACTIVES_KEYS: ActiveIngredientKey[] = ['retinol', 'aha', 'bha', 'vitamin_c', 'benzoyl_peroxide'];
 const SOOTHING_KEYS: ActiveIngredientKey[] = ['niacinamide', 'copper_peptides'];
@@ -74,10 +67,7 @@ export function applyFilters(
     }
 
     // Gate 2 — category
-    if (selectedCategory !== 'All') {
-      const allowed = CATEGORY_PRODUCT_TYPES[selectedCategory];
-      if (!allowed.includes(p.productType)) return false;
-    }
+    if (selectedCategory !== 'All' && p.productType !== selectedCategory) return false;
 
     // Gate 3 — biomarkers (ALL selected must pass)
     for (const biomarker of selectedBiomarkers) {

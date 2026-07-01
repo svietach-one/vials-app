@@ -209,7 +209,7 @@ export interface AppSettings {
 
 // ─── Catalog filters ──────────────────────────────────────────────────────────
 
-export type CategoryFilter = 'All' | 'Serums' | 'Moisturizers' | 'SPF';
+export type CategoryFilter = 'All' | ProductType;
 export type BiomarkerTag = 'Soothing' | 'Actives' | 'Hydration';
 
 export interface CatalogFilterState {

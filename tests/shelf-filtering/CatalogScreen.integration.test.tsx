@@ -3,10 +3,10 @@
  *
  * Covers:
  *   SF-CS-1   Default state: all products rendered when no filters are active
- *   SF-CS-2   Category filter "Serums": only serum/essence/ampoule products appear
+ *   SF-CS-2   Category filter "Serum": only serum/essence/ampoule products appear
  *   SF-CS-3   Category deselect: pressing already-selected pill reverts to All
  *   SF-CS-4   Biomarker "Actives": only products with retinol/aha/bha/vitamin_c/benzoyl_peroxide
- *   SF-CS-5   AND combination: Serums + Actives narrows to serum products with actives
+ *   SF-CS-5   AND combination: Serum + Actives narrows to serum products with actives
  *   SF-CS-6   Empty state (empty catalog): shows "Your catalog is empty"
  *   SF-CS-7   Empty state (filters no match): shows "No products match the current filters"
  *   SF-CS-8   Search query: typing narrows list by product name
@@ -275,21 +275,21 @@ describe('SF-CS-1: default state renders all products when no filters are active
   });
 });
 
-// ── SF-CS-2: Category filter "Serums" ────────────────────────────────────────
+// ── SF-CS-2: Category filter "Serum" ────────────────────────────────────────
 
-describe('SF-CS-2: pressing "Serums" pill shows only serum-type products', () => {
-  it('should still show serum products after pressing the Serums filter pill', async () => {
+describe('SF-CS-2: pressing "Serum" pill shows only serum-type products', () => {
+  it('should still show serum products after pressing the Serum filter pill', async () => {
     renderScreen();
-    fireEvent.press(screen.getByLabelText('Filter by Serums'));
+    fireEvent.press(screen.getByLabelText('Filter by Serum'));
     await waitFor(() => {
       expect(screen.getByText('Retinol Night Serum')).toBeTruthy();
       expect(screen.getByText('Niacinamide Serum')).toBeTruthy();
     });
   });
 
-  it('should hide moisturizer and SPF products after pressing the Serums filter pill', async () => {
+  it('should hide moisturizer and SPF products after pressing the Serum filter pill', async () => {
     renderScreen();
-    fireEvent.press(screen.getByLabelText('Filter by Serums'));
+    fireEvent.press(screen.getByLabelText('Filter by Serum'));
     await waitFor(() => {
       expect(screen.queryByText('AHA Glow Cream')).toBeNull();
       expect(screen.queryByText('Ultra Light SPF50')).toBeNull();
@@ -300,11 +300,11 @@ describe('SF-CS-2: pressing "Serums" pill shows only serum-type products', () =>
 // ── SF-CS-3: Category deselect ────────────────────────────────────────────────
 
 describe('SF-CS-3: pressing the already-selected category pill reverts to showing all products', () => {
-  it('should restore all products after pressing the Serums pill a second time', async () => {
+  it('should restore all products after pressing the Serum pill a second time', async () => {
     renderScreen();
-    fireEvent.press(screen.getByLabelText('Filter by Serums'));
+    fireEvent.press(screen.getByLabelText('Filter by Serum'));
     await waitFor(() => expect(screen.queryByText('Ultra Light SPF50')).toBeNull());
-    fireEvent.press(screen.getByLabelText('Filter by Serums'));
+    fireEvent.press(screen.getByLabelText('Filter by Serum'));
     await waitFor(() => {
       expect(screen.getByText('AHA Glow Cream')).toBeTruthy();
       expect(screen.getByText('Ultra Light SPF50')).toBeTruthy();
@@ -335,21 +335,21 @@ describe('SF-CS-4: pressing "Actives" badge shows only products with actives ing
   });
 });
 
-// ── SF-CS-5: AND combination (Serums + Actives) ───────────────────────────────
+// ── SF-CS-5: AND combination (Serum + Actives) ───────────────────────────────
 
-describe('SF-CS-5: selecting Serums and Actives together applies AND logic', () => {
-  it('should show the serum with retinol when both Serums and Actives are active', async () => {
+describe('SF-CS-5: selecting Serum and Actives together applies AND logic', () => {
+  it('should show the serum with retinol when both Serum and Actives are active', async () => {
     renderScreen();
-    fireEvent.press(screen.getByLabelText('Filter by Serums'));
+    fireEvent.press(screen.getByLabelText('Filter by Serum'));
     fireEvent.press(screen.getByLabelText('Filter by Actives'));
     await waitFor(() => {
       expect(screen.getByText('Retinol Night Serum')).toBeTruthy();
     });
   });
 
-  it('should hide the soothing serum, the moisturizer, and the SPF product when Serums + Actives are both selected', async () => {
+  it('should hide the soothing serum, the moisturizer, and the SPF product when Serum + Actives are both selected', async () => {
     renderScreen();
-    fireEvent.press(screen.getByLabelText('Filter by Serums'));
+    fireEvent.press(screen.getByLabelText('Filter by Serum'));
     fireEvent.press(screen.getByLabelText('Filter by Actives'));
     await waitFor(() => {
       expect(screen.queryByText('Niacinamide Serum')).toBeNull();
@@ -381,13 +381,13 @@ describe('SF-CS-6: empty catalog state when the store contains no products', () 
 
 describe('SF-CS-7: filter-empty state when active filters match no products', () => {
   beforeEach(() => {
-    // Only an SPF product; filtering by Serums will yield zero results.
+    // Only an SPF product; filtering by Serum will yield zero results.
     mockProductList = [SPF_PRODUCT];
   });
 
   it('should render "No products match the current filters" when the filter combination produces zero results', async () => {
     renderScreen();
-    fireEvent.press(screen.getByLabelText('Filter by Serums'));
+    fireEvent.press(screen.getByLabelText('Filter by Serum'));
     await waitFor(() => {
       expect(screen.getByText('No products match the current filters')).toBeTruthy();
     });
@@ -395,7 +395,7 @@ describe('SF-CS-7: filter-empty state when active filters match no products', ()
 
   it('should NOT render the "Add Product" button when filters produce zero results', async () => {
     renderScreen();
-    fireEvent.press(screen.getByLabelText('Filter by Serums'));
+    fireEvent.press(screen.getByLabelText('Filter by Serum'));
     await waitFor(() => {
       expect(screen.queryByText('Add Product')).toBeNull();
     });

@@ -1,6 +1,6 @@
-import type { ActiveIngredientKey } from '@/types';
+import type { ActiveIngredientKey, ProductType } from '@/types';
 
-export const PRODUCT_TYPE_LABELS: Record<string, string> = {
+export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
   cleanser: 'Cleanser',
   toner: 'Toner',
   essence: 'Essence',

@@ -74,7 +74,7 @@ describe('applyFilters', () => {
     expect(result).toHaveLength(0);
   });
 
-  it('should return only serum, essence and ampoule products when category is Serums', () => {
+  it('should return only serum products when category is serum', () => {
     const products = [
       makeProduct({ id: 'p1', productType: 'serum' }),
       makeProduct({ id: 'p2', productType: 'essence' }),
@@ -83,20 +83,33 @@ describe('applyFilters', () => {
       makeProduct({ id: 'p5', productType: 'spf' }),
     ];
 
-    const result = applyFilters(products, { ...CATALOG_FILTER_DEFAULT, selectedCategory: 'Serums' });
+    const result = applyFilters(products, { ...CATALOG_FILTER_DEFAULT, selectedCategory: 'serum' });
 
-    expect(result).toHaveLength(3);
-    expect(result.map((p) => p.id)).toEqual(['p1', 'p2', 'p3']);
+    expect(result).toHaveLength(1);
+    expect(result.map((p) => p.id)).toEqual(['p1']);
   });
 
-  it('should return only spf products when category is SPF', () => {
+  it('should return only spf products when category is spf', () => {
     const products = [
       makeProduct({ id: 'p1', productType: 'spf' }),
       makeProduct({ id: 'p2', productType: 'serum' }),
       makeProduct({ id: 'p3', productType: 'moisturizer' }),
     ];
 
-    const result = applyFilters(products, { ...CATALOG_FILTER_DEFAULT, selectedCategory: 'SPF' });
+    const result = applyFilters(products, { ...CATALOG_FILTER_DEFAULT, selectedCategory: 'spf' });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('p1');
+  });
+
+  it('should return only cream products when category is cream', () => {
+    const products = [
+      makeProduct({ id: 'p1', productType: 'cream' }),
+      makeProduct({ id: 'p2', productType: 'lotion' }),
+      makeProduct({ id: 'p3', productType: 'moisturizer' }),
+    ];
+
+    const result = applyFilters(products, { ...CATALOG_FILTER_DEFAULT, selectedCategory: 'cream' });
 
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('p1');
@@ -119,7 +132,7 @@ describe('applyFilters', () => {
     expect(result.map((p) => p.id)).toEqual(['p1', 'p2']);
   });
 
-  it('should apply AND logic — Serums + Actives returns only serum products that also have actives tags', () => {
+  it('should apply AND logic — serum category + Actives returns only serum products that also have actives tags', () => {
     const products = [
       makeProduct({ id: 'p1', productType: 'serum', activeTags: ['retinol'] }),
       makeProduct({ id: 'p2', productType: 'serum', activeTags: ['niacinamide'] }),
@@ -128,7 +141,7 @@ describe('applyFilters', () => {
 
     const result = applyFilters(products, {
       ...CATALOG_FILTER_DEFAULT,
-      selectedCategory: 'Serums',
+      selectedCategory: 'serum',
       selectedBiomarkers: ['Actives'],
     });
 
@@ -174,7 +187,7 @@ describe('applyFilters', () => {
     expect(result.map((p) => p.id)).toEqual(['p1', 'p2', 'p3', 'p4', 'p5', 'p6']);
   });
 
-  it('should pass a serum product with actives tags when both Serums category and Actives biomarker are selected', () => {
+  it('should pass a serum product with actives tags when both serum category and Actives biomarker are selected', () => {
     const products = [
       makeProduct({
         id: 'p1',
@@ -186,7 +199,7 @@ describe('applyFilters', () => {
 
     const result = applyFilters(products, {
       ...CATALOG_FILTER_DEFAULT,
-      selectedCategory: 'Serums',
+      selectedCategory: 'serum',
       selectedBiomarkers: ['Actives'],
     });
 
