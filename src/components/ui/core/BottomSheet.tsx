@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -31,6 +32,15 @@ export interface BottomSheetProps {
   dismissOnBackdrop?: boolean;
   /** Additional styles applied to the white sheet surface (e.g. custom padding). */
   contentStyle?: StyleProp<ViewStyle>;
+  /**
+   * 'auto' (default) — the sheet hugs its content, capped at 90% of the
+   * window height; content beyond the cap must scroll internally.
+   * 'fixed' — the sheet is always exactly 90% of the window height. Use this
+   * when the content has its own fixed-header + flexible-scroll-body layout
+   * (e.g. a flexGrow ScrollView), since flexGrow only fills remaining space
+   * when the parent has a definite (not just max) height.
+   */
+  sizing?: 'auto' | 'fixed';
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -42,7 +52,15 @@ export function BottomSheet({
   title,
   dismissOnBackdrop = true,
   contentStyle,
+  sizing = 'auto',
 }: BottomSheetProps) {
+  // A percentage maxHeight/height only resolves if every ancestor up to the
+  // Modal root reports a definite height, which isn't guaranteed across
+  // Android/iOS Modal implementations — use a concrete pixel value instead.
+  const { height: windowHeight } = useWindowDimensions();
+  const sheetHeight = windowHeight * 0.9;
+  const sizingStyle = sizing === 'fixed' ? { height: sheetHeight } : { maxHeight: sheetHeight };
+
   return (
     <Modal
       visible={visible}
@@ -57,7 +75,10 @@ export function BottomSheet({
       >
         {/* onStartShouldSetResponder prevents backdrop tap events from
             passing through to the sheet surface */}
-        <View style={[styles.sheet, contentStyle]} onStartShouldSetResponder={() => true}>
+        <View
+          style={[styles.sheet, sizingStyle, contentStyle]}
+          onStartShouldSetResponder={() => true}
+        >
           {title ? (
             <View style={styles.header}>
               <View style={styles.headerSpacer} />

@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import { AddToRoutineSheet } from '@/components/routine/AddToRoutineSheet';
 import { PlannerBlock } from '@/components/routine/PlannerBlock';
+import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
@@ -43,11 +44,13 @@ export default function RoutinesScreen({ navigation }: Props) {
   const routines = useRoutinesStore((s) => s.routines);
   const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
   const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
+  const removeProductStep = useRoutinesStore((s) => s.removeProductStep);
 
   const [activePeriod, setActivePeriod] = useState<Period>('morning');
   const [selectedDow, setSelectedDow] = useState<number>(() => new Date().getDay());
   const [addSheetVisible, setAddSheetVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<{ stepId: string; productId: string; productName: string } | null>(null);
 
   // Restore today's day and exit edit mode when the screen gains focus.
   useFocusEffect(
@@ -65,6 +68,14 @@ export default function RoutinesScreen({ navigation }: Props) {
   const handleDaySelect = useCallback((dow: number) => {
     setSelectedDow(dow);
     setIsEditMode(false);
+  }, []);
+
+  // Single shared entry point for both the header "+" and the in-content
+  // "Add product" button — both must open the exact same flow.
+  // Always exits edit mode first so the sheet opens in a clean state.
+  const handleOpenAddSheet = useCallback(() => {
+    setIsEditMode(false);
+    setAddSheetVisible(true);
   }, []);
 
   const morningRoutine = routines.find((r) => r.timeOfDay === 'morning');
@@ -138,7 +149,12 @@ export default function RoutinesScreen({ navigation }: Props) {
               isEditMode={isEditMode}
               onDelete={
                 isEditMode && activeRoutine
-                  ? () => removeStepFromDay(activeRoutine.id, item.id, selectedDow)
+                  ? () =>
+                      setPendingRemoval({
+                        stepId: item.id,
+                        productId: product.id,
+                        productName: product.name,
+                      })
                   : undefined
               }
             />
@@ -146,7 +162,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         </ScaleDecorator>
       );
     },
-    [isEditMode, activeRoutine, selectedDow, conflictMap, products, navigation, removeStepFromDay],
+    [isEditMode, activeRoutine, conflictMap, products, navigation],
   );
 
   const listHeader = useMemo(
@@ -168,20 +184,30 @@ export default function RoutinesScreen({ navigation }: Props) {
       <AppHeader
         title="Routines"
         rightAction={
-          <IconButton
-            icon={
-              <Feather
-                name={isEditMode ? 'check' : 'edit-2'}
-                size={18}
-                color={palette.bottleGreen}
-              />
-            }
-            label={isEditMode ? 'Done editing' : 'Edit routine'}
-            variant="ghost"
-            size="sm"
-            round
-            onPress={() => setIsEditMode((prev) => !prev)}
-          />
+          <View style={styles.headerActions}>
+            <IconButton
+              icon={<Feather name="plus" size={18} color={palette.bottleGreen} />}
+              label="Add product to routine"
+              variant="ghost"
+              size="sm"
+              round
+              onPress={handleOpenAddSheet}
+            />
+            <IconButton
+              icon={
+                <Feather
+                  name={isEditMode ? 'check' : 'edit-2'}
+                  size={18}
+                  color={palette.bottleGreen}
+                />
+              }
+              label={isEditMode ? 'Done editing' : 'Edit routine'}
+              variant="ghost"
+              size="sm"
+              round
+              onPress={() => setIsEditMode((prev) => !prev)}
+            />
+          </View>
         }
       />
       <DraggableFlatList
@@ -190,29 +216,50 @@ export default function RoutinesScreen({ navigation }: Props) {
         onDragEnd={({ data }) => handleDragEnd(data)}
         renderItem={renderItem}
         ListHeaderComponent={listHeader}
+        ListFooterComponent={
+          !isEditMode ? (
+            <View style={styles.addProductFooter}>
+              <Button
+                variant="textActive"
+                size="md"
+                fullWidth
+                icon={<Feather name="plus" size={16} color={palette.bottleGreen} />}
+                onPress={handleOpenAddSheet}
+                accessibilityLabel="Add product to routine"
+              >
+                Add product
+              </Button>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={<EmptyRoutine />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Fixed bottom: Add product button */}
-      <View style={styles.bottomBar}>
-        <Button
-          variant="textActive"
-          size="md"
-          fullWidth
-          icon={<Feather name="plus" size={16} color={palette.bottleGreen} />}
-          onPress={() => setAddSheetVisible(true)}
-          accessibilityLabel="Add product to routine"
-        >
-          Add product
-        </Button>
-      </View>
-
       <AddToRoutineSheet
         visible={addSheetVisible}
         onClose={() => setAddSheetVisible(false)}
         activePeriod={activePeriod}
+      />
+
+      <RemoveStepModal
+        visible={pendingRemoval !== null}
+        productName={pendingRemoval?.productName ?? ''}
+        dow={selectedDow}
+        onRemoveDay={() => {
+          if (activeRoutine && pendingRemoval) {
+            removeStepFromDay(activeRoutine.id, pendingRemoval.stepId, selectedDow);
+          }
+          setPendingRemoval(null);
+        }}
+        onRemoveAll={() => {
+          if (activeRoutine && pendingRemoval) {
+            removeProductStep(activeRoutine.id, pendingRemoval.productId);
+          }
+          setPendingRemoval(null);
+        }}
+        onCancel={() => setPendingRemoval(null)}
       />
     </SafeAreaView>
   );
@@ -264,10 +311,13 @@ const styles = StyleSheet.create({
     marginBottom: space[3],
   },
 
-  bottomBar: {
-    paddingHorizontal: space.gutterScreen,
-    paddingVertical: space[3],
-    borderTopWidth: 1,
-    borderTopColor: colors.borderDivider,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+  },
+
+  addProductFooter: {
+    paddingTop: space[4],
   },
 });

@@ -17,9 +17,10 @@ export interface AppHeaderProps {
 
 // ─── Layout constant ──────────────────────────────────────────────────────────
 
-// Wide enough to hold "Done" in Button sm (≈72px) and any IconButton size.
+// Wide enough to hold "Done" in Button sm (≈72px), any IconButton size, or a
+// pair of sm IconButtons side by side (e.g. "+" and Edit).
 // Both side zones share the same value so the title is always truly centred.
-const ACTION_ZONE_WIDTH = 80;
+const ACTION_ZONE_WIDTH = 84;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
