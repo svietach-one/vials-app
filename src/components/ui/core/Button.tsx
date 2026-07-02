@@ -9,11 +9,16 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radius, space } from '@/constants/tokens';
+import { palette } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
+export type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'ghost'
+  | 'textActive'
+  | 'destructive';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends Omit<PressableProps, 'style'> {
@@ -48,9 +53,9 @@ export function Button({
         styles.base,
         sizeContainer[size],
         variantContainer[variant],
-        pressed && variantContainerPressed[variant],
+        pressed && !disabled && variantContainerPressed[variant],
+        disabled && variantContainerDisabled[variant],
         fullWidth && styles.fullWidth,
-        disabled && styles.disabled,
         style,
       ]}
       hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -58,7 +63,12 @@ export function Button({
     >
       {icon ? <View style={styles.iconSlot}>{icon}</View> : null}
       <Text
-        style={[styles.label, sizeLabel[size], variantLabel[variant]]}
+        style={[
+          styles.label,
+          sizeLabel[size],
+          variantLabel[variant],
+          disabled && variantLabelDisabled[variant],
+        ]}
         numberOfLines={1}
       >
         {children}
@@ -76,35 +86,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderRadius: radius.md,
+    borderRadius: 6,
   },
   fullWidth: {
     width: '100%',
-  },
-  disabled: {
-    opacity: 0.4,
   },
   iconSlot: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   label: {
-    fontFamily: 'DMSans-Medium',
-    letterSpacing: -0.15,
+    fontFamily: 'DMSans-Bold',
     includeFontPadding: false,
   },
 });
 
 // Size: container
 const sizeContainer = StyleSheet.create({
-  sm: { height: 36, paddingHorizontal: space[3], gap: space[2] },
-  md: { height: 44, paddingHorizontal: space[5], gap: space[2] },
-  lg: { height: 52, paddingHorizontal: space[6], gap: space[2] },
+  sm: { paddingHorizontal: 20, paddingVertical: 9, gap: 6 },
+  md: { paddingHorizontal: 20, paddingVertical: 10, gap: 6 },
+  lg: { paddingHorizontal: 20, paddingVertical: 12, gap: 6 },
 });
 
 // Size: label
 const sizeLabel = StyleSheet.create({
-  sm: { fontSize: 13, lineHeight: 18 },
+  sm: { fontSize: 14, lineHeight: 18 },
   md: { fontSize: 15, lineHeight: 20 },
   lg: { fontSize: 16, lineHeight: 22 },
 });
@@ -112,47 +118,89 @@ const sizeLabel = StyleSheet.create({
 // Variant: container — resting state
 const variantContainer = StyleSheet.create({
   primary: {
-    backgroundColor: colors.controlFill,
-    borderColor: colors.controlFill,
+    backgroundColor: palette.zinc900,
+    borderColor: palette.zinc900,
   },
   secondary: {
     backgroundColor: 'transparent',
-    borderColor: colors.controlFill,
+    borderColor: palette.zinc900,
   },
   ghost: {
     backgroundColor: 'transparent',
     borderColor: 'transparent',
   },
+  textActive: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+  },
   destructive: {
     backgroundColor: 'transparent',
-    borderColor: colors.statusSOSLine,
+    borderColor: palette.red,
   },
 });
 
-// Variant: container — pressed state (replaces CSS :active / onMouseDown)
+// Variant: container — pressed state
 const variantContainerPressed = StyleSheet.create({
   primary: {
-    backgroundColor: colors.controlFillHover,
-    borderColor: colors.controlFillHover,
+    backgroundColor: palette.zinc800,
+    borderColor: palette.zinc800,
   },
   secondary: {
-    backgroundColor: colors.surfaceSunken,
-    borderColor: colors.controlFill,
+    backgroundColor: palette.zinc100,
+    borderColor: palette.zinc900,
   },
   ghost: {
-    backgroundColor: colors.surfaceSunken,
+    backgroundColor: palette.zinc100,
+    borderColor: 'transparent',
+  },
+  textActive: {
+    backgroundColor: palette.zinc100,
     borderColor: 'transparent',
   },
   destructive: {
-    backgroundColor: colors.statusSOSTint,
-    borderColor: colors.statusSOSLine,
+    backgroundColor: palette.zinc100,
+    borderColor: palette.red,
   },
 });
 
-// Variant: label color
+// Variant: container — disabled state (explicit colors, no opacity hack)
+const variantContainerDisabled = StyleSheet.create({
+  primary: {
+    backgroundColor: palette.zinc300,
+    borderColor: palette.zinc300,
+  },
+  secondary: {
+    backgroundColor: 'transparent',
+    borderColor: palette.zinc300,
+  },
+  ghost: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+  },
+  textActive: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+  },
+  destructive: {
+    backgroundColor: 'transparent',
+    borderColor: palette.zinc300,
+  },
+});
+
+// Variant: label — resting color
 const variantLabel = StyleSheet.create({
-  primary: { color: colors.controlOn },
-  secondary: { color: colors.textPrimary },
-  ghost: { color: colors.textPrimary },
-  destructive: { color: colors.statusSOS },
+  primary: { color: palette.white },
+  secondary: { color: palette.zinc900 },
+  ghost: { color: palette.zinc900 },
+  textActive: { color: palette.bottleGreen },
+  destructive: { color: palette.red },
+});
+
+// Variant: label — disabled color
+const variantLabelDisabled = StyleSheet.create({
+  primary: { color: palette.white },
+  secondary: { color: palette.zinc300 },
+  ghost: { color: palette.zinc300 },
+  textActive: { color: palette.zinc300 },
+  destructive: { color: palette.zinc300 },
 });

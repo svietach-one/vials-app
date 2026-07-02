@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -19,6 +20,7 @@ export default function App() {
   const [fontsLoaded] = useFonts({
     'DMSans-Regular': require('@expo-google-fonts/dm-sans/DMSans_400Regular.ttf'),
     'DMSans-Medium': require('@expo-google-fonts/dm-sans/DMSans_500Medium.ttf'),
+    'DMSans-Bold': require('@expo-google-fonts/dm-sans/DMSans_700Bold.ttf'),
     'DMSerifDisplay-Regular': require('@expo-google-fonts/dm-serif-display/DMSerifDisplay_400Regular.ttf'),
   });
 
@@ -47,8 +49,10 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <AppNavigator />
+        <BottomSheetModalProvider>
+          <StatusBar style="dark" />
+          <AppNavigator />
+        </BottomSheetModalProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

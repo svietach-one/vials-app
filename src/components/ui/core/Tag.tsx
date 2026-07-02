@@ -60,7 +60,7 @@ export function Tag({ children, tone = 'neutral', onRemove, style }: TagProps) {
         style,
       ]}
     >
-      <Text style={[styles.label, { color: textColor }]} numberOfLines={1}>
+      <Text style={[styles.label, { color: textColor }]}>
         {children}
       </Text>
 

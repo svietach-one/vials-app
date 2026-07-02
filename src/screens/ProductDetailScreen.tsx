@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Pressable,
   SafeAreaView,
@@ -14,6 +14,7 @@ import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { RemoveRoutineActionSheet } from '@/components/routine/RemoveRoutineActionSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
+import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
@@ -45,34 +46,28 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   const [schedulerVisible, setSchedulerVisible] = useState(false);
   const [removeSheetVisible, setRemoveSheetVisible] = useState(false);
 
-  // Wire the three-dot button into the navigation header
-  useEffect(() => {
-    if (!product) return;
-    navigation.setOptions({
-      title: product.name,
-      headerRight: () => (
-        <IconButton
-          icon={<Feather name="more-vertical" size={20} color={colors.textPrimary} />}
-          label="Product options"
-          variant="ghost"
-          size="sm"
-          onPress={() => setActionSheetVisible(true)}
-          style={styles.headerBtn}
-        />
-      ),
-    });
-  }, [navigation, product]);
-
   // ── Not found guard ───────────────────────────────────────────────────────
 
   if (!product) {
     return (
       <SafeAreaView style={styles.safe}>
+        <AppHeader
+          title="Product"
+          leftAction={
+            <IconButton
+              icon={<Feather name="arrow-left" size={20} color={colors.textPrimary} />}
+              label="Back"
+              variant="ghost"
+              size="sm"
+              onPress={() => navigation.goBack()}
+            />
+          }
+        />
         <View style={styles.notFoundWrap}>
           <InlineAlert tone="sos" title="Product not found">
             This product may have been deleted from your catalog.
           </InlineAlert>
-          <Button variant="secondary" onPress={() => navigation.goBack()}>
+          <Button variant="secondary" size="lg" onPress={() => navigation.goBack()}>
             Go Back
           </Button>
         </View>
@@ -102,6 +97,27 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppHeader
+        title={product.name}
+        leftAction={
+          <IconButton
+            icon={<Feather name="arrow-left" size={20} color={colors.textPrimary} />}
+            label="Back"
+            variant="ghost"
+            size="sm"
+            onPress={() => navigation.goBack()}
+          />
+        }
+        rightAction={
+          <IconButton
+            icon={<Feather name="more-vertical" size={20} color={colors.textPrimary} />}
+            label="Product options"
+            variant="ghost"
+            size="sm"
+            onPress={() => setActionSheetVisible(true)}
+          />
+        }
+      />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -156,6 +172,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
       <View style={styles.footer}>
         <Button
           fullWidth
+          size="lg"
           variant={routineLabel !== null ? 'secondary' : 'primary'}
           onPress={() => setSchedulerVisible(true)}
         >
@@ -221,9 +238,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.bgBase,
-  },
-  headerBtn: {
-    marginRight: space.gutterScreen,
   },
   notFoundWrap: {
     flex: 1,

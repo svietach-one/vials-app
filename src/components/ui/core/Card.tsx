@@ -71,7 +71,7 @@ export function Card({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: radius.lg,
+    borderRadius: radius.sm,
     borderWidth: 1,
     overflow: 'hidden',
   },

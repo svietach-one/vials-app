@@ -55,7 +55,5 @@ export function ConflictWarningInline({ routines, products }: ConflictWarningInl
 const styles = StyleSheet.create({
   wrap: {
     gap: space[3],
-    marginTop: space[4],
-    paddingHorizontal: space.gutterScreen,
   },
 });

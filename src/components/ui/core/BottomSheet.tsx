@@ -5,12 +5,14 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { IconButton } from '@/components/ui/core/IconButton';
+import { colors, radius, space } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +32,15 @@ export interface BottomSheetProps {
   dismissOnBackdrop?: boolean;
   /** Additional styles applied to the white sheet surface (e.g. custom padding). */
   contentStyle?: StyleProp<ViewStyle>;
+  /**
+   * 'auto' (default) — the sheet hugs its content, capped at 90% of the
+   * window height; content beyond the cap must scroll internally.
+   * 'fixed' — the sheet is always exactly 90% of the window height. Use this
+   * when the content has its own fixed-header + flexible-scroll-body layout
+   * (e.g. a flexGrow ScrollView), since flexGrow only fills remaining space
+   * when the parent has a definite (not just max) height.
+   */
+  sizing?: 'auto' | 'fixed';
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -41,13 +52,21 @@ export function BottomSheet({
   title,
   dismissOnBackdrop = true,
   contentStyle,
+  sizing = 'auto',
 }: BottomSheetProps) {
+  // A percentage maxHeight/height only resolves if every ancestor up to the
+  // Modal root reports a definite height, which isn't guaranteed across
+  // Android/iOS Modal implementations — use a concrete pixel value instead.
+  const { height: windowHeight } = useWindowDimensions();
+  const sheetHeight = windowHeight * 0.9;
+  const sizingStyle = sizing === 'fixed' ? { height: sheetHeight } : { maxHeight: sheetHeight };
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={dismissOnBackdrop ? onClose : undefined}
+      onRequestClose={dismissOnBackdrop ? onClose : () => {}}
       statusBarTranslucent
     >
       <Pressable
@@ -56,19 +75,25 @@ export function BottomSheet({
       >
         {/* onStartShouldSetResponder prevents backdrop tap events from
             passing through to the sheet surface */}
-        <View style={[styles.sheet, contentStyle]} onStartShouldSetResponder={() => true}>
+        <View
+          style={[styles.sheet, sizingStyle, contentStyle]}
+          onStartShouldSetResponder={() => true}
+        >
           {title ? (
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>{title}</Text>
-              <Pressable
-                onPress={onClose}
-                style={styles.closeBtn}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-              >
-                <Feather name="x" size={18} color={colors.textSecondary} />
-              </Pressable>
+              <View style={styles.headerSpacer} />
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {title}
+              </Text>
+              <View style={styles.headerClose}>
+                <IconButton
+                  icon={<Feather name="x" size={18} color={colors.textSecondary} />}
+                  label="Close"
+                  variant="ghost"
+                  size="sm"
+                  onPress={onClose}
+                />
+              </View>
             </View>
           ) : (
             <View style={styles.handle} />
@@ -107,20 +132,22 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingTop: space[2],
     paddingBottom: space[4],
   },
-  headerTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
+  headerSpacer: {
+    width: 44,
   },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunken,
+  headerTitle: {
+    flex: 1,
+    fontFamily: 'DMSans-Medium',
+    fontSize: 16,
+    lineHeight: 22,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  headerClose: {
+    width: 44,
+    alignItems: 'flex-end',
   },
 });

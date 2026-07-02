@@ -52,6 +52,21 @@ export function deriveProductSchedule(
 }
 
 /**
+ * Formats the scheduled-days array into a human-readable label for the routine card.
+ * [] → "Every day"  [0] → "Sun only"  [1,3,6] → "Mon • Wed • Sat"
+ */
+export function formatScheduleDays(scheduledDays: number[]): string {
+  if (scheduledDays.length === 0) return 'Every day';
+  if (scheduledDays.length === 1) {
+    return `${DOW_LABELS[scheduledDays[0]!]} only`;
+  }
+  return DOW_ORDER
+    .filter((dow) => scheduledDays.includes(dow))
+    .map((dow) => DOW_LABELS[dow])
+    .join(' • ');
+}
+
+/**
  * Formats the "In Routine" button label from a ProductSchedule.
  * Returns null when the product is not in any routine — callers should
  * display "Add to Routine" in that case.

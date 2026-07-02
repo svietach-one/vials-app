@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   FlatList,
   SafeAreaView,
@@ -11,9 +11,14 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
+import { ProductShelfCard } from '@/components/product/ProductShelfCard';
+import { CatalogFilterHeader } from '@/components/catalog/CatalogFilterHeader';
+import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
+import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { Card } from '@/components/ui/core/Card';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { Badge } from '@/components/ui/feedback/Badge';
 import { Tag } from '@/components/ui/core/Tag';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, space, typography } from '@/constants/tokens';
@@ -21,10 +26,65 @@ import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/label
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
-import type { Product } from '@/types';
+import type {
+  ActiveIngredientKey,
+  BiomarkerTag,
+  CatalogFilterState,
+  Product,
+  ProductType,
+} from '@/types';
+import { CATALOG_FILTER_DEFAULT } from '@/types';
 import { getProductRoutineStatus, type RoutineStatusResult } from '@/utils/routineStatus';
+import { getProductPaoStatus } from '@/utils/paoHelpers';
+import { formatScheduleDays } from '@/utils/routineLabel';
 
 type Props = NativeStackScreenProps<CatalogStackParamList, 'Catalog'>;
+
+// ─── Module-level filter constants ────────────────────────────────────────────
+
+const ACTIVES_KEYS: ActiveIngredientKey[] = ['retinol', 'aha', 'bha', 'vitamin_c', 'benzoyl_peroxide'];
+const SOOTHING_KEYS: ActiveIngredientKey[] = ['niacinamide', 'copper_peptides'];
+const HYDRATION_TYPES: ProductType[] = ['moisturizer', 'cream', 'lotion', 'oil', 'essence', 'toner'];
+
+const PAO_AMBER = '#D97706';
+
+// ─── applyFilters ─────────────────────────────────────────────────────────────
+
+export function applyFilters(
+  products: Product[],
+  { searchQuery, selectedCategory, selectedBiomarkers }: CatalogFilterState,
+): Product[] {
+  return products.filter((p) => {
+    // Gate 1 — text search
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      const nameMatch = p.name.toLowerCase().includes(q);
+      const brandMatch = (p.brand ?? '').toLowerCase().includes(q);
+      const tagMatch = (p.activeTags ?? []).some((k) =>
+        ACTIVE_INGREDIENT_LABELS[k]?.toLowerCase().includes(q),
+      );
+      if (!nameMatch && !brandMatch && !tagMatch) return false;
+    }
+
+    // Gate 2 — category
+    if (selectedCategory !== 'All' && p.productType !== selectedCategory) return false;
+
+    // Gate 3 — biomarkers (ALL selected must pass)
+    for (const biomarker of selectedBiomarkers) {
+      if (biomarker === 'Actives') {
+        if (!(p.activeTags ?? []).some((k) => ACTIVES_KEYS.includes(k))) return false;
+      }
+      if (biomarker === 'Soothing') {
+        if (!(p.activeTags ?? []).some((k) => SOOTHING_KEYS.includes(k))) return false;
+      }
+      if (biomarker === 'Hydration') {
+        if (!HYDRATION_TYPES.includes(p.productType)) return false;
+      }
+    }
+
+    return true;
+  });
+}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -34,38 +94,15 @@ export default function CatalogScreen({ navigation }: Props) {
   const removeProduct = useProductsStore((s) => s.removeProduct);
   const routines = useRoutinesStore((s) => s.routines);
 
-  const [searchText, setSearchText] = useState('');
-  const [actionTarget, setActionTarget] = useState<Product | null>(null);
+  const [filterState, setFilterState] = useState<CatalogFilterState>(CATALOG_FILTER_DEFAULT);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [schedulerTarget, setSchedulerTarget] = useState<Product | null>(null);
 
-  // Header "+" button — navigates to the Add Product Hub
-  useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <IconButton
-          icon={<Feather name="plus" size={20} color={colors.textOnDark} />}
-          label="Add product"
-          variant="filled"
-          size="sm"
-          round
-          onPress={() => navigation.navigate('AddProductHub')}
-          style={styles.headerBtn}
-        />
-      ),
-    });
-  }, [navigation]);
-
-  // Filter on name, brand, and validated activeTags (reliable — no raw text search)
-  const query = searchText.trim().toLowerCase();
-  const filteredProducts = query
-    ? products.filter((p) => {
-        if (p.name.toLowerCase().includes(query)) return true;
-        if ((p.brand ?? '').toLowerCase().includes(query)) return true;
-        return (p.activeTags ?? []).some((key) =>
-          ACTIVE_INGREDIENT_LABELS[key]?.toLowerCase().includes(query),
-        );
-      })
-    : products;
+  const filteredProducts = applyFilters(products, filterState);
+  const hasActiveFilters =
+    filterState.searchQuery.trim() !== '' ||
+    filterState.selectedCategory !== 'All' ||
+    filterState.selectedBiomarkers.length > 0;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -79,47 +116,30 @@ export default function CatalogScreen({ navigation }: Props) {
   // ── Render item ───────────────────────────────────────────────────────────
 
   function renderItem({ item }: { item: Product }) {
-    const routineStatus = getProductRoutineStatus(item.id, routines);
-    return (
-      <Card
-        variant="surface"
-        padding="sm"
-        interactive
-        onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-        style={styles.card}
-      >
-        <View style={styles.cardInner}>
-          {/* Content layer — dimmed independently so the three-dot button stays opaque */}
-          <View style={[styles.cardContent, item.isHidden && styles.cardContentHidden]}>
-            <View style={styles.nameRow}>
-              {item.isHidden ? (
-                <Feather name="eye-off" size={12} color={colors.textTertiary} />
-              ) : null}
-              <Text style={styles.productName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Tag tone="neutral">
-                {PRODUCT_TYPE_LABELS[item.productType] ?? item.productType}
-              </Tag>
-              <RoutineBadge status={routineStatus} />
-            </View>
-            {item.brand ? (
-              <Text style={styles.brand} numberOfLines={1}>
-                {item.brand}
-              </Text>
-            ) : null}
-          </View>
+    const isInRoutine = routines.some((r) => r.steps.some((s) => s.productId === item.id));
+    const matchingStep = routines
+      .flatMap((r) => r.steps)
+      .find((s) => s.productId === item.id);
+    const scheduleLabel = formatScheduleDays(matchingStep?.scheduledDays ?? []);
 
-          {/* Three-dot — sibling of cardContent, always opacity 1 even on hidden cards */}
-          <IconButton
-            icon={<Feather name="more-vertical" size={18} color={colors.textSecondary} />}
-            label={`Options for ${item.name}`}
-            variant="ghost"
-            size="sm"
-            onPress={() => setActionTarget(item)}
-          />
-        </View>
-      </Card>
+    return (
+      <ProductShelfCard
+        product={item}
+        isInRoutine={isInRoutine}
+        scheduleLabel={scheduleLabel}
+        usageTime={item.usageTime}
+        onCardPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+        onEdit={(p) => {
+          navigation.navigate('ManualProductForm', { editingProductId: p.id });
+        }}
+        onDelete={(p) => {
+          setDeleteTarget(p);
+        }}
+        onAddToRoutine={(p) => setSchedulerTarget(p)}
+        onRemoveFromRoutine={(p) => {
+          updateProduct(p.id, { isHidden: true });
+        }}
+      />
     );
   }
 
@@ -127,6 +147,19 @@ export default function CatalogScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppHeader
+        title="My Shelf"
+        rightAction={
+          <IconButton
+            icon={<Feather name="plus" size={20} color={colors.textPrimary} />}
+            label="Add product"
+            variant="ghost"
+            size="sm"
+            round
+            onPress={() => navigation.navigate('AddProductHub')}
+          />
+        }
+      />
       <FlatList
         data={filteredProducts}
         keyExtractor={(item) => item.id}
@@ -142,43 +175,39 @@ export default function CatalogScreen({ navigation }: Props) {
           <View style={styles.searchWrap}>
             <Input
               icon={<Feather name="search" size={15} color={colors.textTertiary} />}
-              value={searchText}
-              onChangeText={setSearchText}
+              value={filterState.searchQuery}
+              onChangeText={(t) => setFilterState((s) => ({ ...s, searchQuery: t }))}
               placeholder="Search by name, brand or ingredient…"
               clearButtonMode="while-editing"
               returnKeyType="search"
+              containerStyle={styles.searchInput}
             />
+            <CatalogFilterHeader filterState={filterState} onFilterChange={setFilterState} />
           </View>
         }
         ListEmptyComponent={
           <CatalogEmptyState
             hasProducts={products.length > 0}
+            hasActiveFilters={hasActiveFilters}
             onAdd={() => navigation.navigate('AddProductHub')}
           />
         }
-      />
-
-      <ProductActionSheet
-        product={actionTarget}
-        onEdit={(p) => {
-          setActionTarget(null);
-          navigation.navigate('ManualProductForm', { editingProductId: p.id });
-        }}
-        onDelete={(p) => {
-          setActionTarget(null);
-          setDeleteTarget(p);
-        }}
-        onToggleHidden={(p) => {
-          updateProduct(p.id, { isHidden: !p.isHidden });
-          setActionTarget(null);
-        }}
-        onClose={() => setActionTarget(null)}
       />
 
       <DeleteProductModal
         product={deleteTarget}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <RoutineSchedulerSheet
+        visible={schedulerTarget !== null}
+        productId={schedulerTarget?.id ?? ''}
+        productType={schedulerTarget?.productType ?? 'serum'}
+        title="Add to Routine"
+        cancelLabel="Cancel"
+        saveLabel="Add to routine"
+        onClose={() => setSchedulerTarget(null)}
       />
     </SafeAreaView>
   );
@@ -188,27 +217,41 @@ export default function CatalogScreen({ navigation }: Props) {
 
 function RoutineBadge({ status }: { status: RoutineStatusResult }) {
   if (status === 'none') return null;
+  const label =
+    status === 'both' ? 'AM · PM' : status === 'morning' ? 'AM' : 'PM';
+  return <Badge status="Default" type="Light">{label}</Badge>;
+}
+
+// ─── PAO expiry chip ──────────────────────────────────────────────────────────
+
+function PaoChip({ product }: { product: Product }) {
+  const pao = getProductPaoStatus(product);
+  if (!pao || (!pao.isExpired && !pao.isExpiringSoon)) return null;
+
+  const label = pao.isExpired
+    ? 'Expired'
+    : pao.daysRemaining === 0
+    ? 'Expires today'
+    : `Expires in ${pao.daysRemaining}d`;
+
   return (
-    <View style={badgeStyles.pill}>
-      {(status === 'morning' || status === 'both') && (
-        <Feather name="sun" size={13} color={colors.textSecondary} />
-      )}
-      {(status === 'evening' || status === 'both') && (
-        <Feather name="moon" size={13} color={colors.textSecondary} />
-      )}
+    <View style={paoStyles.row}>
+      <Feather name="alert-triangle" size={12} color={PAO_AMBER} />
+      <Text style={paoStyles.text}>{label}</Text>
     </View>
   );
 }
 
-const badgeStyles = StyleSheet.create({
-  pill: {
+const paoStyles = StyleSheet.create({
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: space[2],
-    paddingVertical: 3,
-    borderRadius: 99,
-    backgroundColor: colors.borderDivider,
+    gap: 4,
+    marginTop: 2,
+  },
+  text: {
+    ...typography.caption,
+    color: PAO_AMBER,
   },
 });
 
@@ -216,25 +259,32 @@ const badgeStyles = StyleSheet.create({
 
 function CatalogEmptyState({
   hasProducts,
+  hasActiveFilters,
   onAdd,
 }: {
   hasProducts: boolean;
+  hasActiveFilters: boolean;
   onAdd: () => void;
 }) {
+  const title = !hasProducts
+    ? 'Your catalog is empty'
+    : hasActiveFilters
+    ? 'No products match the current filters'
+    : 'No matching products';
+
+  const body = !hasProducts
+    ? 'Add your first product by searching Open Beauty Facts, scanning a barcode, or entering it manually.'
+    : 'Try adjusting your filters or search query.';
+
   return (
     <View style={emptyStyles.wrap}>
       <Feather name="package" size={32} color={colors.textTertiary} />
-      <Text style={emptyStyles.title}>
-        {hasProducts ? 'No matching products' : 'Your catalog is empty'}
-      </Text>
-      <Text style={emptyStyles.body}>
-        {hasProducts
-          ? 'Try a different name, brand, or ingredient.'
-          : 'Add your first product by searching Open Beauty Facts, scanning a barcode, or entering it manually.'}
-      </Text>
+      <Text style={emptyStyles.title}>{title}</Text>
+      <Text style={emptyStyles.body}>{body}</Text>
       {!hasProducts ? (
         <Button
           variant="primary"
+          size="lg"
           icon={<Feather name="plus" size={16} color={colors.textOnDark} />}
           onPress={onAdd}
           style={emptyStyles.addBtn}
@@ -253,13 +303,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bgBase,
   },
-  headerBtn: {
-    marginRight: space.gutterScreen,
-  },
   searchWrap: {
-    paddingHorizontal: space.gutterScreen,
     paddingTop: space[4],
     paddingBottom: space[3],
+  },
+  searchInput: {
+    marginBottom: space[2],
   },
   listContent: {
     paddingHorizontal: space.gutterScreen,

@@ -1,8 +1,17 @@
 # Routine Management UX
 Date: 2026-06-22
 Author: planner-agent
-Status: APPROVED
+Status: IMPLEMENTED (verified against code 2026-07-02 — see note below)
 Supersedes: docs/specs/decouple-routine-from-form.md
+
+> **Implementation note (2026-07-02):** Delivered and confirmed on
+> `ProductDetailScreen`. One label wording deviation from this spec: the
+> button reads `"In Routine (Everyday • Morning)"` (matching the
+> `formatRoutineLabel` convention from `routine-scheduler-sheet.md`), not
+> `"Edit Routine (...)"` as originally written in Stories 2–3 below. The
+> sheet title passed in does say `"Edit Routine Settings"` when reopening an
+> existing schedule. Everything else in this spec — footer layout, remove
+> flow, multi-routine action sheet — matches the shipped code.
 
 ## 1. Problem Statement
 

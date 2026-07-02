@@ -3,6 +3,14 @@
 This document defines the complete functional requirements and behavior specifications for Phase 1 features.
 
 > **Sync note (this revision):** Fixed a calibration bug in US-17 (rolling average was re-anchoring to the static baseline every time instead of accumulating), standardized the block-vs-warning behavior between US-17/US-18, aligned component names with the screen spec, and added US-19–21 to cover Import/Restore, Catalog filtering, and onboarding skip — all of which exist in the PRD/screen specs but had no acceptance criteria yet.
+>
+> **Sync note (2026-07-02, tech-designer):** Audited US-05, US-08.1, and US-09
+> against the shipped `RoutinesScreen` on `feature-routine-redesign`. Added
+> "Implementation note" callouts where the delivered behavior has diverged
+> from these acceptance criteria (day-navigation replacing the checklist
+> model, `EmptySlotPlaceholder` never built, conflict warnings rendering
+> per-card instead of via `ConflictWarningInline`). See
+> `docs/tech-design/routine-redesign.md` for the full as-built design.
 
 ---
 
@@ -33,6 +41,15 @@ This document defines the complete functional requirements and behavior specific
 * Selecting specific days exposes a day-picker component interface: `[Mon] [Tue] [Wed] [Thu] [Fri] [Sat] [Sun]`.
 * The `Today` screen must fetch the current system day via `timeHelpers.ts` and filter the checklist. If a product is not scheduled for today, its step card is completely hidden.
 
+> **Implementation note (2026-07-02):** The day-picker (`[Mon]...[Sun]`) exists
+> as `WeeklySchedulePicker`, used when scheduling a product inside
+> `AddToRoutineSheet` / `RoutineSchedulerSheet` — matches this criterion. The
+> "Today screen filters by current system day" criterion is now generalized:
+> `RoutinesScreen`'s `PlannerBlock` lets the user navigate to **any** day of
+> the week (not just today), defaulting to today on screen focus, and filters
+> the visible steps to whichever day is selected — a superset of what this
+> story describes, not filed as a separate story.
+
 ---
 
 ### US-08.1 · Safe Product Deletion with Routine Cascade
@@ -46,6 +63,20 @@ This document defines the complete functional requirements and behavior specific
 * If the product is linked, a modal alert must display: *"Deleting will remove this step from your routine."*
 * On confirmation, the ID is immediately deleted from `catalogStore` and purged from all instances in `routineStore`.
 * If a scheduled routine step becomes empty as a result of the cascade, an `EmptySlotPlaceholder` component appears showing text *"Step empty"* with two operational targets: `+ Add from catalog` and `Hide step`.
+
+> **Implementation note (2026-07-02):** Not fully built. `removeProduct` on
+> `productsStore` deletes the product but does **not** purge the matching
+> `RoutineStep` records from `routinesStore` — the step is left in place with
+> a `productId` pointing at a now-missing product. `RoutinesScreen` happens to
+> filter out any step whose product can't be resolved, so the net visible
+> effect is similar (the step disappears from the list), but there is no
+> `EmptySlotPlaceholder`, no "Deleting will remove this step from your
+> routine" cascade confirmation copy tied to routine membership specifically
+> (the actual confirm copy, in `DeleteProductModal`, is generic: *"Any
+> routine steps linked to it will become empty slots"*), and no `+ Add from
+> catalog` / `Hide step` recovery actions. This needs a product decision:
+> either build `EmptySlotPlaceholder` + real cascade purge, or rewrite this
+> story to match the current silent-filter behavior.
 
 ---
 
@@ -69,6 +100,16 @@ This document defines the complete functional requirements and behavior specific
 
 * If two conflicting ingredients (e.g., Retinol and Glycolic Acid, i.e. `RETI`+`ACID`) are in the same routine but scheduled on different days, **no warning** is generated.
 * If they overlap on the same day, an inline `ConflictWarningInline` component must mount directly beneath those steps in the routine configuration view, severity-colored per Rich Amber.
+
+> **Implementation note (2026-07-02):** The per-day, per-pair detection logic
+> (`ConflictEngine.detectConflicts`) is implemented and correctly scoped to
+> `RoutinesScreen`'s currently-selected day, matching the negative-test-case
+> requirement. The presentation differs from this story: there is no separate
+> `ConflictWarningInline` component mounted in the routine view. Instead,
+> `RoutineStepCard` itself renders an inline amber "Conflicts with {other
+> product name}" row directly under the affected card when it has an active
+> conflict. Same severity color (amber), same per-day scoping, different
+> component boundary.
 * **Negative test case:** a `RETI` product and a `PEPT` product scheduled on the same day must **not** trigger `ConflictWarningInline` — this pair is explicitly compatible and must not produce a false positive.
 * Two products sharing the *same* tag (e.g. two `RETI` items same day) are out of scope for this engine in v1 — that's a dosing/layering question, not a class collision, and must not be flagged.
 

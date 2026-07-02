@@ -263,7 +263,7 @@ export function AddProcedureModal({
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Button fullWidth onPress={handleSave}>
+            <Button fullWidth size="lg" onPress={handleSave}>
               Log Procedure
             </Button>
           </View>
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   todayLink: {
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
-    color: colors.textLink,
+    color: palette.bottleGreen,
   },
   footer: {
     paddingHorizontal: space.gutterScreen,

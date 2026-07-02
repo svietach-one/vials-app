@@ -20,6 +20,8 @@ export interface RoutineSchedulerSheetProps {
   title?: string;
   cancelLabel?: string;
   saveLabel?: string;
+  onHide?: () => void;
+  onRemove?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -32,6 +34,8 @@ export function RoutineSchedulerSheet({
   title,
   cancelLabel = 'Cancel',
   saveLabel = 'Save',
+  onHide,
+  onRemove,
 }: RoutineSchedulerSheetProps) {
   const upsertProductStep = useRoutinesStore((s) => s.upsertProductStep);
   const removeProductStep = useRoutinesStore((s) => s.removeProductStep);
@@ -129,13 +133,41 @@ export function RoutineSchedulerSheet({
 
       {/* Section 3: Actions */}
       <View style={styles.actions}>
-        <Button variant="secondary" onPress={onClose} style={styles.actionBtn}>
+        <Button variant="secondary" size="lg" onPress={onClose} style={styles.actionBtn}>
           {cancelLabel}
         </Button>
-        <Button onPress={handleSave} style={styles.actionBtn}>
+        <Button size="lg" onPress={handleSave} style={styles.actionBtn}>
           {saveLabel}
         </Button>
       </View>
+
+      {/* Destructive actions */}
+      {(onHide || onRemove) ? (
+        <View style={styles.destructiveActions}>
+          {onHide ? (
+            <Pressable
+              onPress={() => { onClose(); onHide(); }}
+              style={styles.destructiveLink}
+              accessibilityRole="button"
+              hitSlop={8}
+            >
+              <Text style={styles.destructiveLinkText}>Hide product</Text>
+            </Pressable>
+          ) : null}
+          {onRemove ? (
+            <Pressable
+              onPress={() => { onClose(); onRemove(); }}
+              style={styles.destructiveLink}
+              accessibilityRole="button"
+              hitSlop={8}
+            >
+              <Text style={[styles.destructiveLinkText, styles.destructiveLinkTextDanger]}>
+                Remove from routine
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </BottomSheet>
   );
 }
@@ -238,5 +270,22 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
+  },
+  destructiveActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: space[5],
+    marginTop: space[4],
+    paddingBottom: space[2],
+  },
+  destructiveLink: {
+    paddingVertical: space[1],
+  },
+  destructiveLinkText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  destructiveLinkTextDanger: {
+    color: colors.statusSOS,
   },
 });

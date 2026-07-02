@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -15,8 +16,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
-import { Input } from '@/components/ui/forms/Input';
+import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
+import { Input } from '@/components/ui/forms/Input';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 import { generateId } from '@/utils/generateId';
@@ -67,7 +70,20 @@ const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 
+// ─── PAO constants ────────────────────────────────────────────────────────────
+
+const PAO_PRESETS = [
+  { months: 3, label: '3M' },
+  { months: 6, label: '6M' },
+  { months: 12, label: '12M' },
+  { months: 24, label: '24M' },
+] as const;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function todayIso(): string {
+  return new Date().toISOString().split('T')[0];
+}
 
 function keysToIngredients(keys: ActiveIngredientKey[]): ActiveIngredient[] {
   return keys.map((key) => {
@@ -166,6 +182,122 @@ function IngredientChips({ selected, onToggle }: IngredientChipsProps) {
   );
 }
 
+interface PaoFieldProps {
+  selected: number | null;
+  isCustom: boolean;
+  customText: string;
+  error: string | null;
+  onSelectPreset: (months: number) => void;
+  onSelectCustom: () => void;
+  onCustomTextChange: (t: string) => void;
+}
+function PaoField({
+  selected,
+  isCustom,
+  customText,
+  error,
+  onSelectPreset,
+  onSelectCustom,
+  onCustomTextChange,
+}: PaoFieldProps) {
+  return (
+    <View style={formStyles.fieldGroup}>
+      <View style={formStyles.fieldLabelRow}>
+        <View style={formStyles.fieldLabelIconRow}>
+          <Feather name="clock" size={12} color={colors.textSecondary} />
+          <Text style={formStyles.fieldLabel}>Period After Opening</Text>
+        </View>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={formStyles.typeRow}
+      >
+        {PAO_PRESETS.map(({ months, label }) => {
+          const active = !isCustom && selected === months;
+          return (
+            <Pressable
+              key={months}
+              onPress={() => onSelectPreset(months)}
+              style={[chipStyles.chip, active && chipStyles.chipActive]}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[chipStyles.label, active && chipStyles.labelActive]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+        <Pressable
+          onPress={onSelectCustom}
+          style={[chipStyles.chip, isCustom && chipStyles.chipActive]}
+          accessibilityRole="radio"
+          accessibilityState={{ selected: isCustom }}
+        >
+          <Text style={[chipStyles.label, isCustom && chipStyles.labelActive]}>Custom</Text>
+        </Pressable>
+      </ScrollView>
+      {isCustom ? (
+        <View style={formStyles.customPaoRow}>
+          <TextInput
+            value={customText}
+            onChangeText={onCustomTextChange}
+            placeholder="e.g. 18"
+            placeholderTextColor={colors.textTertiary}
+            keyboardType="number-pad"
+            maxLength={3}
+            style={[formStyles.customPaoInput, error ? formStyles.inputError : null]}
+            accessibilityLabel="Custom PAO months"
+          />
+          <Text style={formStyles.customPaoUnit}>months</Text>
+        </View>
+      ) : null}
+      {error ? <Text style={formStyles.fieldError}>{error}</Text> : null}
+    </View>
+  );
+}
+
+interface OpenedDateFieldProps {
+  isOpened: boolean;
+  dateValue: string;
+  onToggle: (v: boolean) => void;
+  onDateChange: (t: string) => void;
+}
+function OpenedDateField({ isOpened, dateValue, onToggle, onDateChange }: OpenedDateFieldProps) {
+  return (
+    <View style={formStyles.fieldGroup}>
+      <View style={formStyles.openedSwitchRow}>
+        <View style={formStyles.fieldLabelIconRow}>
+          <Feather name="package" size={12} color={colors.textSecondary} />
+          <Text style={formStyles.fieldLabel}>Already Opened?</Text>
+        </View>
+        <Switch
+          value={isOpened}
+          onValueChange={onToggle}
+          trackColor={{ false: colors.borderStrong, true: colors.textPrimary }}
+          thumbColor={colors.bgBase}
+          ios_backgroundColor={colors.borderStrong}
+          accessibilityLabel="Mark product as already opened"
+        />
+      </View>
+      {isOpened ? (
+        <View style={formStyles.dateInputWrap}>
+          <TextInput
+            value={dateValue}
+            onChangeText={onDateChange}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.textTertiary}
+            keyboardType="numbers-and-punctuation"
+            maxLength={10}
+            style={formStyles.dateInput}
+            accessibilityLabel="Date product was opened"
+          />
+          <Text style={formStyles.dateHint}>Date you first opened this product</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ManualProductFormScreen({ route, navigation }: Props) {
@@ -191,12 +323,14 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [showOcrScanner, setShowOcrScanner] = useState(false);
   const [ocrScanned, setOcrScanned] = useState(false);
   const [schedulerProduct, setSchedulerProduct] = useState<Product | null>(null);
+  const [paoMonths, setPaoMonths] = useState<number | null>(null);
+  const [isCustomPao, setIsCustomPao] = useState(false);
+  const [customPaoText, setCustomPaoText] = useState('');
+  const [paoError, setPaoError] = useState<string | null>(null);
+  const [isOpened, setIsOpened] = useState(false);
+  const [openedDate, setOpenedDate] = useState(todayIso());
 
   const scrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    navigation.setOptions({ title: isEditMode ? 'Edit Product' : 'Add Product' });
-  }, [navigation, isEditMode]);
 
   // Pre-fill once on mount from navigation params
   useEffect(() => {
@@ -209,6 +343,18 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       const tagKeys: ActiveIngredientKey[] =
         editingProduct.activeTags ?? editingProduct.activeIngredients.map((i) => i.key);
       setSelectedIngredients(keysToIngredients(tagKeys));
+
+      const pm = editingProduct.paoMonths;
+      if (pm !== null && pm !== undefined) {
+        const isPreset = PAO_PRESETS.some((p) => p.months === pm);
+        setPaoMonths(pm);
+        setIsCustomPao(!isPreset);
+        if (!isPreset) setCustomPaoText(String(pm));
+      }
+      if (editingProduct.openedDate) {
+        setIsOpened(true);
+        setOpenedDate(editingProduct.openedDate);
+      }
     } else if (prefillOBFProduct) {
       setName(prefillOBFProduct.name);
       setBrand(prefillOBFProduct.brand);
@@ -222,6 +368,24 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   }, []);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
+
+  function handlePaoPreset(months: number) {
+    setPaoMonths(months);
+    setIsCustomPao(false);
+    setCustomPaoText('');
+    setPaoError(null);
+  }
+
+  function handlePaoCustomSelect() {
+    setPaoMonths(null);
+    setIsCustomPao(true);
+    setPaoError(null);
+  }
+
+  function handlePaoCustomText(t: string) {
+    setCustomPaoText(t);
+    if (paoError) setPaoError(null);
+  }
 
   function toggleIngredient(ing: ActiveIngredient) {
     setSelectedIngredients((prev) =>
@@ -255,6 +419,16 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     }
     setNameError(null);
 
+    if (isCustomPao && !customPaoText.trim()) {
+      setPaoError('Enter the number of months');
+      return;
+    }
+    setPaoError(null);
+
+    const resolvedPaoMonths: number | null = isCustomPao
+      ? (parseInt(customPaoText, 10) || null)
+      : paoMonths;
+
     const product: Product = {
       id: editingProduct?.id ?? generateId(),
       name: trimmedName,
@@ -268,8 +442,8 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       openBeautyFactsId: obfId,
       addedAt: editingProduct?.addedAt ?? new Date().toISOString(),
       notes: null,
-      openedDate: editingProduct?.openedDate ?? null,
-      paoMonths: editingProduct?.paoMonths ?? null,
+      openedDate: isOpened ? openedDate : null,
+      paoMonths: resolvedPaoMonths,
     };
 
     if (isEditMode) {
@@ -289,6 +463,18 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <SafeAreaView style={styles.safe}>
+        <AppHeader
+          title={isEditMode ? 'Edit Product' : 'Add Product'}
+          leftAction={
+            <IconButton
+              icon={<Feather name="arrow-left" size={20} color={colors.textPrimary} />}
+              label="Back"
+              variant="ghost"
+              size="sm"
+              onPress={() => navigation.goBack()}
+            />
+          }
+        />
         <ScrollView
           ref={scrollRef}
           style={styles.scroll}
@@ -355,10 +541,27 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
             onToggle={toggleIngredient}
           />
 
+          <PaoField
+            selected={paoMonths}
+            isCustom={isCustomPao}
+            customText={customPaoText}
+            error={paoError}
+            onSelectPreset={handlePaoPreset}
+            onSelectCustom={handlePaoCustomSelect}
+            onCustomTextChange={handlePaoCustomText}
+          />
+
+          <OpenedDateField
+            isOpened={isOpened}
+            dateValue={openedDate}
+            onToggle={setIsOpened}
+            onDateChange={setOpenedDate}
+          />
+
         </ScrollView>
 
         <View style={styles.footer}>
-          <Button fullWidth onPress={handleSave} disabled={!name.trim()}>
+          <Button fullWidth size="lg" onPress={handleSave} disabled={!name.trim()}>
             {isEditMode ? 'Save Changes' : 'Add to Catalog'}
           </Button>
         </View>
@@ -431,7 +634,7 @@ const formStyles = StyleSheet.create({
   detectLink: {
     ...typography.caption,
     fontFamily: 'DMSans-Medium',
-    color: colors.textLink,
+    color: palette.bottleGreen,
   },
   inciNotice: {
     backgroundColor: colors.surfaceSunken,
@@ -490,6 +693,64 @@ const formStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: space[2],
     paddingVertical: 2,
+  },
+  fieldLabelIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+  },
+  openedSwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  customPaoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  customPaoInput: {
+    fontFamily: 'DMSans-Regular',
+    fontSize: 14,
+    color: colors.textPrimary,
+    borderWidth: 1.5,
+    borderColor: colors.borderInput,
+    borderRadius: radius.md,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2] + 2,
+    width: 80,
+    backgroundColor: colors.surfaceRaised,
+    includeFontPadding: false,
+  },
+  customPaoUnit: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  dateInputWrap: {
+    gap: space[1],
+  },
+  dateInput: {
+    fontFamily: 'DMSans-Regular',
+    fontSize: 14,
+    color: colors.textPrimary,
+    borderWidth: 1.5,
+    borderColor: colors.borderInput,
+    borderRadius: radius.md,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2] + 2,
+    backgroundColor: colors.surfaceRaised,
+    includeFontPadding: false,
+  },
+  dateHint: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
+  inputError: {
+    borderColor: colors.statusSOS,
+  },
+  fieldError: {
+    ...typography.caption,
+    color: colors.statusSOS,
   },
   ingredientWrap: {
     flexDirection: 'row',

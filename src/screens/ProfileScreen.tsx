@@ -11,6 +11,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 
 import { SkinProfileEditModal } from '@/components/profile/SkinProfileEditModal';
+import { AppHeader } from '@/components/ui/core/AppHeader';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { ListRow } from '@/components/ui/core/ListRow';
 import { Switch } from '@/components/ui/forms/Switch';
@@ -190,6 +191,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppHeader title="Profile" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -206,7 +208,7 @@ export default function ProfileScreen() {
               accessibilityRole="button"
               accessibilityLabel="Edit skin profile"
             >
-              <Feather name="edit-2" size={14} color={colors.textLink} />
+              <Feather name="edit-2" size={14} color={palette.bottleGreen} />
               <Text style={styles.editBtnText}>Edit</Text>
             </Pressable>
           </View>
@@ -341,7 +343,7 @@ const styles = StyleSheet.create({
   editBtnText: {
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
-    color: colors.textLink,
+    color: palette.bottleGreen,
   },
 
   statsRow: {
