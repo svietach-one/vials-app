@@ -101,7 +101,7 @@ function MainTabs() {
         },
         tabBarLabelStyle: {
           fontFamily: 'DMSans-Regular',
-          fontSize: 11,
+          fontSize: 14,
         },
         tabBarIcon: ({ color, size }) => (
           <Feather

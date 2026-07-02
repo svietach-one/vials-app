@@ -299,7 +299,8 @@ const styles = StyleSheet.create({
   field: { gap: space[2] },
   fieldLabel: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 11,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 1.32,
     textTransform: 'uppercase',
     color: colors.textSecondary,

@@ -167,20 +167,20 @@ export const typography = {
   },
   bodySmall: {
     fontFamily: SANS,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 20,
   },
   label: {
     fontFamily: SANS_MEDIUM,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 1.32,
     textTransform: 'uppercase' as const,
   },
   caption: {
     fontFamily: SANS,
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 20,
   },
 } as const;
 

@@ -127,7 +127,8 @@ const styles = StyleSheet.create({
 
   eyebrow: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 11,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 1.32,
     textTransform: 'uppercase',
   },

@@ -98,7 +98,8 @@ const styles = StyleSheet.create({
   // Mono uppercase apothecary label
   label: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 11,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 1.32,
     textTransform: 'uppercase',
     color: colors.textSecondary,
@@ -139,15 +140,15 @@ const styles = StyleSheet.create({
   suffix: {
     flexShrink: 0,
     fontFamily: 'DMSans-Regular',
-    fontSize: 12,
+    fontSize: 14,
     color: colors.textTertiary,
   },
 
   helper: {
     fontFamily: 'DMSans-Regular',
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   helperError: {
     color: colors.statusSOS,

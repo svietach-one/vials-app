@@ -108,8 +108,8 @@ const styles = StyleSheet.create({
 
   label: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: -0.1,
     includeFontPadding: false,
   },

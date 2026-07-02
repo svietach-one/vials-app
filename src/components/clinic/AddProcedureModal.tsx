@@ -315,7 +315,8 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 11,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 1.32,
     textTransform: 'uppercase',
     color: colors.textSecondary,

@@ -191,7 +191,8 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 11,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 1.32,
     textTransform: 'uppercase',
     color: colors.textSecondary,
@@ -230,7 +231,8 @@ const styles = StyleSheet.create({
   },
   resultBrand: {
     fontFamily: 'DMSans-Regular',
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.textSecondary,
   },
 

@@ -293,8 +293,8 @@ const styles = StyleSheet.create({
   },
   conflictText: {
     fontFamily: 'DMSans-Regular',
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 20,
     color: palette.amber,
     flexShrink: 1,
   },
