@@ -46,6 +46,7 @@ export interface ProductShelfCardProps {
   onAddToRoutine: (p: Product) => void;
   onRemoveFromRoutine: (p: Product) => void;
   onDelete: (p: Product) => void;
+  onToggleHidden: (p: Product) => void;
   disabled?: boolean;
 }
 
@@ -61,6 +62,7 @@ export function ProductShelfCard({
   onAddToRoutine,
   onRemoveFromRoutine,
   onDelete,
+  onToggleHidden,
   disabled = false,
 }: ProductShelfCardProps) {
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -84,52 +86,62 @@ export function ProductShelfCard({
         accessibilityRole="button"
         accessibilityLabel={`${product.name}, tap to view details`}
       >
-        {/* Top row: product name (left) + brand name (right) */}
-        <View style={styles.topRow}>
-          <Text style={styles.productName} numberOfLines={2}>
-            {product.name}
-          </Text>
-          {product.brand ? (
-            <Text style={styles.brandName} numberOfLines={1}>
-              {product.brand}
+        <View
+          testID="shelf-card-content"
+          style={[styles.content, product.isHidden && styles.contentDimmed]}
+        >
+          {/* Top row: product name (left) + brand name (right) */}
+          <View style={styles.topRow}>
+            <Text style={styles.productName} numberOfLines={2}>
+              {product.name}
             </Text>
-          ) : null}
+            {product.brand ? (
+              <Text style={styles.brandName} numberOfLines={1}>
+                {product.brand}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* Middle row: routine info or hidden state */}
+          {isInRoutine ? (
+            <View style={styles.middleRow}>
+              <View style={styles.scheduleBlock}>
+                <View testID="icon-calendar">
+                  <Feather name="calendar" size={14} color={colors.textTertiary} />
+                </View>
+                <Text style={styles.scheduleText}>{scheduleLabel}</Text>
+              </View>
+              <View style={styles.timeOfDayBlock}>
+                {(usageTime === 'evening' || usageTime === 'both') ? (
+                  <View testID="icon-moon">
+                    <Feather name="moon" size={14} color={colors.textTertiary} />
+                  </View>
+                ) : null}
+                {(usageTime === 'morning' || usageTime === 'both') ? (
+                  <View testID="icon-sun">
+                    <Feather name="sun" size={14} color={colors.textTertiary} />
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          ) : (
+            <View style={styles.middleRow}>
+              <View style={styles.hiddenBlock}>
+                <Feather name="eye-off" size={14} color={colors.textTertiary} />
+                <Text style={styles.hiddenText}>Hidden from routine</Text>
+              </View>
+            </View>
+          )}
         </View>
 
-        {/* Middle row: routine info or hidden state */}
-        {isInRoutine ? (
-          <View style={styles.middleRow}>
-            <View style={styles.scheduleBlock}>
-              <View testID="icon-calendar">
-                <Feather name="calendar" size={14} color={colors.textTertiary} />
-              </View>
-              <Text style={styles.scheduleText}>{scheduleLabel}</Text>
-            </View>
-            <View style={styles.timeOfDayBlock}>
-              {(usageTime === 'evening' || usageTime === 'both') ? (
-                <View testID="icon-moon">
-                  <Feather name="moon" size={14} color={colors.textTertiary} />
-                </View>
-              ) : null}
-              {(usageTime === 'morning' || usageTime === 'both') ? (
-                <View testID="icon-sun">
-                  <Feather name="sun" size={14} color={colors.textTertiary} />
-                </View>
-              ) : null}
-            </View>
-          </View>
-        ) : (
-          <View style={styles.middleRow}>
-            <View style={styles.hiddenBlock}>
-              <Feather name="eye-off" size={14} color={colors.textTertiary} />
-              <Text style={styles.hiddenText}>Hidden from routine</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Bottom row: badge row (left) + overflow button (right) */}
+        {/* Bottom row: badge row (left, dims with content) + overflow button (right, always opaque) */}
         <View style={styles.bottomRow}>
-          <View style={styles.badgesRow}>
+          <View style={[styles.badgesRow, product.isHidden && styles.contentDimmed]}>
+            {product.isHidden ? (
+              <View style={styles.activeBadge}>
+                <Feather name="eye-off" size={12} color={colors.textTertiary} />
+              </View>
+            ) : null}
             {activeLabel ? (
               <View style={styles.activeBadge}>
                 <Text style={styles.activeBadgeText}>
@@ -167,8 +179,9 @@ export function ProductShelfCard({
           setSheetVisible(false);
           onDelete(p);
         }}
-        onToggleHidden={() => {
+        onToggleHidden={(p) => {
           setSheetVisible(false);
+          onToggleHidden(p);
         }}
         onAddToRoutine={isInRoutine ? undefined : onAddToRoutine}
         onRemoveFromRoutine={isInRoutine ? onRemoveFromRoutine : undefined}
@@ -194,6 +207,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgSubtle,
   },
   cardDisabled: {
+    opacity: 0.4,
+  },
+
+  content: {
+    gap: space[2],
+  },
+  contentDimmed: {
     opacity: 0.4,
   },
 

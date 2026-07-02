@@ -43,5 +43,6 @@ export function makeDefaultShelfCardProps() {
     onAddToRoutine: jest.fn(),
     onRemoveFromRoutine: jest.fn(),
     onDelete: jest.fn(),
+    onToggleHidden: jest.fn(),
   };
 }

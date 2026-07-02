@@ -11,8 +11,8 @@
  *   BC-3  Edit and Delete still work unchanged
  *
  * New routine-action props:
- *   RA-1  onAddToRoutine provided → renders "Add to routine" row (not Hide/Show)
- *   RA-2  onRemoveFromRoutine provided → renders "Remove from routine" row (not Hide/Show)
+ *   RA-1  onAddToRoutine provided → renders "Add to routine" row, additive to Hide/Show
+ *   RA-2  onRemoveFromRoutine provided → renders "Remove from routine" row, additive to Hide/Show
  *   RA-3  Tapping "Add to routine" calls onAddToRoutine and closes the sheet
  *   RA-4  Tapping "Remove from routine" calls onRemoveFromRoutine and closes the sheet
  *   RA-5  Edit still works when routine props are present
@@ -92,18 +92,16 @@ describe('BC — Backward-compatibility (no routine props)', () => {
 // ── RA: New routine-action props ──────────────────────────────────────────────
 
 describe('RA — New routine-action props (shelf card context)', () => {
-  it('renders "Add to routine" row when onAddToRoutine is provided', () => {
-    renderSheet({ onAddToRoutine: jest.fn() });
+  it('renders "Add to routine" row alongside Hide/Show when onAddToRoutine is provided', () => {
+    renderSheet({ onAddToRoutine: jest.fn(), product: makeProduct({ isHidden: false }) });
     expect(screen.getByText('Add to routine')).toBeTruthy();
-    expect(screen.queryByText('Hide Product')).toBeNull();
-    expect(screen.queryByText('Show Product')).toBeNull();
+    expect(screen.getByText('Hide Product')).toBeTruthy();
   });
 
-  it('renders "Remove from routine" row when onRemoveFromRoutine is provided', () => {
-    renderSheet({ onRemoveFromRoutine: jest.fn() });
+  it('renders "Remove from routine" row alongside Hide/Show when onRemoveFromRoutine is provided', () => {
+    renderSheet({ onRemoveFromRoutine: jest.fn(), product: makeProduct({ isHidden: false }) });
     expect(screen.getByText('Remove from routine')).toBeTruthy();
-    expect(screen.queryByText('Hide Product')).toBeNull();
-    expect(screen.queryByText('Show Product')).toBeNull();
+    expect(screen.getByText('Hide Product')).toBeTruthy();
   });
 
   it('calls onAddToRoutine and closes the sheet when "Add to routine" is tapped', () => {

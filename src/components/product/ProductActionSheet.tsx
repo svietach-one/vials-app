@@ -58,7 +58,7 @@ export function ProductActionSheet({
             <Text style={styles.rowLabel}>Edit Product</Text>
           </Pressable>
 
-          {/* Add/Remove from routine — or Hide/Show when no routine callbacks provided */}
+          {/* Add/Remove from routine */}
           {onAddToRoutine ? (
             <Pressable
               style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
@@ -89,28 +89,29 @@ export function ProductActionSheet({
               <Feather name="minus-circle" size={18} color={colors.textPrimary} />
               <Text style={styles.rowLabel}>Remove from routine</Text>
             </Pressable>
-          ) : (
-            <Pressable
-              style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
-              onPress={() => {
-                if (product) {
-                  onToggleHidden(product);
-                  onClose();
-                }
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={product?.isHidden ? 'Show product' : 'Hide product'}
-            >
-              <Feather
-                name={product?.isHidden ? 'eye' : 'eye-off'}
-                size={18}
-                color={colors.textPrimary}
-              />
-              <Text style={styles.rowLabel}>
-                {product?.isHidden ? 'Show Product' : 'Hide Product'}
-              </Text>
-            </Pressable>
-          )}
+          ) : null}
+
+          {/* Hide/Show — independent of the routine row above */}
+          <Pressable
+            style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+            onPress={() => {
+              if (product) {
+                onToggleHidden(product);
+                onClose();
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={product?.isHidden ? 'Show product' : 'Hide product'}
+          >
+            <Feather
+              name={product?.isHidden ? 'eye' : 'eye-off'}
+              size={18}
+              color={colors.textPrimary}
+            />
+            <Text style={styles.rowLabel}>
+              {product?.isHidden ? 'Show Product' : 'Hide Product'}
+            </Text>
+          </Pressable>
 
           {/* Delete */}
           <Pressable
