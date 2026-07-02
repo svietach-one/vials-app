@@ -151,9 +151,9 @@ export default function CatalogScreen({ navigation }: Props) {
         title="My Shelf"
         rightAction={
           <IconButton
-            icon={<Feather name="plus" size={20} color={colors.textOnDark} />}
+            icon={<Feather name="plus" size={20} color={colors.textPrimary} />}
             label="Add product"
-            variant="filled"
+            variant="ghost"
             size="sm"
             round
             onPress={() => navigation.navigate('AddProductHub')}
@@ -304,7 +304,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgBase,
   },
   searchWrap: {
-    paddingHorizontal: space.gutterScreen,
     paddingTop: space[4],
     paddingBottom: space[3],
   },

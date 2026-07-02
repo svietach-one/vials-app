@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -17,7 +16,8 @@ import { PlannerBlock } from '@/components/routine/PlannerBlock';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { IconButton } from '@/components/ui/core/IconButton';
+import { colors, palette, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
@@ -176,14 +176,20 @@ export default function RoutinesScreen({ navigation }: Props) {
       <AppHeader
         title="Routines"
         rightAction={
-          <Button
-            variant="textActive"
+          <IconButton
+            icon={
+              <Feather
+                name={isEditMode ? 'check' : 'edit-2'}
+                size={18}
+                color={palette.bottleGreen}
+              />
+            }
+            label={isEditMode ? 'Done editing' : 'Edit routine'}
+            variant="ghost"
             size="sm"
+            round
             onPress={() => setIsEditMode((prev) => !prev)}
-            accessibilityLabel={isEditMode ? 'Done editing' : 'Edit routine'}
-          >
-            {isEditMode ? 'Done' : 'Edit'}
-          </Button>
+          />
         }
       />
       <DraggableFlatList
@@ -199,14 +205,16 @@ export default function RoutinesScreen({ navigation }: Props) {
 
       {/* Fixed bottom: Add product button */}
       <View style={styles.bottomBar}>
-        <Pressable
-          style={({ pressed }) => [styles.addBtn, pressed && styles.addBtnPressed]}
+        <Button
+          variant="textActive"
+          size="md"
+          fullWidth
+          icon={<Feather name="plus" size={16} color={palette.bottleGreen} />}
           onPress={() => setAddSheetVisible(true)}
-          accessibilityRole="button"
           accessibilityLabel="Add product to routine"
         >
-          <Text style={styles.addBtnText}>Add product</Text>
-        </Pressable>
+          Add product
+        </Button>
       </View>
 
       <AddToRoutineSheet
@@ -248,7 +256,7 @@ const emptyStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: palette.zinc100,
+    backgroundColor: palette.white,
   },
 
   listContent: {
@@ -270,24 +278,5 @@ const styles = StyleSheet.create({
     paddingVertical: space[3],
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[2],
-    paddingVertical: 10,
-    borderWidth: 1.5,
-    borderColor: palette.black,
-    borderRadius: radius.lg,
-    width: '100%',
-  },
-  addBtnPressed: {
-    backgroundColor: palette.zinc50,
-  },
-  addBtnText: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: palette.black,
   },
 });
