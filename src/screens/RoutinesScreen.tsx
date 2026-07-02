@@ -99,14 +99,6 @@ export default function RoutinesScreen({ navigation }: Props) {
   const activeRoutine = activePeriod === 'morning' ? morningRoutine : eveningRoutine;
   const activeSteps = activePeriod === 'morning' ? amSteps : pmSteps;
 
-  // Date label for the AddToRoutineSheet subtitle — derived from the selected day, not today.
-  const sheetDateLabel = useMemo(() => {
-    const today = new Date();
-    const d = new Date(today);
-    d.setDate(today.getDate() + (selectedDow - today.getDay()));
-    return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
-  }, [selectedDow]);
-
   function handleDragEnd(reorderedVisible: RoutineStep[]) {
     if (!isEditMode || !activeRoutine) return;
     const visibleSet = new Set(reorderedVisible.map((s) => s.id));
@@ -136,7 +128,7 @@ export default function RoutinesScreen({ navigation }: Props) {
                 isEditMode
                   ? undefined
                   : () =>
-                      navigation.navigate('Vials', {
+                      navigation.navigate('My Shelf', {
                         screen: 'ProductDetail',
                         params: { productId: product.id },
                       })
@@ -220,7 +212,6 @@ export default function RoutinesScreen({ navigation }: Props) {
       <AddToRoutineSheet
         visible={addSheetVisible}
         onClose={() => setAddSheetVisible(false)}
-        dateLabel={sheetDateLabel}
         activePeriod={activePeriod}
       />
     </SafeAreaView>

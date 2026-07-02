@@ -3,32 +3,35 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { IconButton } from '@/components/ui/core/IconButton';
-import { Tag } from '@/components/ui/core/Tag';
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { Product, ProductType } from '@/types';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Product type → badge color ───────────────────────────────────────────────
+//
+// Mirrors RoutineStepCard's TYPE_COLORS so picker cards read identically to
+// the cards already scheduled in the routine.
 
-const TYPE_LABELS: Record<ProductType, string> = {
-  cleanser: 'Cleanser',
-  toner: 'Toner',
-  essence: 'Essence',
-  serum: 'Serum',
-  gel: 'Gel',
-  moisturizer: 'Moisturizer',
-  oil: 'Face Oil',
-  spf: 'Sunscreen',
-  makeup_remover: 'Makeup Remover',
-  peeling: 'Peeling',
-  ampoule: 'Ampoule',
-  lotion: 'Lotion',
-  cream: 'Cream',
-  eye_cream: 'Eye Cream',
-  mask: 'Mask',
-  balm: 'Balm',
-  spot_treatment: 'Spot Treatment',
-  other: 'Other',
+const TYPE_COLORS: Partial<Record<ProductType, { bg: string; text: string }>> = {
+  serum:         { bg: palette.cobaltTint,       text: palette.cobalt },
+  ampoule:       { bg: palette.cobaltTint,       text: palette.cobalt },
+  essence:       { bg: palette.cobaltTint,       text: palette.cobalt },
+  gel:           { bg: palette.cobaltTint,       text: palette.cobalt },
+  cleanser:      { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
+  toner:         { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
+  moisturizer:   { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
+  cream:         { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
+  lotion:        { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
+  oil:           { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
+  spf:           { bg: palette.amberTint,        text: palette.amber },
+  eye_cream:     { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
+  mask:          { bg: palette.amberTint,        text: palette.amber },
+  peeling:       { bg: palette.amberTint,        text: palette.amber },
+  spot_treatment:{ bg: palette.amberTint,        text: palette.amber },
+  balm:          { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
 };
+
+const DEFAULT_TYPE_COLOR = { bg: palette.zinc100, text: palette.zinc600 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,26 +43,46 @@ export interface ProductPickerCardProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ProductPickerCard({ product, onAdd }: ProductPickerCardProps) {
-  const typeLabel = TYPE_LABELS[product.productType];
+  const activeKey = product.activeTags?.[0] ?? product.activeIngredients?.[0]?.key ?? null;
+  const activeLabel = activeKey ? (ACTIVE_INGREDIENT_LABELS[activeKey] ?? null) : null;
+
+  const typeLabel = PRODUCT_TYPE_LABELS[product.productType] ?? product.productType;
+  const typeColor = TYPE_COLORS[product.productType] ?? DEFAULT_TYPE_COLOR;
 
   return (
     <View style={styles.card}>
-      <View style={styles.row}>
-        <View style={styles.info}>
-          <Text style={styles.name} numberOfLines={2}>
+      <View style={styles.contentArea}>
+        {/* Top row: product name (left, up to 2 lines) + brand (right, 1 line) */}
+        <View style={styles.topRow}>
+          <Text style={styles.productName} numberOfLines={2}>
             {product.name}
           </Text>
           {product.brand ? (
-            <Text style={styles.brand} numberOfLines={1}>
+            <Text style={styles.brandName} numberOfLines={1}>
               {product.brand}
             </Text>
           ) : null}
         </View>
 
-        <View style={styles.controls}>
-          <Tag tone="neutral">{typeLabel}</Tag>
+        {/* Bottom row: badges (left) + add button (right) */}
+        <View style={styles.bottomRow}>
+          <View style={styles.badgesRow}>
+            <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
+              <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
+                {typeLabel}
+              </Text>
+            </View>
+            {activeLabel ? (
+              <View style={styles.activeBadge}>
+                <Text style={styles.activeBadgeText}>
+                  {activeLabel}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
           <IconButton
-            icon={<Feather name="plus" size={18} color="#FFFFFF" />}
+            icon={<Feather name="plus" size={18} color={palette.white} />}
             label={`Add ${product.name} to routine`}
             variant="filled"
             size="md"
@@ -76,35 +99,70 @@ export function ProductPickerCard({ product, onAdd }: ProductPickerCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.sm,
+    backgroundColor: palette.white,
     borderWidth: 1,
-    borderColor: colors.borderDivider,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderColor: palette.zinc200,
+    borderRadius: radius.sm,
     paddingHorizontal: space[4],
-    paddingVertical: space[4],
-    gap: space[3],
+    paddingVertical: space[3],
   },
-  info: {
+  contentArea: {
+    gap: space[2],
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[2],
+  },
+  productName: {
     flex: 1,
-    gap: space[1],
-  },
-  name: {
     ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
+    fontFamily: 'DMSans-Bold',
+    color: palette.black,
   },
-  brand: {
+  brandName: {
     ...typography.bodySmall,
     color: colors.textSecondary,
+    flexShrink: 0,
+    maxWidth: 110,
+    textAlign: 'right',
   },
-  controls: {
+  bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[2],
-    flexShrink: 0,
+    justifyContent: 'space-between',
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    flexShrink: 1,
+    flexWrap: 'wrap',
+  },
+  typeBadge: {
+    borderRadius: radius.pill,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  typeBadgeText: {
+    fontFamily: 'DMSans-Medium',
+    fontSize: typography.bodySmall.fontSize,
+    lineHeight: typography.bodySmall.lineHeight,
+    includeFontPadding: false,
+  },
+  activeBadge: {
+    backgroundColor: palette.white,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: palette.zinc300,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  activeBadgeText: {
+    fontFamily: 'DMSans-Medium',
+    fontSize: typography.bodySmall.fontSize,
+    lineHeight: typography.bodySmall.lineHeight,
+    includeFontPadding: false,
+    color: palette.black,
   },
 });

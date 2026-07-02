@@ -27,8 +27,6 @@ export interface AddToRoutineSheetProps {
   onClose: () => void;
   /** Pre-selects the time-of-day toggle in Step 2. Defaults to 'morning'. */
   activePeriod?: 'morning' | 'evening';
-  /** e.g. "Saturday, 27 Jun" — shown as subtitle in Step 1. */
-  dateLabel?: string;
 }
 
 type Step = 'pick' | 'schedule';
@@ -61,7 +59,6 @@ export function AddToRoutineSheet({
   visible,
   onClose,
   activePeriod = 'morning',
-  dateLabel,
 }: AddToRoutineSheetProps) {
   // Step 1: product picking
   const [searchQuery, setSearchQuery] = useState('');
@@ -135,11 +132,6 @@ export function AddToRoutineSheet({
     onClose();
   }
 
-  const resolvedDate = useMemo(
-    () => dateLabel ?? new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }),
-    [dateLabel],
-  );
-
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const types = CATEGORY_TYPES[selectedCategory];
@@ -163,7 +155,6 @@ export function AddToRoutineSheet({
           <View style={styles.header}>
             <View style={styles.headerText}>
               <Text style={styles.title}>Add to routine</Text>
-              <Text style={styles.subtitle}>{resolvedDate}</Text>
             </View>
             <Pressable
               onPress={onClose}
