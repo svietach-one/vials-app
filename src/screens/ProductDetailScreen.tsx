@@ -237,7 +237,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
   },
   notFoundWrap: {
     flex: 1,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     paddingVertical: space[4],
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
     gap: space[3],
   },
   removeLink: {

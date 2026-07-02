@@ -301,7 +301,7 @@ function CatalogEmptyState({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
   },
   searchWrap: {
     paddingTop: space[4],

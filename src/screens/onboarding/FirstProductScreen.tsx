@@ -180,7 +180,7 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bgBase },
+  safe: { flex: 1, backgroundColor: colors.bgSubtle },
   flex: { flex: 1 },
 
   header: {

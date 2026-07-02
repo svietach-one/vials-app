@@ -296,7 +296,7 @@ const emptyStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: palette.white,
+    backgroundColor: colors.bgSubtle,
   },
 
   listContent: {

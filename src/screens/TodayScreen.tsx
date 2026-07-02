@@ -16,7 +16,7 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bgBase },
+  safe: { flex: 1, backgroundColor: colors.bgSubtle },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space[2], paddingHorizontal: space.gutterScreen },
   heading: { ...typography.h2, color: colors.textPrimary },
   sub: { ...typography.body, color: colors.textSecondary },
