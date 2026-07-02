@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,66 +63,64 @@ export function PlannerBlock({
   const dateLabel = buildDateLabel(selectedDate, selectedDow === todayDow);
 
   return (
-    <View style={styles.shadowWrap}>
-      <View style={styles.card}>
-        {/* Row 1: date text (left) + morning/evening toggle (right) */}
-        <View style={styles.headerRow}>
-          <Text style={styles.dateText} numberOfLines={1} adjustsFontSizeToFit>
-            {dateLabel}
-          </Text>
-          <View style={styles.toggleGroup}>
-            <Pressable
-              style={[styles.toggleBtn, activePeriod === 'morning' && styles.toggleBtnActive]}
-              onPress={() => onPeriodChange('morning')}
-              accessibilityRole="button"
-              accessibilityState={{ selected: activePeriod === 'morning' }}
-              accessibilityLabel="Morning routine"
-              hitSlop={4}
-            >
-              <Feather
-                name="sun"
-                size={16}
-                color={activePeriod === 'morning' ? palette.white : colors.textTertiary}
-              />
-            </Pressable>
-            <Pressable
-              style={[styles.toggleBtn, activePeriod === 'evening' && styles.toggleBtnActive]}
-              onPress={() => onPeriodChange('evening')}
-              accessibilityRole="button"
-              accessibilityState={{ selected: activePeriod === 'evening' }}
-              accessibilityLabel="Evening routine"
-              hitSlop={4}
-            >
-              <Feather
-                name="moon"
-                size={16}
-                color={activePeriod === 'evening' ? palette.white : colors.textTertiary}
-              />
-            </Pressable>
-          </View>
+    <View style={styles.card}>
+      {/* Row 1: date text (left) + morning/evening toggle (right) */}
+      <View style={styles.headerRow}>
+        <Text style={styles.dateText} numberOfLines={1} adjustsFontSizeToFit>
+          {dateLabel}
+        </Text>
+        <View style={styles.toggleGroup}>
+          <Pressable
+            style={[styles.toggleBtn, activePeriod === 'morning' && styles.toggleBtnActive]}
+            onPress={() => onPeriodChange('morning')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: activePeriod === 'morning' }}
+            accessibilityLabel="Morning routine"
+            hitSlop={4}
+          >
+            <Feather
+              name="sun"
+              size={16}
+              color={activePeriod === 'morning' ? palette.white : colors.textTertiary}
+            />
+          </Pressable>
+          <Pressable
+            style={[styles.toggleBtn, activePeriod === 'evening' && styles.toggleBtnActive]}
+            onPress={() => onPeriodChange('evening')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: activePeriod === 'evening' }}
+            accessibilityLabel="Evening routine"
+            hitSlop={4}
+          >
+            <Feather
+              name="moon"
+              size={16}
+              color={activePeriod === 'evening' ? palette.white : colors.textTertiary}
+            />
+          </Pressable>
         </View>
+      </View>
 
-        {/* Row 2: weekday navigation — single active day, tapping changes selection */}
-        <View style={styles.dayRow}>
-          {DAY_CHIPS.map(({ dow, label }) => {
-            const active = selectedDow === dow;
-            return (
-              <Pressable
-                key={dow}
-                style={[styles.dayChip, active && styles.dayChipActive]}
-                onPress={() => onDaySelect(dow)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`${DAY_NAMES[dow]}, ${active ? 'selected' : ''}`}
-                hitSlop={4}
-              >
-                <Text style={[styles.dayChipLabel, active && styles.dayChipLabelActive]}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+      {/* Row 2: weekday navigation — single active day, tapping changes selection */}
+      <View style={styles.dayRow}>
+        {DAY_CHIPS.map(({ dow, label }) => {
+          const active = selectedDow === dow;
+          return (
+            <Pressable
+              key={dow}
+              style={[styles.dayChip, active && styles.dayChipActive]}
+              onPress={() => onDaySelect(dow)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`${DAY_NAMES[dow]}, ${active ? 'selected' : ''}`}
+              hitSlop={4}
+            >
+              <Text style={[styles.dayChipLabel, active && styles.dayChipLabelActive]}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -131,19 +129,7 @@ export function PlannerBlock({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  shadowWrap: {
-    borderRadius: radius.lg,
-    ...shadow.sm,
-  },
   card: {
-    backgroundColor: palette.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
-    overflow: 'hidden',
-    paddingHorizontal: space[4],
-    paddingTop: space[3],
-    paddingBottom: space[4],
     gap: space[2],
   },
 
@@ -156,6 +142,8 @@ const styles = StyleSheet.create({
   dateText: {
     ...typography.body,
     fontFamily: 'DMSans-Medium',
+    fontSize: 16,
+    lineHeight: 22,
     color: colors.textPrimary,
     flex: 1,
   },
