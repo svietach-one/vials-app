@@ -1,124 +1,176 @@
 # Technical Design: Routine Screen Redesign
-Spec: docs/specs/routine-redesign.md
+Spec: docs/specs/routine-redesign.md (never formalized — see note below)
 Author: planner
 Date: 2026-06-27
+Updated: 2026-07-02 (tech-designer — rewritten to match delivered code; see Revision History)
+
+> **Note on spec:** No `docs/specs/routine-redesign.md` was ever written. The
+> original 2026-06-27 design was derived directly from the user's written
+> brief plus a codebase audit (Figma MCP was rate-limited at the time). The
+> screen was then iterated on directly against running code through several
+> unreviewed follow-up commits, diverging from what is written below. This
+> document has been rewritten to describe the **as-built** `RoutinesScreen`
+> as of `feature-routine-redesign` HEAD (`ad7fe61`), not the original plan.
 
 ## 1. Architecture Overview
 
-The Routine screen is a tab-level screen (`RoutinesScreen.tsx`). Currently it has
-two distinct "views" (today / weekly-edit) toggled via a header right button — a
-pattern that fragments scheduling context from the step checklist.
-
-The redesign consolidates all concerns into a single scroll:
+`RoutinesScreen` (`src/screens/RoutinesScreen.tsx`) is a single-scroll tab
+screen with no separate "weekly edit" screen swap. Day navigation, period
+switching, viewing, and reordering all live in one `DraggableFlatList`:
 
 ```
-RoutinesScreen (ScrollView / DraggableFlatList depending on mode)
-├── [Header] title "Routine" (large in-content), date sub-label
-├── PlannerBlock            ← NEW component: scheduling summary + edit entry
-├── ClinicalRestrictionsBlock  (conditional, existing)
-├── ConflictWarningInline   ← MOVED from WeeklyPlanView footer → always visible
-├── SeasonalNoticeBanner    (conditional, existing)
-├── RoutineSection AM       (existing, collapsible)
-└── RoutineSection PM       (existing, collapsible)
+RoutinesScreen
+├── AppHeader "Routines"
+│   └── rightAction: [+ Add product] [Edit/Done toggle]  (IconButton x2)
+└── DraggableFlatList (data = steps for activePeriod + selectedDow)
+    ├── ListHeaderComponent → PlannerBlock
+    │     ├── Row 1: date label (left) + Morning/Evening icon toggle (right)
+    │     └── Row 2: 7-day chip row (Mo…Su), single selectable day
+    ├── renderItem → RoutineStepCard (per step)
+    │     ├── view mode:  tap card → navigate to ProductDetail
+    │     └── edit mode:  drag handle (left) + trash icon (right), no navigation
+    ├── ListFooterComponent → "Add product" button (view mode only)
+    └── ListEmptyComponent → "No products scheduled for today."
+
+Sheets/modals mounted at screen level:
+├── AddToRoutineSheet   (BottomSheetModal, 2-step: pick product → set schedule)
+└── RemoveStepModal     (RN Modal, single-step confirm)
 ```
 
-Edit-order mode (drag-to-reorder) continues to live in `WeeklyPlanView` but is
-now triggered from the PlannerBlock's "Edit order" button rather than a header
-right tap, making the trigger visually discoverable.
+Edit mode is a boolean (`isEditMode`) toggled by the header icon (`edit-2` /
+`check`), not a separate route or the header-right calendar icon originally
+planned. There is no `WeeklyPlanView` swap-screen in the live flow anymore —
+see §4 "Orphaned components."
 
-No store/type changes are needed.
+Conflict detection still runs via `ConflictEngine.detectConflicts`, but the
+result is surfaced **inline per card** (`RoutineStepCard`'s `conflictingProductName`
+prop renders an amber "Conflicts with X" row under the affected card) rather
+than as a single dedicated `ConflictWarningInline` banner. There is no
+`ClinicalRestrictionsBlock` or `SeasonalNoticeBanner` rendered on this screen.
+
+Checkbox-based step completion and the gamification accent (Cabernet vs.
+black checkbox fill) described in the original plan and in `SCREENS.md` do
+not exist in the current `RoutineStepCard` — steps are display/reorder rows
+only, no per-day completion state is tracked.
+
+No store/type changes were needed for the screen itself; `upsertProductStep`,
+`removeProductStep`, `removeStepFromDay`, and `reorderSteps` (all pre-existing
+or added under `routine-scheduler-sheet`) cover every mutation this screen
+performs.
 
 ## 2. API Contracts
 
-N/A — local state only, no API endpoints.
+N/A — local state only, no API endpoints. Store actions used (all on
+`routinesStore`, unchanged signatures):
 
-## 3. Implementation Tasks
+```
+reorderSteps(routineId: string, steps: RoutineStep[]): void
+removeStepFromDay(routineId: string, stepId: string, dow: number): void
+removeProductStep(routineId: string, productId: string): void
+upsertProductStep(routineId, productId, productType, scheduledDays): void
+```
 
-### engineer (scope=frontend)
+## 3. Delivered Components (as-built)
 
-- **FE-1: Add `readOnly` + `accentColor` prop to `WeeklySchedulePicker`**
-  Files: `src/components/routine/WeeklySchedulePicker.tsx`
-  When `readOnly: true` the chips are not pressable (wrap in `View`, not `Pressable`).
-  `accentColor?: string` defaults to `colors.controlFill`; planner block passes
-  `palette.cabernet` so active day chips render in Cabernet when read-only.
+- **`PlannerBlock`** (`src/components/routine/PlannerBlock.tsx`) — replaced
+  the originally planned "period chips + read-only WeeklySchedulePicker +
+  Edit-order footer link" design entirely. Actual props:
+  `activePeriod`, `onPeriodChange`, `selectedDow`, `onDaySelect`. Renders a
+  date label (`"Today, Wednesday, 2 Jul"` style, via internal `buildDateLabel`)
+  and a 7-chip Mo–Su day selector where exactly one day is active at a time
+  (this is a day-navigation calendar, not a multi-day schedule picker).
+  Selecting a day filters the visible steps for that day of week; it does not
+  edit `scheduledDays` on any step.
 
-- **FE-2: Create `PlannerBlock` component**
-  Files: `src/components/routine/PlannerBlock.tsx`
-  Props:
-  ```ts
-  interface PlannerBlockProps {
-    activePeriod: 'morning' | 'evening';
-    onPeriodChange: (p: 'morning' | 'evening') => void;
-    scheduledDays: number[];   // days for the active routine
-    stepCount: number;         // visible steps for today in active period
-    onEditPress: () => void;
-  }
-  ```
-  Layout (all inside `Card variant='raised' padding='none'`):
-  - **Period row** — two equal-width chips (`Morning / Evening`), height 40,
-    `borderRadius: radius.md`, separated by a 1-px hairline. Active chip:
-    `backgroundColor: palette.cabernet`, label `palette.white`.
-    Inactive chip: `backgroundColor: colors.surfaceSunken`, label `textSecondary`.
-    Feather icons: `sun` / `moon` (size 14).
-  - **Day row** — `WeeklySchedulePicker` with `readOnly` and
-    `accentColor={palette.cabernet}`. Outer padding `space[4]`.
-  - **Footer row** — `border-top 1px borderDivider`, `paddingHorizontal space[4]`,
-    `paddingVertical space[3]`. Left: `"{stepCount} steps today"` (bodySmall,
-    textSecondary). Right: `"Edit order"` Pressable (bodySmall, DMSans-Medium,
-    `palette.cabernet`) + Feather `arrow-right` size 13.
+- **`AddToRoutineSheet`** (`src/components/routine/AddToRoutineSheet.tsx`,
+  611 lines) — a `@gorhom/bottom-sheet` `BottomSheetModal` (migrated off React
+  Native's built-in `Modal` in commit `ad7fe61`), two internal steps:
+  1. **Pick** — search input + category `FilterChip` row (`CategoryKey`:
+     All/Serums/Moisturizers/Cleansers/SPF/Soothing/Treatments, mapped to
+     `ProductType[]` via a local `CATEGORY_TYPES` table) + `BottomSheetFlatList`
+     of `ProductPickerCard`s, filtered to non-hidden products.
+  2. **Schedule** — Morning/Evening `TimeChip` toggles + `WeeklySchedulePicker`
+     (writable) + Back/"Add to routine" actions. Pre-populates from the
+     product's existing schedule via `deriveProductSchedule` if it already has
+     one; otherwise defaults `activePeriod` on.
+  Backdrop press dismisses only on step 1 (`pressBehavior: step === 'pick' ?
+  'close' : 'none'`) to avoid discarding an in-progress schedule edit.
 
-- **FE-3: Refactor `RoutinesScreen`**
-  Files: `src/screens/RoutinesScreen.tsx`
-  Changes:
-  a. Remove `view` state → rename to `mode: 'view' | 'edit'`.
-  b. Update `navigation.setOptions`:
-     - `view` mode: `headerTitle: 'Routine'`, `headerRight` → icon-only edit
-       button (Feather `calendar`, size 20, `palette.black`) → `setMode('edit')`.
-     - `edit` mode: `headerTitle: 'Edit Schedule'`, `headerRight` → "Done" text
-       button (existing pattern).
-  c. ScrollView content (view mode):
-     - **Large title block**: `"Routine"` (`typography.h2`, `textPrimary`) +
-       date sub-label — replaces the old `"Today"` title.
-     - **PlannerBlock**: driven by `activePeriod` local state (default `morning`);
-       `scheduledDays` derived from the active routine's first visible step
-       (or the routine-level schedule when that field lands); `stepCount` from
-       today's filtered steps for that period; `onEditPress → setMode('edit')`.
-     - **ClinicalRestrictionsBlock** (no change).
-     - **ConflictWarningInline** with `routines` + `products` from store — moved
-       here from `WeeklyPlanView`'s footer so conflicts are always visible.
-     - **SeasonalNoticeBanner** (no change, after conflicts).
-     - **RoutineSection AM** and **RoutineSection PM** (no internal change).
-  d. In `edit` mode, render `WeeklyPlanView` inside `SafeAreaView` (existing path),
-     but remove the conflict warning from `WeeklyPlanView` ListFooterComponent
-     now that it lives in the main view.
+- **`RemoveStepModal`** (`src/components/routine/RemoveStepModal.tsx`) — RN
+  `Modal`-based confirm sheet offering "Remove from {Weekdays}" (single day,
+  via `removeStepFromDay`) vs. "Remove from all days" (via `removeProductStep`)
+  vs. "Cancel". Triggered only from edit-mode trash icon taps on
+  `RoutineStepCard`; distinct from `RemoveRoutineActionSheet` (see §5) which
+  is `ProductDetailScreen`'s removal path.
 
-- **FE-4: Remove conflict banner from `WeeklyPlanView`**
-  Files: `src/components/routine/WeeklyPlanView.tsx`
-  Delete `ListFooterComponent` prop (the `ConflictWarningInline` render). No
-  other changes to that file.
+- **`RoutineStepCard`** — no checkbox in either mode. View mode: `Touchable
+  Opacity` navigates to `ProductDetail`. Edit mode: plain `View` root (to avoid
+  RNGH/RNDFL gesture-arena conflicts, see D-note below) with a `Pressable`
+  dot-grid drag handle (`onLongPress={drag}`) and a trash `TouchableOpacity`.
 
-- **FE-5: (Unit tests)** — no new pure-logic utilities introduced; FE-1/2/3/4
-  are UI-only. No unit tests required per frontend-testing scope rules.
+## 4. Orphaned components (not wired into any screen)
 
-## 4. Assumptions
+These files still exist under `src/components/routine/` but are not imported
+by `RoutinesScreen` or any other screen as of this branch HEAD. They were
+part of the original 2026-06-27 plan and were superseded by the components in
+§3 without being deleted:
 
-- `scheduledDays` in PlannerBlock reads from the first non-hidden step of the
-  active routine rather than a routine-level field.
-  Alternative: add `scheduledDays` field to the `Routine` type.
-  Reason: avoids a type migration and store change in Phase 1; the step-level
-  schedule already carries the canonical data.
+- `WeeklyPlanView.tsx` — the old full-screen "edit mode" swap view.
+- `ClinicalRestrictionsBlock.tsx`
+- `SeasonalNoticeBanner.tsx`
+- `ConflictWarningInline.tsx`
+- `TabButton.tsx`
 
-- The "Edit order" action re-uses the existing `WeeklyPlanView` full-screen swap
-  rather than adding a new navigation stack screen.
-  Alternative: push to a dedicated `RoutineEditScreen` via navigator.
-  Reason: lower code surface; the current same-screen swap already works and the
-  task is a UX polish, not a nav restructure.
+`src/hooks/useRoutineLinking.ts` is similarly dead (superseded by
+`upsertProductStep`/`removeProductStep`; see `decouple-routine-from-form.md`)
+but was never deleted. None of these are exercised by any current screen or
+test; treat them as removal candidates in a follow-up cleanup task, not as
+part of this design.
 
-- Checkbox accent stays `gamificationEnabled ? palette.cabernet : palette.black`
-  (existing logic). PlannerBlock and day chips are the primary Cabernet touches.
-  Alternative: always use Cabernet for checkboxes.
-  Reason: avoids breaking the gamification opt-in contract; can be revisited.
+## 5. Related but out-of-scope-here surfaces
 
-## 5. Open Questions
+`RoutineSchedulerSheet` (a *different*, RN-`Modal`-based sheet, not migrated
+to `BottomSheetModal`) remains the routine-assignment entry point on
+`ProductDetailScreen`, `CatalogScreen`, and `ManualProductFormScreen` — see
+`routine-scheduler-sheet.md` and `routine-management-ux.md`. `RoutinesScreen`
+itself only uses `AddToRoutineSheet`, a separate component with a different
+UX (product search + pick, vs. single-product schedule-only).
 
-No open questions — all decisions resolved above.
+## 6. Revision History / Known Deviations
+
+2026-06-27 — Original design created (4 engineer tasks, FE-1..FE-4, described
+a `Card`-based `PlannerBlock` with period chips + read-only day picker + an
+"Edit order" footer link, and a `WeeklyPlanView` screen swap for reordering).
+
+2026-06-27 — Initial implementation shipped with 4 logged deviations
+(two-layer View instead of `Card`, h1 instead of h2 title, Cabernet "done"
+badge, added `initialPeriod` prop to `WeeklyPlanView`) — see commits
+`ae5890f`, `2f462be`, `01d6853`, `510a071`, `cc9290c`.
+
+2026-07-02 — Tech-lead review of further uncommitted UX iteration (day-nav
+calendar, `AddToRoutineSheet`, `RemoveStepModal`) found one BLOCKER: `Bottom
+SheetView` used but not imported in `AddToRoutineSheet` (4 `tsc` errors).
+Fixed in commit `ad7fe61` ("migrate AddToRoutine to BottomSheetModal, add
+RemoveStepModal, fix scroll layout") — confirmed resolved; `BottomSheetView`
+is imported correctly as of this doc's rewrite. All 10 previously-logged bugs
+from that review are either fixed or downgraded to accepted WARNINGs (see
+`progress/routine-redesign.md`).
+
+2026-07-02 — This document rewritten end-to-end (§1–§5) to match the code
+actually on `feature-routine-redesign` HEAD, since the original architecture
+(period-chip `PlannerBlock`, `WeeklyPlanView` swap, banner-style conflict
+warning, checkbox completion) was fully superseded by an undocumented second
+iteration. No new spec was written for that second iteration before it
+shipped — that is the gap this rewrite closes.
+
+## 7. Open Questions
+
+- Should the five orphaned components in §4 be deleted outright, or is there
+  a planned reuse (e.g. reintroducing `ClinicalRestrictionsBlock` /
+  `SeasonalNoticeBanner` onto `RoutinesScreen`)? Undecided — flagging for
+  product owner input before a cleanup task is scoped.
+- `US-08.1` (safe product deletion with routine cascade) documents an
+  `EmptySlotPlaceholder` component that does not exist in the codebase;
+  deleted products currently leave orphaned `RoutineStep` records that are
+  silently filtered out of the visible list rather than surfaced as an empty
+  slot. Needs a product decision — see `USER_STORIES.md` update.

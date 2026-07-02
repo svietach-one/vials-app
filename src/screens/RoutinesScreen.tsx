@@ -185,14 +185,16 @@ export default function RoutinesScreen({ navigation }: Props) {
         title="Routines"
         rightAction={
           <View style={styles.headerActions}>
-            <IconButton
-              icon={<Feather name="plus" size={18} color={palette.bottleGreen} />}
-              label="Add product to routine"
-              variant="ghost"
-              size="sm"
-              round
-              onPress={handleOpenAddSheet}
-            />
+            {!isEditMode ? (
+              <IconButton
+                icon={<Feather name="plus" size={18} color={palette.bottleGreen} />}
+                label="Add product to routine"
+                variant="ghost"
+                size="sm"
+                round
+                onPress={handleOpenAddSheet}
+              />
+            ) : null}
             <IconButton
               icon={
                 <Feather

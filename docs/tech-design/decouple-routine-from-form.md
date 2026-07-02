@@ -119,3 +119,13 @@ N/A — no new or changed API endpoints, store actions, or navigation routes.
 ## 5. Open Questions
 
 No open questions — all decisions resolved in assumptions above.
+
+## 6. Delivered vs. Designed (added 2026-07-02)
+
+FE-3 (post-save navigation) was **not** implemented as designed — see the
+reality-check note added to `docs/specs/decouple-routine-from-form.md`.
+`ManualProductFormScreen` opens `RoutineSchedulerSheet` inline after
+`addProduct()` instead of calling `navigation.replace('ProductDetail', ...)`.
+FE-2 (delete `useRoutineLinking.ts`) also did not happen — the file remains
+on disk with zero callers. FE-1 (remove `RoutineTargetPicker`/Usage Time) and
+FE-4 (emoji → Feather icon) were both implemented as designed.

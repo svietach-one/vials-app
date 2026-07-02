@@ -1,6 +1,6 @@
-Status: BLOCKED
+Status: IMPLEMENTED
 Tech Design: docs/tech-design/routine-redesign.md
-Code: —
+Code: src/screens/RoutinesScreen.tsx, src/components/routine/PlannerBlock.tsx, src/components/routine/AddToRoutineSheet.tsx, src/components/routine/RemoveStepModal.tsx, src/components/routine/RoutineStepCard.tsx
 
 ## Task Card
 - [x] Technical design (planner)
@@ -64,6 +64,7 @@ Pre-existing test errors (ProductShelfCard.test.tsx — W1 from product-shelf-ca
 New warnings (not blockers):
   W1: "Add product" footer button is visible and tappable in edit mode — pressing it
     silently discards the edit session. Minor UX gap, acceptable for now.
+    RESOLVED 2026-07-02 — see log entry below.
   W2: AddToRoutineSheet is ~280 lines for the main function body (JSX-heavy). Within
     React Native component norms but consider splitting step 1 and step 2 into
     sub-components in a follow-up.
@@ -80,3 +81,28 @@ Architecture decision validated:
 
 Security review: no concerns. All data is local-only (AsyncStorage). No external
   input surfaces beyond UI text fields. No dangerous interpolation patterns found.
+
+2026-07-02 — BLOCKER resolved in commit `ad7fe61` ("migrate AddToRoutine to
+  BottomSheetModal, add RemoveStepModal, fix scroll layout"): `BottomSheetView`
+  is now correctly imported in `AddToRoutineSheet.tsx`. Confirmed by re-read of
+  the file — no `tsc` TS2304 errors remain in this component. Status moved to
+  IMPLEMENTED. `docs/tech-design/routine-redesign.md` was rewritten the same
+  day to describe the as-built screen (day-nav `PlannerBlock`, 2-step
+  `AddToRoutineSheet`, `RemoveStepModal`) since the shipped UX diverged
+  substantially from the original 2026-06-27 plan through unreviewed
+  iteration. See that doc's Revision History for the full list of deviations.
+  W1–W3 from the 2026-07-02 review remain open as accepted low-risk warnings,
+  not re-verified here.
+
+2026-07-02 — W1 fixed in `RoutinesScreen.tsx`. Scope was actually broader than
+  originally logged: the bottom "Add product" footer button was already
+  correctly gated on `!isEditMode`, but the header "+" icon button (opens the
+  same `AddToRoutineSheet` flow) was unconditionally rendered regardless of
+  edit mode — that was the live gap. Fix: wrapped the header "+" `IconButton`
+  in the same `!isEditMode` conditional already used by the footer button.
+  Edit mode now shows only the drag handles, delete icons, and the Done
+  toggle; both add-product entry points reappear immediately when edit mode
+  is turned off. No changes to `handleDragEnd`, `reorderSteps`, or any other
+  edit-mode/reorder logic. `npx tsc --noEmit` shows zero new errors (only the
+  pre-existing `ProductShelfCard.test.tsx` errors from the `product-shelf-card`
+  task remain, unrelated to this change). W2 and W3 remain open.

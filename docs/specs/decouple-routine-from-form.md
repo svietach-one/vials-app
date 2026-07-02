@@ -1,7 +1,20 @@
 # Decouple Routine Assignment from Manual Product Form
 Date: 2026-06-22
 Author: planner-agent
-Status: APPROVED
+Status: SUPERSEDED (see `routine-management-ux.md`) — partially implemented before supersession
+
+> **Reality check (2026-07-02):** This spec's core navigation change was
+> never implemented as written. `ManualProductFormScreen` does NOT call
+> `navigation.replace('ProductDetail', ...)` after save — it still opens
+> `RoutineSchedulerSheet` inline on the form screen immediately after
+> `addProduct()` (with `cancelLabel="Skip"` / `saveLabel="Save & Next"`), then
+> navigates to `Catalog` when the sheet closes. This is a third flow, distinct
+> from both this spec's plan and from `routine-management-ux.md`'s ProductDetail
+> footer, and was never separately specified. `useRoutineLinking.ts` was also
+> never deleted — it has zero remaining callers (dead code) but still exists
+> on disk. The "Usage Time" removal (Story 1) and the INCI emoji→Feather icon
+> change (Story 4) WERE implemented, absorbed into `routine-management-ux`'s
+> FE-1 as planned.
 
 ## AI-SDLC Flags
 ```

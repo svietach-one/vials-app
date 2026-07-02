@@ -24,10 +24,13 @@ This document defines the interface architecture, component state-machines, and 
 
 The application consolidates navigation into 4 high-priority bottom tabs.
 
-1. **TAB 1: ROUTINE HUB (`Feather: calendar`)**
-   * **Sub-View A: Today (Default):** Daily AM/PM execution checklist.
-   * **Sub-View B: Weekly Plan (Toggle via "Edit Schedule" Header Button):** Core strategy view for scheduling specific product days and managing ingredient conflicts.
-2. **TAB 2: CATALOG (`Feather: package`)**
+1. **TAB 1: ROUTINES** (tab bar label `"Routines"`, screen `RoutinesScreen`)
+   * **Single scroll, no sub-views.** Day navigation (Mo–Su chips), Morning/
+     Evening toggle, step list, and drag-to-reorder edit mode all live on one
+     screen — see §2 below. There is no separate "Weekly Plan" screen or
+     "Edit Schedule" header toggle; edit mode is a header icon
+     (pencil ⇄ checkmark) that toggles reordering inline.
+2. **TAB 2: CATALOG** (tab bar label `"My Shelf"`, `Feather: package`)
    * **Purpose:** Physical product inventory list with biomarker/category filtering, proprietary Vials API search via barcode/OCR scanning, and a standalone manual entry form.
 3. **TAB 3: CLINIC (`Feather: activity`)**
    * **Purpose:** 12-month interactive aesthetic procedure timeline and longevity calculator.
@@ -45,20 +48,50 @@ The application consolidates navigation into 4 high-priority bottom tabs.
 
 ---
 
-## 2. Tab 1: Routine Hub (Super-Tab View)
+## 2. Tab 1: Routines Screen
 
-### Sub-View A: Today Screen (Default)
-* **`ClinicalRestrictionsBlock`:** Conditional card (`#FAF9F6`). If an active procedure is in `Rehab` status, displays restriction icons (No gym, No sun) rendered with **Rich Cabernet** highlights, alongside safe indicators using **Deep Bottle Green**.
-* **`SeasonalNoticeBanner`:** Flat, dismissible container providing adaptive climate advice during seasonal cut-off dates.
-* **`RoutineChecklistContainer`:** Split into collapsible AM and PM layout sheets. Displays only the product cards mapped to the active day of the week.
-* **`RoutineStepCard`:** Displays Brand, Name, and Order. Contains a minimalist black structural checkbox on the right. When tapped with gamification ON, the box fills **Rich Cabernet** with a white checkmark; with gamification OFF, it simply toggles filled/unfilled black.
-* **`EmptySlotPlaceholder`:** Renders if a linked item was deleted. Shows *"Step empty"* text with an outline secondary black button: `+ Add from catalog` and a flat text link: `Hide Step`.
+> **Rewritten 2026-07-02** to match `RoutinesScreen.tsx` on
+> `feature-routine-redesign`. The previous "Today / Weekly Plan sub-view"
+> model described here no longer exists in the delivered code — see
+> `docs/tech-design/routine-redesign.md` for the full as-built design and
+> deviation history.
 
-### Sub-View B: Weekly Plan Screen (Toggled via "Edit Schedule" Header Button)
-* **`AM_PM_SegmentedControl`:** Thin 1px border switch to swap between morning and evening structures.
-* **`DraggableStepList`:** Native drag-and-drop hierarchy container to reorder application sequences.
-* **`WeeklySchedulePicker` (`US-05`):** Day-picker element arrays (`[Mon] [Tue]...`) embedded inside product parameters. Toggles between *Every day* or *Specific days*.
-* **`ConflictWarningInline`:** Mounts dynamically at the bottom of the column if ingredients overlap on the exact same day, per the full pairwise collision table in `conflictEngine.ts`, highlighted with a **Rich Amber** alert badge.
+Single `DraggableFlatList` screen, header-toggled between view mode and edit
+(reorder) mode. No checklist/completion state — this is a scheduling and
+sequencing view, not a "mark done" tracker.
+
+* **`AppHeader`** — title "Routines"; right actions are two icon buttons:
+  `+` (opens `AddToRoutineSheet`) and pencil/checkmark (toggles edit mode).
+* **`PlannerBlock`** (list header) — date label (e.g. "Today, Wednesday, 2 Jul")
+  + Morning/Evening icon toggle on row 1; a 7-chip Mo–Su day selector on row
+  2 where exactly one day is active. Selecting a day filters which steps are
+  visible (day-navigation calendar), it does not itself edit any step's
+  `scheduledDays`.
+* **`RoutineStepCard`** (per step) — brand/name + product-type and active-
+  ingredient badges. **No checkbox, no completion state, no gamification
+  accent** — tapping the card in view mode navigates to `ProductDetail`. In
+  edit mode the card swaps to a drag-handle (left, dot grid, long-press to
+  drag) + trash icon (right, opens `RemoveStepModal`); tap-to-navigate is
+  disabled while editing. A conflicting product's name renders inline under
+  the card ("Conflicts with X", amber) rather than via a separate banner
+  component.
+* **`AddToRoutineSheet`** — `@gorhom/bottom-sheet` `BottomSheetModal`, two
+  steps: search/filter and pick a product, then set Morning/Evening +
+  `WeeklySchedulePicker` days and save. Opened from either header `+` icon or
+  the "Add product" list footer button.
+* **`RemoveStepModal`** — RN `Modal` confirm sheet with "Remove from
+  {Weekday}s" (this day only) vs. "Remove from all days" vs. "Cancel".
+  Opened from the trash icon on a step card in edit mode.
+* **Empty state:** "No products scheduled for today." (inbox icon), shown
+  when the active period + day combination has zero visible steps.
+
+**Not present on this screen** (present in earlier designs / `USER_STORIES.md`
+but not wired into the current build — see `docs/tech-design/routine-redesign.md`
+§4 "Orphaned components"): `ClinicalRestrictionsBlock`, `SeasonalNoticeBanner`,
+a dedicated `ConflictWarningInline` banner, `EmptySlotPlaceholder`, and any
+`WeeklyPlanView` / "Edit Schedule" screen swap. Deleting a product from the
+catalog does not surface an empty-slot UI — its orphaned `RoutineStep` is
+silently filtered out of the visible list (see `USER_STORIES.md` US-08.1 note).
 
 ---
 

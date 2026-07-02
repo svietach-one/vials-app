@@ -190,3 +190,19 @@ Files: `src/screens/ProductDetailScreen.tsx`
 ## 5. Open Questions
 
 No open questions. All scope decisions confirmed by product owner (2026-06-22).
+
+## 6. Delivered vs. Designed (added 2026-07-02)
+
+FE-1 through FE-6 all shipped as designed, with one signature difference from
+FE-4: `RemoveRoutineActionSheet` was implemented with a **`routines: Routine[]`
+prop removed** from the interface — it reads `useRoutinesStore.getState().routines`
+imperatively inside its `useEffect` instead of receiving them as a prop. Net
+effect on callers is the same (`ProductDetailScreen` does not need to pass
+`routines`), but the prop list is `{ visible, product, onClose }`, not
+`{ visible, product, routines, onClose }` as written in FE-4 above.
+
+Button label wording on `ProductDetailScreen` is `"In Routine (Everyday •
+Morning)"` (via `formatRoutineLabel`, matching `routine-scheduler-sheet.md`'s
+convention exactly), not `"Edit Routine (...)"` as the parent spec's Stories
+2–3 describe — see the implementation note added to `routine-management-ux.md`
+(the spec file).
