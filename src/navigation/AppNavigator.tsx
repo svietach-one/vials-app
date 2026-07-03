@@ -46,9 +46,9 @@ export type CatalogStackParamList = {
 };
 
 export type RootTabParamList = {
+  Routines: undefined;
   // NavigatorScreenParams allows typed deep-linking into the nested stack
   'My Shelf': NavigatorScreenParams<CatalogStackParamList>;
-  Routines: undefined;
   Clinic: undefined;
   Profile: undefined;
 };
@@ -112,13 +112,14 @@ function MainTabs() {
         ),
       })}
     >
+      {/* Routines is the first tab: the daily execution loop is the app's default view */}
+      <Tab.Screen name="Routines" component={RoutinesScreen} options={{ headerShown: false }} />
       {/* My Shelf tab: headerShown:false because CatalogNavigator provides its own header */}
       <Tab.Screen
         name="My Shelf"
         component={CatalogNavigator}
         options={{ headerShown: false }}
       />
-      <Tab.Screen name="Routines" component={RoutinesScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Clinic" component={ClinicScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>

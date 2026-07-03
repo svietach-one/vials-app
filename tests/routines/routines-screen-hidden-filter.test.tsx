@@ -85,6 +85,16 @@ jest.mock('@/components/routine/RemoveStepModal', () => ({
   RemoveStepModal: () => null,
 }));
 
+// Banner blocks are not the subject under test; mocking them also keeps the
+// AsyncStorage-backed procedures/settings stores out of the module graph.
+jest.mock('@/components/routine/ClinicalRestrictionsBlock', () => ({
+  ClinicalRestrictionsBlock: () => null,
+}));
+
+jest.mock('@/components/routine/SeasonalNoticeBanner', () => ({
+  SeasonalNoticeBanner: () => null,
+}));
+
 jest.mock('@/components/routine/PlannerBlock', () => {
   const { Pressable } = require('react-native');
   return {

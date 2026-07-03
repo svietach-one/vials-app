@@ -41,7 +41,7 @@ export interface RoutineStepCardProps {
    * Only rendered (via the drag handle) when isEditMode is true.
    */
   drag?: () => void;
-  /** Switches the card between normal mode (checkbox) and edit mode (drag handle + delete). */
+  /** Switches the card between normal mode and edit mode (drag handle + delete). */
   isEditMode?: boolean;
   /** Called when the user taps the delete button in edit mode. */
   onDelete?: () => void;

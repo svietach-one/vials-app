@@ -6,7 +6,7 @@ This file is the entry point for Claude Code. Read all referenced docs before wr
 
 ## What is Vials?
 
-Vials is a mobile skincare management app. Users track products, build morning/evening routines, get warned about ingredient conflicts, and manage clinical cosmetic procedures (Botox, fillers, rehab windows). Full details in `PRD.md`.
+Vials is a mobile skincare management app. Users track products, build morning/evening routines, get warned about ingredient conflicts, and manage clinical cosmetic procedures (Botox, fillers, rehab windows). Full details in `docs/PRD_Spec.md`.
 
 **Phase 1 scope:** MVP + Clinical Aesthetics (both layers, not separable).
 
@@ -14,10 +14,10 @@ Vials is a mobile skincare management app. Users track products, build morning/e
 
 ## Docs to read first (in order)
 
-1. `PRD.md` — product overview, scope, key decisions
+1. `docs/PRD_Spec.md` — product overview, scope, key decisions
 2. `src/types/index.ts` — all TypeScript interfaces
-3. `SCREENS.md` — every screen, components, states
-4. `USER_STORIES.md` — acceptance criteria per feature
+3. `docs/SCREENS.md` — every screen, components, states
+4. `docs/USER_STORIES.md` — acceptance criteria per feature
 
 ---
 
