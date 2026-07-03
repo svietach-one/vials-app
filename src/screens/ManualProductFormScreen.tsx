@@ -123,7 +123,7 @@ function InciField({ value, onChange, onDetect, onScan, ocrScanned }: InciFieldP
           <Feather
             name={ocrScanned ? 'alert-triangle' : 'info'}
             size={16}
-            color={ocrScanned ? colors.statusWarning : colors.statusInfo}
+            color={ocrScanned ? colors.statusWarningAccent : colors.statusInfo}
           />
         }
       >
@@ -822,12 +822,12 @@ const s = StyleSheet.create({
 
   // Error states
   inputError: {
-    borderColor: colors.statusSOS,
+    borderColor: colors.statusError,
   },
   fieldError: {
     fontFamily: 'DMSans-Regular',
     fontSize: 14,
     lineHeight: 20,
-    color: colors.statusSOS,
+    color: colors.statusError,
   },
 });

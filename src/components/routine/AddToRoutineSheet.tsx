@@ -5,7 +5,6 @@ import {
   BottomSheetFlatList,
   BottomSheetModal,
   BottomSheetScrollView,
-  BottomSheetView,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
@@ -359,7 +358,7 @@ function StepSchedule({
 }: StepScheduleProps) {
   return (
     <>
-      <BottomSheetView style={styles.header}>
+      <View style={styles.header}>
         <Pressable
           onPress={onBack}
           style={styles.closeBtn}
@@ -375,7 +374,7 @@ function StepSchedule({
           </Text>
           <Text style={styles.subtitle}>Choose when to use this product</Text>
         </View>
-      </BottomSheetView>
+      </View>
 
       <BottomSheetScrollView
         style={styles.scheduleBody}
@@ -412,14 +411,14 @@ function StepSchedule({
         </View>
       </BottomSheetScrollView>
 
-      <BottomSheetView style={[styles.actions, { paddingBottom: insets.bottom + space[2] }]}>
+      <View style={[styles.actions, { paddingBottom: insets.bottom + space[2] }]}>
         <Button variant="secondary" size="lg" onPress={onBack} style={styles.actionBtn}>
           Back
         </Button>
         <Button size="lg" onPress={onSave} style={styles.actionBtn}>
           Add to routine
         </Button>
-      </BottomSheetView>
+      </View>
     </>
   );
 }
@@ -548,6 +547,7 @@ const styles = StyleSheet.create({
   },
   scheduleBodyContent: {
     paddingHorizontal: space[4],
+    paddingTop: space[3],
   },
   section: {
     gap: space[2],
@@ -586,17 +586,17 @@ const styles = StyleSheet.create({
     color: palette.white,
   },
   errorBanner: {
-    backgroundColor: colors.statusSOSTint,
+    backgroundColor: colors.statusErrorTint,
     borderRadius: radius.sm,
     paddingHorizontal: space[3],
     paddingVertical: space[2],
     borderLeftWidth: 3,
-    borderLeftColor: colors.statusSOS,
+    borderLeftColor: colors.statusError,
     marginBottom: space[5],
   },
   errorBannerText: {
     ...typography.caption,
-    color: colors.statusSOS,
+    color: colors.statusError,
     lineHeight: 18,
   },
   actions: {

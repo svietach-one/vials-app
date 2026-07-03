@@ -125,7 +125,7 @@ export function ProductActionSheet({
             accessibilityRole="button"
             accessibilityLabel="Delete product"
           >
-            <Feather name="trash-2" size={18} color={colors.statusSOS} />
+            <Feather name="trash-2" size={18} color={colors.statusError} />
             <Text style={[styles.rowLabel, styles.rowLabelDestructive]}>Delete Product</Text>
           </Pressable>
 
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   rowLabelDestructive: {
-    color: colors.statusSOS,
+    color: colors.statusError,
   },
   cancelLabel: {
     color: colors.textSecondary,

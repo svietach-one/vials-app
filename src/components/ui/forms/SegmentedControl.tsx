@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
     borderColor: colors.borderDivider,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
   },
   scrollContent: {
     flexDirection: 'row',
@@ -111,7 +111,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space[4],
-    borderRadius: radius.sm,
+    // Nested inside the 8px track with 3px inset — xs keeps corners concentric
+    borderRadius: radius.xs,
     backgroundColor: 'transparent',
   },
   segmentFlex: {

@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   removeLinkText: {
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
-    color: colors.statusSOS,
+    color: colors.statusError,
   },
   headerBlock: {
     gap: space[2],

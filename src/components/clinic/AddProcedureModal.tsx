@@ -310,7 +310,7 @@ export function AddProcedureModal({
             {collisionResult ? (
               <InlineAlert
                 tone={collisionResult.severity === 'avoid' ? 'sos' : 'warning'}
-                icon={<Feather name="alert-triangle" size={14} color={collisionResult.severity === 'avoid' ? colors.statusSOS : colors.statusWarning} />}
+                icon={<Feather name="alert-triangle" size={14} color={collisionResult.severity === 'avoid' ? colors.statusSOS : colors.statusWarningAccent} />}
                 title="Procedure conflict"
               >
                 {`${collisionResult.explanation}\n\n${collisionResult.suggestion}`}
@@ -320,7 +320,7 @@ export function AddProcedureModal({
             {seasonalResult ? (
               <InlineAlert
                 tone={seasonalResult.severity === 'avoid' ? 'sos' : 'warning'}
-                icon={<Feather name="sun" size={14} color={seasonalResult.severity === 'avoid' ? colors.statusSOS : colors.statusWarning} />}
+                icon={<Feather name="sun" size={14} color={seasonalResult.severity === 'avoid' ? colors.statusSOS : colors.statusWarningAccent} />}
                 title="Seasonal caution"
               >
                 {`${seasonalResult.explanation}\n\n${seasonalResult.suggestion}`}
@@ -330,7 +330,7 @@ export function AddProcedureModal({
             {phototypeResult ? (
               <InlineAlert
                 tone="warning"
-                icon={<Feather name="info" size={14} color={colors.statusWarning} />}
+                icon={<Feather name="info" size={14} color={colors.statusWarningAccent} />}
                 title="Skin tone consideration"
               >
                 {`${phototypeResult.explanation}\n\n${phototypeResult.suggestion}`}
@@ -428,7 +428,7 @@ const optStyles = StyleSheet.create({
     gap: space[3],
     paddingVertical: space[3],
     paddingHorizontal: space[3],
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.borderDivider,
     backgroundColor: colors.bgBase,

@@ -29,11 +29,13 @@ export const palette = {
   cabernet: '#800C2E',
   red: '#B40018',
   amber: '#A84C0E',
+  marigold: '#EB970D',
   bottleGreen: '#0F4C3A',
   cobalt: '#1E3A8A',
 
   // Tints (15–18% saturation on white — approximated as flat values)
   cabernetTint: '#F8E9ED',
+  redTint: '#F9E6E8',
   amberTint: '#FDF0E6',
   bottleGreenTint: '#EBF4F1',
   cobaltTint: '#EBF0FA',
@@ -72,8 +74,15 @@ export const colors = {
   controlOn: palette.white,
 
   // Status
+  // Error/destructive (form validation, delete actions) — distinct from
+  // clinical SOS, which stays cabernet.
+  statusError: palette.red,
+  statusErrorTint: palette.redTint,
   statusSOS: palette.cabernet,
   statusWarning: palette.amber,
+  // Warning accent for icons and borders — brighter than statusWarning, which
+  // stays amber for text where #EB970D lacks contrast.
+  statusWarningAccent: palette.marigold,
   statusSafe: palette.bottleGreen,
   statusInfo: palette.cobalt,
 
@@ -83,7 +92,7 @@ export const colors = {
   statusInfoTint: palette.cobaltTint,
 
   statusSOSLine: palette.cabernetLine,
-  statusWarningLine: palette.amberLine,
+  statusWarningLine: palette.marigold,
   statusSafeLine: palette.bottleGreenLine,
   statusInfoLine: palette.cobaltLine,
 } as const;

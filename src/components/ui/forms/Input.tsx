@@ -47,7 +47,7 @@ export function Input({
   const inputRef = useRef<TextInput>(null);
 
   const borderColor = error
-    ? colors.statusSOS
+    ? colors.statusError
     : focused
     ? colors.borderFocus
     : colors.borderInput;
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: colors.surfaceRaised,
     borderWidth: 1.5,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
   },
   fieldDisabled: {
     backgroundColor: colors.surfaceSunken,
@@ -151,6 +151,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   helperError: {
-    color: colors.statusSOS,
+    color: colors.statusError,
   },
 });

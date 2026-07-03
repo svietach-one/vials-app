@@ -110,10 +110,10 @@ const styles = StyleSheet.create({
   boxUnchecked: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: palette.cabernet,
+    borderColor: colors.controlFill,
   },
   boxChecked: {
-    backgroundColor: palette.cabernet,
+    backgroundColor: colors.controlFill,
     borderWidth: 0,
   },
 

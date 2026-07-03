@@ -40,7 +40,7 @@ export function ConflictWarningInline({ routines, products }: ConflictWarningInl
         <InlineAlert
           key={c.rule.id}
           tone="warning"
-          icon={<Feather name="alert-triangle" size={14} color={colors.statusWarning} />}
+          icon={<Feather name="alert-triangle" size={14} color={colors.statusWarningAccent} />}
           title="Ingredient conflict"
         >
           {`${c.rule.explanation}\n\n${c.rule.suggestion}`}
