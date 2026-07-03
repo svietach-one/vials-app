@@ -327,5 +327,6 @@ const styles = StyleSheet.create({
 
   addProductFooter: {
     paddingTop: space[4],
+    paddingBottom: 40,
   },
 });
