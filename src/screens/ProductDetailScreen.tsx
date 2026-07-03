@@ -21,6 +21,7 @@ import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Tag } from '@/components/ui/core/Tag';
 import { colors, space, typography } from '@/constants/tokens';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { deleteProductCascade } from '@/domain/productActions';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
@@ -35,7 +36,6 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   const { productId } = route.params;
   const products = useProductsStore((s) => s.products);
   const updateProduct = useProductsStore((s) => s.updateProduct);
-  const removeProduct = useProductsStore((s) => s.removeProduct);
 
   const product = products.find((p) => p.id === productId) ?? null;
 
@@ -87,7 +87,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
 
   function handleDeleteConfirm() {
     if (deleteTarget) {
-      removeProduct(deleteTarget.id);
+      deleteProductCascade(deleteTarget.id);
       setDeleteTarget(null);
       navigation.goBack();
     }
@@ -237,7 +237,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
   },
   notFoundWrap: {
     flex: 1,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     paddingVertical: space[4],
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
     gap: space[3],
   },
   removeLink: {
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   removeLinkText: {
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
-    color: colors.statusSOS,
+    color: colors.statusError,
   },
   headerBlock: {
     gap: space[2],

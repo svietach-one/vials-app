@@ -23,6 +23,7 @@ import { Tag } from '@/components/ui/core/Tag';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, space, typography } from '@/constants/tokens';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { deleteProductCascade } from '@/domain/productActions';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
@@ -91,8 +92,8 @@ export function applyFilters(
 export default function CatalogScreen({ navigation }: Props) {
   const products = useProductsStore((s) => s.products);
   const updateProduct = useProductsStore((s) => s.updateProduct);
-  const removeProduct = useProductsStore((s) => s.removeProduct);
   const routines = useRoutinesStore((s) => s.routines);
+  const removeProductStep = useRoutinesStore((s) => s.removeProductStep);
 
   const [filterState, setFilterState] = useState<CatalogFilterState>(CATALOG_FILTER_DEFAULT);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
@@ -108,7 +109,7 @@ export default function CatalogScreen({ navigation }: Props) {
 
   function handleDeleteConfirm() {
     if (deleteTarget) {
-      removeProduct(deleteTarget.id);
+      deleteProductCascade(deleteTarget.id);
       setDeleteTarget(null);
     }
   }
@@ -137,7 +138,14 @@ export default function CatalogScreen({ navigation }: Props) {
         }}
         onAddToRoutine={(p) => setSchedulerTarget(p)}
         onRemoveFromRoutine={(p) => {
-          updateProduct(p.id, { isHidden: true });
+          for (const r of routines) {
+            if (r.steps.some((s) => s.productId === p.id)) {
+              removeProductStep(r.id, p.id);
+            }
+          }
+        }}
+        onToggleHidden={(p) => {
+          updateProduct(p.id, { isHidden: !p.isHidden });
         }}
       />
     );
@@ -301,7 +309,7 @@ function CatalogEmptyState({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
   },
   searchWrap: {
     paddingTop: space[4],

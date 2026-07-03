@@ -1,3 +1,4 @@
+import type { ProductShelfCardProps } from '@/components/product/ProductShelfCard';
 import type { Product, RoutineStep } from '@/types';
 
 export function makeProduct(overrides: Partial<Product> = {}): Product {
@@ -32,16 +33,17 @@ export function makeRoutineStep(overrides: Partial<RoutineStep> = {}): RoutineSt
   };
 }
 
-export function makeDefaultShelfCardProps() {
+export function makeDefaultShelfCardProps(): ProductShelfCardProps {
   return {
     product: makeProduct(),
     isInRoutine: true,
     scheduleLabel: 'Mon • Wed • Sat',
-    usageTime: 'both' as const,
+    usageTime: 'both',
     onCardPress: jest.fn(),
     onEdit: jest.fn(),
     onAddToRoutine: jest.fn(),
     onRemoveFromRoutine: jest.fn(),
     onDelete: jest.fn(),
+    onToggleHidden: jest.fn(),
   };
 }

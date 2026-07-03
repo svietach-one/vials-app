@@ -250,7 +250,7 @@ function SelectChip({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bgBase },
+  safe: { flex: 1, backgroundColor: colors.bgSubtle },
   flex: { flex: 1 },
   scroll: { flex: 1 },
   content: {
@@ -263,7 +263,8 @@ const styles = StyleSheet.create({
   header: { gap: space[2] },
   eyebrow: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 11,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 1.32,
     textTransform: 'uppercase',
     color: colors.textSecondary,
@@ -272,12 +273,10 @@ const styles = StyleSheet.create({
   subtitle: { ...typography.body, color: colors.textSecondary },
 
   section: { gap: space[2] },
+  // Matches the Input component's default field label
   sectionLabel: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 11,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
-    color: colors.textSecondary,
+    ...typography.label,
+    color: colors.textPrimary,
   },
   sectionHint: { ...typography.bodySmall, color: colors.textTertiary },
 
@@ -300,7 +299,8 @@ const styles = StyleSheet.create({
   },
   chipLabel: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.textPrimary,
   },
   chipLabelSelected: {

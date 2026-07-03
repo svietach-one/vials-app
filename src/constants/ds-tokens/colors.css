@@ -10,7 +10,6 @@
   /* ---- Base neutrals ---- */
   --white:    #FFFFFF;
   --black:    #09090B;   /* off-black */
-  --bone:     #FAF9F6;   /* minimalist cream / textured-paper surface */
 
   /* Zinc ramp (cool grey) */
   --zinc-50:  #FAFAFA;
@@ -55,7 +54,7 @@
   /* Surfaces */
   --bg-base:        var(--white);
   --bg-subtle:      var(--zinc-50);
-  --surface-card:   var(--bone);
+  --surface-card:   var(--white);
   --surface-raised: var(--white);
   --surface-sunken: var(--zinc-100);
   --overlay-scrim:  color-mix(in srgb, var(--black) 45%, transparent);

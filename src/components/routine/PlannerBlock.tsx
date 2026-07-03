@@ -185,8 +185,8 @@ const styles = StyleSheet.create({
   },
   dayChipLabel: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.textSecondary,
   },
   dayChipLabelActive: {

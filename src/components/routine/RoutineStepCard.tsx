@@ -41,7 +41,7 @@ export interface RoutineStepCardProps {
    * Only rendered (via the drag handle) when isEditMode is true.
    */
   drag?: () => void;
-  /** Switches the card between normal mode (checkbox) and edit mode (drag handle + delete). */
+  /** Switches the card between normal mode and edit mode (drag handle + delete). */
   isEditMode?: boolean;
   /** Called when the user taps the delete button in edit mode. */
   onDelete?: () => void;
@@ -293,8 +293,8 @@ const styles = StyleSheet.create({
   },
   conflictText: {
     fontFamily: 'DMSans-Regular',
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 20,
     color: palette.amber,
     flexShrink: 1,
   },

@@ -6,7 +6,6 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -18,9 +17,13 @@ import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
+import { Card } from '@/components/ui/core/Card';
+import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Input } from '@/components/ui/forms/Input';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { Switch } from '@/components/ui/forms/Switch';
+import { colors, palette, radius, space } from '@/constants/tokens';
 import { parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 import { generateId } from '@/utils/generateId';
 import type {
@@ -70,8 +73,6 @@ const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 
-// ─── PAO constants ────────────────────────────────────────────────────────────
-
 const PAO_PRESETS = [
   { months: 3, label: '3M' },
   { months: 6, label: '6M' },
@@ -94,6 +95,17 @@ function keysToIngredients(keys: ActiveIngredientKey[]): ActiveIngredient[] {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+function SectionEyebrow({ num, label }: { num: string; label: string }) {
+  return (
+    <View style={s.eyebrow}>
+      <View style={s.eyebrowBadge}>
+        <Text style={s.eyebrowNum}>{num}</Text>
+      </View>
+      <Text style={s.eyebrowLabel}>{label}</Text>
+    </View>
+  );
+}
+
 interface InciFieldProps {
   value: string;
   onChange: (t: string) => void;
@@ -101,50 +113,63 @@ interface InciFieldProps {
   onScan: () => void;
   ocrScanned: boolean;
 }
+
 function InciField({ value, onChange, onDetect, onScan, ocrScanned }: InciFieldProps) {
   return (
-    <View style={formStyles.fieldGroup}>
-      <View style={formStyles.fieldLabelRow}>
-        <Text style={formStyles.fieldLabel}>Full Ingredient List (INCI)</Text>
-        {value.trim().length > 5 ? (
-          <Pressable onPress={onDetect} hitSlop={8}>
-            <Text style={formStyles.detectLink}>Detect actives →</Text>
-          </Pressable>
-        ) : null}
-      </View>
-      {ocrScanned ? (
-        <View style={formStyles.inciNoticeOcr}>
-          <Text style={formStyles.inciNoticeOcrTitle}>⚠️ Scanner Demo Mode</Text>
-          <Text style={formStyles.inciNoticeOcrBody}>
-            Please review the scanned text carefully for any punctuation or typo mistakes.
+    <View style={s.inciStack}>
+      <InlineAlert
+        tone={ocrScanned ? 'warning' : 'info'}
+        icon={
+          <Feather
+            name={ocrScanned ? 'alert-triangle' : 'info'}
+            size={16}
+            color={ocrScanned ? colors.statusWarningAccent : colors.statusInfo}
+          />
+        }
+      >
+        {ocrScanned ? (
+          <View style={{ gap: space[1] }}>
+            <Text style={s.alertTitleWarning}>Scanner Demo Mode</Text>
+            <Text style={s.alertBodyWarning}>
+              Please review the scanned text carefully for any punctuation or typo mistakes.
+            </Text>
+          </View>
+        ) : (
+          <Text style={s.alertBodyInfo}>
+            Ingredients must be in Latin/English characters. For Asian products, look for the
+            English "Ingredients" block on the packaging.
           </Text>
-        </View>
-      ) : (
-        <View style={formStyles.inciNotice}>
-          <Text style={formStyles.inciNoticeText}>
-            ⚠️ Ingredients must be in Latin/English characters. For Asian products, look for the English "Ingredients" block on the packaging.
-          </Text>
-        </View>
-      )}
+        )}
+      </InlineAlert>
+
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder="Paste INCI text here, then tap 'Detect actives' to auto-tag…"
         placeholderTextColor={colors.textTertiary}
         multiline
-        numberOfLines={4}
+        numberOfLines={5}
         textAlignVertical="top"
-        style={formStyles.textArea}
+        style={s.textArea}
+        accessibilityLabel="Full ingredient list INCI"
       />
-      <Pressable
-        style={({ pressed }) => [formStyles.ocrBtn, pressed && formStyles.ocrBtnPressed]}
+
+      {value.trim().length > 5 ? (
+        <Pressable onPress={onDetect} style={s.detectRow} hitSlop={8} accessibilityRole="button" accessibilityLabel="Detect active ingredients from INCI text">
+          <Text style={s.detectLink}>Detect actives</Text>
+          <Feather name="arrow-right" size={14} color={palette.bottleGreen} />
+        </Pressable>
+      ) : null}
+
+      <Button
+        variant="secondary"
+        size="md"
+        fullWidth
+        icon={<Feather name="camera" size={16} color={colors.textPrimary} />}
         onPress={onScan}
-        accessibilityRole="button"
-        accessibilityLabel="Scan ingredients text with camera"
       >
-        <Feather name="camera" size={18} color={colors.textPrimary} />
-        <Text style={formStyles.ocrBtnLabel}>Scan Ingredients Text</Text>
-      </Pressable>
+        Scan Ingredients Text
+      </Button>
     </View>
   );
 }
@@ -153,28 +178,26 @@ interface IngredientChipsProps {
   selected: ActiveIngredient[];
   onToggle: (ing: ActiveIngredient) => void;
 }
+
 function IngredientChips({ selected, onToggle }: IngredientChipsProps) {
   return (
-    <View style={formStyles.fieldGroup}>
-      <Text style={formStyles.fieldLabel}>Confirmed Active Ingredients</Text>
-      <Text style={formStyles.fieldHint}>
-        Check the actives that are prominently present in this product.
+    <View style={s.subSection}>
+      <Text style={s.featureTitle}>Confirmed Active Ingredients</Text>
+      <Text style={s.sectionHint}>
+        Check the actives prominently present in this product.
       </Text>
-      <View style={formStyles.ingredientWrap}>
+      <View style={s.chipsWrap}>
         {ALL_ACTIVE_INGREDIENTS.map((ing) => {
-          const active = selected.some((s) => s.key === ing.key);
+          const active = selected.some((item) => item.key === ing.key);
           return (
-            <Pressable
+            <FilterChip
               key={ing.key}
+              selected={active}
               onPress={() => onToggle(ing)}
-              style={[chipStyles.chip, active && chipStyles.chipActive]}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: active }}
+              accessibilityLabel={ing.displayName}
             >
-              <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
-                {ing.displayName}
-              </Text>
-            </Pressable>
+              {ing.displayName}
+            </FilterChip>
           );
         })}
       </View>
@@ -191,6 +214,7 @@ interface PaoFieldProps {
   onSelectCustom: () => void;
   onCustomTextChange: (t: string) => void;
 }
+
 function PaoField({
   selected,
   isCustom,
@@ -201,43 +225,38 @@ function PaoField({
   onCustomTextChange,
 }: PaoFieldProps) {
   return (
-    <View style={formStyles.fieldGroup}>
-      <View style={formStyles.fieldLabelRow}>
-        <View style={formStyles.fieldLabelIconRow}>
-          <Feather name="clock" size={12} color={colors.textSecondary} />
-          <Text style={formStyles.fieldLabel}>Period After Opening</Text>
-        </View>
-      </View>
+    <View style={s.subSection}>
+      <Text style={s.featureTitle}>Period After Opening</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={formStyles.typeRow}
+        contentContainerStyle={s.chipsRow}
       >
         {PAO_PRESETS.map(({ months, label }) => {
           const active = !isCustom && selected === months;
           return (
-            <Pressable
+            <FilterChip
               key={months}
+              selected={active}
               onPress={() => onSelectPreset(months)}
-              style={[chipStyles.chip, active && chipStyles.chipActive]}
               accessibilityRole="radio"
-              accessibilityState={{ selected: active }}
+              accessibilityState={{ checked: active }}
             >
-              <Text style={[chipStyles.label, active && chipStyles.labelActive]}>{label}</Text>
-            </Pressable>
+              {label}
+            </FilterChip>
           );
         })}
-        <Pressable
+        <FilterChip
+          selected={isCustom}
           onPress={onSelectCustom}
-          style={[chipStyles.chip, isCustom && chipStyles.chipActive]}
           accessibilityRole="radio"
-          accessibilityState={{ selected: isCustom }}
+          accessibilityState={{ checked: isCustom }}
         >
-          <Text style={[chipStyles.label, isCustom && chipStyles.labelActive]}>Custom</Text>
-        </Pressable>
+          Custom
+        </FilterChip>
       </ScrollView>
       {isCustom ? (
-        <View style={formStyles.customPaoRow}>
+        <View style={s.customPaoRow}>
           <TextInput
             value={customText}
             onChangeText={onCustomTextChange}
@@ -245,13 +264,13 @@ function PaoField({
             placeholderTextColor={colors.textTertiary}
             keyboardType="number-pad"
             maxLength={3}
-            style={[formStyles.customPaoInput, error ? formStyles.inputError : null]}
+            style={[s.customPaoInput, error ? s.inputError : null]}
             accessibilityLabel="Custom PAO months"
           />
-          <Text style={formStyles.customPaoUnit}>months</Text>
+          <Text style={s.customPaoUnit}>months</Text>
         </View>
       ) : null}
-      {error ? <Text style={formStyles.fieldError}>{error}</Text> : null}
+      {error ? <Text style={s.fieldError}>{error}</Text> : null}
     </View>
   );
 }
@@ -262,25 +281,17 @@ interface OpenedDateFieldProps {
   onToggle: (v: boolean) => void;
   onDateChange: (t: string) => void;
 }
+
 function OpenedDateField({ isOpened, dateValue, onToggle, onDateChange }: OpenedDateFieldProps) {
   return (
-    <View style={formStyles.fieldGroup}>
-      <View style={formStyles.openedSwitchRow}>
-        <View style={formStyles.fieldLabelIconRow}>
-          <Feather name="package" size={12} color={colors.textSecondary} />
-          <Text style={formStyles.fieldLabel}>Already Opened?</Text>
-        </View>
-        <Switch
-          value={isOpened}
-          onValueChange={onToggle}
-          trackColor={{ false: colors.borderStrong, true: colors.textPrimary }}
-          thumbColor={colors.bgBase}
-          ios_backgroundColor={colors.borderStrong}
-          accessibilityLabel="Mark product as already opened"
-        />
-      </View>
+    <View style={s.subSection}>
+      <Text style={s.featureTitle}>Already Opened?</Text>
+      <Text style={s.featureDesc}>
+        Turn on if this product has already been opened.
+      </Text>
+      <Switch checked={isOpened} onValueChange={onToggle} size="md" />
       {isOpened ? (
-        <View style={formStyles.dateInputWrap}>
+        <View style={s.dateBlock}>
           <TextInput
             value={dateValue}
             onChangeText={onDateChange}
@@ -288,10 +299,10 @@ function OpenedDateField({ isOpened, dateValue, onToggle, onDateChange }: Opened
             placeholderTextColor={colors.textTertiary}
             keyboardType="numbers-and-punctuation"
             maxLength={10}
-            style={formStyles.dateInput}
+            style={s.dateInput}
             accessibilityLabel="Date product was opened"
           />
-          <Text style={formStyles.dateHint}>Date you first opened this product</Text>
+          <Text style={s.dateHint}>Date you first opened this product</Text>
         </View>
       ) : null}
     </View>
@@ -303,9 +314,9 @@ function OpenedDateField({ isOpened, dateValue, onToggle, onDateChange }: Opened
 export default function ManualProductFormScreen({ route, navigation }: Props) {
   const { prefillOBFProduct, editingProductId } = route.params;
 
-  const products = useProductsStore((s) => s.products);
-  const addProduct = useProductsStore((s) => s.addProduct);
-  const updateProduct = useProductsStore((s) => s.updateProduct);
+  const products = useProductsStore((st) => st.products);
+  const addProduct = useProductsStore((st) => st.addProduct);
+  const updateProduct = useProductsStore((st) => st.updateProduct);
 
   const editingProduct = editingProductId
     ? (products.find((p) => p.id === editingProductId) ?? null)
@@ -315,7 +326,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
 
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
-  const [productType, setProductType] = useState<ProductType>('serum');
+  const [productType, setProductType] = useState<ProductType | null>(null);
   const [selectedIngredients, setSelectedIngredients] = useState<ActiveIngredient[]>([]);
   const [fullIngredientText, setFullIngredientText] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
@@ -332,7 +343,6 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
 
   const scrollRef = useRef<ScrollView>(null);
 
-  // Pre-fill once on mount from navigation params
   useEffect(() => {
     if (editingProduct) {
       setName(editingProduct.name);
@@ -389,8 +399,8 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
 
   function toggleIngredient(ing: ActiveIngredient) {
     setSelectedIngredients((prev) =>
-      prev.some((s) => s.key === ing.key)
-        ? prev.filter((s) => s.key !== ing.key)
+      prev.some((item) => item.key === ing.key)
+        ? prev.filter((item) => item.key !== ing.key)
         : [...prev, ing],
     );
   }
@@ -433,7 +443,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       id: editingProduct?.id ?? generateId(),
       name: trimmedName,
       brand: brand.trim() || null,
-      productType,
+      productType: productType ?? 'other',
       imageUrl: null,
       activeIngredients: selectedIngredients,
       activeTags: selectedIngredients.map((i) => i.key),
@@ -459,10 +469,10 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
 
   return (
     <KeyboardAvoidingView
-      style={styles.flex}
+      style={s.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={s.safe}>
         <AppHeader
           title={isEditMode ? 'Edit Product' : 'Add Product'}
           leftAction={
@@ -475,92 +485,105 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
             />
           }
         />
+
         <ScrollView
           ref={scrollRef}
-          style={styles.scroll}
-          contentContainerStyle={styles.content}
+          style={s.scroll}
+          contentContainerStyle={s.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Input
-            label="Product Name *"
-            value={name}
-            onChangeText={(t) => { setName(t); if (nameError) setNameError(null); }}
-            placeholder="e.g. Daily Moisturiser SPF 50"
-            error={nameError}
-            returnKeyType="next"
-          />
+          {/* ── Block 1: Product Basics ──────────────────────────────── */}
+          <Card variant="raised" padding="none" style={s.card}>
+            <View style={s.cardContent}>
+              <SectionEyebrow num="01" label="Product Basics" />
 
-          <Input
-            label="Brand"
-            value={brand}
-            onChangeText={setBrand}
-            placeholder="e.g. La Roche-Posay"
-            returnKeyType="next"
-          />
+              <Input
+                label="Product Name *"
+                value={name}
+                onChangeText={(t) => { setName(t); if (nameError) setNameError(null); }}
+                placeholder="e.g. Daily Moisturiser SPF 50"
+                error={nameError}
+                returnKeyType="next"
+              />
 
-          <View style={formStyles.fieldGroup}>
-            <Text style={formStyles.fieldLabel}>Product Type</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={formStyles.typeRow}
-            >
-              {PRODUCT_TYPE_OPTIONS.map(({ value, label }) => {
-                const active = productType === value;
-                return (
-                  <Pressable
-                    key={value}
-                    onPress={() => setProductType(value)}
-                    style={[chipStyles.chip, active && chipStyles.chipActive]}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: active }}
-                  >
-                    <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
+              <Input
+                label="Brand"
+                value={brand}
+                onChangeText={setBrand}
+                placeholder="e.g. La Roche-Posay"
+                returnKeyType="next"
+              />
+
+              <View style={s.fieldGroup}>
+                <Text style={s.featureTitle}>Product Type</Text>
+                <View style={s.chipsWrap}>
+                  {PRODUCT_TYPE_OPTIONS.map(({ value: val, label }) => (
+                    <FilterChip
+                      key={val}
+                      selected={productType === val}
+                      onPress={() => setProductType(val)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: productType === val }}
+                    >
                       {label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+                    </FilterChip>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </Card>
 
-          <InciField
-            value={fullIngredientText}
-            onChange={(t) => {
-              setFullIngredientText(t);
-              if (t === '') setOcrScanned(false);
-            }}
-            onDetect={detectFromInci}
-            onScan={() => setShowOcrScanner(true)}
-            ocrScanned={ocrScanned}
-          />
+          {/* ── Block 2: Ingredients (INCI) ──────────────────────────── */}
+          <Card variant="raised" padding="none" style={s.card}>
+            <View style={s.cardContent}>
+              <SectionEyebrow num="02" label="Ingredients (INCI)" />
+              <InciField
+                value={fullIngredientText}
+                onChange={(t) => {
+                  setFullIngredientText(t);
+                  if (t === '') setOcrScanned(false);
+                }}
+                onDetect={detectFromInci}
+                onScan={() => setShowOcrScanner(true)}
+                ocrScanned={ocrScanned}
+              />
+              <View style={s.divider} />
+              <IngredientChips
+                selected={selectedIngredients}
+                onToggle={toggleIngredient}
+              />
+            </View>
+          </Card>
 
-          <IngredientChips
-            selected={selectedIngredients}
-            onToggle={toggleIngredient}
-          />
+          {/* ── Block 3: Details ─────────────────────────────────────── */}
+          <Card variant="raised" padding="none" style={s.card}>
+            <View style={s.cardContent}>
+              <SectionEyebrow num="03" label="Details" />
 
-          <PaoField
-            selected={paoMonths}
-            isCustom={isCustomPao}
-            customText={customPaoText}
-            error={paoError}
-            onSelectPreset={handlePaoPreset}
-            onSelectCustom={handlePaoCustomSelect}
-            onCustomTextChange={handlePaoCustomText}
-          />
+              <PaoField
+                selected={paoMonths}
+                isCustom={isCustomPao}
+                customText={customPaoText}
+                error={paoError}
+                onSelectPreset={handlePaoPreset}
+                onSelectCustom={handlePaoCustomSelect}
+                onCustomTextChange={handlePaoCustomText}
+              />
 
-          <OpenedDateField
-            isOpened={isOpened}
-            dateValue={openedDate}
-            onToggle={setIsOpened}
-            onDateChange={setOpenedDate}
-          />
+              <View style={s.divider} />
 
+              <OpenedDateField
+                isOpened={isOpened}
+                dateValue={openedDate}
+                onToggle={setIsOpened}
+                onDateChange={setOpenedDate}
+              />
+            </View>
+          </Card>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={s.footer}>
           <Button fullWidth size="lg" onPress={handleSave} disabled={!name.trim()}>
             {isEditMode ? 'Save Changes' : 'Add to Catalog'}
           </Button>
@@ -590,120 +613,144 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const BADGE_SIZE = 26;
+
+const s = StyleSheet.create({
+  // Screen layout
   flex: { flex: 1 },
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
   },
   scroll: { flex: 1 },
   content: {
     paddingHorizontal: space.gutterScreen,
-    paddingTop: space[4],
-    paddingBottom: space[6],
-    gap: space[5],
+    paddingTop: space[8],
+    paddingBottom: space[20],
+    gap: space[8],
   },
   footer: {
     paddingHorizontal: space.gutterScreen,
     paddingVertical: space[4],
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
   },
-});
 
-const formStyles = StyleSheet.create({
-  fieldGroup: { gap: space[2] },
-  fieldLabelRow: {
+  // Card shell
+  card: {
+    borderRadius: radius.xl,
+  },
+  cardContent: {
+    paddingHorizontal: space[3],
+    paddingVertical: space[6],
+    gap: space[5],
+  },
+
+  // Section eyebrow
+  eyebrow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: space[3],
   },
-  fieldLabel: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 11,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
-    color: colors.textSecondary,
-  },
-  fieldHint: {
-    ...typography.caption,
-    color: colors.textTertiary,
-    marginTop: -space[1],
-  },
-  detectLink: {
-    ...typography.caption,
-    fontFamily: 'DMSans-Medium',
-    color: palette.bottleGreen,
-  },
-  inciNotice: {
-    backgroundColor: colors.surfaceSunken,
-    borderRadius: radius.sm,
-    paddingHorizontal: space[3],
-    paddingVertical: space[2],
-    borderLeftWidth: 3,
-    borderLeftColor: colors.statusWarning,
-  },
-  inciNoticeText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  inciNoticeOcr: {
-    backgroundColor: colors.statusWarningTint,
-    borderRadius: radius.sm,
-    paddingHorizontal: space[3],
-    paddingVertical: space[2] + 2,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.statusWarning,
-    gap: space[1],
-  },
-  inciNoticeOcrTitle: {
-    ...typography.caption,
-    fontFamily: 'DMSans-Medium',
-    color: colors.statusWarning,
-    lineHeight: 18,
-  },
-  inciNoticeOcrBody: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  ocrBtn: {
-    flexDirection: 'row',
+  eyebrowBadge: {
+    width: BADGE_SIZE,
+    height: BADGE_SIZE,
+    borderRadius: BADGE_SIZE / 2,
+    backgroundColor: colors.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[2],
-    paddingHorizontal: space[4],
-    paddingVertical: space[3] + 1,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceRaised,
   },
-  ocrBtnPressed: {
-    backgroundColor: colors.surfaceSunken,
-  },
-  ocrBtnLabel: {
-    ...typography.body,
+  eyebrowNum: {
     fontFamily: 'DMSans-Medium',
+    fontSize: 14,
+    lineHeight: 18,
+    color: colors.textOnDark,
+    includeFontPadding: false,
+  },
+  eyebrowLabel: {
+    flex: 1,
+    fontFamily: 'DMSans-Medium',
+    fontSize: 16,
+    textTransform: 'uppercase',
     color: colors.textPrimary,
   },
-  typeRow: {
+
+  // Field layout helpers
+  fieldGroup: {
+    gap: space[3],
+  },
+  chipsRow: {
     flexDirection: 'row',
     gap: space[2],
-    paddingVertical: 2,
   },
-  fieldLabelIconRow: {
+  chipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[2],
+  },
+
+  sectionHint: {
+    fontFamily: 'DMSans-Regular',
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.textTertiary,
+    marginTop: -space[2],
+  },
+
+  // Sub-section wrapper (uniform gap inside Block 3 sections)
+  subSection: {
+    gap: space[4],
+  },
+
+  // INCI field
+  inciStack: {
+    gap: space[4],
+  },
+  alertTitleWarning: {
+    fontFamily: 'DMSans-Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.statusWarning,
+  },
+  alertBodyWarning: {
+    fontFamily: 'DMSans-Regular',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.statusWarning,
+  },
+  alertBodyInfo: {
+    fontFamily: 'DMSans-Regular',
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.statusInfo,
+  },
+  textArea: {
+    fontFamily: 'DMSans-Regular',
+    fontSize: 14,
+    color: colors.textPrimary,
+    borderWidth: 1.5,
+    borderColor: colors.borderInput,
+    borderRadius: radius.md,
+    padding: space[3],
+    minHeight: 120,
+    backgroundColor: colors.surfaceRaised,
+    includeFontPadding: false,
+    textAlignVertical: 'top',
+  },
+  detectRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-end',
     gap: space[1],
   },
-  openedSwitchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  detectLink: {
+    fontFamily: 'DMSans-Medium',
+    fontSize: 14,
+    color: palette.bottleGreen,
   },
+
+  // PAO custom input
   customPaoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -717,17 +764,36 @@ const formStyles = StyleSheet.create({
     borderColor: colors.borderInput,
     borderRadius: radius.md,
     paddingHorizontal: space[3],
-    paddingVertical: space[2] + 2,
+    paddingVertical: space[3],
     width: 80,
     backgroundColor: colors.surfaceRaised,
     includeFontPadding: false,
   },
   customPaoUnit: {
-    ...typography.body,
+    fontFamily: 'DMSans-Regular',
+    fontSize: 14,
+    lineHeight: 22,
     color: colors.textSecondary,
   },
-  dateInputWrap: {
-    gap: space[1],
+
+  // Already opened
+  featureTitle: {
+    fontFamily: 'DMSans-Medium',
+    fontSize: 17,
+    lineHeight: 24,
+    letterSpacing: -0.2,
+    color: colors.textPrimary,
+  },
+  featureDesc: {
+    fontFamily: 'DMSans-Regular',
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.textSecondary,
+  },
+
+  // Date picker
+  dateBlock: {
+    gap: space[2],
   },
   dateInput: {
     fontFamily: 'DMSans-Regular',
@@ -737,57 +803,31 @@ const formStyles = StyleSheet.create({
     borderColor: colors.borderInput,
     borderRadius: radius.md,
     paddingHorizontal: space[3],
-    paddingVertical: space[2] + 2,
+    paddingVertical: space[3],
     backgroundColor: colors.surfaceRaised,
     includeFontPadding: false,
   },
   dateHint: {
-    ...typography.caption,
-    color: colors.textTertiary,
-  },
-  inputError: {
-    borderColor: colors.statusSOS,
-  },
-  fieldError: {
-    ...typography.caption,
-    color: colors.statusSOS,
-  },
-  ingredientWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space[2],
-  },
-  textArea: {
     fontFamily: 'DMSans-Regular',
     fontSize: 14,
-    color: colors.textPrimary,
-    borderWidth: 1.5,
-    borderColor: colors.borderInput,
-    borderRadius: radius.md,
-    padding: space[3],
-    minHeight: 96,
-    backgroundColor: colors.surfaceRaised,
-    includeFontPadding: false,
+    lineHeight: 20,
+    color: colors.textTertiary,
   },
-});
 
-const chipStyles = StyleSheet.create({
-  chip: {
-    paddingHorizontal: space[3],
-    paddingVertical: space[2] - 1,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceRaised,
+  // Divider between sub-sections
+  divider: {
+    height: 1,
+    backgroundColor: colors.borderDivider,
   },
-  chipActive: {
-    backgroundColor: palette.black,
-    borderColor: palette.black,
+
+  // Error states
+  inputError: {
+    borderColor: colors.statusError,
   },
-  label: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textSecondary,
+  fieldError: {
+    fontFamily: 'DMSans-Regular',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.statusError,
   },
-  labelActive: { color: palette.white },
 });

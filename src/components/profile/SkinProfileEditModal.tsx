@@ -297,12 +297,10 @@ const styles = StyleSheet.create({
     gap: space[5],
   },
   field: { gap: space[2] },
+  // Matches the Input component's default field label
   fieldLabel: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 11,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
-    color: colors.textSecondary,
+    ...typography.label,
+    color: colors.textPrimary,
   },
   chipRow: {
     flexDirection: 'row',

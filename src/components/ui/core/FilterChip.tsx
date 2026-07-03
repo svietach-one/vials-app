@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.controlFill,
   },
   unselected: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
     borderColor: colors.borderStrong,
   },

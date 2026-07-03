@@ -8,6 +8,7 @@ import {
   ConflictResult,
   ConflictRule,
   CosmeticProcedureKey,
+  ProcedureLogKey,
   Product,
   RoutineStep,
   SkinPhototype,
@@ -101,10 +102,11 @@ export class ConflictEngine {
   /**
    * Cross-procedure check (Procedure + Procedure).
    * Uses the procedure collision matrix from conflictRulesDb.
+   * Custom procedures have no collision mappings and never match a rule.
    */
   static checkProcedureCollision(
     newProcedure: CosmeticProcedureKey,
-    activeProcedures: { procedureKey: CosmeticProcedureKey; datePerformed: string }[],
+    activeProcedures: { procedureKey: ProcedureLogKey; datePerformed: string }[],
   ): ClinicalConflictResult | null {
     for (const active of activeProcedures) {
       for (const rule of PROCEDURE_COLLISION_RULES) {

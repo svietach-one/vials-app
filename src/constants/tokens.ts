@@ -13,7 +13,6 @@
 export const palette = {
   white: '#FFFFFF',
   black: '#09090B',
-  bone: '#FAF9F6',
 
   zinc50: '#FAFAFA',
   zinc100: '#F4F4F5',
@@ -29,11 +28,13 @@ export const palette = {
   cabernet: '#800C2E',
   red: '#B40018',
   amber: '#A84C0E',
+  marigold: '#EB970D',
   bottleGreen: '#0F4C3A',
   cobalt: '#1E3A8A',
 
   // Tints (15–18% saturation on white — approximated as flat values)
   cabernetTint: '#F8E9ED',
+  redTint: '#F9E6E8',
   amberTint: '#FDF0E6',
   bottleGreenTint: '#EBF4F1',
   cobaltTint: '#EBF0FA',
@@ -49,7 +50,7 @@ export const colors = {
   // Surfaces
   bgBase: palette.white,
   bgSubtle: palette.zinc50,
-  surfaceCard: palette.bone,
+  surfaceCard: palette.white,
   surfaceRaised: palette.white,
   surfaceSunken: palette.zinc100,
 
@@ -72,8 +73,15 @@ export const colors = {
   controlOn: palette.white,
 
   // Status
+  // Error/destructive (form validation, delete actions) — distinct from
+  // clinical SOS, which stays cabernet.
+  statusError: palette.red,
+  statusErrorTint: palette.redTint,
   statusSOS: palette.cabernet,
   statusWarning: palette.amber,
+  // Warning accent for icons and borders — brighter than statusWarning, which
+  // stays amber for text where #EB970D lacks contrast.
+  statusWarningAccent: palette.marigold,
   statusSafe: palette.bottleGreen,
   statusInfo: palette.cobalt,
 
@@ -83,7 +91,7 @@ export const colors = {
   statusInfoTint: palette.cobaltTint,
 
   statusSOSLine: palette.cabernetLine,
-  statusWarningLine: palette.amberLine,
+  statusWarningLine: palette.marigold,
   statusSafeLine: palette.bottleGreenLine,
   statusInfoLine: palette.cobaltLine,
 } as const;
@@ -162,25 +170,25 @@ export const typography = {
   },
   body: {
     fontFamily: SANS,
-    fontSize: 15,
-    lineHeight: 25,
+    fontSize: 16,
+    lineHeight: 27,
   },
   bodySmall: {
     fontFamily: SANS,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 20,
   },
   label: {
     fontFamily: SANS_MEDIUM,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 1.32,
     textTransform: 'uppercase' as const,
   },
   caption: {
     fontFamily: SANS,
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 20,
   },
 } as const;
 

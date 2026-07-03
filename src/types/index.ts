@@ -27,9 +27,20 @@ export type CosmeticProcedureKey =
 
 export type ProcedureStatus = 'rehab' | 'active' | 'fading' | 'overdue' | 'archived';
 
+/** Key stored on a procedure log: a pre-defined procedure or a user-created one. */
+export type ProcedureLogKey = CosmeticProcedureKey | 'custom';
+
 export interface UserProcedureLog {
   id: string;
-  procedureKey: CosmeticProcedureKey;
+  procedureKey: ProcedureLogKey;
+  /** User-provided display name; required when procedureKey is 'custom'. */
+  customName?: string;
+  /**
+   * Estimated next-repetition date in YYYY-MM-DD format; required when
+   * procedureKey is 'custom'. Treated as the end-of-lifespan (0% efficiency)
+   * baseline for the dynamic fading curve.
+   */
+  estimatedReturnDate?: string;
   /** Skincare date in YYYY-MM-DD format (day boundary at 04:00) */
   datePerformed: string;
   status: ProcedureStatus;

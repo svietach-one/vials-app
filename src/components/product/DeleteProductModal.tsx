@@ -30,7 +30,7 @@ export function DeleteProductModal({ product, onConfirm, onCancel }: DeleteProdu
           <Text style={styles.title}>Remove product?</Text>
           <Text style={styles.body}>
             <Text style={styles.productName}>{product?.name}</Text>
-            {' will be removed from your catalog. Any routine steps linked to it will become empty slots.'}
+            {' will be removed from your catalog. Deleting will also remove its steps from your routines.'}
           </Text>
 
           <View style={styles.row}>

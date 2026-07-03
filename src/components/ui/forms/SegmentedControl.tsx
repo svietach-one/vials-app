@@ -9,7 +9,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radius, shadow, space } from '@/constants/tokens';
+import { colors, radius, shadow, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ export function SegmentedControl({
   );
 
   const segmentHeight = size === 'sm' ? 32 : 40;
-  const labelSize = size === 'sm' ? 13 : 15;
+  const labelSize = size === 'sm' ? 13 : typography.body.fontSize;
 
   const segments = items.map((item) => {
     const active = item.value === value;
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSunken,
     borderWidth: 1,
     borderColor: colors.borderDivider,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
   },
   scrollContent: {
     flexDirection: 'row',
@@ -111,15 +111,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space[4],
-    borderRadius: radius.sm,
+    // Nested inside the 8px track with 3px inset — xs keeps corners concentric
+    borderRadius: radius.xs,
     backgroundColor: 'transparent',
   },
   segmentFlex: {
     flex: 1,
   },
-  // Active pill: white surface with subtle shadow, replicates CSS box-shadow: var(--shadow-xs)
+  // Active pill: monochrome control fill (dark bg, white label)
   segmentActive: {
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: colors.controlFill,
     ...shadow.xs,
   },
 
@@ -129,7 +130,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   labelActive: {
-    color: colors.textPrimary,
+    color: colors.controlOn,
   },
   labelInactive: {
     color: colors.textSecondary,

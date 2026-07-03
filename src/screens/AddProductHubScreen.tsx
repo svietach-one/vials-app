@@ -215,7 +215,7 @@ export default function AddProductHubScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
   },
   content: {
     paddingHorizontal: space.gutterScreen,

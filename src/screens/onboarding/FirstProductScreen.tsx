@@ -180,7 +180,7 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bgBase },
+  safe: { flex: 1, backgroundColor: colors.bgSubtle },
   flex: { flex: 1 },
 
   header: {
@@ -191,7 +191,8 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 11,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 1.32,
     textTransform: 'uppercase',
     color: colors.textSecondary,
@@ -225,12 +226,13 @@ const styles = StyleSheet.create({
   },
   resultName: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 15,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
   resultBrand: {
     fontFamily: 'DMSans-Regular',
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.textSecondary,
   },
 

@@ -83,7 +83,8 @@ function SectionHeader({ title }: { title: string }) {
 const sectionStyles = StyleSheet.create({
   header: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 11,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 1.32,
     textTransform: 'uppercase',
     color: colors.textSecondary,
@@ -310,7 +311,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
   },
   scroll: { flex: 1 },
   content: {

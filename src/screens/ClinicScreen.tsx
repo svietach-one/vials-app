@@ -19,6 +19,7 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import { useProceduresStore } from '@/store/proceduresStore';
+import { getProcedureDisplayName } from '@/utils/procedureLifespanHelpers';
 import type { UserProcedureLog } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -211,15 +212,6 @@ export default function ClinicScreen({ navigation }: Props) {
     return new Date(b.datePerformed).getTime() - new Date(a.datePerformed).getTime();
   });
 
-  const PROCEDURE_LABELS: Record<string, string> = {
-    botox: 'Botox / Dysport',
-    fillers: 'Dermal Fillers',
-    smas_lifting: 'SMAS Lifting',
-    mesotherapy: 'Mesotherapy',
-    chemical_peel_deep: 'Deep Chemical Peel',
-    mechanical_facial: 'Mechanical Facial',
-  };
-
   function renderItem({ item }: { item: UserProcedureLog }) {
     return (
       <ProcedureLifespanCard
@@ -228,7 +220,7 @@ export default function ClinicScreen({ navigation }: Props) {
         onRemove={() =>
           setDeleteTarget({
             id: item.id,
-            name: PROCEDURE_LABELS[item.procedureKey] ?? item.procedureKey,
+            name: getProcedureDisplayName(item),
           })
         }
       />
@@ -297,7 +289,7 @@ export default function ClinicScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
   },
   list: {
     paddingHorizontal: space.gutterScreen,

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { colors, space } from '@/constants/tokens';
+import { colors, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -126,15 +126,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 15,
+    fontSize: typography.body.fontSize,
     lineHeight: 20,
     letterSpacing: -0.15,
     color: colors.textPrimary,
   },
   subtitle: {
     fontFamily: 'DMSans-Regular',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.textSecondary,
     marginTop: 1,
   },

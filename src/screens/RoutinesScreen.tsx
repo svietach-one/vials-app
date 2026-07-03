@@ -12,9 +12,11 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { AddToRoutineSheet } from '@/components/routine/AddToRoutineSheet';
+import { ClinicalRestrictionsBlock } from '@/components/routine/ClinicalRestrictionsBlock';
 import { PlannerBlock } from '@/components/routine/PlannerBlock';
 import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
+import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -168,6 +170,9 @@ export default function RoutinesScreen({ navigation }: Props) {
   const listHeader = useMemo(
     () => (
       <View style={styles.listHeader}>
+        {/* Clinical + seasonal blocks render null when there is nothing to show */}
+        <SeasonalNoticeBanner />
+        <ClinicalRestrictionsBlock />
         <PlannerBlock
           activePeriod={activePeriod}
           onPeriodChange={handlePeriodChange}
@@ -296,7 +301,7 @@ const emptyStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: palette.white,
+    backgroundColor: colors.bgSubtle,
   },
 
   listContent: {
@@ -307,6 +312,7 @@ const styles = StyleSheet.create({
 
   listHeader: {
     marginBottom: space[4],
+    gap: space[3],
   },
 
   cardWrapper: {
@@ -321,5 +327,6 @@ const styles = StyleSheet.create({
 
   addProductFooter: {
     paddingTop: space[4],
+    paddingBottom: 40,
   },
 });

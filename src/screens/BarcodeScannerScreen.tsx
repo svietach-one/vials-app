@@ -241,7 +241,7 @@ const CORNER_SIZE = 24;
 const CORNER_W = 3;
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bgBase },
+  safe: { flex: 1, backgroundColor: colors.bgSubtle },
   fullscreen: { flex: 1, backgroundColor: '#000' },
   loader: { flex: 1 },
 

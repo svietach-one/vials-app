@@ -6,20 +6,16 @@ import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { CLINICAL_RULES_DB } from '@/types';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
+import { getProcedureDisplayName } from '@/utils/procedureLifespanHelpers';
 import type { CosmeticProcedureKey, UserProcedureLog } from '@/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const PROCEDURE_LABELS: Record<CosmeticProcedureKey, string> = {
-  botox: 'Botox',
-  fillers: 'Dermal fillers',
-  smas_lifting: 'SMAS lifting',
-  mesotherapy: 'Mesotherapy',
-  chemical_peel_deep: 'Deep chemical peel',
-  mechanical_facial: 'Mechanical facial',
-};
-
-function isInRehabWindow(proc: UserProcedureLog): boolean {
+function isInRehabWindow(
+  proc: UserProcedureLog,
+): proc is UserProcedureLog & { procedureKey: CosmeticProcedureKey } {
+  // Custom procedures have no clinical rehab rules or restrictions
+  if (proc.procedureKey === 'custom') return false;
   if (proc.status !== 'rehab') return false;
   const config = CLINICAL_RULES_DB[proc.procedureKey];
   const performed = new Date(proc.datePerformed);
@@ -50,7 +46,7 @@ export function ClinicalRestrictionsBlock() {
 
       {rehabProcs.map((proc) => {
         const restrictions = ConflictEngine.getRehabRestrictions(proc.procedureKey);
-        const label = PROCEDURE_LABELS[proc.procedureKey];
+        const label = getProcedureDisplayName(proc);
 
         return (
           <View key={proc.id} style={styles.section}>

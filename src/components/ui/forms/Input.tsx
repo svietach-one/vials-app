@@ -9,7 +9,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radius, space } from '@/constants/tokens';
+import { colors, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,7 +47,7 @@ export function Input({
   const inputRef = useRef<TextInput>(null);
 
   const borderColor = error
-    ? colors.statusSOS
+    ? colors.statusError
     : focused
     ? colors.borderFocus
     : colors.borderInput;
@@ -95,13 +95,10 @@ const styles = StyleSheet.create({
     gap: 7,
   },
 
-  // Mono uppercase apothecary label
+  // Default field label — uppercase apothecary style, black (textPrimary = controlFill)
   label: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 11,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
-    color: colors.textSecondary,
+    ...typography.label,
+    color: colors.textPrimary,
   },
 
   field: {
@@ -112,7 +109,7 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: colors.surfaceRaised,
     borderWidth: 1.5,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
   },
   fieldDisabled: {
     backgroundColor: colors.surfaceSunken,
@@ -129,7 +126,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontFamily: 'DMSans-Regular',
-    fontSize: 15,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
     includeFontPadding: false,
     // Remove default RN TextInput padding on Android
@@ -139,17 +136,17 @@ const styles = StyleSheet.create({
   suffix: {
     flexShrink: 0,
     fontFamily: 'DMSans-Regular',
-    fontSize: 12,
+    fontSize: 14,
     color: colors.textTertiary,
   },
 
   helper: {
     fontFamily: 'DMSans-Regular',
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   helperError: {
-    color: colors.statusSOS,
+    color: colors.statusError,
   },
 });
