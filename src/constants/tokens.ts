@@ -13,7 +13,6 @@
 export const palette = {
   white: '#FFFFFF',
   black: '#09090B',
-  bone: '#FAF9F6',
 
   zinc50: '#FAFAFA',
   zinc100: '#F4F4F5',
@@ -51,7 +50,7 @@ export const colors = {
   // Surfaces
   bgBase: palette.white,
   bgSubtle: palette.zinc50,
-  surfaceCard: palette.bone,
+  surfaceCard: palette.white,
   surfaceRaised: palette.white,
   surfaceSunken: palette.zinc100,
 
