@@ -95,13 +95,9 @@ const styles = StyleSheet.create({
     gap: 7,
   },
 
-  // Mono uppercase apothecary label — black (textPrimary = controlFill)
+  // Default field label — uppercase apothecary style, black (textPrimary = controlFill)
   label: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
+    ...typography.label,
     color: colors.textPrimary,
   },
 

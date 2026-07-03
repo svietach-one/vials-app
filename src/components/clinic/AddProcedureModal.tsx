@@ -390,13 +390,10 @@ const styles = StyleSheet.create({
   section: {
     gap: space[3],
   },
+  // Matches the Input component's default field label
   sectionLabel: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
-    color: colors.textSecondary,
+    ...typography.label,
+    color: colors.textPrimary,
   },
   dateHeader: {
     flexDirection: 'row',
