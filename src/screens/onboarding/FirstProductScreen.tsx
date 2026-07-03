@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   },
   resultName: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 15,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
   resultBrand: {

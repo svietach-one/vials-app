@@ -9,7 +9,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radius, shadow, space } from '@/constants/tokens';
+import { colors, radius, shadow, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ export function SegmentedControl({
   );
 
   const segmentHeight = size === 'sm' ? 32 : 40;
-  const labelSize = size === 'sm' ? 13 : 15;
+  const labelSize = size === 'sm' ? 13 : typography.body.fontSize;
 
   const segments = items.map((item) => {
     const active = item.value === value;

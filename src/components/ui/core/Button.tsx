@@ -9,7 +9,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { palette } from '@/constants/tokens';
+import { palette, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ const sizeContainer = StyleSheet.create({
 // Size: label
 const sizeLabel = StyleSheet.create({
   sm: { fontSize: 14, lineHeight: 18 },
-  md: { fontSize: 15, lineHeight: 20 },
+  md: { fontSize: typography.body.fontSize, lineHeight: 21 },
   lg: { fontSize: 16, lineHeight: 22 },
 });
 

@@ -9,7 +9,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radius, space } from '@/constants/tokens';
+import { colors, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontFamily: 'DMSans-Regular',
-    fontSize: 15,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
     includeFontPadding: false,
     // Remove default RN TextInput padding on Android

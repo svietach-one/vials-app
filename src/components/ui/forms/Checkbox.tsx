@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { colors, palette, radius, space } from '@/constants/tokens';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 15,
+    fontSize: typography.body.fontSize,
     lineHeight: 20,
     color: colors.textPrimary,
   },
