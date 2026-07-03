@@ -170,8 +170,8 @@ export const typography = {
   },
   body: {
     fontFamily: SANS,
-    fontSize: 15,
-    lineHeight: 25,
+    fontSize: 16,
+    lineHeight: 27,
   },
   bodySmall: {
     fontFamily: SANS,
