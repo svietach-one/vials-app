@@ -321,8 +321,24 @@ describe('getTimelineConfig — custom', () => {
     expect(getTimelineConfig(proc).rehabDays).toBe(0);
   });
 
-  it('should clamp to a minimum 1-day span when the return date is not after the performed date', () => {
+  it('should clamp to a minimum 1-day span when the return date equals the performed date', () => {
     const proc = makeCustomProc({ estimatedReturnDate: CUSTOM_PERFORMED });
+
+    const config = getTimelineConfig(proc);
+
+    expect(config.totalEffectMonths).toBeCloseTo(1 / 30.44, 5);
+  });
+
+  it('should clamp to a minimum 1-day span when the return date is before the performed date', () => {
+    const proc = makeCustomProc({ estimatedReturnDate: '2025-06-01' }); // before CUSTOM_PERFORMED
+
+    const config = getTimelineConfig(proc);
+
+    expect(config.totalEffectMonths).toBeCloseTo(1 / 30.44, 5);
+  });
+
+  it('should clamp to a minimum 1-day span when estimatedReturnDate is missing', () => {
+    const proc = makeCustomProc({ estimatedReturnDate: undefined });
 
     const config = getTimelineConfig(proc);
 

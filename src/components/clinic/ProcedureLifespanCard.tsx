@@ -65,7 +65,7 @@ function getTimeLabel(proc: UserProcedureLog, status: ComputedStatus, now: Date)
     case 'active': {
       if (isCustomProcedure(proc)) {
         const daysLeft = Math.max(0, Math.ceil(config.totalEffectMonths * DAYS_PER_MONTH - elapsedDays));
-        return `Est. return ${formatDate(proc.estimatedReturnDate!)} · ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`;
+        return `Est. return ${formatDate(proc.estimatedReturnDate)} · ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`;
       }
       const monthsLeft = Math.ceil(config.fadeTriggerMonth - elapsedMonths);
       return `Month ${Math.floor(elapsedMonths) + 1} of ${config.fadeTriggerMonth} · fading check in ~${monthsLeft} month${monthsLeft !== 1 ? 's' : ''}`;
@@ -74,7 +74,7 @@ function getTimeLabel(proc: UserProcedureLog, status: ComputedStatus, now: Date)
       return `Month ${Math.floor(elapsedMonths) + 1} — check if the effect is still visible`;
     case 'completed':
       return isCustomProcedure(proc)
-        ? `Estimated return date reached (${formatDate(proc.estimatedReturnDate!)})`
+        ? `Estimated return date reached (${formatDate(proc.estimatedReturnDate)})`
         : `Full ${config.totalEffectMonths}-month cycle complete`;
     case 'archived':
       return proc.realDuration

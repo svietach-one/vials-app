@@ -22,7 +22,9 @@ export const PROCEDURE_LABELS: Record<CosmeticProcedureKey, string> = {
   mechanical_facial: 'Mechanical Facial',
 };
 
-export function isCustomProcedure(proc: UserProcedureLog): boolean {
+export function isCustomProcedure(
+  proc: UserProcedureLog,
+): proc is UserProcedureLog & { procedureKey: 'custom'; estimatedReturnDate: string } {
   return proc.procedureKey === 'custom';
 }
 
