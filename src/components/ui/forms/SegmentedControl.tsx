@@ -118,9 +118,9 @@ const styles = StyleSheet.create({
   segmentFlex: {
     flex: 1,
   },
-  // Active pill: white surface with subtle shadow, replicates CSS box-shadow: var(--shadow-xs)
+  // Active pill: monochrome control fill (dark bg, white label)
   segmentActive: {
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: colors.controlFill,
     ...shadow.xs,
   },
 
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   labelActive: {
-    color: colors.textPrimary,
+    color: colors.controlOn,
   },
   labelInactive: {
     color: colors.textSecondary,
