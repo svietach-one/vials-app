@@ -10,11 +10,13 @@ import { Feather } from '@expo/vector-icons';
 import { Input } from '@/components/ui/forms/Input';
 import { Button } from '@/components/ui/core/Button';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
-import { CLINICAL_RULES_DB } from '@/types';
-import type { CosmeticProcedureKey, UserProcedureLog } from '@/types';
+import type { UserProcedureLog } from '@/types';
 import {
   computeStatus,
+  getProcedureDisplayName,
   getProgress,
+  getTimelineConfig,
+  isCustomProcedure,
   type ComputedStatus,
 } from '@/utils/procedureLifespanHelpers';
 
@@ -35,15 +37,6 @@ export interface ProcedureLifespanCardProps {
 const MS_PER_DAY = 86_400_000;
 const DAYS_PER_MONTH = 30.44;
 
-const PROCEDURE_LABELS: Record<CosmeticProcedureKey, string> = {
-  botox: 'Botox / Dysport',
-  fillers: 'Dermal Fillers',
-  smas_lifting: 'SMAS Lifting',
-  mesotherapy: 'Mesotherapy',
-  chemical_peel_deep: 'Deep Chemical Peel',
-  mechanical_facial: 'Mechanical Facial',
-};
-
 const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const STATUS_CONFIG: Record<
@@ -60,7 +53,7 @@ const STATUS_CONFIG: Record<
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getTimeLabel(proc: UserProcedureLog, status: ComputedStatus, now: Date): string {
-  const config = CLINICAL_RULES_DB[proc.procedureKey];
+  const config = getTimelineConfig(proc);
   const elapsedDays = (now.getTime() - new Date(proc.datePerformed).getTime()) / MS_PER_DAY;
   const elapsedMonths = elapsedDays / DAYS_PER_MONTH;
 
@@ -70,13 +63,19 @@ function getTimeLabel(proc: UserProcedureLog, status: ComputedStatus, now: Date)
       return `Day ${Math.ceil(elapsedDays)} of rehab · ${left} day${left !== 1 ? 's' : ''} remaining`;
     }
     case 'active': {
+      if (isCustomProcedure(proc)) {
+        const daysLeft = Math.max(0, Math.ceil(config.totalEffectMonths * DAYS_PER_MONTH - elapsedDays));
+        return `Est. return ${formatDate(proc.estimatedReturnDate!)} · ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`;
+      }
       const monthsLeft = Math.ceil(config.fadeTriggerMonth - elapsedMonths);
       return `Month ${Math.floor(elapsedMonths) + 1} of ${config.fadeTriggerMonth} · fading check in ~${monthsLeft} month${monthsLeft !== 1 ? 's' : ''}`;
     }
     case 'fading':
       return `Month ${Math.floor(elapsedMonths) + 1} — check if the effect is still visible`;
     case 'completed':
-      return `Full ${config.totalEffectMonths}-month cycle complete`;
+      return isCustomProcedure(proc)
+        ? `Estimated return date reached (${formatDate(proc.estimatedReturnDate!)})`
+        : `Full ${config.totalEffectMonths}-month cycle complete`;
     case 'archived':
       return proc.realDuration
         ? `Lasted ~${proc.realDuration} months (your record)`
@@ -275,7 +274,7 @@ export function ProcedureLifespanCard({ proc, onUpdate, onRemove }: ProcedureLif
   const status = computeStatus(proc, now);
   const cfg = STATUS_CONFIG[status];
   const progress = getProgress(proc, now);
-  const procName = PROCEDURE_LABELS[proc.procedureKey];
+  const procName = getProcedureDisplayName(proc);
 
   return (
     <View style={cardStyles.card}>

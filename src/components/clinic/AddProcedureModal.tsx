@@ -19,23 +19,26 @@ import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
 import { generateId } from '@/utils/generateId';
+import { PROCEDURE_LABELS } from '@/utils/procedureLifespanHelpers';
 import { CLINICAL_RULES_DB } from '@/types';
-import type { CosmeticProcedureKey, UserProcedureLog } from '@/types';
+import type { CosmeticProcedureKey, ProcedureLogKey, UserProcedureLog } from '@/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PROCEDURE_OPTIONS: {
-  key: CosmeticProcedureKey;
-  label: string;
-  rehabDays: number;
-  totalMonths: number;
-}[] = [
-  { key: 'botox',             label: 'Botox / Dysport',    rehabDays: 7,  totalMonths: 6  },
-  { key: 'fillers',           label: 'Dermal Fillers',     rehabDays: 14, totalMonths: 12 },
-  { key: 'smas_lifting',      label: 'SMAS Lifting',       rehabDays: 14, totalMonths: 18 },
-  { key: 'mesotherapy',       label: 'Mesotherapy',        rehabDays: 5,  totalMonths: 6  },
-  { key: 'chemical_peel_deep',label: 'Deep Chemical Peel', rehabDays: 14, totalMonths: 3  },
-  { key: 'mechanical_facial', label: 'Mechanical Facial',  rehabDays: 3,  totalMonths: 1  },
+const PRESET_OPTIONS: { key: CosmeticProcedureKey; label: string; meta: string }[] = (
+  Object.keys(CLINICAL_RULES_DB) as CosmeticProcedureKey[]
+).map((key) => {
+  const config = CLINICAL_RULES_DB[key];
+  return {
+    key,
+    label: PROCEDURE_LABELS[key],
+    meta: `${config.rehabDays}d rehab · ${config.totalEffectMonths}mo effect`,
+  };
+});
+
+const PROCEDURE_OPTIONS: { key: ProcedureLogKey; label: string; meta: string }[] = [
+  ...PRESET_OPTIONS,
+  { key: 'custom', label: 'Custom Procedure', meta: 'Your own name · your own timeline' },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -83,9 +86,15 @@ export function AddProcedureModal({
 }: AddProcedureModalProps) {
   const profile = useProfileStore((s) => s.profile);
 
-  const [selectedKey, setSelectedKey] = useState<CosmeticProcedureKey>('botox');
+  const [selectedKey, setSelectedKey] = useState<ProcedureLogKey>('botox');
   const [dateText, setDateText] = useState('');
   const [dateError, setDateError] = useState<string | null>(null);
+  const [customName, setCustomName] = useState('');
+  const [customNameError, setCustomNameError] = useState<string | null>(null);
+  const [returnDateText, setReturnDateText] = useState('');
+  const [returnDateError, setReturnDateError] = useState<string | null>(null);
+
+  const isCustom = selectedKey === 'custom';
 
   // Reset on open
   useEffect(() => {
@@ -93,28 +102,34 @@ export function AddProcedureModal({
       setSelectedKey('botox');
       setDateText(todayFormatted());
       setDateError(null);
+      setCustomName('');
+      setCustomNameError(null);
+      setReturnDateText('');
+      setReturnDateError(null);
     }
   }, [visible]);
 
-  // ── Conflict checks (reactive) ────────────────────────────────────────────
+  // ── Conflict checks (reactive; presets only — custom has no clinical mappings) ──
 
   const activeProcedures = procedures
     .filter((p) => p.status !== 'archived')
     .map((p) => ({ procedureKey: p.procedureKey, datePerformed: p.datePerformed }));
 
   const collisionResult = useMemo(
-    () => ConflictEngine.checkProcedureCollision(selectedKey, activeProcedures),
+    () => (isCustom ? null : ConflictEngine.checkProcedureCollision(selectedKey, activeProcedures)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [selectedKey, procedures],
   );
 
   const seasonalResult = useMemo(
-    () => ConflictEngine.checkSeasonalConflict(selectedKey),
+    () => (isCustom ? null : ConflictEngine.checkSeasonalConflict(selectedKey)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [selectedKey],
   );
 
   const phototypeResult = useMemo(
-    () => ConflictEngine.checkPhototypeConflict(selectedKey, profile?.phototype ?? null),
+    () => (isCustom ? null : ConflictEngine.checkPhototypeConflict(selectedKey, profile?.phototype ?? null)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [selectedKey, profile?.phototype],
   );
 
@@ -131,6 +146,38 @@ export function AddProcedureModal({
       return;
     }
     setDateError(null);
+
+    if (isCustom) {
+      const name = customName.trim();
+      if (!name) {
+        setCustomNameError('Enter a name for this procedure');
+        return;
+      }
+      setCustomNameError(null);
+
+      const isoReturnDate = parseDateInput(returnDateText);
+      if (!isoReturnDate) {
+        setReturnDateError('Enter a valid date in DD/MM/YYYY format');
+        return;
+      }
+      if (isoReturnDate <= isoDate) {
+        setReturnDateError('Must be after the date performed');
+        return;
+      }
+      setReturnDateError(null);
+
+      onSave({
+        id: generateId(),
+        procedureKey: 'custom',
+        customName: name,
+        estimatedReturnDate: isoReturnDate,
+        datePerformed: isoDate,
+        // Custom procedures have no rehab rules; status is derived from dates anyway
+        status: 'active',
+        deferralCount: 0,
+      });
+      return;
+    }
 
     const log: UserProcedureLog = {
       id: generateId(),
@@ -197,14 +244,26 @@ export function AddProcedureModal({
                       <Text style={[optStyles.label, active && optStyles.labelActive]}>
                         {opt.label}
                       </Text>
-                      <Text style={optStyles.meta}>
-                        {`${opt.rehabDays}d rehab · ${opt.totalMonths}mo effect`}
-                      </Text>
+                      <Text style={optStyles.meta}>{opt.meta}</Text>
                     </View>
                   </Pressable>
                 );
               })}
             </View>
+
+            {/* Custom procedure name */}
+            {isCustom ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Procedure Name</Text>
+                <Input
+                  value={customName}
+                  onChangeText={(t) => { setCustomName(t); if (customNameError) setCustomNameError(null); }}
+                  placeholder="e.g. Laser Resurfacing"
+                  error={customNameError}
+                  returnKeyType="done"
+                />
+              </View>
+            ) : null}
 
             {/* Date performed */}
             <View style={styles.section}>
@@ -228,6 +287,24 @@ export function AddProcedureModal({
                 returnKeyType="done"
               />
             </View>
+
+            {/* Estimated return date (custom only) */}
+            {isCustom ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Estimated Return Date</Text>
+                <Input
+                  value={returnDateText}
+                  onChangeText={(t) => { setReturnDateText(t); if (returnDateError) setReturnDateError(null); }}
+                  placeholder="DD / MM / YYYY"
+                  keyboardType="numbers-and-punctuation"
+                  error={returnDateError}
+                  returnKeyType="done"
+                />
+                <Text style={styles.fieldHint}>
+                  When you expect to repeat this procedure — used to estimate the effect lifespan and fading window.
+                </Text>
+              </View>
+            ) : null}
 
             {/* Warnings */}
             {collisionResult ? (
@@ -330,6 +407,10 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
     color: palette.bottleGreen,
+  },
+  fieldHint: {
+    ...typography.caption,
+    color: colors.textTertiary,
   },
   footer: {
     paddingHorizontal: space.gutterScreen,

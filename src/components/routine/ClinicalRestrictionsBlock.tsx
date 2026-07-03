@@ -19,7 +19,11 @@ const PROCEDURE_LABELS: Record<CosmeticProcedureKey, string> = {
   mechanical_facial: 'Mechanical facial',
 };
 
-function isInRehabWindow(proc: UserProcedureLog): boolean {
+function isInRehabWindow(
+  proc: UserProcedureLog,
+): proc is UserProcedureLog & { procedureKey: CosmeticProcedureKey } {
+  // Custom procedures have no clinical rehab rules or restrictions
+  if (proc.procedureKey === 'custom') return false;
   if (proc.status !== 'rehab') return false;
   const config = CLINICAL_RULES_DB[proc.procedureKey];
   const performed = new Date(proc.datePerformed);
