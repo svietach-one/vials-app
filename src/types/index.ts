@@ -1,13 +1,31 @@
 // ─── Active ingredients ───────────────────────────────────────────────────────
 
+/**
+ * Canonical keys mirror the class keys in src/constants/rulesets/actives.json.
+ * Legacy keys ('retinol', 'vitamin_c', 'spf_chemical') remain valid for tags
+ * persisted before the ruleset migration; getProductActiveKeys() normalizes
+ * them to canonical keys via the ruleset's legacyKeyMap at read time.
+ */
 export type ActiveIngredientKey =
-  | 'retinol'
+  // Canonical (actives.json classes)
+  | 'retinoid'
   | 'aha'
   | 'bha'
-  | 'vitamin_c'
+  | 'pha'
+  | 'vitamin_c_pure'
+  | 'vitamin_c_derivative'
   | 'niacinamide'
-  | 'copper_peptides'
   | 'benzoyl_peroxide'
+  | 'azelaic_acid'
+  | 'copper_peptides'
+  | 'spf_filters'
+  | 'ceramides'
+  | 'hyaluronic_acid'
+  | 'panthenol'
+  | 'cica'
+  // Legacy (pre-ruleset persisted tags, normalized on read)
+  | 'retinol'
+  | 'vitamin_c'
   | 'spf_chemical';
 
 export interface ActiveIngredient {
@@ -30,11 +48,22 @@ export type ProcedureStatus = 'rehab' | 'active' | 'fading' | 'overdue' | 'archi
 /** Key stored on a procedure log: a pre-defined procedure or a user-created one. */
 export type ProcedureLogKey = CosmeticProcedureKey | 'custom';
 
+/** Body zones a clinical procedure was applied to. */
+export type TreatmentZone = 'face' | 'neck' | 'decollete';
+
 export interface UserProcedureLog {
   id: string;
   procedureKey: ProcedureLogKey;
   /** User-provided display name; required when procedureKey is 'custom'. */
   customName?: string;
+  /**
+   * Recovery window in days for custom procedures, resolved from the symptom
+   * presets (Light Care 0 / Redness 3 / Trauma 7) or manual input.
+   * Pre-defined procedures read rehabDays from CLINICAL_RULES_DB instead.
+   */
+  customRehabDays?: number;
+  /** Zones the procedure was applied to. Absent is treated as ['face']. */
+  affectedZones?: TreatmentZone[];
   /**
    * Estimated next-repetition date in YYYY-MM-DD format; required when
    * procedureKey is 'custom'. Treated as the end-of-lifespan (0% efficiency)
@@ -207,6 +236,23 @@ export interface ClinicalConflictResult {
   severity: ConflictSeverity;
   explanation: string;
   suggestion: string;
+}
+
+// ─── Routine engine: rehab shield widget ──────────────────────────────────────
+
+/**
+ * State of the top-anchored rehabilitation widget on the Routines screen.
+ * Derived per render from procedure logs — never persisted. Null when no
+ * procedure has remaining rehab days (long-term effects like an active Botox
+ * cycle never produce a widget; they live on the Clinic timeline only).
+ */
+export interface RehabWidgetState {
+  procedureName: string;
+  /** 1-based day inside the rehab window. */
+  currentDay: number;
+  totalDays: number;
+  barrierStatus: 'disrupted' | 'sensitive';
+  affectedZones: TreatmentZone[];
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

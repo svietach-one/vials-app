@@ -1,0 +1,310 @@
+{
+  "version": "2026-07-04",
+  "legacyKeyMap": {
+    "retinol": "retinoid",
+    "vitamin_c": "vitamin_c_pure",
+    "spf_chemical": "spf_filters"
+  },
+  "classes": {
+    "retinoid": {
+      "displayName": "Retinoids",
+      "matchers": [
+        { "pattern": "\\bretin(ol|al|aldehyde)\\b", "potency": "high" },
+        { "pattern": "\\bretinyl\\s+(palmitate|acetate)\\b", "potency": "low" },
+        { "pattern": "\\bhydroxypinacolone\\s+retinoate\\b", "potency": "medium" },
+        { "pattern": "\\bretinyl\\s+retinoate\\b", "potency": "medium" },
+        { "pattern": "\\b(tretinoin|adapalene|tazarotene)\\b", "potency": "rx" }
+      ],
+      "negativePatterns": ["retin(ol|al)[\\s-]*free"],
+      "properties": {
+        "photosensitizing": true,
+        "exfoliating": false,
+        "irritancy": 3,
+        "barrierRepair": false
+      },
+      "allowedPeriods": ["pm"],
+      "stacking": { "maxPerPeriod": 1 },
+      "cycleClass": "retinoid"
+    },
+    "aha": {
+      "displayName": "AHA Acids",
+      "matchers": [
+        { "pattern": "\\b(glycolic|lactic|mandelic|tartaric|malic)\\s+acid\\b", "potency": "high" }
+      ],
+      "negativePatterns": ["\\bsodium\\s+lactate\\b"],
+      "properties": {
+        "photosensitizing": true,
+        "exfoliating": true,
+        "irritancy": 3,
+        "barrierRepair": false
+      },
+      "allowedPeriods": ["pm"],
+      "stacking": { "maxPerPeriod": 1, "sharedCapWith": ["bha", "pha"] },
+      "cycleClass": "exfoliant"
+    },
+    "bha": {
+      "displayName": "BHA (Salicylic Acid)",
+      "matchers": [
+        { "pattern": "\\bsalicylic\\s+acid\\b", "potency": "high" },
+        { "pattern": "\\bbetaine\\s+salicylate\\b", "potency": "medium" },
+        { "pattern": "\\b(salix\\s+alba|willow\\s+bark)\\b", "potency": "low" }
+      ],
+      "properties": {
+        "photosensitizing": true,
+        "exfoliating": true,
+        "irritancy": 2,
+        "barrierRepair": false
+      },
+      "allowedPeriods": ["pm"],
+      "stacking": { "maxPerPeriod": 1, "sharedCapWith": ["aha", "pha"] },
+      "cycleClass": "exfoliant"
+    },
+    "pha": {
+      "displayName": "PHA Acids",
+      "matchers": [
+        { "pattern": "\\b(gluconolactone|lactobionic\\s+acid|maltobionic\\s+acid)\\b", "potency": "low" }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": true,
+        "irritancy": 1,
+        "barrierRepair": false
+      },
+      "allowedPeriods": ["am", "pm"],
+      "stacking": { "maxPerPeriod": 1, "sharedCapWith": ["aha", "bha"] },
+      "cycleClass": "exfoliant"
+    },
+    "vitamin_c_pure": {
+      "displayName": "Vitamin C (L-ascorbic acid)",
+      "matchers": [
+        { "pattern": "\\b(l-)?ascorbic\\s+acid\\b", "potency": "high" }
+      ],
+      "negativePatterns": ["\\b(\\d-o-)?ethyl\\s+ascorbic\\s+acid\\b"],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 2,
+        "barrierRepair": false,
+        "lowPh": true
+      },
+      "allowedPeriods": ["am", "pm"]
+    },
+    "vitamin_c_derivative": {
+      "displayName": "Vitamin C Derivatives",
+      "matchers": [
+        { "pattern": "\\b(sodium|magnesium)\\s+ascorbyl\\s+phosphate\\b", "potency": "medium" },
+        { "pattern": "\\bethyl\\s+ascorbic\\s+acid\\b", "potency": "medium" },
+        { "pattern": "\\bascorbyl\\s+(glucoside|tetraisopalmitate|palmitate)\\b", "potency": "medium" },
+        { "pattern": "\\btetrahexyldecyl\\s+ascorbate\\b", "potency": "medium" }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 1,
+        "barrierRepair": false,
+        "lowPh": false
+      },
+      "allowedPeriods": ["am", "pm"]
+    },
+    "niacinamide": {
+      "displayName": "Niacinamide",
+      "matchers": [
+        { "pattern": "\\b(niacinamide|nicotinamide)\\b", "potency": "medium" }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 1,
+        "barrierRepair": true
+      },
+      "allowedPeriods": ["am", "pm"]
+    },
+    "benzoyl_peroxide": {
+      "displayName": "Benzoyl Peroxide",
+      "matchers": [
+        { "pattern": "\\bbenzoyl\\s+peroxide\\b", "potency": "high" }
+      ],
+      "properties": {
+        "photosensitizing": true,
+        "exfoliating": false,
+        "irritancy": 3,
+        "barrierRepair": false
+      },
+      "allowedPeriods": ["am", "pm"],
+      "stacking": { "maxPerPeriod": 1 }
+    },
+    "azelaic_acid": {
+      "displayName": "Azelaic Acid",
+      "matchers": [
+        { "pattern": "\\bazelaic\\s+acid\\b", "potency": "medium" },
+        { "pattern": "\\bpotassium\\s+azeloyl\\s+diglycinate\\b", "potency": "low" }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 1,
+        "barrierRepair": false
+      },
+      "allowedPeriods": ["am", "pm"]
+    },
+    "copper_peptides": {
+      "displayName": "Copper Peptides",
+      "matchers": [
+        { "pattern": "\\bcopper\\s+tripeptide-1\\b", "potency": "medium" },
+        { "pattern": "\\bghk-cu\\b", "potency": "medium" },
+        { "pattern": "\\bcopper\\s+peptides?\\b", "potency": "medium" }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 1,
+        "barrierRepair": true
+      },
+      "allowedPeriods": ["am", "pm"]
+    },
+    "spf_filters": {
+      "displayName": "UV Filters (SPF)",
+      "matchers": [
+        { "pattern": "\\b(zinc\\s+oxide|titanium\\s+dioxide)\\b" },
+        { "pattern": "\\b(avobenzone|octocrylene|homosalate|octinoxate|octisalate|oxybenzone)\\b" },
+        { "pattern": "\\b(butyl\\s+methoxydibenzoylmethane|ethylhexyl\\s+methoxycinnamate|ethylhexyl\\s+salicylate|benzophenone-3)\\b" },
+        { "pattern": "\\bbis-ethylhexyloxyphenol\\s+methoxyphenyl\\s+triazine\\b" },
+        { "pattern": "\\bmethylene\\s+bis-benzotriazolyl\\s+tetramethylbutylphenol\\b" }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 0,
+        "barrierRepair": false,
+        "spf": true
+      },
+      "allowedPeriods": ["am"]
+    },
+    "ceramides": {
+      "displayName": "Ceramides & Barrier Lipids",
+      "matchers": [
+        { "pattern": "\\bceramide\\b|\\bceramide\\s+(np|ap|eop|ns|eos|as|\\d)\\b" },
+        { "pattern": "\\b(cholesterol|phytosphingosine)\\b" }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 0,
+        "barrierRepair": true
+      },
+      "allowedPeriods": ["am", "pm"]
+    },
+    "hyaluronic_acid": {
+      "displayName": "Hyaluronic Acid",
+      "matchers": [
+        { "pattern": "\\b(sodium\\s+)?hyaluron(ic\\s+acid|ate)\\b" }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 0,
+        "barrierRepair": false
+      },
+      "allowedPeriods": ["am", "pm"]
+    },
+    "panthenol": {
+      "displayName": "Panthenol (Pro-Vitamin B5)",
+      "matchers": [
+        { "pattern": "\\b(d-)?panthenol\\b" },
+        { "pattern": "\\bpantothenic\\s+acid\\b" }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 0,
+        "barrierRepair": true
+      },
+      "allowedPeriods": ["am", "pm"]
+    },
+    "cica": {
+      "displayName": "Centella Asiatica (Cica)",
+      "matchers": [
+        { "pattern": "\\bcentella\\s+asiatica\\b" },
+        { "pattern": "\\b(madecassoside|asiaticoside|asiatic\\s+acid|madecassic\\s+acid)\\b" }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 0,
+        "barrierRepair": true
+      },
+      "allowedPeriods": ["am", "pm"]
+    }
+  },
+  "pairRules": [
+    {
+      "id": "rule_retinol_aha",
+      "a": "retinoid",
+      "b": "aha",
+      "scope": "same_period",
+      "severity": "avoid",
+      "resolutions": ["separate_days", "freeze_lower_priority"],
+      "exceptions": [
+        { "whenPotencyAtMost": { "a": "low" }, "downgradeTo": "caution" }
+      ],
+      "explanation": "Both Retinoids and AHA (Glycolic/Lactic acid) accelerate skin cell turnover. Combining them in the same routine causes severe redness, peeling, and chemical irritation.",
+      "suggestion": "Separate them: use AHA 2 nights a week, and your retinoid on the other nights. Never layer them together."
+    },
+    {
+      "id": "rule_retinol_bha",
+      "a": "retinoid",
+      "b": "bha",
+      "scope": "same_period",
+      "severity": "avoid",
+      "resolutions": ["separate_periods", "separate_days"],
+      "exceptions": [
+        { "whenPotencyAtMost": { "b": "low" }, "downgradeTo": "caution" }
+      ],
+      "explanation": "Salicylic Acid (BHA) strips lipids, while retinoids alter deep cell behavior. Layering them compromises the moisture barrier, triggering breakout flare-ups and dermatitis.",
+      "suggestion": "Use BHA in your morning cleanser step (wash-off) and your retinoid strictly at night."
+    },
+    {
+      "id": "rule_vitc_niacinamide",
+      "a": "vitamin_c_pure",
+      "b": "niacinamide",
+      "scope": "same_period",
+      "severity": "caution",
+      "resolutions": ["separate_periods", "keep_with_note"],
+      "explanation": "Pure Vitamin C (Ascorbic Acid) requires a low pH to work. Niacinamide raises skin pH, which can neutralize Vitamin C efficiency and cause temporary facial flushing.",
+      "suggestion": "Apply Vitamin C first in the morning, wait 10 minutes to absorb, or move Niacinamide to your evening routine."
+    },
+    {
+      "id": "rule_benzoyl_retinol",
+      "a": "benzoyl_peroxide",
+      "b": "retinoid",
+      "scope": "same_period",
+      "severity": "avoid",
+      "resolutions": ["separate_periods", "separate_days"],
+      "explanation": "Benzoyl Peroxide oxidizes retinoids, rendering both compounds completely useless while doubling skin dryness.",
+      "suggestion": "Use Benzoyl Peroxide as a spot treatment in the morning, and your retinoid at night."
+    },
+    {
+      "id": "rule_copper_peptides_acids",
+      "a": "copper_peptides",
+      "b": ["aha", "bha", "pha"],
+      "scope": "same_period",
+      "severity": "avoid",
+      "resolutions": ["separate_periods", "separate_days"],
+      "explanation": "Acids alter the optimal pH required for copper peptides, potentially breaking down the peptide structure and neutralizing its remodeling benefits.",
+      "suggestion": "Use copper peptides in the morning and acids at night, or alternate them on different days."
+    },
+    {
+      "id": "rule_vitc_pure_acids",
+      "a": "vitamin_c_pure",
+      "b": ["aha", "bha"],
+      "scope": "same_period",
+      "severity": "caution",
+      "resolutions": ["separate_periods", "keep_with_note"],
+      "exceptions": [
+        { "whenPotencyAtMost": { "b": "low" }, "downgradeTo": "keep_with_note" }
+      ],
+      "explanation": "Layering multiple low-pH acids dramatically increases the risk of skin irritation and barrier disruption.",
+      "suggestion": "Keep pure Vitamin C in the morning and exfoliating acids in the evening."
+    }
+  ]
+}

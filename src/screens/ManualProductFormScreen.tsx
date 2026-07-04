@@ -24,7 +24,7 @@ import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { colors, palette, radius, space } from '@/constants/tokens';
-import { parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
+import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 import { generateId } from '@/utils/generateId';
 import type {
   ActiveIngredient,
@@ -42,14 +42,15 @@ type Props = NativeStackScreenProps<CatalogStackParamList, 'ManualProductForm'>;
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ALL_ACTIVE_INGREDIENTS: ActiveIngredient[] = [
-  { key: 'retinol', displayName: 'Retinol' },
+  { key: 'retinoid', displayName: 'Retinoids' },
   { key: 'aha', displayName: 'AHA' },
   { key: 'bha', displayName: 'BHA' },
-  { key: 'vitamin_c', displayName: 'Vitamin C' },
+  { key: 'vitamin_c_pure', displayName: 'Vitamin C (Pure)' },
+  { key: 'vitamin_c_derivative', displayName: 'Vitamin C (Derivative)' },
   { key: 'niacinamide', displayName: 'Niacinamide' },
   { key: 'copper_peptides', displayName: 'Copper Peptides' },
   { key: 'benzoyl_peroxide', displayName: 'Benzoyl Peroxide' },
-  { key: 'spf_chemical', displayName: 'SPF (Chemical)' },
+  { key: 'spf_filters', displayName: 'UV Filters (SPF)' },
 ];
 
 const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
@@ -87,7 +88,9 @@ function todayIso(): string {
 }
 
 function keysToIngredients(keys: ActiveIngredientKey[]): ActiveIngredient[] {
-  return keys.map((key) => {
+  return keys.map((rawKey) => {
+    // Legacy persisted tags ('retinol', 'vitamin_c', …) resolve to their canonical chip
+    const key = normalizeActiveKey(rawKey);
     const match = ALL_ACTIVE_INGREDIENTS.find((a) => a.key === key);
     return match ?? { key, displayName: key };
   });
