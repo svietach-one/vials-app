@@ -22,12 +22,24 @@ export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
 };
 
 export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
-  retinol: 'Retinol',
+  // Canonical (actives.json classes)
+  retinoid: 'Retinoids',
   aha: 'AHA',
   bha: 'BHA',
-  vitamin_c: 'Vitamin C',
+  pha: 'PHA',
+  vitamin_c_pure: 'Vitamin C (Pure)',
+  vitamin_c_derivative: 'Vitamin C (Derivative)',
   niacinamide: 'Niacinamide',
-  copper_peptides: 'Copper Peptides',
   benzoyl_peroxide: 'Benzoyl Peroxide',
+  azelaic_acid: 'Azelaic Acid',
+  copper_peptides: 'Copper Peptides',
+  spf_filters: 'UV Filters (SPF)',
+  ceramides: 'Ceramides',
+  hyaluronic_acid: 'Hyaluronic Acid',
+  panthenol: 'Panthenol',
+  cica: 'Centella (Cica)',
+  // Legacy (pre-ruleset persisted tags)
+  retinol: 'Retinol',
+  vitamin_c: 'Vitamin C',
   spf_chemical: 'SPF (Chemical)',
 };

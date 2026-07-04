@@ -43,7 +43,19 @@ type Props = NativeStackScreenProps<CatalogStackParamList, 'Catalog'>;
 
 // ─── Module-level filter constants ────────────────────────────────────────────
 
-const ACTIVES_KEYS: ActiveIngredientKey[] = ['retinol', 'aha', 'bha', 'vitamin_c', 'benzoyl_peroxide'];
+// Both vocabularies: canonical keys (new tags) + legacy keys (pre-migration tags)
+const ACTIVES_KEYS: ActiveIngredientKey[] = [
+  'retinoid',
+  'retinol',
+  'aha',
+  'bha',
+  'pha',
+  'vitamin_c_pure',
+  'vitamin_c_derivative',
+  'vitamin_c',
+  'benzoyl_peroxide',
+  'azelaic_acid',
+];
 const SOOTHING_KEYS: ActiveIngredientKey[] = ['niacinamide', 'copper_peptides'];
 const HYDRATION_TYPES: ProductType[] = ['moisturizer', 'cream', 'lotion', 'oil', 'essence', 'toner'];
 
