@@ -102,6 +102,21 @@ export const CLINICAL_RULES_DB: Record<CosmeticProcedureKey, ClinicalTimelineCon
 /** Fitzpatrick phototypes grouped for UX (no racial labels in UI) */
 export type SkinPhototype = 'type_1_2' | 'type_3_4' | 'type_5_6';
 
+/**
+ * Full Fitzpatrick scale (1–6). Derived from the grouped {@link SkinPhototype}
+ * during migration and kept in sync by profileStore setters. The onboarding UI
+ * flips to six visual cards in a later step; until then the grouped field
+ * remains the authoritative input and this numeric field mirrors it.
+ */
+export type FitzpatrickType = 1 | 2 | 3 | 4 | 5 | 6;
+
+/** Bundled city → coordinates entry used for weather-driven season masks. */
+export interface CityLocation {
+  name: string;
+  lat: number;
+  lon: number;
+}
+
 export type SkinType = 'oily' | 'dry' | 'combination' | 'normal';
 
 export type SkinConcern =
@@ -120,8 +135,19 @@ export interface UserProfile {
   gender: 'female' | 'male' | null;
   age: number | null;
   skinType: SkinType | null;
-  /** Critical for laser/peel safety checks */
+  /**
+   * Grouped phototype (authoritative input while onboarding uses 3 cards).
+   * Critical for laser/peel safety checks.
+   */
   phototype: SkinPhototype | null;
+  /**
+   * Numeric Fitzpatrick scale mirror of {@link phototype}, added in schema v2.
+   * Re-derived whenever phototype changes (see profileStore); consumed by the
+   * routine engine's phototype modifiers.
+   */
+  fitzpatrick: FitzpatrickType | null;
+  /** Selected city for weather-driven season masks; null until the user picks one. */
+  city: CityLocation | null;
   concerns: SkinConcern[];
   spfSensitivity: boolean;
   onboardingCompleted: boolean;
@@ -175,6 +201,12 @@ export interface Product {
   paoMonths: number | null;
   /** Soft-hide flag. When true the product is excluded from routine step lists and rendered dimmed in the catalog. Absence is treated as false. */
   isHidden?: boolean;
+  /**
+   * Set true by the schema-v2 migration when a legacy `vitamin_c` tag was
+   * auto-mapped to `vitamin_c_pure`. Drives the product-detail infobox that
+   * lets the user reclassify it as a derivative. Absence is treated as false.
+   */
+  vitaminCAutoMigrated?: boolean;
 }
 
 // ─── Routine target ───────────────────────────────────────────────────────────
@@ -193,6 +225,13 @@ export interface RoutineStep {
    * An empty array means "every day" (default behaviour).
    */
   scheduledDays: number[];
+  /**
+   * True when the user manually re-added a step the engine had frozen. The
+   * routine engine preserves pinned steps except during an `avoid`-severity
+   * clinical freeze. Defaulted to false by the schema-v2 migration; absence is
+   * treated as false.
+   */
+  userPinned?: boolean;
 }
 
 export interface Routine {
@@ -257,11 +296,48 @@ export interface RehabWidgetState {
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
+/**
+ * Routine cadence model. `fixed` maps actives to static weekdays (default,
+ * zero tracking); `dynamic` opts into behaviour-driven 4-day skin cycling with
+ * the "Complete My Routine" check-in.
+ */
+export type RoutineCycleType = 'fixed' | 'dynamic';
+
+// ─── Tracking (dynamic cycling + adaptation) ──────────────────────────────────
+
+/** Position in the fixed 4-night loop: exfoliation → retinoid → recovery ×2. */
+export type CyclePhaseIndex = 0 | 1 | 2 | 3;
+
+/**
+ * Dynamic-cycling state machine (research §1.4). Driven by check-ins, not the
+ * calendar: a missed night pauses the cycle (the uncompleted phase carries
+ * forward), so the failure mode always degrades toward more recovery.
+ */
+export interface CycleState {
+  cyclePhaseIndex: CyclePhaseIndex;
+  /** Skincare date (YYYY-MM-DD) of the last check-in; null before the first. */
+  lastAppliedDate: string | null;
+}
+
+/**
+ * Per-product application counter driving the adaptation pipeline (research
+ * §2.6). Incremented on check-in for every product visible in that day's
+ * view; never decrements.
+ */
+export interface ProductApplicationStats {
+  productId: string;
+  count: number;
+  /** Skincare date of the last counted application. */
+  lastAppliedDate: string;
+}
+
 export interface AppSettings {
   gamificationEnabled: boolean;
   hasSeenLocalDataWarning: boolean;
   /** Keys of banners the user has permanently dismissed, e.g. 'banner_2026_summer'. */
   dismissedBanners: string[];
+  /** Routine cadence model. Defaults to 'fixed'. */
+  routineCycleType: RoutineCycleType;
 }
 
 // ─── Catalog filters ──────────────────────────────────────────────────────────

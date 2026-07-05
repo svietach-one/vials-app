@@ -21,7 +21,12 @@ import { ConflictEngine } from '@/utils/conflictEngine';
 import { generateId } from '@/utils/generateId';
 import { PROCEDURE_LABELS } from '@/utils/procedureLifespanHelpers';
 import { CLINICAL_RULES_DB } from '@/types';
-import type { CosmeticProcedureKey, ProcedureLogKey, UserProcedureLog } from '@/types';
+import type {
+  CosmeticProcedureKey,
+  ProcedureLogKey,
+  TreatmentZone,
+  UserProcedureLog,
+} from '@/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -39,6 +44,25 @@ const PRESET_OPTIONS: { key: CosmeticProcedureKey; label: string; meta: string }
 const PROCEDURE_OPTIONS: { key: ProcedureLogKey; label: string; meta: string }[] = [
   ...PRESET_OPTIONS,
   { key: 'custom', label: 'Custom Procedure', meta: 'Your own name · your own timeline' },
+];
+
+/**
+ * Single-tap symptom presets resolving the mandatory recovery window for
+ * custom procedures (research §1.5 V2). 'manual' opens a day input.
+ */
+type SymptomPresetKey = 'light_care' | 'redness' | 'trauma' | 'manual';
+
+const SYMPTOM_PRESETS: { key: SymptomPresetKey; label: string; meta: string; days: number | null }[] = [
+  { key: 'light_care', label: 'Light Care', meta: 'Hydration, massage, mask — no downtime', days: 0 },
+  { key: 'redness', label: 'Redness / Peeling', meta: 'Mild barrier disruption — 3 days', days: 3 },
+  { key: 'trauma', label: 'Trauma / Laser', meta: 'Micro-needling, deep peel, injections — 7 days', days: 7 },
+  { key: 'manual', label: 'Custom', meta: 'Set your own downtime in days', days: null },
+];
+
+const ZONE_OPTIONS: { key: TreatmentZone; label: string }[] = [
+  { key: 'face', label: 'Face' },
+  { key: 'neck', label: 'Neck' },
+  { key: 'decollete', label: 'Décolleté' },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -93,6 +117,10 @@ export function AddProcedureModal({
   const [customNameError, setCustomNameError] = useState<string | null>(null);
   const [returnDateText, setReturnDateText] = useState('');
   const [returnDateError, setReturnDateError] = useState<string | null>(null);
+  const [symptomPreset, setSymptomPreset] = useState<SymptomPresetKey | null>(null);
+  const [manualDaysText, setManualDaysText] = useState('');
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [zones, setZones] = useState<TreatmentZone[]>(['face']);
 
   const isCustom = selectedKey === 'custom';
 
@@ -106,8 +134,22 @@ export function AddProcedureModal({
       setCustomNameError(null);
       setReturnDateText('');
       setReturnDateError(null);
+      setSymptomPreset(null);
+      setManualDaysText('');
+      setRecoveryError(null);
+      setZones(['face']);
     }
   }, [visible]);
+
+  function toggleZone(zone: TreatmentZone) {
+    setZones((current) => {
+      if (current.includes(zone)) {
+        // At least one zone must stay selected
+        return current.length > 1 ? current.filter((z) => z !== zone) : current;
+      }
+      return [...current, zone];
+    });
+  }
 
   // ── Conflict checks (reactive; presets only — custom has no clinical mappings) ──
 
@@ -155,25 +197,51 @@ export function AddProcedureModal({
       }
       setCustomNameError(null);
 
-      const isoReturnDate = parseDateInput(returnDateText);
-      if (!isoReturnDate) {
-        setReturnDateError('Enter a valid date in DD/MM/YYYY format');
-        return;
+      // Resolve the recovery window from the symptom preset / manual input
+      let rehabDays: number | null = null;
+      if (symptomPreset === 'manual') {
+        const parsed = Number(manualDaysText.trim());
+        if (!Number.isInteger(parsed) || parsed < 0 || parsed > 90) {
+          setRecoveryError('Enter the downtime in days (0–90)');
+          return;
+        }
+        rehabDays = parsed;
+      } else if (symptomPreset) {
+        rehabDays = SYMPTOM_PRESETS.find((p) => p.key === symptomPreset)?.days ?? null;
       }
-      if (isoReturnDate <= isoDate) {
-        setReturnDateError('Must be after the date performed');
-        return;
+
+      // Return date: optional, but the recovery window is mandatory —
+      // rehab days and/or a next-procedure date (research §1.5 V2)
+      let isoReturnDate: string | null = null;
+      if (returnDateText.trim()) {
+        isoReturnDate = parseDateInput(returnDateText);
+        if (!isoReturnDate) {
+          setReturnDateError('Enter a valid date in DD/MM/YYYY format');
+          return;
+        }
+        if (isoReturnDate <= isoDate) {
+          setReturnDateError('Must be after the date performed');
+          return;
+        }
       }
       setReturnDateError(null);
+
+      if (rehabDays === null && !isoReturnDate) {
+        setRecoveryError('Choose a recovery preset or set the estimated return date');
+        return;
+      }
+      setRecoveryError(null);
 
       onSave({
         id: generateId(),
         procedureKey: 'custom',
         customName: name,
-        estimatedReturnDate: isoReturnDate,
+        ...(rehabDays !== null ? { customRehabDays: rehabDays } : {}),
+        ...(isoReturnDate ? { estimatedReturnDate: isoReturnDate } : {}),
+        affectedZones: zones,
         datePerformed: isoDate,
-        // Custom procedures have no rehab rules; status is derived from dates anyway
-        status: 'active',
+        // A resolved downtime > 0 starts inside the rehab window
+        status: rehabDays !== null && rehabDays > 0 ? 'rehab' : 'active',
         deferralCount: 0,
       });
       return;
@@ -182,6 +250,7 @@ export function AddProcedureModal({
     const log: UserProcedureLog = {
       id: generateId(),
       procedureKey: selectedKey,
+      affectedZones: zones,
       datePerformed: isoDate,
       status: 'rehab',
       deferralCount: 0,
@@ -288,14 +357,83 @@ export function AddProcedureModal({
               />
             </View>
 
+            {/* Recovery window (custom only — mandatory via preset and/or return date) */}
+            {isCustom ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Recovery Window</Text>
+                {SYMPTOM_PRESETS.map((preset) => {
+                  const active = symptomPreset === preset.key;
+                  return (
+                    <Pressable
+                      key={preset.key}
+                      onPress={() => {
+                        setSymptomPreset(active ? null : preset.key);
+                        setRecoveryError(null);
+                      }}
+                      style={[optStyles.row, active && optStyles.rowActive]}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: active }}
+                    >
+                      <View style={[optStyles.radio, active && optStyles.radioActive]}>
+                        {active ? <View style={optStyles.radioDot} /> : null}
+                      </View>
+                      <View style={optStyles.content}>
+                        <Text style={[optStyles.label, active && optStyles.labelActive]}>
+                          {preset.label}
+                        </Text>
+                        <Text style={optStyles.meta}>{preset.meta}</Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+                {symptomPreset === 'manual' ? (
+                  <Input
+                    value={manualDaysText}
+                    onChangeText={(t) => { setManualDaysText(t); setRecoveryError(null); }}
+                    placeholder="Downtime in days, e.g. 5"
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                  />
+                ) : null}
+                {recoveryError ? <Text style={styles.errorText}>{recoveryError}</Text> : null}
+              </View>
+            ) : null}
+
+            {/* Treated zones */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Treated Zones</Text>
+              <View style={styles.zoneRow}>
+                {ZONE_OPTIONS.map(({ key, label }) => {
+                  const active = zones.includes(key);
+                  return (
+                    <Pressable
+                      key={key}
+                      onPress={() => toggleZone(key)}
+                      style={[styles.zoneChip, active && styles.zoneChipActive]}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: active }}
+                      accessibilityLabel={`${label} zone`}
+                    >
+                      <Text style={[styles.zoneChipText, active && styles.zoneChipTextActive]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={styles.fieldHint}>
+                Routines are face routines — a procedure that does not touch the face never pauses your products.
+              </Text>
+            </View>
+
             {/* Estimated return date (custom only) */}
             {isCustom ? (
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Estimated Return Date</Text>
                 <Input
                   value={returnDateText}
-                  onChangeText={(t) => { setReturnDateText(t); if (returnDateError) setReturnDateError(null); }}
-                  placeholder="DD / MM / YYYY"
+                  onChangeText={(t) => { setReturnDateText(t); if (returnDateError) setReturnDateError(null); setRecoveryError(null); }}
+                  placeholder="DD / MM / YYYY (optional with a preset)"
                   keyboardType="numbers-and-punctuation"
                   error={returnDateError}
                   returnKeyType="done"
@@ -408,6 +546,34 @@ const styles = StyleSheet.create({
   fieldHint: {
     ...typography.caption,
     color: colors.textTertiary,
+  },
+  errorText: {
+    ...typography.caption,
+    color: colors.statusError,
+  },
+  zoneRow: {
+    flexDirection: 'row',
+    gap: space[2],
+  },
+  zoneChip: {
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderDivider,
+    backgroundColor: colors.bgBase,
+  },
+  zoneChipActive: {
+    borderColor: palette.black,
+    backgroundColor: colors.bgSubtle,
+  },
+  zoneChipText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  zoneChipTextActive: {
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
   },
   footer: {
     paddingHorizontal: space.gutterScreen,

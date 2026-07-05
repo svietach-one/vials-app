@@ -11,12 +11,12 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { PhototypeCard } from '@/components/onboarding/PhototypeCard';
+import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
 import { Button } from '@/components/ui/core/Button';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
-import type { SkinConcern, SkinPhototype, SkinType } from '@/types';
+import type { FitzpatrickType, SkinConcern, SkinType } from '@/types';
 import type { OnboardingStackParamList } from '@/navigation/AppNavigator';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ const CONCERNS: { value: SkinConcern; label: string }[] = [
   { value: 'dark_spots', label: 'Dark spots' },
 ];
 
-const PHOTOTYPES: SkinPhototype[] = ['type_1_2', 'type_3_4', 'type_5_6'];
+const FITZPATRICK_TYPES: FitzpatrickType[] = [1, 2, 3, 4, 5, 6];
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
   const [gender, setGender] = useState<'female' | 'male' | null>(null);
   const [ageText, setAgeText] = useState('');
   const [skinType, setSkinType] = useState<SkinType | null>(null);
-  const [phototype, setPhototype] = useState<SkinPhototype | null>(null);
+  const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(null);
   const [concerns, setConcerns] = useState<SkinConcern[]>([]);
 
   function toggleConcern(c: SkinConcern) {
@@ -68,7 +68,7 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
       gender,
       age: Number.isFinite(age) && age > 0 ? age : null,
       skinType,
-      phototype,
+      fitzpatrick,
       concerns,
     };
   }
@@ -84,7 +84,7 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
     navigation.replace('FirstProduct');
   }
 
-  const canContinue = skinType !== null && phototype !== null;
+  const canContinue = skinType !== null && fitzpatrick !== null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -167,12 +167,12 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
             hint="Select the option that best describes how your skin reacts to sun."
           >
             <View style={styles.phototypeRow} accessibilityRole="radiogroup">
-              {PHOTOTYPES.map((p) => (
-                <PhototypeCard
+              {FITZPATRICK_TYPES.map((p) => (
+                <FitzpatrickCard
                   key={p}
-                  phototype={p}
-                  selected={phototype === p}
-                  onSelect={() => setPhototype(p)}
+                  type={p}
+                  selected={fitzpatrick === p}
+                  onSelect={() => setFitzpatrick(p)}
                 />
               ))}
             </View>

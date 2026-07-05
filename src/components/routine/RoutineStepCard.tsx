@@ -45,6 +45,11 @@ export interface RoutineStepCardProps {
   isEditMode?: boolean;
   /** Called when the user taps the delete button in edit mode. */
   onDelete?: () => void;
+  /**
+   * Adaptation week (1–4) while the engine micro-doses this product
+   * (research §2.6). Renders the ⏳ status line — informational, not a warning.
+   */
+  adaptationWeek?: number | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -56,6 +61,7 @@ export function RoutineStepCard({
   drag,
   isEditMode = false,
   onDelete,
+  adaptationWeek,
 }: RoutineStepCardProps) {
   const hasConflict = !!conflictingProductName;
 
@@ -150,12 +156,24 @@ export function RoutineStepCard({
     </View>
   ) : null;
 
+  // Status, not a warning — the one deliberate visibility exception (§2.6)
+  const adaptationRow =
+    adaptationWeek != null ? (
+      <View style={styles.adaptationRow}>
+        <Text style={styles.adaptationText} numberOfLines={2}>
+          ⏳ Adaptation Phase (Week {adaptationWeek} of 4) — frequency managed to
+          prevent purging
+        </Text>
+      </View>
+    ) : null;
+
   // Edit mode: plain View root — no RNGH handler competing with drag handle
   if (isEditMode) {
     return (
       <View style={cardStyle}>
         {mainRow}
         {conflictRow}
+        {adaptationRow}
       </View>
     );
   }
@@ -171,6 +189,7 @@ export function RoutineStepCard({
     >
       {mainRow}
       {conflictRow}
+      {adaptationRow}
     </TouchableOpacity>
   );
 }
@@ -290,6 +309,18 @@ const styles = StyleSheet.create({
     paddingTop: space[2],
     borderTopWidth: 1,
     borderTopColor: palette.amberLine,
+  },
+  adaptationRow: {
+    marginTop: space[2],
+    paddingTop: space[2],
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
+  },
+  adaptationText: {
+    fontFamily: 'DMSans-Regular',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
   },
   conflictText: {
     fontFamily: 'DMSans-Regular',

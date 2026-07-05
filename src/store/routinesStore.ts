@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 
-import { loadJson, saveJson, STORAGE_KEYS } from '@/services/storage';
+import {
+  loadJson,
+  loadSchemaVersion,
+  persistSchemaVersionIfBehind,
+  saveJson,
+  STORAGE_KEYS,
+} from '@/services/storage';
 import { generateId } from '@/utils/generateId';
+import { migrateRoutines } from '@/utils/routineEngine/migrations';
 import type { ProductType, Routine, RoutineStep } from '@/types';
 
 // ─── Default routines ─────────────────────────────────────────────────────────
@@ -52,22 +59,19 @@ export const useRoutinesStore = create<RoutinesState>((set, get) => ({
   hydrate: async () => {
     const raw = await loadJson<Routine[]>(STORAGE_KEYS.routines, []);
 
-    // Normalise scheduledDays for steps stored before the field was added
-    let routines = raw.map((r) => ({
-      ...r,
-      steps: r.steps.map((s) => ({
-        ...s,
-        scheduledDays: s.scheduledDays ?? [],
-      })),
-    }));
-
     // Seed default AM/PM routines on first launch
-    if (routines.length === 0) {
-      routines = DEFAULT_ROUTINES;
-      void saveJson(STORAGE_KEYS.routines, routines);
+    if (raw.length === 0) {
+      set({ routines: DEFAULT_ROUTINES, hydrated: true });
+      void saveJson(STORAGE_KEYS.routines, DEFAULT_ROUTINES);
+      persistSchemaVersionIfBehind(await loadSchemaVersion());
+      return;
     }
 
+    // Normalise scheduledDays and default userPinned to the current schema.
+    const routines = migrateRoutines(raw);
     set({ routines, hydrated: true });
+    if (routines !== raw) void saveJson(STORAGE_KEYS.routines, routines);
+    persistSchemaVersionIfBehind(await loadSchemaVersion());
   },
 
   setRoutines: (routines) => {

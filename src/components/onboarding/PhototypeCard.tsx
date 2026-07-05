@@ -1,8 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, shadow } from '@/constants/tokens';
-import type { SkinPhototype } from '@/types';
+import { colors, radius, shadow, typography } from '@/constants/tokens';
+import type { FitzpatrickType, SkinPhototype } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +51,59 @@ export function PhototypeCard({ phototype, selected, onSelect }: PhototypeCardPr
   );
 }
 
+// ─── Fitzpatrick 1–6 variant (FE-9 / research §2.4) ───────────────────────────
+
+interface FitzpatrickCardProps {
+  type: FitzpatrickType;
+  selected: boolean;
+  onSelect: () => void;
+}
+
+/** Skin-tone swatches for the full scale — consumer-friendly, no racial labels. */
+const FITZPATRICK_SHADE: Record<FitzpatrickType, string> = {
+  1: '#F8E7D1',
+  2: '#F5DEB3',
+  3: '#E0AC69',
+  4: '#C68642',
+  5: '#8D5524',
+  6: '#6B3A2A',
+};
+
+/** Sun-reaction behavior per type (visual card + full a11y description). */
+const FITZPATRICK_A11Y: Record<FitzpatrickType, string> = {
+  1: 'Type one: very fair skin, always burns, never tans, highest UV sensitivity',
+  2: 'Type two: fair skin, burns easily, tans minimally',
+  3: 'Type three: light olive skin, sometimes burns, tans gradually',
+  4: 'Type four: olive or light brown skin, rarely burns, tans easily, prone to dark spots',
+  5: 'Type five: brown skin, very rarely burns, elevated post-inflammatory pigmentation risk',
+  6: 'Type six: deep brown skin, almost never burns, highest laser and peel caution',
+};
+
+/**
+ * One of the six Fitzpatrick onboarding cards. Compact — six render in two
+ * rows of three; the roman numeral is the only text (≥14 px), the swatch
+ * carries the meaning, and the full description lives on the a11y label.
+ */
+export function FitzpatrickCard({ type, selected, onSelect }: FitzpatrickCardProps) {
+  const NUMERALS: Record<FitzpatrickType, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI' };
+  return (
+    <Pressable
+      onPress={onSelect}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={FITZPATRICK_A11Y[type]}
+      style={({ pressed }) => [
+        styles.card,
+        selected && styles.cardSelected,
+        pressed && styles.cardPressed,
+      ]}
+    >
+      <View style={[styles.swatchSmall, { backgroundColor: FITZPATRICK_SHADE[type] }]} />
+      <Text style={[styles.numeral, selected && styles.numeralSelected]}>{NUMERALS[type]}</Text>
+    </Pressable>
+  );
+}
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -77,6 +130,20 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: radius.pill,
+  },
+  swatchSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+  },
+  numeral: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: 6,
+  },
+  numeralSelected: {
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
   },
   selectedRing: {
     position: 'absolute',

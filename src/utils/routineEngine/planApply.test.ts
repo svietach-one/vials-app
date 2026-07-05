@@ -1,0 +1,192 @@
+import type { Product, RoutineStep } from '@/types';
+import type { RoutinePlan } from '@/utils/routineEngine/generate';
+import { buildDraftSummaryLines, buildStepsFromPlan } from '@/utils/routineEngine/planApply';
+import type { FrozenItem, PlannedStep } from '@/utils/routineEngine/planTypes';
+import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
+
+function makePlanned(productId: string, overrides: Partial<PlannedStep> = {}): PlannedStep {
+  return {
+    productId,
+    productType: 'serum',
+    scheduledDays: [],
+    slotIndex: 6,
+    score: 0,
+    addedAt: '2026-01-01',
+    ...overrides,
+  };
+}
+
+function makeStep(productId: string, overrides: Partial<RoutineStep> = {}): RoutineStep {
+  return {
+    id: `step-${productId}`,
+    productType: 'serum',
+    productId,
+    hidden: false,
+    scheduledDays: [],
+    ...overrides,
+  };
+}
+
+function makeIdFactory(): () => string {
+  let n = 0;
+  return () => {
+    n += 1;
+    return `new-${n}`;
+  };
+}
+
+describe('buildStepsFromPlan', () => {
+  it('creates steps for planned products with fresh ids', () => {
+    const steps = buildStepsFromPlan([makePlanned('a'), makePlanned('b')], [], [], makeIdFactory());
+    expect(steps.map((s) => s.productId)).toEqual(['a', 'b']);
+    expect(steps.map((s) => s.id)).toEqual(['new-1', 'new-2']);
+    expect(steps.every((s) => s.hidden === false && s.userPinned === false)).toBe(true);
+  });
+
+  it('reuses the existing step id and pin flag when the product stays', () => {
+    const existing = [makeStep('a', { userPinned: true })];
+    const steps = buildStepsFromPlan([makePlanned('a')], existing, [], makeIdFactory());
+    expect(steps).toEqual([
+      expect.objectContaining({ id: 'step-a', productId: 'a', userPinned: true }),
+    ]);
+  });
+
+  it('carries the plan schedule, not the old one', () => {
+    const existing = [makeStep('a', { scheduledDays: [1, 3] })];
+    const steps = buildStepsFromPlan(
+      [makePlanned('a', { scheduledDays: [2, 6] })],
+      existing,
+      [],
+      makeIdFactory(),
+    );
+    expect(steps[0].scheduledDays).toEqual([2, 6]);
+  });
+
+  it('re-appends pinned steps the plan dropped — the engine never removes a pin', () => {
+    const existing = [makeStep('kept'), makeStep('pinned', { userPinned: true, scheduledDays: [5] })];
+    const steps = buildStepsFromPlan([makePlanned('kept')], existing, [], makeIdFactory());
+    expect(steps.map((s) => s.productId)).toEqual(['kept', 'pinned']);
+    expect(steps[1].scheduledDays).toEqual([5]);
+  });
+
+  it('drops a pinned step under a clinical freeze — safety beats preference', () => {
+    const existing = [makeStep('pinned', { userPinned: true })];
+    const frozen: FrozenItem[] = [
+      { productId: 'pinned', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-18' },
+    ];
+    const steps = buildStepsFromPlan([], existing, frozen, makeIdFactory());
+    expect(steps).toHaveLength(0);
+  });
+
+  it('keeps a pinned step frozen by a pair rule (no expiry) — pins beat preferences', () => {
+    const existing = [makeStep('pinned', { userPinned: true })];
+    const frozen: FrozenItem[] = [
+      { productId: 'pinned', reasonCode: 'rule_retinol_aha', ruleId: 'rule_retinol_aha' },
+    ];
+    const steps = buildStepsFromPlan([], existing, frozen, makeIdFactory());
+    expect(steps.map((s) => s.productId)).toEqual(['pinned']);
+  });
+
+  it('preserves hidden steps untouched — they are user-managed', () => {
+    const existing = [makeStep('hidden-one', { hidden: true, scheduledDays: [0] })];
+    const steps = buildStepsFromPlan([makePlanned('a')], existing, [], makeIdFactory());
+    expect(steps).toEqual([
+      expect.objectContaining({ productId: 'a' }),
+      expect.objectContaining({ productId: 'hidden-one', hidden: true, scheduledDays: [0] }),
+    ]);
+  });
+
+  it('drops unpinned, unhidden steps the plan replaced', () => {
+    const existing = [makeStep('old')];
+    const steps = buildStepsFromPlan([makePlanned('new-product')], existing, [], makeIdFactory());
+    expect(steps.map((s) => s.productId)).toEqual(['new-product']);
+  });
+});
+
+describe('buildDraftSummaryLines', () => {
+  const products: Product[] = [
+    { id: 'ret', name: 'Retinol Serum' },
+    { id: 'aha', name: 'Glycolic Toner' },
+    { id: 'vitc', name: 'Vitamin C' },
+  ].map((p) => ({
+    ...p,
+    brand: null,
+    productType: 'serum' as const,
+    imageUrl: null,
+    activeIngredients: [],
+    fullIngredientText: null,
+    usageTime: 'both' as const,
+    openBeautyFactsId: null,
+    addedAt: '2026-01-01',
+    notes: null,
+    openedDate: null,
+    paoMonths: null,
+  }));
+
+  function makePlan(overrides: Partial<RoutinePlan> = {}): RoutinePlan {
+    return {
+      rulesetVersion: '2026-07-04',
+      generatedFor: '2026-07-05',
+      periods: { morning: [], evening: [] },
+      frozen: [],
+      placeholders: [],
+      decisions: [],
+      ...overrides,
+    };
+  }
+
+  it('summarizes a day split by naming both products', () => {
+    const plan = makePlan({
+      decisions: [
+        { action: 'day_split', productId: 'aha', ruleId: 'rule_retinol_aha' },
+        { action: 'day_split', productId: 'ret', ruleId: 'rule_retinol_aha' },
+      ],
+    });
+    const lines = buildDraftSummaryLines(plan, [], products);
+    expect(lines[0]).toBe('Glycolic Toner and Retinol Serum split across nights');
+  });
+
+  it('summarizes paused products with the short unfreeze date', () => {
+    const plan = makePlan({
+      frozen: [{ productId: 'aha', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-17' }],
+    });
+    const lines = buildDraftSummaryLines(plan, [], products);
+    expect(lines).toContain('1 product paused until Jul 17');
+  });
+
+  it('narrates pair-rule freezes (no expiry) instead of letting products vanish silently', () => {
+    const plan = makePlan({
+      frozen: [{ productId: 'aha', reasonCode: 'rule_retinol_aha', ruleId: 'rule_retinol_aha' }],
+    });
+    const lines = buildDraftSummaryLines(plan, [], products);
+    expect(lines).toContain('Glycolic Toner set aside to avoid a conflict');
+  });
+
+  it('summarizes moves and additions from the diff', () => {
+    const diff: PlanDiffEntry[] = [
+      { productId: 'vitc', kind: 'moved', from: 'evening', to: 'morning' },
+      { productId: 'ret', kind: 'added', to: 'evening' },
+    ];
+    const lines = buildDraftSummaryLines(makePlan(), diff, products);
+    expect(lines).toEqual(['Vitamin C moved to the morning routine', '1 product added']);
+  });
+
+  it('never emits more than three lines', () => {
+    const plan = makePlan({
+      decisions: [
+        { action: 'day_split', productId: 'aha' },
+        { action: 'day_split', productId: 'ret' },
+      ],
+      frozen: [{ productId: 'vitc', reasonCode: 'x', until: '2026-07-20' }],
+    });
+    const diff: PlanDiffEntry[] = [
+      { productId: 'vitc', kind: 'moved', from: 'evening', to: 'morning' },
+      { productId: 'ret', kind: 'added', to: 'evening' },
+    ];
+    expect(buildDraftSummaryLines(plan, diff, products)).toHaveLength(3);
+  });
+
+  it('returns no lines for a plan with nothing noteworthy', () => {
+    expect(buildDraftSummaryLines(makePlan(), [], products)).toEqual([]);
+  });
+});

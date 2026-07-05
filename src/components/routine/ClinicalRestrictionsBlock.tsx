@@ -27,7 +27,10 @@ function isInRehabWindow(
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
- * Renders lifestyle restrictions for procedures currently in their rehab window.
+ * Renders LIFESTYLE restrictions for procedures currently in their rehab
+ * window (no sauna, no massage…). Its former product-facing role (which
+ * products are safe/paused) moved to the RehabWidget + the engine's paused
+ * rows in FE-10 — this block never mentions products anymore.
  * Returns null when there are no active rehab procedures.
  */
 export function ClinicalRestrictionsBlock() {
@@ -59,14 +62,6 @@ export function ClinicalRestrictionsBlock() {
                 <Text style={styles.restrictionText}>{text}</Text>
               </View>
             ))}
-
-            {/* Safe row — bottleGreen */}
-            <View style={styles.row}>
-              <Feather name="check-circle" size={13} color={palette.bottleGreen} style={styles.rowIcon} />
-              <Text style={[styles.restrictionText, styles.safeText]}>
-                Gentle cleanser and barrier moisturizer OK
-              </Text>
-            </View>
           </View>
         );
       })}
@@ -118,8 +113,5 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: palette.cabernet,
     flex: 1,
-  },
-  safeText: {
-    color: palette.bottleGreen,
   },
 });

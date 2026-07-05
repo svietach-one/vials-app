@@ -147,6 +147,38 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           ) : (
             <Tag tone="neutral">None confirmed</Tag>
           )}
+
+          {/* Vitamin C auto-migration infobox (research §2.1 — Story 9): the
+              legacy tag was conservatively mapped to pure vitamin C; one tap
+              reclassifies it as a derivative and clears the marker. */}
+          {product.vitaminCAutoMigrated === true &&
+          activeTags.includes('vitamin_c_pure') ? (
+            <InlineAlert
+              tone="info"
+              icon={<Feather name="info" size={14} color={colors.statusInfo} />}
+              title="Treated as pure vitamin C"
+            >
+              <Text style={styles.infoboxText}>
+                We migrated this product&apos;s vitamin C tag to the pure
+                (L-ascorbic acid) form — the safe default for conflict checks.{' '}
+                <Text
+                  style={styles.infoboxLink}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mark as a vitamin C derivative"
+                  onPress={() => {
+                    updateProduct(product.id, {
+                      activeTags: activeTags.map((key) =>
+                        key === 'vitamin_c_pure' ? 'vitamin_c_derivative' : key,
+                      ),
+                      vitaminCAutoMigrated: false,
+                    });
+                  }}
+                >
+                  This is a derivative
+                </Text>
+              </Text>
+            </InlineAlert>
+          ) : null}
         </View>
 
         {/* ── Full Formula ─────────────────────────────────────────────── */}
@@ -292,6 +324,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: space[2],
+  },
+  infoboxText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  infoboxLink: {
+    fontFamily: 'DMSans-Medium',
+    color: colors.textLink,
+    textDecorationLine: 'underline',
   },
   formulaText: {
     ...typography.bodySmall,

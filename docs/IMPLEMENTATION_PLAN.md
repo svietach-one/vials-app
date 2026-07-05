@@ -155,6 +155,43 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 
 ---
 
+## Phase 8 — Routine Engine & UX Improvements (V2) — task slug `routine-engine`
+
+**Goal:** Deterministic rule-based engine that generates/validates AM+PM
+routines from the Shelf, applying ingredient conflicts, clinical freeze
+windows, adaptation micro-dosing, phototype severity, and weather-driven
+seasonal masks — surfaced through a minimalist Draft Preview (Diff Mode) UX.
+
+**Authority documents (V2 supersedes anything conflicting above):**
+- Spec: `docs/specs/2026-07-04-routine-engine.md` (acceptance criteria)
+- Tech design: `docs/tech-design/routine-engine.md` (tasks FE-1…FE-9)
+- Research + binding decision log: `docs/research/routine-engine.md` §4
+- Tracking: `progress/routine-engine.md` / `progress/routine-engine-handoff.json`
+
+**Build order (dependencies flow downward):**
+
+| Step | Tech-design tasks | Deliverable |
+|---|---|---|
+| 8.1 Rulesets & types | FE-1 | `src/constants/rulesets/*.json` + typed loaders; `phototype: 1–6`, `customRehabDays`, `userPinned`, cycle/tracking types in `src/types/index.ts` |
+| 8.2 Facts & migrations | FE-2 | Regex INCI parser (word boundaries, negations, potency), `ProductFacts`, `vitamin_c → vitamin_c_pure` + grouped-phototype migrations on hydrate |
+| 8.3 Context & effective ruleset | FE-3 | Procedure phases (incl. `custom_default`), phototype modifiers, `SeasonMask` input |
+| 8.4 Core pipeline | FE-4, FE-5 | eligibility → slotting → greedy resolution → mandates → ordering; `generatePlan` / `validateRoutines` / `findSubstitute` / `getDailyView` |
+| 8.5 Tracking & adaptation | FE-6 | Cycle state machine, "Complete My Routine" counters, adaptation phases + virtual-count fallback |
+| 8.6 Weather & seasons | FE-7 | Open-Meteo client (weekly, cached, silent calendar fallback), bundled `cities.json`, city autocomplete field |
+| 8.7 Generation UX | FE-8 | Empty-state generate card, bottom `✨ Optimize or Regenerate` strip, Draft Preview (Diff Mode) with Both/AM/PM/Discard commit |
+| 8.8 Surrounding UX | FE-9 | Symptom presets + affectedZones picker in AddProcedureModal, check-in button (dynamic mode, Today), adaptation ⏳ status line, frozen "Paused until" rows, vitamin C infobox, 6-card phototype onboarding, cycle-type settings toggle |
+| 8.9 Rehab shield widget (V3) | FE-10 | Top-anchored `RehabWidget` on Routines screen driven by `buildRehabWidgetState`/`applyRehabFilter` (✅ engine module + types + 15 unit tests already shipped in `src/utils/routineEngine/rehabFilter.ts`); long-term procedures stay Clinic-only; wire `getTimelineConfig` custom rehabDays to `customRehabDays` |
+
+**Process gate (agent protocol):** qa-lead writes integration/E2E tests from
+the spec's Given/When/Then criteria **before** engineer starts 8.1; engineer
+implements until QA tests pass; tech-lead reviews against
+`.claude/rules/architecture-review.md`.
+
+**New dependencies:** none — Open-Meteo is keyless via built-in `fetch`
+(inside `src/services/weather/` only), and the city dataset ships bundled.
+
+---
+
 ## Dependency Installation Checklist
 
 | Package | Phase | Expo Go Compatible? | Status |
@@ -176,5 +213,7 @@ All above require `npx expo install <package>` (not `npm install`) for correct S
 - **Offline Manual Infallibility:** If network lookup services fail or are unavailable, the UI must seamlessly unlock the manual `ProductForm` so the user's shelf-addition flow remains entirely unblocked — no dead-ends and no error screens requiring a network retry.
 - All stores remain synchronous after hydration (no `await` on writes); persistence is via AsyncStorage throughout Phase 1
 - ConflictEngine is never called from inside a store — only from the screen/component render cycle
-- Gamification default is OFF — settingsStore initializes `gamificationEnabled: false`
-- No AI features ship in Phase 1 MVP — Anthropic service files remain stubs
+- Routine engine (`src/utils/routineEngine/`) stays pure: no React, no store imports, injected `now`/state; orchestration lives in `src/domain/`; network stays in `src/services/`
+- Clinical freezes, dynamic cycling, and season masks are render-time projections over saved routines — never scheduled store mutations
+- Gamification default is OFF — settingsStore initializes `gamificationEnabled: false`; the "Complete My Routine" check-in (Phase 8) is functional tracking, exists only in opt-in dynamic-cycling mode, and carries no streaks/rewards
+- No AI features ship in Phase 1 MVP — Anthropic service files remain stubs; the Phase 8 routine engine is rule-based only. Final copy (product owner, 2026-07-04): generate action `✨ Generate Routine`, check-in button "Complete My Routine" — no "AI Engine" wording in-app

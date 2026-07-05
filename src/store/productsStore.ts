@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 
-import { loadJson, saveJson, STORAGE_KEYS } from '@/services/storage';
+import {
+  loadJson,
+  loadSchemaVersion,
+  persistSchemaVersionIfBehind,
+  saveJson,
+  STORAGE_KEYS,
+} from '@/services/storage';
 import { Product } from '@/types';
+import { migrateProducts } from '@/utils/routineEngine/migrations';
 
 interface ProductsState {
   products: Product[];
@@ -17,8 +24,13 @@ export const useProductsStore = create<ProductsState>((set, get) => ({
   hydrated: false,
 
   hydrate: async () => {
-    const products = await loadJson<Product[]>(STORAGE_KEYS.products, []);
+    const raw = await loadJson<Product[]>(STORAGE_KEYS.products, []);
+    const products = migrateProducts(raw);
     set({ products, hydrated: true });
+    // Persist migrated data once (migrateProducts returns the same reference
+    // when nothing changed, so this only writes on a real migration).
+    if (products !== raw) void saveJson(STORAGE_KEYS.products, products);
+    persistSchemaVersionIfBehind(await loadSchemaVersion());
   },
 
   addProduct: (product) => {

@@ -81,6 +81,52 @@ jest.mock('@/components/routine/AddToRoutineSheet', () => ({
   AddToRoutineSheet: () => null,
 }));
 
+// FE-8 additions: the Draft Preview sheet pulls in @gorhom/bottom-sheet and
+// the generation domain actions pull in the tracking/season/AsyncStorage
+// chain — both out of scope for hidden-filtering, so mock at the boundary.
+jest.mock('@/components/routine/DraftPreviewSheet', () => ({
+  DraftPreviewSheet: () => null,
+}));
+
+jest.mock('@/domain/routinePlanActions', () => ({
+  validateCurrentRoutines: jest.fn(() => ({
+    findings: [],
+    hasBlockingFindings: false,
+    proposedPlan: {
+      rulesetVersion: 'test',
+      generatedFor: '2026-01-01',
+      periods: { morning: [], evening: [] },
+      frozen: [],
+      placeholders: [],
+      decisions: [],
+    },
+    diff: [],
+  })),
+  applyRoutinePlan: jest.fn(),
+}));
+
+jest.mock('@/store/proceduresStore', () => ({
+  useProceduresStore: jest.fn((selector: any) => selector({ procedures: [] })),
+}));
+
+// FE-9 additions: profile/settings/tracking selectors + the season resolver —
+// all AsyncStorage-backed, mocked at the boundary like the stores above.
+jest.mock('@/store/profileStore', () => ({
+  useProfileStore: jest.fn((selector: any) => selector({ profile: null })),
+}));
+
+jest.mock('@/store/settingsStore', () => ({
+  useSettingsStore: jest.fn((selector: any) => selector({ routineCycleType: 'fixed' })),
+}));
+
+jest.mock('@/store/trackingStore', () => ({
+  useTrackingStore: jest.fn((selector: any) => selector({ applicationStats: [] })),
+}));
+
+jest.mock('@/domain/seasonActions', () => ({
+  getActiveSeasonMask: jest.fn(() => ({ season: 'spring', source: 'calendar' })),
+}));
+
 jest.mock('@/components/routine/RemoveStepModal', () => ({
   RemoveStepModal: () => null,
 }));
