@@ -1,0 +1,55 @@
+{
+  "task": "clinic-forecast-timeline",
+  "phase": "implementation",
+  "status": "PR_REVIEW",
+  "next_agent": "none",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/clinic-forecast-timeline.md",
+    "tech_design": "docs/tech-design/clinic-forecast-timeline.md",
+    "qa_tests": [
+      "tests/clinic-forecast-timeline/fixtures.ts",
+      "tests/clinic-forecast-timeline/forecast-timeline.test.tsx",
+      "tests/clinic-forecast-timeline/clinic-screen-forecast-timeline.test.tsx"
+    ],
+    "code": [
+      "src/utils/forecastTimelineHelpers.ts",
+      "src/components/clinic/ForecastTimeline.tsx",
+      "src/screens/ClinicScreen.tsx",
+      "src/utils/procedureLifespanHelpers.ts"
+    ],
+    "unit_tests": [
+      "src/utils/forecastTimelineHelpers.test.ts"
+    ]
+  },
+  "engineer_notes": {
+    "verification": {
+      "tsc": "npx tsc --noEmit -> 0 errors (2026-07-06)",
+      "feature_tests": "npx jest tests/clinic-forecast-timeline src/utils/forecastTimelineHelpers.test.ts -> 3 suites, 41/41 passed (23 QA + 18 unit)",
+      "baseline": "npx jest src/utils tests/routine-engine tests/routines --testPathIgnorePatterns=worktrees -> 49 suites, 561 passed + 2 todo, 0 failures (pre-existing scope re-measured at 48 suites / 543 passed + 2 todo, all green; only delta is the new unit suite)"
+    },
+    "documented_deviations": [
+      "src/utils/procedureLifespanHelpers.ts: exported the existing DAYS_PER_MONTH constant so forecastTimelineHelpers converts config months to dates without duplicating the 30.44 convention. No behavior change.",
+      "tests/clinic-forecast-timeline/clinic-screen-forecast-timeline.test.tsx: replaced the pre-implementation virtual/relative-path ForecastTimeline mock with a plain aliased jest.mock — the virtual mock registers under the unresolved path, so once the real module existed jest resolved past it and rendered the real component (3/6 failed). Mock plumbing only; assertions untouched. Both deviations are detailed in progress/clinic-forecast-timeline.md."
+    ],
+    "testid_contract": "Implemented verbatim from the fixtures.ts header comment (root forecast-timeline, forecast-month-{0..11} with accessibilityLabel/accessibilityState, forecast-row-{row}, forecast-track-{procedureId} button + phase-word label, forecast-segment-{procedureId}-cobalt/-amber).",
+    "tech_lead_review": {
+      "verdict": "ACCEPT",
+      "date": "2026-07-06",
+      "verification": {
+        "tsc": "npx tsc --noEmit -> 0 errors (re-verified 2026-07-06)",
+        "feature_tests": "npx jest tests/clinic-forecast-timeline src/utils/forecastTimelineHelpers.test.ts -> 3 suites, 41/41 passed",
+        "baseline": "npx jest src/utils tests/routine-engine tests/routines --testPathIgnorePatterns=worktrees -> 49 suites, 561 passed + 2 todo (563 total), 0 failures"
+      },
+      "notes": [
+        "Both documented engineer deviations reviewed and accepted as minimal, justified, and non-behavior-changing.",
+        "Non-blocking: the ClinicScreen default-export function body is about 98 lines, a pre-existing pattern only marginally extended by this diff.",
+        "Non-blocking: a non-archived procedure whose computed span has fully aged out of the 12-month window still passes the ribbon gate and renders a track-less header; not addressed by any spec Assumption, Non-Goal, or test - recommend a follow-up ticket."
+      ]
+    }
+  }
+}
