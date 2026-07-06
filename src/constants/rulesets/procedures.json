@@ -1,0 +1,143 @@
+{
+  "version": "2026-07-04",
+  "procedures": {
+    "chemical_peel_deep": {
+      "rehabDays": 14,
+      "productRules": [
+        {
+          "phase": { "fromDay": 0, "toDay": 14 },
+          "action": "freeze",
+          "targets": { "properties": { "exfoliating": true } },
+          "reasonCode": "peel_rehab_no_exfoliants"
+        },
+        {
+          "phase": { "fromDay": 0, "toDay": 14 },
+          "action": "freeze",
+          "targets": { "classes": ["retinoid", "vitamin_c_pure", "benzoyl_peroxide"] },
+          "reasonCode": "peel_rehab_no_aggressive_actives"
+        },
+        {
+          "phase": { "fromDay": 0, "toDay": 30 },
+          "action": "require",
+          "targets": { "productTypes": ["spf"] },
+          "period": "am",
+          "reasonCode": "peel_spf_mandatory"
+        },
+        {
+          "phase": { "fromDay": 0, "toDay": 14 },
+          "action": "prioritize",
+          "targets": { "properties": { "barrierRepair": true } },
+          "reasonCode": "peel_sos_recovery"
+        }
+      ]
+    },
+    "botox": {
+      "rehabDays": 7,
+      "productRules": [
+        {
+          "phase": { "fromDay": 0, "toDay": 7 },
+          "action": "freeze",
+          "targets": { "properties": { "massageRequired": true } },
+          "reasonCode": "botox_no_massage"
+        }
+      ]
+    },
+    "fillers": {
+      "rehabDays": 14,
+      "productRules": [
+        {
+          "phase": { "fromDay": 0, "toDay": 14 },
+          "action": "freeze",
+          "targets": { "properties": { "massageRequired": true } },
+          "reasonCode": "fillers_no_massage"
+        }
+      ]
+    },
+    "smas_lifting": {
+      "rehabDays": 14,
+      "productRules": [
+        {
+          "phase": { "fromDay": 0, "toDay": 14 },
+          "action": "freeze",
+          "targets": { "properties": { "massageRequired": true } },
+          "reasonCode": "smas_no_massage"
+        },
+        {
+          "phase": { "fromDay": 0, "toDay": 7 },
+          "action": "freeze",
+          "targets": { "properties": { "exfoliating": true } },
+          "reasonCode": "smas_rehab_no_exfoliants"
+        }
+      ]
+    },
+    "mesotherapy": {
+      "rehabDays": 5,
+      "productRules": [
+        {
+          "phase": { "fromDay": 0, "toDay": 5 },
+          "action": "freeze",
+          "targets": { "properties": { "exfoliating": true } },
+          "reasonCode": "meso_rehab_no_exfoliants"
+        },
+        {
+          "phase": { "fromDay": 0, "toDay": 5 },
+          "action": "freeze",
+          "targets": { "classes": ["retinoid", "benzoyl_peroxide"] },
+          "reasonCode": "meso_rehab_no_aggressive_actives"
+        },
+        {
+          "phase": { "fromDay": 0, "toDay": 14 },
+          "action": "require",
+          "targets": { "productTypes": ["spf"] },
+          "period": "am",
+          "reasonCode": "meso_spf_mandatory"
+        }
+      ]
+    },
+    "mechanical_facial": {
+      "rehabDays": 3,
+      "productRules": [
+        {
+          "phase": { "fromDay": 0, "toDay": 3 },
+          "action": "freeze",
+          "targets": { "properties": { "exfoliating": true } },
+          "reasonCode": "facial_rehab_no_exfoliants"
+        },
+        {
+          "phase": { "fromDay": 0, "toDay": 3 },
+          "action": "prioritize",
+          "targets": { "properties": { "barrierRepair": true } },
+          "reasonCode": "facial_recovery"
+        }
+      ]
+    },
+    "custom_default": {
+      "productRules": [
+        {
+          "phase": { "fromDay": 0, "toDay": "rehabEnd" },
+          "action": "freeze",
+          "targets": {
+            "anyOf": [
+              { "properties": { "exfoliating": true } },
+              { "properties": { "irritancy": ">=3" } }
+            ]
+          },
+          "reasonCode": "custom_rehab_conservative"
+        },
+        {
+          "phase": { "fromDay": 0, "toDay": "rehabEnd" },
+          "action": "require",
+          "targets": { "productTypes": ["spf"] },
+          "period": "am",
+          "reasonCode": "custom_rehab_spf"
+        },
+        {
+          "phase": { "fromDay": 0, "toDay": "rehabEnd" },
+          "action": "prioritize",
+          "targets": { "properties": { "barrierRepair": true } },
+          "reasonCode": "custom_rehab_recovery"
+        }
+      ]
+    }
+  }
+}

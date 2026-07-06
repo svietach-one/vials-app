@@ -12,14 +12,14 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { PhototypeCard } from '@/components/onboarding/PhototypeCard';
+import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
 import { Button } from '@/components/ui/core/Button';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type {
+  FitzpatrickType,
   SkinConcern,
-  SkinPhototype,
   SkinType,
   UserProfile,
 } from '@/types';
@@ -50,7 +50,7 @@ const CONCERNS: { value: SkinConcern; label: string }[] = [
   { value: 'eczema', label: 'Eczema' },
 ];
 
-const PHOTOTYPES: SkinPhototype[] = ['type_1_2', 'type_3_4', 'type_5_6'];
+const FITZPATRICK_TYPES: FitzpatrickType[] = [1, 2, 3, 4, 5, 6];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ export function SkinProfileEditModal({
   const [gender, setGender] = useState<'female' | 'male' | null>(null);
   const [ageText, setAgeText] = useState('');
   const [skinType, setSkinType] = useState<SkinType | null>(null);
-  const [phototype, setPhototype] = useState<SkinPhototype | null>(null);
+  const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(null);
   const [concerns, setConcerns] = useState<SkinConcern[]>([]);
   const [spfSensitivity, setSpfSensitivity] = useState(false);
 
@@ -82,7 +82,7 @@ export function SkinProfileEditModal({
     setGender(profile?.gender ?? null);
     setAgeText(profile?.age != null ? String(profile.age) : '');
     setSkinType(profile?.skinType ?? null);
-    setPhototype(profile?.phototype ?? null);
+    setFitzpatrick(profile?.fitzpatrick ?? null);
     setConcerns(profile?.concerns ?? []);
     setSpfSensitivity(profile?.spfSensitivity ?? false);
   }, [visible, profile]);
@@ -99,7 +99,7 @@ export function SkinProfileEditModal({
       gender,
       age: Number.isFinite(parsedAge) && parsedAge > 0 ? parsedAge : null,
       skinType,
-      phototype,
+      fitzpatrick,
       concerns,
       spfSensitivity,
     });
@@ -198,12 +198,12 @@ export function SkinProfileEditModal({
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Skin Tone (Fitzpatrick)</Text>
               <View style={styles.phototypeRow}>
-                {PHOTOTYPES.map((pt) => (
-                  <PhototypeCard
-                    key={pt}
-                    phototype={pt}
-                    selected={phototype === pt}
-                    onSelect={() => setPhototype(phototype === pt ? null : pt)}
+                {FITZPATRICK_TYPES.map((ft) => (
+                  <FitzpatrickCard
+                    key={ft}
+                    type={ft}
+                    selected={fitzpatrick === ft}
+                    onSelect={() => setFitzpatrick(fitzpatrick === ft ? null : ft)}
                   />
                 ))}
               </View>

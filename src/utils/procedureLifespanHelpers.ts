@@ -38,7 +38,8 @@ export function getProcedureDisplayName(proc: UserProcedureLog): string {
  * Resolves the timeline config for any procedure. Pre-defined procedures read
  * CLINICAL_RULES_DB; custom procedures derive it dynamically from the span
  * between datePerformed and estimatedReturnDate (the 0% efficiency baseline).
- * Custom procedures have no clinical rehab rules, so rehabDays is 0.
+ * The custom rehab window comes from the log's user-resolved customRehabDays
+ * (symptom presets, research §1.5 V2); absent means no downtime.
  */
 export function getTimelineConfig(proc: UserProcedureLog): ClinicalTimelineConfig {
   if (proc.procedureKey !== 'custom') return CLINICAL_RULES_DB[proc.procedureKey];
@@ -50,7 +51,7 @@ export function getTimelineConfig(proc: UserProcedureLog): ClinicalTimelineConfi
   const totalDays = Math.max(Number.isFinite(returns) ? (returns - performed) / MS_PER_DAY : 1, 1);
   const totalEffectMonths = totalDays / DAYS_PER_MONTH;
   return {
-    rehabDays: 0,
+    rehabDays: proc.customRehabDays ?? 0,
     totalEffectMonths,
     fadeTriggerMonth: totalEffectMonths * CUSTOM_FADE_TRIGGER_RATIO,
   };

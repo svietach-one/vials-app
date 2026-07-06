@@ -7,12 +7,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/tokens';
+import { refreshSeasonMaskIfDue } from '@/domain/seasonActions';
 import AppNavigator from '@/navigation/AppNavigator';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useTrackingStore } from '@/store/trackingStore';
 
 export default function App() {
   const [storesReady, setStoresReady] = useState(false);
@@ -32,8 +34,12 @@ export default function App() {
         useRoutinesStore.getState().hydrate(),
         useProceduresStore.getState().hydrate(),
         useSettingsStore.getState().hydrate(),
+        useTrackingStore.getState().hydrate(),
       ]);
       setStoresReady(true);
+      // Weekly weather check (research §1.7): fire-and-forget after hydrate;
+      // ≤1 request per interval, silent calendar fallback on any failure.
+      void refreshSeasonMaskIfDue();
     }
     void hydrateStores();
   }, []);

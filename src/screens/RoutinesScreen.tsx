@@ -13,19 +13,38 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import { AddToRoutineSheet } from '@/components/routine/AddToRoutineSheet';
 import { ClinicalRestrictionsBlock } from '@/components/routine/ClinicalRestrictionsBlock';
+import { DraftPreviewSheet } from '@/components/routine/DraftPreviewSheet';
+import { GenerateCard } from '@/components/routine/GenerateCard';
+import { OptimizeStrip } from '@/components/routine/OptimizeStrip';
 import { PlannerBlock } from '@/components/routine/PlannerBlock';
+import { RehabWidget } from '@/components/routine/RehabWidget';
 import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
-import { colors, palette, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
+import {
+  applyRoutinePlan,
+  validateCurrentRoutines,
+  type PlanCommitScope,
+} from '@/domain/routinePlanActions';
+import { getActiveSeasonMask } from '@/domain/seasonActions';
+import { useProceduresStore } from '@/store/proceduresStore';
 import { useProductsStore } from '@/store/productsStore';
+import { useProfileStore } from '@/store/profileStore';
 import { useRoutinesStore } from '@/store/routinesStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
-import type { RoutineStep } from '@/types';
+import { getAdaptationStatus } from '@/utils/routineEngine/adaptation';
+import { getDailyView, type FrozenStepView } from '@/utils/routineEngine/dailyView';
+import { buildProductFacts } from '@/utils/routineEngine/productFacts';
+import { buildRehabWidgetState } from '@/utils/routineEngine/rehabFilter';
+import type { ValidationResult } from '@/utils/routineEngine/validate';
+import type { Product, RoutineStep } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +63,10 @@ function isStepForDay(step: RoutineStep, dow: number): boolean {
 export default function RoutinesScreen({ navigation }: Props) {
   const products = useProductsStore((s) => s.products);
   const routines = useRoutinesStore((s) => s.routines);
+  const procedures = useProceduresStore((s) => s.procedures);
+  const profile = useProfileStore((s) => s.profile);
+  const cycleType = useSettingsStore((s) => s.routineCycleType);
+  const applicationStats = useTrackingStore((s) => s.applicationStats);
   const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
   const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
   const removeProductStep = useRoutinesStore((s) => s.removeProductStep);
@@ -53,6 +76,8 @@ export default function RoutinesScreen({ navigation }: Props) {
   const [addSheetVisible, setAddSheetVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<{ stepId: string; productId: string; productName: string } | null>(null);
+  // Draft Preview state — a generated plan lives only here until committed
+  const [draft, setDraft] = useState<ValidationResult | null>(null);
 
   // Restore today's day and exit edit mode when the screen gains focus.
   useFocusEffect(
@@ -82,10 +107,70 @@ export default function RoutinesScreen({ navigation }: Props) {
 
   const morningRoutine = routines.find((r) => r.timeOfDay === 'morning');
   const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
+  const totalSteps =
+    (morningRoutine?.steps.length ?? 0) + (eveningRoutine?.steps.length ?? 0);
+
+  // Validate mode over the saved routines — avoid-level findings light the
+  // bottom Optimize strip (research §3; never a banner, never a modal).
+  const validation = useMemo(
+    () => (totalSteps > 0 ? validateCurrentRoutines() : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reads stores via getState; these deps cover every input
+    [routines, products, procedures, totalSteps],
+  );
+
+  const handleOpenDraftPreview = useCallback(() => {
+    setIsEditMode(false);
+    setDraft(validateCurrentRoutines());
+  }, []);
+
+  const handleCommitDraft = useCallback(
+    (scope: PlanCommitScope) => {
+      if (draft) applyRoutinePlan(draft.proposedPlan, scope);
+      // Post-commit revalidation happens via the validation memo on the next
+      // render — a scope-induced conflict lights the strip, never a modal.
+      setDraft(null);
+    },
+    [draft],
+  );
+
+  // Adaptation weeks per product (⏳ status line, research §2.6) + clinical
+  // "Paused until" rows from the daily-mask projection.
+  const { adaptationWeeks, frozenRows, rehabState } = useMemo(() => {
+    const weeks = new Map<string, number>();
+    for (const product of products) {
+      const status = getAdaptationStatus(
+        product,
+        buildProductFacts(product),
+        applicationStats,
+        cycleType,
+      );
+      if (status?.week != null) weeks.set(product.id, status.week);
+    }
+
+    const views = getDailyView(routines, products, {
+      procedures,
+      profile: { fitzpatrick: profile?.fitzpatrick ?? null },
+      seasonMask: getActiveSeasonMask(),
+    });
+    const frozen = new Map<string, FrozenStepView[]>();
+    for (const view of views) frozen.set(view.routineId, view.frozen);
+
+    return {
+      adaptationWeeks: weeks,
+      frozenRows: frozen,
+      rehabState: buildRehabWidgetState(procedures),
+    };
+  }, [products, routines, procedures, profile, cycleType, applicationStats]);
 
   const { amSteps, pmSteps, conflictMap } = useMemo(() => {
+    // Clinically frozen steps leave the visible list (research §1.5: the
+    // RehabWidget + Paused rows explain them — never silent, never draggable)
+    const frozenStepIds = new Set(
+      [...frozenRows.values()].flat().map((f) => f.stepId),
+    );
     const isVisible = (s: RoutineStep) =>
       !s.hidden &&
+      !frozenStepIds.has(s.id) &&
       isStepForDay(s, selectedDow) &&
       !(s.productId && products.find((p) => p.id === s.productId)?.isHidden);
 
@@ -107,7 +192,7 @@ export default function RoutinesScreen({ navigation }: Props) {
     }
 
     return { amSteps: am, pmSteps: pm, conflictMap: map };
-  }, [routines, products, selectedDow]);
+  }, [routines, products, selectedDow, frozenRows]);
 
   const activeRoutine = activePeriod === 'morning' ? morningRoutine : eveningRoutine;
   const activeSteps = activePeriod === 'morning' ? amSteps : pmSteps;
@@ -147,6 +232,7 @@ export default function RoutinesScreen({ navigation }: Props) {
                       })
               }
               conflictingProductName={conflictMap.get(item.id) ?? null}
+              adaptationWeek={adaptationWeeks.get(product.id) ?? null}
               drag={drag}
               isEditMode={isEditMode}
               onDelete={
@@ -164,13 +250,17 @@ export default function RoutinesScreen({ navigation }: Props) {
         </ScaleDecorator>
       );
     },
-    [isEditMode, activeRoutine, conflictMap, products, navigation],
+    [isEditMode, activeRoutine, conflictMap, adaptationWeeks, products, navigation],
   );
+
+  const activeFrozen = activeRoutine ? frozenRows.get(activeRoutine.id) ?? [] : [];
 
   const listHeader = useMemo(
     () => (
       <View style={styles.listHeader}>
-        {/* Clinical + seasonal blocks render null when there is nothing to show */}
+        {/* Rehab shield anchors at the very top while a rehab window is live
+            (research §1.5 V3); the blocks below render null when idle */}
+        <RehabWidget state={rehabState} />
         <SeasonalNoticeBanner />
         <ClinicalRestrictionsBlock />
         <PlannerBlock
@@ -181,7 +271,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         />
       </View>
     ),
-    [activePeriod, selectedDow, handlePeriodChange, handleDaySelect],
+    [activePeriod, selectedDow, handlePeriodChange, handleDaySelect, rehabState],
   );
 
   return (
@@ -226,6 +316,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         ListFooterComponent={
           !isEditMode ? (
             <View style={styles.addProductFooter}>
+              <PausedSteps frozen={activeFrozen} products={products} />
               <Button
                 variant="textActive"
                 size="md"
@@ -236,10 +327,25 @@ export default function RoutinesScreen({ navigation }: Props) {
               >
                 Add product
               </Button>
+              {totalSteps > 0 ? (
+                <OptimizeStrip
+                  hasFindings={validation?.hasBlockingFindings ?? false}
+                  onPress={handleOpenDraftPreview}
+                />
+              ) : null}
             </View>
           ) : null
         }
-        ListEmptyComponent={<EmptyRoutine />}
+        ListEmptyComponent={
+          totalSteps === 0 ? (
+            <GenerateCard
+              onGenerate={handleOpenDraftPreview}
+              onAddManually={handleOpenAddSheet}
+            />
+          ) : (
+            <EmptyRoutine />
+          )
+        }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
@@ -248,6 +354,14 @@ export default function RoutinesScreen({ navigation }: Props) {
         visible={addSheetVisible}
         onClose={() => setAddSheetVisible(false)}
         activePeriod={activePeriod}
+      />
+
+      <DraftPreviewSheet
+        visible={draft !== null}
+        onClose={() => setDraft(null)}
+        plan={draft?.proposedPlan ?? null}
+        diff={draft?.diff ?? []}
+        onCommit={handleCommitDraft}
       />
 
       <RemoveStepModal
@@ -271,6 +385,46 @@ export default function RoutinesScreen({ navigation }: Props) {
     </SafeAreaView>
   );
 }
+
+// ─── Paused rows (clinical freezes, research §1.5) ────────────────────────────
+
+function PausedSteps({ frozen, products }: { frozen: FrozenStepView[]; products: Product[] }) {
+  if (frozen.length === 0) return null;
+  return (
+    <View style={pausedStyles.wrap}>
+      {frozen.map((item) => {
+        const name = products.find((p) => p.id === item.productId)?.name ?? 'Product';
+        return (
+          <View key={item.stepId} style={pausedStyles.row}>
+            <Feather name="pause-circle" size={14} color={colors.textTertiary} />
+            <Text style={pausedStyles.text} numberOfLines={1}>
+              {name} — paused until {item.until}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const pausedStyles = StyleSheet.create({
+  wrap: {
+    backgroundColor: colors.surfaceSunken,
+    borderRadius: radius.md,
+    padding: space[3],
+    gap: space[2],
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  text: {
+    ...typography.bodySmall,
+    color: colors.textTertiary,
+    flexShrink: 1,
+  },
+});
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
@@ -328,5 +482,6 @@ const styles = StyleSheet.create({
   addProductFooter: {
     paddingTop: space[4],
     paddingBottom: 40,
+    gap: space[3],
   },
 });

@@ -1,0 +1,68 @@
+import type { Period } from '@/constants/rulesets/rulesetTypes';
+import type { ConflictSeverity, ProductType } from '@/types';
+
+/**
+ * Shared output types of the pipeline stages (research §3 step 8). Kept in
+ * their own module so eligibility/resolve/mandates can share them without
+ * circular imports; the RoutinePlan aggregate itself is assembled by the
+ * generate entry point (FE-5).
+ */
+
+/** A product admitted into a period, pre-ordering. */
+export interface PlannedStep {
+  productId: string;
+  productType: ProductType;
+  /** 0 = Sunday … 6 = Saturday; empty = every day (Routine schema semantics). */
+  scheduledDays: number[];
+  /** Layering slot index (slotting.ts LAYERING_ORDER). */
+  slotIndex: number;
+  /** Admission score — kept for ordering ties and substitute ranking. */
+  score: number;
+  /** Product.addedAt, kept for stable ordering tiebreaks. */
+  addedAt: string;
+}
+
+/** A product excluded with an explainable cause (dimmed "Paused until" rows). */
+export interface FrozenItem {
+  productId: string;
+  reasonCode: string;
+  /** Pair rule that froze it, when applicable. */
+  ruleId?: string;
+  /** Skincare date the freeze expires (clinical freezes only). */
+  until?: string;
+}
+
+/** A mandated slot the shelf cannot satisfy (e.g. missing SPF). */
+export interface PlaceholderSlot {
+  period: Period;
+  productTypes: ProductType[];
+  reasonCode: string;
+  /** Phototype 1–2 SPF mandates cannot be dismissed (research §2.4). */
+  nonSkippable: boolean;
+  /**
+   * Finding severity when the mandate is unmet — from the source rule's own
+   * declaration (e.g. seasons.json severity) or 'avoid' for non-skippable
+   * mandates; merged placeholders keep the strictest.
+   */
+  severity: ConflictSeverity;
+}
+
+export type DecisionAction =
+  | 'admit'
+  | 'relocate'
+  | 'day_split'
+  | 'freeze'
+  | 'keep_with_note'
+  | 'limit'
+  | 'stacking_cap'
+  | 'placeholder';
+
+/** One explainable engine decision (research §1.8: invisible ≠ unaccountable). */
+export interface DecisionLogEntry {
+  action: DecisionAction;
+  productId?: string;
+  period?: Period;
+  ruleId?: string;
+  reasonCode?: string;
+  detail?: string;
+}

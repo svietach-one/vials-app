@@ -315,10 +315,16 @@ describe('getTimelineConfig — custom', () => {
     expect(config.fadeTriggerMonth).toBeCloseTo(config.totalEffectMonths * 0.75, 5);
   });
 
-  it('should have no rehab window', () => {
+  it('should have no rehab window when the log carries no customRehabDays', () => {
     const proc = makeCustomProc();
 
     expect(getTimelineConfig(proc).rehabDays).toBe(0);
+  });
+
+  it('should use the user-resolved customRehabDays as the rehab window (FE-10)', () => {
+    const proc = makeCustomProc({ customRehabDays: 7 });
+
+    expect(getTimelineConfig(proc).rehabDays).toBe(7);
   });
 
   it('should clamp to a minimum 1-day span when the return date equals the performed date', () => {
@@ -355,10 +361,17 @@ describe('getTimelineConfig — custom', () => {
 });
 
 describe('computeStatus — custom', () => {
-  it('should return active on day 1 (custom procedures skip the rehab phase)', () => {
+  it('should return active on day 1 when no recovery window was specified', () => {
     const proc = makeCustomProc();
 
     expect(computeStatus(proc, daysAfter(CUSTOM_PERFORMED, 1))).toBe('active');
+  });
+
+  it('should return rehab inside a user-resolved customRehabDays window (FE-10)', () => {
+    const proc = makeCustomProc({ customRehabDays: 7 });
+
+    expect(computeStatus(proc, daysAfter(CUSTOM_PERFORMED, 3))).toBe('rehab');
+    expect(computeStatus(proc, daysAfter(CUSTOM_PERFORMED, 10))).toBe('active');
   });
 
   it('should return active before 75% of the lifespan (day 100 of 181)', () => {

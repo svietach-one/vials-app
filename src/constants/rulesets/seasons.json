@@ -1,0 +1,43 @@
+{
+  "version": "2026-07-04",
+  "rules": [
+    {
+      "id": "summer_spf_mandate",
+      "seasons": ["summer"],
+      "if": { "planContainsProperty": "photosensitizing" },
+      "then": {
+        "action": "require",
+        "targets": { "productTypes": ["spf"] },
+        "period": "am"
+      },
+      "severity": "avoid",
+      "reasonCode": "summer_photosensitizer_spf"
+    },
+    {
+      "id": "summer_demote_strong_exfoliants",
+      "seasons": ["summer"],
+      "then": {
+        "action": "limit",
+        "targets": { "properties": { "exfoliating": true } },
+        "maxDaysPerWeek": 1
+      },
+      "severity": "caution",
+      "reasonCode": "summer_uv_exfoliant_limit"
+    },
+    {
+      "id": "winter_barrier_priority",
+      "seasons": ["winter"],
+      "then": {
+        "action": "prioritize",
+        "targets": { "properties": { "barrierRepair": true } },
+        "period": "pm"
+      },
+      "reasonCode": "winter_barrier_repair"
+    }
+  ],
+  "climate": {
+    "thresholds": { "coldBelowC": 15, "warmAboveC": 20 },
+    "checkIntervalDays": 7,
+    "staleAfterDays": 14
+  }
+}
