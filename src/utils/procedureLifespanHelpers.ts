@@ -4,7 +4,12 @@ import type { ClinicalTimelineConfig, CosmeticProcedureKey, UserProcedureLog } f
 export type ComputedStatus = 'rehab' | 'active' | 'fading' | 'completed' | 'archived';
 
 const MS_PER_DAY = 86_400_000;
-const DAYS_PER_MONTH = 30.44;
+/**
+ * Skincare-month convention shared by every consumer of ClinicalTimelineConfig
+ * month values (exported so forecastTimelineHelpers converts months to dates
+ * with the exact same constant instead of duplicating it).
+ */
+export const DAYS_PER_MONTH = 30.44;
 
 /**
  * Fraction of a custom procedure's lifespan after which the "fading?" prompt
