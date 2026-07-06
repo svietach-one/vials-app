@@ -33,6 +33,9 @@ export interface ActiveIngredient {
   displayName: string;
 }
 
+/** Functional grouping used to color-code active-ingredient badges on the shelf card. */
+export type ActiveBadgeCategory = 'exfoliant' | 'soothing' | 'hydrator' | 'other';
+
 // ─── Clinical procedures ──────────────────────────────────────────────────────
 
 export type CosmeticProcedureKey =
