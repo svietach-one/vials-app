@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 
+import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
 import type { Product, ProductType } from '@/types';
 
 // ─── Product type → badge color ───────────────────────────────────────────────
@@ -68,6 +70,10 @@ export function RoutineStepCard({
   const activeKey = product.activeTags?.[0] ?? product.activeIngredients?.[0]?.key ?? null;
   const activeLabel = activeKey ? (ACTIVE_INGREDIENT_LABELS[activeKey] ?? null) : null;
 
+  const [attributionVisible, setAttributionVisible] = useState(false);
+  const activeMatches = activeKey ? getMatchesForKey(product.fullIngredientText, activeKey) : [];
+  const showAliasIcon = hasAliasOverride(activeMatches);
+
   const typeLabel = PRODUCT_TYPE_LABELS[product.productType] ?? product.productType;
   const typeColor = TYPE_COLORS[product.productType] ?? DEFAULT_TYPE_COLOR;
 
@@ -120,12 +126,27 @@ export function RoutineStepCard({
                 {typeLabel}
               </Text>
             </View>
-            {activeLabel ? (
-              <View style={styles.activeBadge}>
+            {activeLabel && activeKey ? (
+              <Pressable
+                testID={`active-badge-${activeKey}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${activeLabel} detected, tap for details`}
+                onPress={() => setAttributionVisible(true)}
+                style={styles.activeBadge}
+              >
                 <Text style={styles.activeBadgeText}>
                   {activeLabel}
                 </Text>
-              </View>
+                {showAliasIcon ? (
+                  <View
+                    testID={`active-badge-alias-icon-${activeKey}`}
+                    accessibilityLabel="Detected via regional ingredient name"
+                    style={styles.aliasIconWrap}
+                  >
+                    <Feather name="globe" size={10} color={palette.zinc500} />
+                  </View>
+                ) : null}
+              </Pressable>
             ) : null}
           </View>
 
@@ -167,30 +188,45 @@ export function RoutineStepCard({
       </View>
     ) : null;
 
+  const attributionTooltip = (
+    <AttributionTooltip
+      visible={attributionVisible}
+      onClose={() => setAttributionVisible(false)}
+      displayName={activeLabel ?? ''}
+      matches={activeMatches}
+    />
+  );
+
   // Edit mode: plain View root — no RNGH handler competing with drag handle
   if (isEditMode) {
     return (
-      <View style={cardStyle}>
-        {mainRow}
-        {conflictRow}
-        {adaptationRow}
-      </View>
+      <>
+        <View style={cardStyle}>
+          {mainRow}
+          {conflictRow}
+          {adaptationRow}
+        </View>
+        {attributionTooltip}
+      </>
     );
   }
 
   // Normal mode: RNGH TouchableOpacity for tap-to-navigate
   return (
-    <TouchableOpacity
-      onPress={onCardPress}
-      activeOpacity={onCardPress ? 0.92 : 1}
-      style={cardStyle}
-      accessibilityRole="button"
-      accessibilityLabel={`${product.name}, tap to view product detail`}
-    >
-      {mainRow}
-      {conflictRow}
-      {adaptationRow}
-    </TouchableOpacity>
+    <>
+      <TouchableOpacity
+        onPress={onCardPress}
+        activeOpacity={onCardPress ? 0.92 : 1}
+        style={cardStyle}
+        accessibilityRole="button"
+        accessibilityLabel={`${product.name}, tap to view product detail`}
+      >
+        {mainRow}
+        {conflictRow}
+        {adaptationRow}
+      </TouchableOpacity>
+      {attributionTooltip}
+    </>
   );
 }
 
@@ -286,12 +322,19 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   activeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: palette.white,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.zinc300,
     paddingHorizontal: 6,
     paddingVertical: 2,
+  },
+  aliasIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   activeBadgeText: {
     fontFamily: 'DMSans-Medium',

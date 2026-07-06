@@ -1,0 +1,8 @@
+{
+  "\\bbetaine\\s+salicylate\\b": {
+    "microCopy": "We found Betaine Salicylate. This is a gentle Korean form of BHA synthesized with moisturizing Betaine."
+  },
+  "\\b(salix\\s+alba|willow\\s+bark)\\b": {
+    "microCopy": "We found Willow Bark. This is a natural, plant-derived source of the same BHA (salicylic acid) family."
+  }
+}

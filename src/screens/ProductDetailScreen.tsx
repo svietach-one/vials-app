@@ -12,6 +12,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
+import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
 import { RemoveRoutineActionSheet } from '@/components/routine/RemoveRoutineActionSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { AppHeader } from '@/components/ui/core/AppHeader';
@@ -25,6 +26,7 @@ import { deleteProductCascade } from '@/domain/productActions';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
+import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
 import { deriveProductSchedule, formatRoutineLabel } from '@/utils/routineLabel';
 import type { ActiveIngredientKey, Product } from '@/types';
 
@@ -45,6 +47,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [schedulerVisible, setSchedulerVisible] = useState(false);
   const [removeSheetVisible, setRemoveSheetVisible] = useState(false);
+  const [attributionKey, setAttributionKey] = useState<ActiveIngredientKey | null>(null);
 
   // ── Not found guard ───────────────────────────────────────────────────────
 
@@ -138,11 +141,31 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           <Text style={styles.sectionLabel}>Active Ingredients</Text>
           {activeTags.length > 0 ? (
             <View style={styles.tagWrap}>
-              {activeTags.map((key) => (
-                <Tag key={key} tone="info">
-                  {ACTIVE_INGREDIENT_LABELS[key] ?? key}
-                </Tag>
-              ))}
+              {activeTags.map((key) => {
+                const matches = getMatchesForKey(product.fullIngredientText, key);
+                const showAliasIcon = hasAliasOverride(matches);
+                return (
+                  <Pressable
+                    key={key}
+                    testID={`active-badge-${key}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${ACTIVE_INGREDIENT_LABELS[key] ?? key} detected, tap for details`}
+                    onPress={() => setAttributionKey(key)}
+                    style={styles.attributionBadgeWrap}
+                  >
+                    <Tag tone="info">{ACTIVE_INGREDIENT_LABELS[key] ?? key}</Tag>
+                    {showAliasIcon ? (
+                      <View
+                        testID={`active-badge-alias-icon-${key}`}
+                        accessibilityLabel="Detected via regional ingredient name"
+                        style={styles.aliasIconWrap}
+                      >
+                        <Feather name="globe" size={11} color={colors.textSecondary} />
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
             </View>
           ) : (
             <Tag tone="neutral">None confirmed</Tag>
@@ -260,6 +283,13 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
         product={product}
         onClose={() => setRemoveSheetVisible(false)}
       />
+
+      <AttributionTooltip
+        visible={attributionKey !== null}
+        onClose={() => setAttributionKey(null)}
+        displayName={attributionKey ? (ACTIVE_INGREDIENT_LABELS[attributionKey] ?? attributionKey) : ''}
+        matches={attributionKey ? getMatchesForKey(product.fullIngredientText, attributionKey) : []}
+      />
     </SafeAreaView>
   );
 }
@@ -324,6 +354,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: space[2],
+  },
+  attributionBadgeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+  },
+  aliasIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   infoboxText: {
     ...typography.bodySmall,
