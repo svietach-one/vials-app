@@ -133,7 +133,7 @@ describe('Story 5 AC: dynamic mode shows exactly one global check-in button, no 
     render(<TodayScreen />);
 
     const button = screen.getByLabelText('Complete My Routine');
-    expect(button.props.disabled).toBe(true);
+    expect(button.props.accessibilityState.disabled).toBe(true);
     // The "one tap per day" hint only renders while unchecked — its absence
     // is a robust proxy for the completed-copy swap without querying text
     // nested inside the Pressable's own accessibilityLabel (which the a11y

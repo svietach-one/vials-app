@@ -111,6 +111,14 @@ jest.mock('@/components/product/ProductActionSheet', () => ({
   ProductActionSheet: () => null,
 }));
 
+jest.mock('@/components/catalog/CatalogFilterTrigger', () => ({
+  CatalogFilterTrigger: () => null,
+}));
+
+jest.mock('@/components/catalog/FilterSheet', () => ({
+  FilterSheet: () => null,
+}));
+
 jest.mock('@/components/ui/core/Button', () => {
   const { Pressable, Text } = require('react-native');
   return {

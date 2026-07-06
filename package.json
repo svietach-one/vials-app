@@ -50,7 +50,8 @@
     "preset": "jest-expo",
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|zustand|react-native-draggable-flatlist)"
-    ]
+    ],
+    "moduleFileExtensions": ["ts", "tsx", "js", "mjs", "cjs", "jsx", "json", "node"]
   },
   "private": true
 }
