@@ -1,4 +1,4 @@
-import type { ActiveIngredientKey, ProductType } from '@/types';
+import type { ActiveIngredientKey, FunctionalBenefit, ProductType } from '@/types';
 
 export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
   cleanser: 'Cleanser',
@@ -42,4 +42,31 @@ export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   retinol: 'Retinol',
   vitamin_c: 'Vitamin C',
   spf_chemical: 'SPF (Chemical)',
+};
+
+export const FUNCTIONAL_BENEFIT_LABELS: Record<FunctionalBenefit, string> = {
+  hydration: 'Hydration',
+  exfoliation: 'Exfoliation',
+  soothing: 'Soothing',
+  anti_acne: 'Anti-Acne',
+  barrier_repair: 'Barrier Repair',
+  brightening: 'Brightening',
+};
+
+/**
+ * Maps each "what it does" benefit to the activeTags it matches on. Every key
+ * covered by the old ACTIVES_KEYS/SOOTHING_KEYS/HYDRATION_TYPES biomarker lists
+ * (see progress/shelf-filtering.md) is preserved here — several keys deliberately
+ * appear in more than one bucket (see docs/tech-design/my-shelf-filter-bottomsheet.md
+ * Assumptions): retinoid/retinol -> exfoliation, copper_peptides -> barrier_repair,
+ * niacinamide -> soothing + brightening. spf_filters/spf_chemical are intentionally
+ * excluded — SPF is protection, not a treatment benefit.
+ */
+export const FUNCTIONAL_BENEFIT_INGREDIENTS: Record<FunctionalBenefit, ActiveIngredientKey[]> = {
+  hydration: ['hyaluronic_acid', 'panthenol', 'ceramides'],
+  exfoliation: ['aha', 'bha', 'pha', 'retinoid', 'retinol'],
+  soothing: ['cica', 'panthenol', 'azelaic_acid', 'niacinamide'],
+  anti_acne: ['benzoyl_peroxide', 'azelaic_acid', 'bha'],
+  barrier_repair: ['ceramides', 'cica', 'copper_peptides', 'panthenol'],
+  brightening: ['vitamin_c_pure', 'vitamin_c_derivative', 'vitamin_c', 'niacinamide', 'azelaic_acid'],
 };

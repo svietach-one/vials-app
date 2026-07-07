@@ -6,7 +6,8 @@ import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
-import type { Product, ProductType } from '@/types';
+import type { ActiveBadgeCategory, Product, ProductType } from '@/types';
+import { getActiveBadgeCategory, getProductActiveBadgeKeys } from '@/utils/activeBadges';
 
 // ─── Product type → badge color ───────────────────────────────────────────────
 
@@ -30,6 +31,17 @@ const TYPE_COLORS: Partial<Record<ProductType, { bg: string; text: string }>> = 
 };
 
 const DEFAULT_TYPE_COLOR = { bg: palette.zinc100, text: palette.zinc600 };
+
+// ─── Active-ingredient category → badge color ─────────────────────────────────
+// Outlined recipe (colored border + plain background), deliberately distinct
+// from TYPE_COLORS' solid-fill recipe — see spec Story 3 / tech design Assumptions.
+
+const ACTIVE_CATEGORY_COLORS: Record<ActiveBadgeCategory, { border: string; text: string }> = {
+  exfoliant: { border: palette.amberLine, text: palette.amber },
+  soothing: { border: palette.bottleGreenLine, text: palette.bottleGreen },
+  hydrator: { border: palette.cobaltLine, text: palette.cobalt },
+  other: { border: palette.zinc300, text: palette.black },
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,8 +79,7 @@ export function ProductShelfCard({
 }: ProductShelfCardProps) {
   const [sheetVisible, setSheetVisible] = useState(false);
 
-  const activeKey = product.activeTags?.[0] ?? product.activeIngredients?.[0]?.key ?? null;
-  const activeLabel = activeKey ? (ACTIVE_INGREDIENT_LABELS[activeKey] ?? null) : null;
+  const activeKeys = getProductActiveBadgeKeys(product);
 
   const typeLabel = PRODUCT_TYPE_LABELS[product.productType] ?? product.productType;
   const typeColor = TYPE_COLORS[product.productType] ?? DEFAULT_TYPE_COLOR;
@@ -142,13 +153,20 @@ export function ProductShelfCard({
                 <Feather name="eye-off" size={12} color={colors.textTertiary} />
               </View>
             ) : null}
-            {activeLabel ? (
-              <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText}>
-                  {activeLabel}
-                </Text>
-              </View>
-            ) : null}
+            {activeKeys.map((key) => {
+              const categoryColor = ACTIVE_CATEGORY_COLORS[getActiveBadgeCategory(key)];
+              return (
+                <View
+                  key={key}
+                  testID={`active-badge-${key}`}
+                  style={[styles.activeBadge, { borderColor: categoryColor.border }]}
+                >
+                  <Text style={[styles.activeBadgeText, { color: categoryColor.text }]}>
+                    {ACTIVE_INGREDIENT_LABELS[key]}
+                  </Text>
+                </View>
+              );
+            })}
             <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
               <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
                 {typeLabel}

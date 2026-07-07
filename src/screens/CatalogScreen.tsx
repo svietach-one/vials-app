@@ -12,7 +12,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { ProductShelfCard } from '@/components/product/ProductShelfCard';
-import { CatalogFilterHeader } from '@/components/catalog/CatalogFilterHeader';
+import { CatalogFilterTrigger } from '@/components/catalog/CatalogFilterTrigger';
+import { FilterSheet } from '@/components/catalog/FilterSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
@@ -22,18 +23,16 @@ import { Badge } from '@/components/ui/feedback/Badge';
 import { Tag } from '@/components/ui/core/Tag';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, space, typography } from '@/constants/tokens';
-import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import {
+  ACTIVE_INGREDIENT_LABELS,
+  FUNCTIONAL_BENEFIT_INGREDIENTS,
+  PRODUCT_TYPE_LABELS,
+} from '@/constants/labels';
 import { deleteProductCascade } from '@/domain/productActions';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
-import type {
-  ActiveIngredientKey,
-  BiomarkerTag,
-  CatalogFilterState,
-  Product,
-  ProductType,
-} from '@/types';
+import type { CatalogFilterState, Product } from '@/types';
 import { CATALOG_FILTER_DEFAULT } from '@/types';
 import { getProductRoutineStatus, type RoutineStatusResult } from '@/utils/routineStatus';
 import { getProductPaoStatus } from '@/utils/paoHelpers';
@@ -43,29 +42,13 @@ type Props = NativeStackScreenProps<CatalogStackParamList, 'Catalog'>;
 
 // ─── Module-level filter constants ────────────────────────────────────────────
 
-// Both vocabularies: canonical keys (new tags) + legacy keys (pre-migration tags)
-const ACTIVES_KEYS: ActiveIngredientKey[] = [
-  'retinoid',
-  'retinol',
-  'aha',
-  'bha',
-  'pha',
-  'vitamin_c_pure',
-  'vitamin_c_derivative',
-  'vitamin_c',
-  'benzoyl_peroxide',
-  'azelaic_acid',
-];
-const SOOTHING_KEYS: ActiveIngredientKey[] = ['niacinamide', 'copper_peptides'];
-const HYDRATION_TYPES: ProductType[] = ['moisturizer', 'cream', 'lotion', 'oil', 'essence', 'toner'];
-
 const PAO_AMBER = '#D97706';
 
 // ─── applyFilters ─────────────────────────────────────────────────────────────
 
 export function applyFilters(
   products: Product[],
-  { searchQuery, selectedCategory, selectedBiomarkers }: CatalogFilterState,
+  { searchQuery, selectedCategory, selectedBenefits }: CatalogFilterState,
 ): Product[] {
   return products.filter((p) => {
     // Gate 1 — text search
@@ -82,17 +65,10 @@ export function applyFilters(
     // Gate 2 — category
     if (selectedCategory !== 'All' && p.productType !== selectedCategory) return false;
 
-    // Gate 3 — biomarkers (ALL selected must pass)
-    for (const biomarker of selectedBiomarkers) {
-      if (biomarker === 'Actives') {
-        if (!(p.activeTags ?? []).some((k) => ACTIVES_KEYS.includes(k))) return false;
-      }
-      if (biomarker === 'Soothing') {
-        if (!(p.activeTags ?? []).some((k) => SOOTHING_KEYS.includes(k))) return false;
-      }
-      if (biomarker === 'Hydration') {
-        if (!HYDRATION_TYPES.includes(p.productType)) return false;
-      }
+    // Gate 3 — functional benefits (ALL selected must pass)
+    for (const benefit of selectedBenefits) {
+      const matchingKeys = FUNCTIONAL_BENEFIT_INGREDIENTS[benefit];
+      if (!(p.activeTags ?? []).some((k) => matchingKeys.includes(k))) return false;
     }
 
     return true;
@@ -110,12 +86,15 @@ export default function CatalogScreen({ navigation }: Props) {
   const [filterState, setFilterState] = useState<CatalogFilterState>(CATALOG_FILTER_DEFAULT);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [schedulerTarget, setSchedulerTarget] = useState<Product | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const filteredProducts = applyFilters(products, filterState);
+  const activeFilterCount =
+    (filterState.selectedCategory !== 'All' ? 1 : 0) + filterState.selectedBenefits.length;
   const hasActiveFilters =
     filterState.searchQuery.trim() !== '' ||
     filterState.selectedCategory !== 'All' ||
-    filterState.selectedBiomarkers.length > 0;
+    filterState.selectedBenefits.length > 0;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -193,16 +172,21 @@ export default function CatalogScreen({ navigation }: Props) {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
           <View style={styles.searchWrap}>
-            <Input
-              icon={<Feather name="search" size={15} color={colors.textTertiary} />}
-              value={filterState.searchQuery}
-              onChangeText={(t) => setFilterState((s) => ({ ...s, searchQuery: t }))}
-              placeholder="Search by name, brand or ingredient…"
-              clearButtonMode="while-editing"
-              returnKeyType="search"
-              containerStyle={styles.searchInput}
-            />
-            <CatalogFilterHeader filterState={filterState} onFilterChange={setFilterState} />
+            <View style={styles.searchRow}>
+              <Input
+                icon={<Feather name="search" size={15} color={colors.textTertiary} />}
+                value={filterState.searchQuery}
+                onChangeText={(t) => setFilterState((s) => ({ ...s, searchQuery: t }))}
+                placeholder="Search by name, brand or ingredient…"
+                clearButtonMode="while-editing"
+                returnKeyType="search"
+                containerStyle={styles.searchInputFlex}
+              />
+              <CatalogFilterTrigger
+                activeFilterCount={activeFilterCount}
+                onPress={() => setSheetOpen(true)}
+              />
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -228,6 +212,14 @@ export default function CatalogScreen({ navigation }: Props) {
         cancelLabel="Cancel"
         saveLabel="Add to routine"
         onClose={() => setSchedulerTarget(null)}
+      />
+
+      <FilterSheet
+        visible={sheetOpen}
+        initialState={filterState}
+        products={products}
+        onApply={setFilterState}
+        onClose={() => setSheetOpen(false)}
       />
     </SafeAreaView>
   );
@@ -327,8 +319,13 @@ const styles = StyleSheet.create({
     paddingTop: space[4],
     paddingBottom: space[3],
   },
-  searchInput: {
-    marginBottom: space[2],
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.gapInline,
+  },
+  searchInputFlex: {
+    flex: 1,
   },
   listContent: {
     paddingHorizontal: space.gutterScreen,

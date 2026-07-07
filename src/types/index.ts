@@ -33,6 +33,9 @@ export interface ActiveIngredient {
   displayName: string;
 }
 
+/** Functional grouping used to color-code active-ingredient badges on the shelf card. */
+export type ActiveBadgeCategory = 'exfoliant' | 'soothing' | 'hydrator' | 'other';
+
 // ─── Clinical procedures ──────────────────────────────────────────────────────
 
 export type CosmeticProcedureKey =
@@ -343,16 +346,24 @@ export interface AppSettings {
 // ─── Catalog filters ──────────────────────────────────────────────────────────
 
 export type CategoryFilter = 'All' | ProductType;
-export type BiomarkerTag = 'Soothing' | 'Actives' | 'Hydration';
+
+/** "What it does" taxonomy for the My Shelf filter sheet, matched against `Product.activeTags`. */
+export type FunctionalBenefit =
+  | 'hydration'
+  | 'exfoliation'
+  | 'soothing'
+  | 'anti_acne'
+  | 'barrier_repair'
+  | 'brightening';
 
 export interface CatalogFilterState {
   searchQuery: string;
   selectedCategory: CategoryFilter;
-  selectedBiomarkers: BiomarkerTag[];
+  selectedBenefits: FunctionalBenefit[];
 }
 
 export const CATALOG_FILTER_DEFAULT: CatalogFilterState = {
   searchQuery: '',
   selectedCategory: 'All',
-  selectedBiomarkers: [],
+  selectedBenefits: [],
 };

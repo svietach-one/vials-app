@@ -104,10 +104,14 @@ jest.mock('@/components/routine/RoutineSchedulerSheet', () => ({
   RoutineSchedulerSheet: () => null,
 }));
 
-jest.mock('@/components/catalog/CatalogFilterHeader', () => {
+jest.mock('@/components/catalog/CatalogFilterTrigger', () => {
   const { View } = require('react-native');
-  return { CatalogFilterHeader: () => <View testID="catalog-filter-header" /> };
+  return { CatalogFilterTrigger: () => <View testID="catalog-filter-trigger" /> };
 });
+
+jest.mock('@/components/catalog/FilterSheet', () => ({
+  FilterSheet: () => null,
+}));
 
 jest.mock('@/components/ui/forms/Input', () => {
   const { TextInput } = require('react-native');

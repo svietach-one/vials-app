@@ -14,6 +14,7 @@ interface RulesetActiveClass {
 
 interface CompiledMatcher {
   regex: RegExp;
+  pattern: string;
   potency?: string;
 }
 
@@ -23,10 +24,22 @@ interface CompiledActiveClass {
   negativePatterns: RegExp[];
 }
 
+/**
+ * The literal substring a matcher fired on, plus the source pattern that
+ * fired it (used as the `aliasOverrides.json` lookup key). Lets the UI show
+ * users the exact text the engine acted on instead of just the class label —
+ * see docs/specs/inci-attribution-highlighting.md ("Hidden Alias" problem).
+ */
+export interface MatchedToken {
+  rawText: string;
+  matcherPattern: string;
+}
+
 /** A parsed class hit with the strongest potency among its matched patterns. */
 export interface ParsedActiveDetail {
   key: ActiveIngredientKey;
   potency?: string;
+  matches: MatchedToken[];
 }
 
 const POTENCY_RANK: Record<string, number> = { low: 0, medium: 1, high: 2, rx: 3 };
@@ -55,6 +68,7 @@ const COMPILED_CLASSES: CompiledActiveClass[] = Object.entries(RULESET_CLASSES).
     key: key as ActiveIngredientKey,
     matchers: cls.matchers.map((m) => ({
       regex: new RegExp(m.pattern, 'i'),
+      pattern: m.pattern,
       potency: m.potency,
     })),
     negativePatterns: (cls.negativePatterns ?? []).map((p) => new RegExp(p, 'gi')),
@@ -87,10 +101,11 @@ export function parseActiveIngredientDetails(inciText: string): ParsedActiveDeta
     }
 
     let potency: string | undefined;
-    let matched = false;
+    const matches: MatchedToken[] = [];
     for (const matcher of cls.matchers) {
-      if (!matcher.regex.test(text)) continue;
-      matched = true;
+      const match = matcher.regex.exec(text);
+      if (!match) continue;
+      matches.push({ rawText: match[0], matcherPattern: matcher.pattern });
       if (
         matcher.potency !== undefined &&
         (potency === undefined || POTENCY_RANK[matcher.potency] > POTENCY_RANK[potency])
@@ -98,7 +113,7 @@ export function parseActiveIngredientDetails(inciText: string): ParsedActiveDeta
         potency = matcher.potency;
       }
     }
-    if (matched) found.push({ key: cls.key, potency });
+    if (matches.length > 0) found.push({ key: cls.key, potency, matches });
   }
 
   return found;

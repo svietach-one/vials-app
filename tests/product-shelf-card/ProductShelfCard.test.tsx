@@ -9,13 +9,31 @@
  *   Story 5  Pressed and disabled states
  *   Extra    Product title: 2-line truncation behaviour
  *   Extra    Layout stability when title is long
+ *
+ * Also covers docs/specs/multi-active-badges.md (all 4 user stories) at the
+ * bottom of this file — see "Multi-active badges" describe blocks. These
+ * exercise src/utils/activeBadges.ts (getProductActiveKeys /
+ * getActiveBadgeCategory) indirectly through the rendered card and are
+ * EXPECTED TO FAIL until the engineer implements per
+ * docs/tech-design/multi-active-badges.md (that util module + the
+ * ProductShelfCard.tsx badge-row rewrite do not exist yet).
  */
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { ProductShelfCard } from '@/components/product/ProductShelfCard';
-import { makeProduct, makeDefaultShelfCardProps } from './fixtures';
+import { palette } from '@/constants/tokens';
+import {
+  makeProduct,
+  makeDefaultShelfCardProps,
+  makeMultiActiveProduct,
+  makeFallbackActiveProduct,
+  makeExplicitNoActivesProduct,
+  makeSingleActiveProduct,
+  makeFourActiveProduct,
+} from './fixtures';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -42,13 +60,17 @@ jest.mock('@/constants/labels', () => ({
   },
   ACTIVE_INGREDIENT_LABELS: {
     retinol: 'Retinol',
+    retinoid: 'Retinoids',
     aha: 'AHA',
     bha: 'BHA',
     vitamin_c: 'Vitamin C',
+    vitamin_c_derivative: 'Vitamin C (Derivative)',
     niacinamide: 'Niacinamide',
     copper_peptides: 'Copper Peptides',
     benzoyl_peroxide: 'Benzoyl Peroxide',
     spf_chemical: 'SPF (Chemical)',
+    spf_filters: 'UV Filters (SPF)',
+    ceramides: 'Ceramides',
   },
 }));
 
@@ -266,5 +288,176 @@ describe('Layout stability — elements stay present when title is long', () => 
     expect(screen.getByText('Mon • Wed • Sat')).toBeTruthy();
     expect(screen.getByTestId('icon-moon')).toBeTruthy();
     expect(screen.getByTestId('icon-sun')).toBeTruthy();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Multi-active badges — docs/specs/multi-active-badges.md
+// docs/tech-design/multi-active-badges.md
+//
+// New testIDs introduced by the tech design: `active-badge-${key}` on each
+// active-ingredient badge container (one per ActiveIngredientKey rendered).
+// Implemented by src/utils/activeBadges.ts (getProductActiveKeys,
+// getActiveBadgeCategory) + a ProductShelfCard.tsx badge-row rewrite —
+// neither exists yet, so every test below is expected to FAIL (red) against
+// the current component and turn green once FE-1..FE-3 are implemented.
+// ════════════════════════════════════════════════════════════════════════════
+
+/** Flattens an RN style prop (array or object) into a single plain object. */
+function flattenStyle(style: unknown): Record<string, unknown> {
+  return (StyleSheet.flatten(style as never) ?? {}) as Record<string, unknown>;
+}
+
+// ── Story 1: See every active ingredient on a multi-active product ───────────
+
+describe('Multi-active badges — Story 1: every active renders', () => {
+  it('renders a badge for every key in activeTags when it has 2+ entries', () => {
+    renderCard({ product: makeMultiActiveProduct() });
+
+    expect(screen.getByTestId('active-badge-bha')).toBeTruthy();
+    expect(screen.getByTestId('active-badge-niacinamide')).toBeTruthy();
+    expect(screen.getByText('BHA')).toBeTruthy();
+    expect(screen.getByText('Niacinamide')).toBeTruthy();
+  });
+
+  it('falls back to the FULL activeIngredients array (not just index 0) when activeTags is undefined', () => {
+    renderCard({ product: makeFallbackActiveProduct() });
+
+    expect(screen.getByTestId('active-badge-retinoid')).toBeTruthy();
+    expect(screen.getByTestId('active-badge-ceramides')).toBeTruthy();
+    expect(screen.getByText('Retinoids')).toBeTruthy();
+    expect(screen.getByText('Ceramides')).toBeTruthy();
+  });
+
+  it('renders zero active badges when activeTags is explicitly empty, even with non-empty activeIngredients', () => {
+    renderCard({ product: makeExplicitNoActivesProduct() });
+
+    expect(screen.queryByTestId('active-badge-bha')).toBeNull();
+    expect(screen.queryAllByTestId(/^active-badge-/)).toHaveLength(0);
+    expect(screen.queryByText('BHA')).toBeNull();
+  });
+
+  it('renders zero active badges and an unchanged layout when neither array has actives', () => {
+    const product = makeProduct({ activeTags: [], activeIngredients: [] });
+    renderCard({ product });
+
+    expect(screen.queryAllByTestId(/^active-badge-/)).toHaveLength(0);
+    // Layout unchanged: type badge and overflow button are still present.
+    expect(screen.getByText('Cleanser')).toBeTruthy();
+    expect(screen.getByLabelText(/more actions/i)).toBeTruthy();
+  });
+});
+
+// ── Story 2: Distinguish active categories by color ───────────────────────────
+
+describe('Multi-active badges — Story 2: category colors', () => {
+  it('renders an exfoliant/treatment-acid active (bha) in the amber category color', () => {
+    renderCard({ product: makeSingleActiveProduct('bha') });
+
+    const badge = screen.getByTestId('active-badge-bha');
+    const label = screen.getByText('BHA');
+    expect(flattenStyle(badge.props.style).borderColor).toBe(palette.amberLine);
+    expect(flattenStyle(label.props.style).color).toBe(palette.amber);
+  });
+
+  it('renders a vitamin C active (vitamin_c_derivative) in the amber category color too', () => {
+    renderCard({ product: makeSingleActiveProduct('vitamin_c_derivative') });
+
+    const badge = screen.getByTestId('active-badge-vitamin_c_derivative');
+    const label = screen.getByText('Vitamin C (Derivative)');
+    expect(flattenStyle(badge.props.style).borderColor).toBe(palette.amberLine);
+    expect(flattenStyle(label.props.style).color).toBe(palette.amber);
+  });
+
+  it('renders a soothing/brightening active (niacinamide) in the bottle-green category color', () => {
+    renderCard({ product: makeSingleActiveProduct('niacinamide') });
+
+    const badge = screen.getByTestId('active-badge-niacinamide');
+    const label = screen.getByText('Niacinamide');
+    expect(flattenStyle(badge.props.style).borderColor).toBe(palette.bottleGreenLine);
+    expect(flattenStyle(label.props.style).color).toBe(palette.bottleGreen);
+  });
+
+  it('renders a hydrating/barrier active (ceramides) in the cobalt category color', () => {
+    renderCard({ product: makeSingleActiveProduct('ceramides') });
+
+    const badge = screen.getByTestId('active-badge-ceramides');
+    const label = screen.getByText('Ceramides');
+    expect(flattenStyle(badge.props.style).borderColor).toBe(palette.cobaltLine);
+    expect(flattenStyle(label.props.style).color).toBe(palette.cobalt);
+  });
+
+  it('renders an active outside all three buckets (spf_filters) with the existing neutral zinc/black look', () => {
+    renderCard({ product: makeSingleActiveProduct('spf_filters') });
+
+    const badge = screen.getByTestId('active-badge-spf_filters');
+    const label = screen.getByText('UV Filters (SPF)');
+    expect(flattenStyle(badge.props.style).borderColor).toBe(palette.zinc300);
+    expect(flattenStyle(label.props.style).color).toBe(palette.black);
+  });
+});
+
+// ── Story 3: Tell the product-type badge apart from active badges ────────────
+
+describe('Multi-active badges — Story 3: type badge vs. active badge styling', () => {
+  it('keeps the type badge on a solid tint fill, unchanged from today', () => {
+    renderCard({ product: makeProduct({ productType: 'cream' }) });
+
+    const typeLabel = screen.getByText('Cream');
+    const typeBadgeContainer = typeLabel.parent?.parent;
+    expect(flattenStyle(typeBadgeContainer?.props.style).backgroundColor).toBe(
+      palette.bottleGreenTint,
+    );
+  });
+
+  it('never gives the active badge the same solid-fill recipe as the type badge, even in the same hue family', () => {
+    // "mask" type badge is amber (palette.amberTint solid fill); "bha" active
+    // badge is also amber-family (exfoliant) — this is the exact same-hue
+    // collision called out in the tech design's Assumptions section.
+    const product = makeProduct({ productType: 'mask', activeTags: ['bha'], activeIngredients: [] });
+    renderCard({ product });
+
+    const typeBadgeContainer = screen.getByText('Mask').parent?.parent;
+    const activeBadgeContainer = screen.getByTestId('active-badge-bha');
+
+    const typeStyle = flattenStyle(typeBadgeContainer?.props.style);
+    const activeStyle = flattenStyle(activeBadgeContainer.props.style);
+
+    // Type badge: solid amber tint fill, no meaningful border color assertion needed here.
+    expect(typeStyle.backgroundColor).toBe(palette.amberTint);
+    // Active badge: outlined recipe — must NOT reuse the type badge's solid fill,
+    // and must carry a colored border instead.
+    expect(activeStyle.backgroundColor).not.toBe(palette.amberTint);
+    expect(activeStyle.borderColor).toBe(palette.amberLine);
+  });
+});
+
+// ── Story 4: Cards with many actives stay fully readable ─────────────────────
+
+describe('Multi-active badges — Story 4: many actives, no "+N" overflow', () => {
+  it('renders all 4 badges for a 4-active product with no badge hidden', () => {
+    renderCard({ product: makeFourActiveProduct() });
+
+    expect(screen.getByTestId('active-badge-bha')).toBeTruthy();
+    expect(screen.getByTestId('active-badge-niacinamide')).toBeTruthy();
+    expect(screen.getByTestId('active-badge-ceramides')).toBeTruthy();
+    expect(screen.getByTestId('active-badge-spf_filters')).toBeTruthy();
+    expect(screen.queryAllByTestId(/^active-badge-/)).toHaveLength(4);
+  });
+
+  it('never shows a "+N" or similar numeric overflow indicator, regardless of active count', () => {
+    renderCard({ product: makeFourActiveProduct() });
+
+    expect(screen.queryAllByText(/\+\s*\d+/)).toHaveLength(0);
+  });
+
+  it('keeps the overflow ("more actions") button present and tappable when the badge row is at its widest', () => {
+    renderCard({ product: makeFourActiveProduct(), isInRoutine: true });
+
+    const overflowButton = screen.getByLabelText(/more actions/i);
+    expect(overflowButton).toBeTruthy();
+
+    fireEvent.press(overflowButton);
+    expect(screen.getByText('Edit Product')).toBeTruthy();
   });
 });

@@ -59,7 +59,16 @@ const TESSERACT_HTML = `<!DOCTYPE html>
     var dataUrl = 'data:image/jpeg;base64,' + base64;
     workerPromise
       .then(function (worker) { return worker.recognize(dataUrl); })
-      .then(function (result) { postMsg({ type: 'OCR_RESULT', text: result.data.text }); })
+      .then(function (result) {
+        // Word-level bounding boxes tesseract.js already computes internally.
+        // Captured here for a future highlighting overlay (FE-11 Story 2,
+        // currently BLOCKED on a storage-policy decision) — not persisted or
+        // consumed by any UI yet; purely additive to the message payload.
+        var words = (result.data.words || []).map(function (w) {
+          return { text: w.text, x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1 };
+        });
+        postMsg({ type: 'OCR_RESULT', text: result.data.text, words: words });
+      })
       .catch(function (e) { postMsg({ type: 'OCR_ERROR', message: String(e) }); });
   }
 
@@ -77,10 +86,27 @@ export interface OcrScannerSheetProps {
   onResult: (text: string) => void;
 }
 
+/** Word-level OCR bounding box, in the source image's pixel coordinates. */
+interface OcrWord {
+  text: string;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
 interface WebViewMsg {
   type: 'WORKER_READY' | 'OCR_RESULT' | 'OCR_ERROR';
   text?: string;
   message?: string;
+  /**
+   * Captured for a future label-photo highlighting overlay (FE-11 Story 2,
+   * BLOCKED pending a storage-policy decision — see
+   * docs/specs/inci-attribution-highlighting.md). Not persisted or consumed
+   * anywhere yet; reading it here is purely additive and must never change
+   * the existing text-only OCR flow's behavior.
+   */
+  words?: OcrWord[];
 }
 
 const SCAN_TIMEOUT_MS = 10_000;

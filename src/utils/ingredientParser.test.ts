@@ -10,6 +10,7 @@
 
 import {
   parseActiveIngredientsFromInci,
+  parseActiveIngredientDetails,
   getProductActiveKeys,
   normalizeActiveKey,
 } from '@/utils/ingredientParser';
@@ -185,6 +186,65 @@ describe('parseActiveIngredientsFromInci', () => {
 
     expect(result).toContain('spf_filters');
     expect(result).not.toContain('bha');
+  });
+});
+
+// ─── parseActiveIngredientDetails — matched-token attribution (FE-1/FE-6) ────
+//
+// Grounds docs/specs/inci-attribution-highlighting.md's "Hidden Alias"
+// incident: the engine must expose which literal substring fired a match,
+// not just the canonical class key.
+
+describe('parseActiveIngredientDetails — matches attribution', () => {
+  it('returns one MatchedToken carrying the literal matched substring when a single matcher fires', () => {
+    const result = parseActiveIngredientDetails('Water, Betaine Salicylate, Glycerin');
+
+    const bha = result.find((detail) => detail.key === 'bha');
+    expect(bha).toBeDefined();
+    expect(bha?.matches).toEqual([
+      { rawText: 'Betaine Salicylate', matcherPattern: '\\bbetaine\\s+salicylate\\b' },
+    ]);
+  });
+
+  it('retains a MatchedToken for every matcher that fires within a class, not just the strongest-potency one', () => {
+    const result = parseActiveIngredientDetails('Water, Salicylic Acid, Willow Bark Extract, Glycerin');
+
+    const bha = result.find((detail) => detail.key === 'bha');
+    expect(bha?.potency).toBe('high'); // salicylic acid (high) wins over willow bark (low)
+    expect(bha?.matches).toHaveLength(2);
+    expect(bha?.matches.map((m) => m.rawText)).toEqual(
+      expect.arrayContaining(['Salicylic Acid', 'Willow Bark']),
+    );
+  });
+
+  it('uses the exact regex source string as matcherPattern, matching aliasOverrides.json keys verbatim', () => {
+    const result = parseActiveIngredientDetails('Water, Willow Bark Extract, Glycerin');
+
+    const bha = result.find((detail) => detail.key === 'bha');
+    expect(bha?.matches[0]?.matcherPattern).toBe('\\b(salix\\s+alba|willow\\s+bark)\\b');
+  });
+
+  it('produces no match/no token when the only occurrence is stripped by a negative pattern', () => {
+    const result = parseActiveIngredientDetails('Retinol-free formula, Water, Glycerin');
+
+    expect(result.find((detail) => detail.key === 'retinoid')).toBeUndefined();
+  });
+
+  it('omits a class entirely from the result when none of its matchers fire', () => {
+    const result = parseActiveIngredientDetails('Water, Glycerin, Dimethicone');
+
+    expect(result).toHaveLength(0);
+  });
+
+  it('does not affect parseActiveIngredientsFromInci or getProductActiveKeys, which only read .key', () => {
+    const keys = parseActiveIngredientsFromInci('Water, Betaine Salicylate, Niacinamide');
+    expect(keys).toEqual(expect.arrayContaining(['bha', 'niacinamide']));
+
+    const productKeys = getProductActiveKeys({
+      activeIngredients: [],
+      fullIngredientText: 'Water, Betaine Salicylate, Niacinamide',
+    });
+    expect(productKeys).toEqual(expect.arrayContaining(['bha', 'niacinamide']));
   });
 });
 
