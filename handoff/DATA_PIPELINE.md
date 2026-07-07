@@ -15,10 +15,29 @@ for the integration task.
 | Editorial `vials_seed` | owned actives-skincare coverage | owned | to be built |
 | Community contributions | owned long-tail | owned | via future endpoint |
 
-CosIng note: the copy used was an archived 2016 export (the only bulk mirror reachable at
-build time). **Before launch, refresh from a current data.europa.eu CosIng export** — a
-decade of new ingredients and annex amendments matter for EU regulatory accuracy. The
-pipeline auto-detects the header row, so a newer CSV drops in without code changes.
+CosIng note: the copy used was an archived 2016 export. **Update (2026-07-07):** the EU
+no longer publishes a bulk CosIng CSV at a fetchable URL — `ec.europa.eu/growth/tools-databases/cosing/`
+was rebuilt as an interactive Angular SPA with no discovered export endpoint, and the
+dataset's data.europa.eu catalog entry now 404s. The freshest real snapshot found (via
+Wayback Machine CDX search — later captures of the old direct-download path just 302/307
+redirect) is from **2019-01-16**, now used in `handoff/out/` (26,078 ingredients, up from
+~24,100). Refreshed via `COSING_Ingredients-Fragrance.Inventory_2019-01-16.csv`, kept
+locally in `handoff/` (gitignored, not committed — regenerate/refetch as needed).
+
+Schema drift found in the 2019 export vs. the 2016 one: the EC number column was renamed
+`EINECS/ELINCS No` → `EC No`. `seed_cosing.py` now checks both (falls back to `EC No`);
+without that fix `ec_number` silently came out NULL for all 26,078 rows. The
+`active_key` assignment script itself (the per-class regex classifier) was never checked
+into `handoff/` — only its `active_key_map.json` output was — so a new
+`assign_active_keys.py` re-applies that same map (+ the documented Annex VI → `spf_filters`
+rule) rather than reconstructing the classifier from scratch; 252/26,078 ingredients got a
+class this way, consistent with the original run's class distribution.
+
+**Before launch, get a genuinely current export** — if the EU restores a bulk-download
+path, or the CosIng tool exposes one, re-run `seed_cosing.py` against it; a decade+ of new
+ingredients and annex amendments matter for EU regulatory accuracy and 2019 is not
+"current." The pipeline auto-detects the header row, so a newer CSV still drops in without
+code changes (aside from re-checking column names, as this refresh found necessary).
 
 OBF reality check: the full OBF cosmetics DB is only ~66k records worldwide; after EU +
 has-ingredients filtering, ~17k usable. It is **thin exactly in actives-heavy skincare**
@@ -44,6 +63,19 @@ Assigns each ingredient its canonical `ActiveIngredientKey` class (or NULL). Two
 - name/synonym patterns for the other 14 classes, with the pure-vs-derivative Vitamin C split preserved (only `ascorbic acid` → `vitamin_c_pure`; all esters → `vitamin_c_derivative`).
 Output: `active_key_updates.sql` (applied to `ingredients`) and `active_key_map.json`
 (the name→key map the product tagger consumes).
+
+The original per-class classifier that *builds* `active_key_map.json` was never checked
+into `handoff/`. To refresh `active_key_updates.sql` against a re-seeded `ingredients.db`,
+`assign_active_keys.py` re-applies the existing map (+ the Annex VI rule) — it does not
+regenerate the map itself:
+```
+python3 assign_active_keys.py out/ingredients.db active_key_map.json out
+# → out/active_key_updates.sql  (load: turso db shell vials-corpus < active_key_updates.sql)
+```
+New ingredients not already covered by the map's ~283 curated names/synonyms come out
+with `active_key = NULL` unless they're Annex VI. If the CosIng refresh introduced INCI
+names for actives not yet in the map, extend `active_key_map.json` by hand before running
+this script.
 
 ### 3. `seed_obf.py` — products (dogfood)
 ```
