@@ -30,7 +30,7 @@ export function RehabWidget({ state }: RehabWidgetProps) {
       <View style={styles.headerRow}>
         <Feather name="shield" size={14} color={palette.cabernet} />
         <Text style={styles.headerText}>
-          🩹 Rehabilitation: {state.procedureName}
+          Rehabilitation: {state.procedureName}
         </Text>
       </View>
       <Text style={styles.dayText}>

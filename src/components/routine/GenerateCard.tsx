@@ -31,10 +31,11 @@ export function GenerateCard({ onGenerate, onAddManually }: GenerateCardProps) {
           variant="primary"
           size="md"
           fullWidth
+          icon={<Feather name="zap" size={16} color={colors.controlOn} />}
           onPress={onGenerate}
           accessibilityLabel="Generate Routine"
         >
-          ✨ Generate Routine
+          Generate Routine
         </Button>
         <Button
           variant="secondary"

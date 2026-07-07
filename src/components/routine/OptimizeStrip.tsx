@@ -28,9 +28,16 @@ export function OptimizeStrip({ hasFindings, onPress }: OptimizeStripProps) {
         pressed && styles.stripPressed,
       ]}
     >
-      <Text style={[styles.label, hasFindings && styles.labelHighlighted]}>
-        ✨ Optimize or Regenerate Routine
-      </Text>
+      <View style={styles.labelRow}>
+        <Feather
+          name="refresh-cw"
+          size={14}
+          color={hasFindings ? colors.statusWarning : colors.textPrimary}
+        />
+        <Text style={[styles.label, hasFindings && styles.labelHighlighted]}>
+          Optimize or Regenerate Routine
+        </Text>
+      </View>
       {hasFindings ? (
         <View style={styles.badge}>
           <Feather name="alert-triangle" size={13} color={colors.statusWarning} />
@@ -58,6 +65,11 @@ const styles = StyleSheet.create({
   },
   stripPressed: {
     opacity: 0.7,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
   },
   label: {
     ...typography.body,
