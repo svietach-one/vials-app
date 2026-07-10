@@ -132,10 +132,5 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     color: colors.textTertiary,
   },
-  sublabel: {
-    fontFamily: 'DMSans-Regular',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textSecondary,
-  },
+  sublabel: { ...typography.bodySmall, color: colors.textSecondary },
 });

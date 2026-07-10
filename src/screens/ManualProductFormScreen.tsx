@@ -23,9 +23,11 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
-import { colors, palette, radius, space } from '@/constants/tokens';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { useProductRepository } from '@/hooks/useCorpusRepositories';
 import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 import { generateId } from '@/utils/generateId';
+import { resolveProductType } from '@/utils/productType';
 import type {
   ActiveIngredient,
   ActiveIngredientKey,
@@ -315,11 +317,12 @@ function OpenedDateField({ isOpened, dateValue, onToggle, onDateChange }: Opened
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ManualProductFormScreen({ route, navigation }: Props) {
-  const { prefillOBFProduct, editingProductId } = route.params;
+  const { prefillCorpusProduct, editingProductId } = route.params;
 
   const products = useProductsStore((st) => st.products);
   const addProduct = useProductsStore((st) => st.addProduct);
   const updateProduct = useProductsStore((st) => st.updateProduct);
+  const productRepository = useProductRepository();
 
   const editingProduct = editingProductId
     ? (products.find((p) => p.id === editingProductId) ?? null)
@@ -343,6 +346,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [paoError, setPaoError] = useState<string | null>(null);
   const [isOpened, setIsOpened] = useState(false);
   const [openedDate, setOpenedDate] = useState(todayIso());
+  const [showObfAttribution, setShowObfAttribution] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -368,14 +372,23 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         setIsOpened(true);
         setOpenedDate(editingProduct.openedDate);
       }
-    } else if (prefillOBFProduct) {
-      setName(prefillOBFProduct.name);
-      setBrand(prefillOBFProduct.brand);
-      setFullIngredientText(prefillOBFProduct.ingredientsText);
-      setObfId(prefillOBFProduct.obfId);
-      setProductType('serum');
-      const parsedKeys = parseActiveIngredientsFromInci(prefillOBFProduct.ingredientsText);
-      setSelectedIngredients(keysToIngredients(parsedKeys));
+    } else if (prefillCorpusProduct) {
+      const p = prefillCorpusProduct;
+      setName(p.name);
+      setBrand(p.brand ?? '');
+      setFullIngredientText(p.inciRaw ?? '');
+      setObfId(p.source === 'obf_import' ? p.uid : null);
+      setShowObfAttribution(p.source === 'obf_import');
+      setProductType(resolveProductType(p.type));
+
+      // Prefer the corpus's curated tags over a local re-parse of the INCI text.
+      if (productRepository) {
+        productRepository.getActiveKeys(p.uid).then((tags) => {
+          setSelectedIngredients(keysToIngredients(tags));
+        });
+      } else if (p.inciRaw) {
+        setSelectedIngredients(keysToIngredients(parseActiveIngredientsFromInci(p.inciRaw)));
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -499,6 +512,15 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {showObfAttribution ? (
+            <InlineAlert
+              tone="info"
+              icon={<Feather name="info" size={16} color={colors.statusInfo} />}
+            >
+              Product data from Open Beauty Facts (ODbL)
+            </InlineAlert>
+          ) : null}
+
           {/* ── Block 1: Product Basics ──────────────────────────────── */}
           <Card variant="raised" padding="none" style={s.card}>
             <View style={s.cardContent}>
@@ -719,12 +741,7 @@ const s = StyleSheet.create({
     lineHeight: 20,
     color: colors.statusWarning,
   },
-  alertBodyWarning: {
-    fontFamily: 'DMSans-Regular',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.statusWarning,
-  },
+  alertBodyWarning: { ...typography.bodySmall, color: colors.statusWarning },
   alertBodyInfo: {
     fontFamily: 'DMSans-Regular',
     fontSize: 14,
@@ -813,12 +830,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     includeFontPadding: false,
   },
-  dateHint: {
-    fontFamily: 'DMSans-Regular',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textTertiary,
-  },
+  dateHint: { ...typography.bodySmall, color: colors.textTertiary },
 
   // Divider between sub-sections
   divider: {
@@ -830,10 +842,5 @@ const s = StyleSheet.create({
   inputError: {
     borderColor: colors.statusError,
   },
-  fieldError: {
-    fontFamily: 'DMSans-Regular',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.statusError,
-  },
+  fieldError: { ...typography.bodySmall, color: colors.statusError },
 });

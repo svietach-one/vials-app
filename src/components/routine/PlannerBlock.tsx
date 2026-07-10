@@ -140,7 +140,6 @@ const styles = StyleSheet.create({
     gap: space[3],
   },
   dateText: {
-    ...typography.body,
     fontFamily: 'DMSans-Medium',
     fontSize: 16,
     lineHeight: 22,

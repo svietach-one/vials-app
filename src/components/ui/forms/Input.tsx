@@ -140,12 +140,7 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 
-  helper: {
-    fontFamily: 'DMSans-Regular',
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
+  helper: { ...typography.bodySmall, color: colors.textSecondary },
   helperError: {
     color: colors.statusError,
   },

@@ -132,9 +132,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   subtitle: {
-    fontFamily: 'DMSans-Regular',
-    fontSize: 14,
-    lineHeight: 20,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     marginTop: 1,
   },

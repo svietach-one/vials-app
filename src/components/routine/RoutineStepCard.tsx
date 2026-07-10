@@ -359,16 +359,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
   },
-  adaptationText: {
-    fontFamily: 'DMSans-Regular',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textSecondary,
-  },
+  adaptationText: { ...typography.bodySmall, color: colors.textSecondary },
   conflictText: {
-    fontFamily: 'DMSans-Regular',
-    fontSize: 14,
-    lineHeight: 20,
+    ...typography.bodySmall,
     color: palette.amber,
     flexShrink: 1,
   },
