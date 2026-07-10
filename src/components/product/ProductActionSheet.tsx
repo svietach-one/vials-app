@@ -14,6 +14,8 @@ export interface ProductActionSheetProps {
   onDelete: (p: Product) => void;
   onToggleHidden: (p: Product) => void;
   onClose: () => void;
+  onAddToRoutine?: (p: Product) => void;
+  onRemoveFromRoutine?: (p: Product) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -24,6 +26,8 @@ export function ProductActionSheet({
   onDelete,
   onToggleHidden,
   onClose,
+  onAddToRoutine,
+  onRemoveFromRoutine,
 }: ProductActionSheetProps) {
   return (
     <Modal
@@ -54,7 +58,40 @@ export function ProductActionSheet({
             <Text style={styles.rowLabel}>Edit Product</Text>
           </Pressable>
 
-          {/* Hide / Show */}
+          {/* Add/Remove from routine */}
+          {onAddToRoutine ? (
+            <Pressable
+              style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+              onPress={() => {
+                if (product) {
+                  onAddToRoutine(product);
+                  onClose();
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Add to routine"
+            >
+              <Feather name="plus-circle" size={18} color={colors.textPrimary} />
+              <Text style={styles.rowLabel}>Add to routine</Text>
+            </Pressable>
+          ) : onRemoveFromRoutine ? (
+            <Pressable
+              style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+              onPress={() => {
+                if (product) {
+                  onRemoveFromRoutine(product);
+                  onClose();
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Remove from routine"
+            >
+              <Feather name="minus-circle" size={18} color={colors.textPrimary} />
+              <Text style={styles.rowLabel}>Remove from routine</Text>
+            </Pressable>
+          ) : null}
+
+          {/* Hide/Show — independent of the routine row above */}
           <Pressable
             style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
             onPress={() => {
@@ -88,7 +125,7 @@ export function ProductActionSheet({
             accessibilityRole="button"
             accessibilityLabel="Delete product"
           >
-            <Feather name="trash-2" size={18} color={colors.statusSOS} />
+            <Feather name="trash-2" size={18} color={colors.statusError} />
             <Text style={[styles.rowLabel, styles.rowLabelDestructive]}>Delete Product</Text>
           </Pressable>
 
@@ -154,7 +191,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   rowLabelDestructive: {
-    color: colors.statusSOS,
+    color: colors.statusError,
   },
   cancelLabel: {
     color: colors.textSecondary,

@@ -22,7 +22,7 @@
   --text-2xs:  11px;
   --text-xs:   12px;
   --text-sm:   13px;
-  --text-base: 15px;
+  --text-base: 16px;
   --text-md:   16px;
   --text-lg:   18px;
   --text-xl:   22px;
@@ -35,7 +35,7 @@
   --leading-tight:   1.1;
   --leading-snug:    1.25;
   --leading-normal:  1.5;
-  --leading-relaxed: 1.65;
+  --leading-relaxed: 1.6875; /* 27px at 16px body */
 
   /* ---- Tracking ---- */
   --tracking-tighter: -0.02em;

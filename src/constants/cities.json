@@ -1,0 +1,772 @@
+[
+  {
+    "name": "Almaty, Kazakhstan",
+    "lat": 43.24,
+    "lon": 76.89
+  },
+  {
+    "name": "Amsterdam, Netherlands",
+    "lat": 52.37,
+    "lon": 4.9
+  },
+  {
+    "name": "Ankara, Turkey",
+    "lat": 39.93,
+    "lon": 32.86
+  },
+  {
+    "name": "Antwerp, Belgium",
+    "lat": 51.22,
+    "lon": 4.4
+  },
+  {
+    "name": "Athens, Greece",
+    "lat": 37.98,
+    "lon": 23.73
+  },
+  {
+    "name": "Atlanta, USA",
+    "lat": 33.75,
+    "lon": -84.39
+  },
+  {
+    "name": "Auckland, New Zealand",
+    "lat": -36.85,
+    "lon": 174.76
+  },
+  {
+    "name": "Baku, Azerbaijan",
+    "lat": 40.41,
+    "lon": 49.87
+  },
+  {
+    "name": "Bangkok, Thailand",
+    "lat": 13.76,
+    "lon": 100.5
+  },
+  {
+    "name": "Barcelona, Spain",
+    "lat": 41.39,
+    "lon": 2.17
+  },
+  {
+    "name": "Beijing, China",
+    "lat": 39.9,
+    "lon": 116.41
+  },
+  {
+    "name": "Belgrade, Serbia",
+    "lat": 44.79,
+    "lon": 20.45
+  },
+  {
+    "name": "Bergen, Norway",
+    "lat": 60.39,
+    "lon": 5.32
+  },
+  {
+    "name": "Berlin, Germany",
+    "lat": 52.52,
+    "lon": 13.41
+  },
+  {
+    "name": "Bilbao, Spain",
+    "lat": 43.26,
+    "lon": -2.93
+  },
+  {
+    "name": "Bogota, Colombia",
+    "lat": 4.71,
+    "lon": -74.07
+  },
+  {
+    "name": "Bologna, Italy",
+    "lat": 44.49,
+    "lon": 11.34
+  },
+  {
+    "name": "Bordeaux, France",
+    "lat": 44.84,
+    "lon": -0.58
+  },
+  {
+    "name": "Boston, USA",
+    "lat": 42.36,
+    "lon": -71.06
+  },
+  {
+    "name": "Bratislava, Slovakia",
+    "lat": 48.15,
+    "lon": 17.11
+  },
+  {
+    "name": "Brisbane, Australia",
+    "lat": -27.47,
+    "lon": 153.03
+  },
+  {
+    "name": "Brussels, Belgium",
+    "lat": 50.85,
+    "lon": 4.35
+  },
+  {
+    "name": "Bucharest, Romania",
+    "lat": 44.43,
+    "lon": 26.1
+  },
+  {
+    "name": "Budapest, Hungary",
+    "lat": 47.5,
+    "lon": 19.04
+  },
+  {
+    "name": "Buenos Aires, Argentina",
+    "lat": -34.6,
+    "lon": -58.38
+  },
+  {
+    "name": "Busan, South Korea",
+    "lat": 35.18,
+    "lon": 129.08
+  },
+  {
+    "name": "Cairo, Egypt",
+    "lat": 30.04,
+    "lon": 31.24
+  },
+  {
+    "name": "Calgary, Canada",
+    "lat": 51.05,
+    "lon": -114.07
+  },
+  {
+    "name": "Cape Town, South Africa",
+    "lat": -33.92,
+    "lon": 18.42
+  },
+  {
+    "name": "Casablanca, Morocco",
+    "lat": 33.57,
+    "lon": -7.59
+  },
+  {
+    "name": "Chicago, USA",
+    "lat": 41.88,
+    "lon": -87.63
+  },
+  {
+    "name": "Chisinau, Moldova",
+    "lat": 47.01,
+    "lon": 28.86
+  },
+  {
+    "name": "Cologne, Germany",
+    "lat": 50.94,
+    "lon": 6.96
+  },
+  {
+    "name": "Copenhagen, Denmark",
+    "lat": 55.68,
+    "lon": 12.57
+  },
+  {
+    "name": "Dallas, USA",
+    "lat": 32.78,
+    "lon": -96.8
+  },
+  {
+    "name": "Delhi, India",
+    "lat": 28.7,
+    "lon": 77.1
+  },
+  {
+    "name": "Denver, USA",
+    "lat": 39.74,
+    "lon": -104.99
+  },
+  {
+    "name": "Doha, Qatar",
+    "lat": 25.29,
+    "lon": 51.53
+  },
+  {
+    "name": "Dresden, Germany",
+    "lat": 51.05,
+    "lon": 13.74
+  },
+  {
+    "name": "Dubai, UAE",
+    "lat": 25.2,
+    "lon": 55.27
+  },
+  {
+    "name": "Dublin, Ireland",
+    "lat": 53.35,
+    "lon": -6.26
+  },
+  {
+    "name": "Dusseldorf, Germany",
+    "lat": 51.23,
+    "lon": 6.77
+  },
+  {
+    "name": "Edinburgh, UK",
+    "lat": 55.95,
+    "lon": -3.19
+  },
+  {
+    "name": "Florence, Italy",
+    "lat": 43.77,
+    "lon": 11.26
+  },
+  {
+    "name": "Frankfurt, Germany",
+    "lat": 50.11,
+    "lon": 8.68
+  },
+  {
+    "name": "Gdansk, Poland",
+    "lat": 54.35,
+    "lon": 18.65
+  },
+  {
+    "name": "Geneva, Switzerland",
+    "lat": 46.2,
+    "lon": 6.14
+  },
+  {
+    "name": "Glasgow, UK",
+    "lat": 55.86,
+    "lon": -4.25
+  },
+  {
+    "name": "Gothenburg, Sweden",
+    "lat": 57.71,
+    "lon": 11.97
+  },
+  {
+    "name": "Graz, Austria",
+    "lat": 47.07,
+    "lon": 15.44
+  },
+  {
+    "name": "Hamburg, Germany",
+    "lat": 53.55,
+    "lon": 9.99
+  },
+  {
+    "name": "Hanoi, Vietnam",
+    "lat": 21.03,
+    "lon": 105.85
+  },
+  {
+    "name": "Helsinki, Finland",
+    "lat": 60.17,
+    "lon": 24.94
+  },
+  {
+    "name": "Ho Chi Minh City, Vietnam",
+    "lat": 10.82,
+    "lon": 106.63
+  },
+  {
+    "name": "Hong Kong, China",
+    "lat": 22.32,
+    "lon": 114.17
+  },
+  {
+    "name": "Honolulu, USA",
+    "lat": 21.31,
+    "lon": -157.86
+  },
+  {
+    "name": "Houston, USA",
+    "lat": 29.76,
+    "lon": -95.37
+  },
+  {
+    "name": "Istanbul, Turkey",
+    "lat": 41.01,
+    "lon": 28.98
+  },
+  {
+    "name": "Jakarta, Indonesia",
+    "lat": -6.21,
+    "lon": 106.85
+  },
+  {
+    "name": "Jerusalem, Israel",
+    "lat": 31.77,
+    "lon": 35.21
+  },
+  {
+    "name": "Johannesburg, South Africa",
+    "lat": -26.2,
+    "lon": 28.05
+  },
+  {
+    "name": "Kathmandu, Nepal",
+    "lat": 27.72,
+    "lon": 85.32
+  },
+  {
+    "name": "Kaunas, Lithuania",
+    "lat": 54.9,
+    "lon": 23.9
+  },
+  {
+    "name": "Kobe, Japan",
+    "lat": 34.69,
+    "lon": 135.2
+  },
+  {
+    "name": "Krakow, Poland",
+    "lat": 50.06,
+    "lon": 19.94
+  },
+  {
+    "name": "Kuala Lumpur, Malaysia",
+    "lat": 3.14,
+    "lon": 101.69
+  },
+  {
+    "name": "Kyiv, Ukraine",
+    "lat": 50.45,
+    "lon": 30.52
+  },
+  {
+    "name": "Kyoto, Japan",
+    "lat": 35.01,
+    "lon": 135.77
+  },
+  {
+    "name": "Lagos, Nigeria",
+    "lat": 6.52,
+    "lon": 3.38
+  },
+  {
+    "name": "Leipzig, Germany",
+    "lat": 51.34,
+    "lon": 12.37
+  },
+  {
+    "name": "Lima, Peru",
+    "lat": -12.05,
+    "lon": -77.04
+  },
+  {
+    "name": "Lisbon, Portugal",
+    "lat": 38.72,
+    "lon": -9.14
+  },
+  {
+    "name": "Ljubljana, Slovenia",
+    "lat": 46.06,
+    "lon": 14.51
+  },
+  {
+    "name": "London, UK",
+    "lat": 51.51,
+    "lon": -0.13
+  },
+  {
+    "name": "Los Angeles, USA",
+    "lat": 34.05,
+    "lon": -118.24
+  },
+  {
+    "name": "Luxembourg City, Luxembourg",
+    "lat": 49.61,
+    "lon": 6.13
+  },
+  {
+    "name": "Lyon, France",
+    "lat": 45.76,
+    "lon": 4.84
+  },
+  {
+    "name": "Madrid, Spain",
+    "lat": 40.42,
+    "lon": -3.7
+  },
+  {
+    "name": "Malaga, Spain",
+    "lat": 36.72,
+    "lon": -4.42
+  },
+  {
+    "name": "Manchester, UK",
+    "lat": 53.48,
+    "lon": -2.24
+  },
+  {
+    "name": "Manila, Philippines",
+    "lat": 14.6,
+    "lon": 120.98
+  },
+  {
+    "name": "Marseille, France",
+    "lat": 43.3,
+    "lon": 5.37
+  },
+  {
+    "name": "Melbourne, Australia",
+    "lat": -37.81,
+    "lon": 144.96
+  },
+  {
+    "name": "Mexico City, Mexico",
+    "lat": 19.43,
+    "lon": -99.13
+  },
+  {
+    "name": "Miami, USA",
+    "lat": 25.76,
+    "lon": -80.19
+  },
+  {
+    "name": "Milan, Italy",
+    "lat": 45.46,
+    "lon": 9.19
+  },
+  {
+    "name": "Minneapolis, USA",
+    "lat": 44.98,
+    "lon": -93.27
+  },
+  {
+    "name": "Minsk, Belarus",
+    "lat": 53.9,
+    "lon": 27.57
+  },
+  {
+    "name": "Montevideo, Uruguay",
+    "lat": -34.9,
+    "lon": -56.16
+  },
+  {
+    "name": "Montreal, Canada",
+    "lat": 45.5,
+    "lon": -73.57
+  },
+  {
+    "name": "Moscow, Russia",
+    "lat": 55.76,
+    "lon": 37.62
+  },
+  {
+    "name": "Mumbai, India",
+    "lat": 19.08,
+    "lon": 72.88
+  },
+  {
+    "name": "Munich, Germany",
+    "lat": 48.14,
+    "lon": 11.58
+  },
+  {
+    "name": "Nagoya, Japan",
+    "lat": 35.18,
+    "lon": 136.91
+  },
+  {
+    "name": "Nairobi, Kenya",
+    "lat": -1.29,
+    "lon": 36.82
+  },
+  {
+    "name": "Naples, Italy",
+    "lat": 40.85,
+    "lon": 14.27
+  },
+  {
+    "name": "New Orleans, USA",
+    "lat": 29.95,
+    "lon": -90.07
+  },
+  {
+    "name": "New York, USA",
+    "lat": 40.71,
+    "lon": -74.01
+  },
+  {
+    "name": "Nice, France",
+    "lat": 43.7,
+    "lon": 7.27
+  },
+  {
+    "name": "Nicosia, Cyprus",
+    "lat": 35.19,
+    "lon": 33.38
+  },
+  {
+    "name": "Osaka, Japan",
+    "lat": 34.69,
+    "lon": 135.5
+  },
+  {
+    "name": "Oslo, Norway",
+    "lat": 59.91,
+    "lon": 10.75
+  },
+  {
+    "name": "Ottawa, Canada",
+    "lat": 45.42,
+    "lon": -75.7
+  },
+  {
+    "name": "Palma, Spain",
+    "lat": 39.57,
+    "lon": 2.65
+  },
+  {
+    "name": "Paris, France",
+    "lat": 48.86,
+    "lon": 2.35
+  },
+  {
+    "name": "Perth, Australia",
+    "lat": -31.95,
+    "lon": 115.86
+  },
+  {
+    "name": "Philadelphia, USA",
+    "lat": 39.95,
+    "lon": -75.17
+  },
+  {
+    "name": "Phoenix, USA",
+    "lat": 33.45,
+    "lon": -112.07
+  },
+  {
+    "name": "Podgorica, Montenegro",
+    "lat": 42.43,
+    "lon": 19.26
+  },
+  {
+    "name": "Porto, Portugal",
+    "lat": 41.15,
+    "lon": -8.61
+  },
+  {
+    "name": "Prague, Czech Republic",
+    "lat": 50.08,
+    "lon": 14.44
+  },
+  {
+    "name": "Reykjavik, Iceland",
+    "lat": 64.15,
+    "lon": -21.94
+  },
+  {
+    "name": "Riga, Latvia",
+    "lat": 56.95,
+    "lon": 24.11
+  },
+  {
+    "name": "Rio de Janeiro, Brazil",
+    "lat": -22.91,
+    "lon": -43.17
+  },
+  {
+    "name": "Rome, Italy",
+    "lat": 41.9,
+    "lon": 12.5
+  },
+  {
+    "name": "Rotterdam, Netherlands",
+    "lat": 51.92,
+    "lon": 4.48
+  },
+  {
+    "name": "San Diego, USA",
+    "lat": 32.72,
+    "lon": -117.16
+  },
+  {
+    "name": "San Francisco, USA",
+    "lat": 37.77,
+    "lon": -122.42
+  },
+  {
+    "name": "Santiago, Chile",
+    "lat": -33.45,
+    "lon": -70.67
+  },
+  {
+    "name": "Sao Paulo, Brazil",
+    "lat": -23.55,
+    "lon": -46.63
+  },
+  {
+    "name": "Sarajevo, Bosnia and Herzegovina",
+    "lat": 43.86,
+    "lon": 18.41
+  },
+  {
+    "name": "Seattle, USA",
+    "lat": 47.61,
+    "lon": -122.33
+  },
+  {
+    "name": "Seoul, South Korea",
+    "lat": 37.57,
+    "lon": 126.98
+  },
+  {
+    "name": "Seville, Spain",
+    "lat": 37.39,
+    "lon": -5.98
+  },
+  {
+    "name": "Shanghai, China",
+    "lat": 31.23,
+    "lon": 121.47
+  },
+  {
+    "name": "Singapore, Singapore",
+    "lat": 1.35,
+    "lon": 103.82
+  },
+  {
+    "name": "Skopje, North Macedonia",
+    "lat": 41.99,
+    "lon": 21.43
+  },
+  {
+    "name": "Sofia, Bulgaria",
+    "lat": 42.7,
+    "lon": 23.32
+  },
+  {
+    "name": "Split, Croatia",
+    "lat": 43.51,
+    "lon": 16.44
+  },
+  {
+    "name": "Stockholm, Sweden",
+    "lat": 59.33,
+    "lon": 18.07
+  },
+  {
+    "name": "Stuttgart, Germany",
+    "lat": 48.78,
+    "lon": 9.18
+  },
+  {
+    "name": "Sydney, Australia",
+    "lat": -33.87,
+    "lon": 151.21
+  },
+  {
+    "name": "Taipei, Taiwan",
+    "lat": 25.03,
+    "lon": 121.57
+  },
+  {
+    "name": "Tallinn, Estonia",
+    "lat": 59.44,
+    "lon": 24.75
+  },
+  {
+    "name": "Tbilisi, Georgia",
+    "lat": 41.72,
+    "lon": 44.83
+  },
+  {
+    "name": "Tel Aviv, Israel",
+    "lat": 32.09,
+    "lon": 34.78
+  },
+  {
+    "name": "The Hague, Netherlands",
+    "lat": 52.08,
+    "lon": 4.31
+  },
+  {
+    "name": "Thessaloniki, Greece",
+    "lat": 40.64,
+    "lon": 22.94
+  },
+  {
+    "name": "Tirana, Albania",
+    "lat": 41.33,
+    "lon": 19.82
+  },
+  {
+    "name": "Tokyo, Japan",
+    "lat": 35.68,
+    "lon": 139.65
+  },
+  {
+    "name": "Toronto, Canada",
+    "lat": 43.65,
+    "lon": -79.38
+  },
+  {
+    "name": "Turin, Italy",
+    "lat": 45.07,
+    "lon": 7.69
+  },
+  {
+    "name": "Valencia, Spain",
+    "lat": 39.47,
+    "lon": -0.38
+  },
+  {
+    "name": "Valletta, Malta",
+    "lat": 35.9,
+    "lon": 14.51
+  },
+  {
+    "name": "Vancouver, Canada",
+    "lat": 49.28,
+    "lon": -123.12
+  },
+  {
+    "name": "Varna, Bulgaria",
+    "lat": 43.21,
+    "lon": 27.92
+  },
+  {
+    "name": "Vienna, Austria",
+    "lat": 48.21,
+    "lon": 16.37
+  },
+  {
+    "name": "Vilnius, Lithuania",
+    "lat": 54.69,
+    "lon": 25.28
+  },
+  {
+    "name": "Warsaw, Poland",
+    "lat": 52.23,
+    "lon": 21.01
+  },
+  {
+    "name": "Washington, USA",
+    "lat": 38.91,
+    "lon": -77.04
+  },
+  {
+    "name": "Wroclaw, Poland",
+    "lat": 51.11,
+    "lon": 17.03
+  },
+  {
+    "name": "Yerevan, Armenia",
+    "lat": 40.18,
+    "lon": 44.51
+  },
+  {
+    "name": "Zagreb, Croatia",
+    "lat": 45.81,
+    "lon": 15.98
+  },
+  {
+    "name": "Zurich, Switzerland",
+    "lat": 47.37,
+    "lon": 8.54
+  }
+]

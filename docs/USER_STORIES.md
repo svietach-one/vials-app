@@ -3,6 +3,24 @@
 This document defines the complete functional requirements and behavior specifications for Phase 1 features.
 
 > **Sync note (this revision):** Fixed a calibration bug in US-17 (rolling average was re-anchoring to the static baseline every time instead of accumulating), standardized the block-vs-warning behavior between US-17/US-18, aligned component names with the screen spec, and added US-19–21 to cover Import/Restore, Catalog filtering, and onboarding skip — all of which exist in the PRD/screen specs but had no acceptance criteria yet.
+>
+> **Sync note (2026-07-02, tech-designer):** Audited US-05, US-08.1, and US-09
+> against the shipped `RoutinesScreen` on `feature-routine-redesign`. Added
+> "Implementation note" callouts where the delivered behavior has diverged
+> from these acceptance criteria (day-navigation replacing the checklist
+> model, `EmptySlotPlaceholder` never built, conflict warnings rendering
+> per-card instead of via `ConflictWarningInline`). See
+> `docs/tech-design/routine-redesign.md` for the full as-built design.
+>
+> **Sync note (2026-07-07):** Audited US-22 against the delivered product
+> corpus integration (`handoff/INTEGRATION_GUIDE.md`, `src/services/corpus/`).
+> The product source is now **only the Vials corpus** — a Turso/libSQL
+> replica synced onto the device and read locally via `expo-sqlite`. There is
+> no Vials REST API and no server-side lookup/search request; barcode and
+> text search both resolve entirely on-device, offline-capable after first
+> sync. Added an "Implementation note" to US-22 with the corrected
+> architecture and the still-unbuilt pieces (camera OCR product search,
+> crowdsourcing submission).
 
 ---
 
@@ -33,6 +51,15 @@ This document defines the complete functional requirements and behavior specific
 * Selecting specific days exposes a day-picker component interface: `[Mon] [Tue] [Wed] [Thu] [Fri] [Sat] [Sun]`.
 * The `Today` screen must fetch the current system day via `timeHelpers.ts` and filter the checklist. If a product is not scheduled for today, its step card is completely hidden.
 
+> **Implementation note (2026-07-02):** The day-picker (`[Mon]...[Sun]`) exists
+> as `WeeklySchedulePicker`, used when scheduling a product inside
+> `AddToRoutineSheet` / `RoutineSchedulerSheet` — matches this criterion. The
+> "Today screen filters by current system day" criterion is now generalized:
+> `RoutinesScreen`'s `PlannerBlock` lets the user navigate to **any** day of
+> the week (not just today), defaulting to today on screen focus, and filters
+> the visible steps to whichever day is selected — a superset of what this
+> story describes, not filed as a separate story.
+
 ---
 
 ### US-08.1 · Safe Product Deletion with Routine Cascade
@@ -46,6 +73,20 @@ This document defines the complete functional requirements and behavior specific
 * If the product is linked, a modal alert must display: *"Deleting will remove this step from your routine."*
 * On confirmation, the ID is immediately deleted from `catalogStore` and purged from all instances in `routineStore`.
 * If a scheduled routine step becomes empty as a result of the cascade, an `EmptySlotPlaceholder` component appears showing text *"Step empty"* with two operational targets: `+ Add from catalog` and `Hide step`.
+
+> **Implementation note (2026-07-02):** Not fully built. `removeProduct` on
+> `productsStore` deletes the product but does **not** purge the matching
+> `RoutineStep` records from `routinesStore` — the step is left in place with
+> a `productId` pointing at a now-missing product. `RoutinesScreen` happens to
+> filter out any step whose product can't be resolved, so the net visible
+> effect is similar (the step disappears from the list), but there is no
+> `EmptySlotPlaceholder`, no "Deleting will remove this step from your
+> routine" cascade confirmation copy tied to routine membership specifically
+> (the actual confirm copy, in `DeleteProductModal`, is generic: *"Any
+> routine steps linked to it will become empty slots"*), and no `+ Add from
+> catalog` / `Hide step` recovery actions. This needs a product decision:
+> either build `EmptySlotPlaceholder` + real cascade purge, or rewrite this
+> story to match the current silent-filter behavior.
 
 ---
 
@@ -69,6 +110,16 @@ This document defines the complete functional requirements and behavior specific
 
 * If two conflicting ingredients (e.g., Retinol and Glycolic Acid, i.e. `RETI`+`ACID`) are in the same routine but scheduled on different days, **no warning** is generated.
 * If they overlap on the same day, an inline `ConflictWarningInline` component must mount directly beneath those steps in the routine configuration view, severity-colored per Rich Amber.
+
+> **Implementation note (2026-07-02):** The per-day, per-pair detection logic
+> (`ConflictEngine.detectConflicts`) is implemented and correctly scoped to
+> `RoutinesScreen`'s currently-selected day, matching the negative-test-case
+> requirement. The presentation differs from this story: there is no separate
+> `ConflictWarningInline` component mounted in the routine view. Instead,
+> `RoutineStepCard` itself renders an inline amber "Conflicts with {other
+> product name}" row directly under the affected card when it has an active
+> conflict. Same severity color (amber), same per-day scoping, different
+> component boundary.
 * **Negative test case:** a `RETI` product and a `PEPT` product scheduled on the same day must **not** trigger `ConflictWarningInline` — this pair is explicitly compatible and must not produce a false positive.
 * Two products sharing the *same* tag (e.g. two `RETI` items same day) are out of scope for this engine in v1 — that's a dosing/layering question, not a class collision, and must not be flagged.
 
@@ -178,3 +229,25 @@ This document defines the complete functional requirements and behavior specific
 * Clicking it transitions the user to `ProductForm`, which is pre-filled with whatever text the OCR camera managed to extract (e.g., the recognized brand and name), minimizing typing friction.
 * Saving the manual form adds the product to the user's shelf instantly (local-first), while queuing a background request to the global database.
 * When saved manually, the newly created item instantly appears in the local `catalogStore` with `source: 'manual'`, while a copy is dispatched to the server via `POST /api/v1/products/suggest` with `status: 'pending'` for admin review.
+
+> **Implementation note (2026-07-07):** Barcode and text search are built,
+> but on a different architecture than described above — there is no Vials
+> REST API. `BarcodeScannerScreen` and `AddProductHubScreen` query
+> `ProductRepository` (`src/services/corpus/ProductRepository.ts`) directly
+> against the on-device Turso/libSQL replica: `findByBarcode()` for the
+> barcode path, `search()` (SQLite FTS5 trigram, ranked by `bm25`) for the
+> text path — both fully local and offline-capable, not `GET
+> /api/v1/products/lookup` / `/search` against a Postgres `pg_trgm` backend.
+> "Not found" degrades to the manual-entry form exactly as specified. Two
+> pieces of this story are **not built**: (1) the unified camera OCR search
+> — only barcode scanning exists; the free-text search is a separate input
+> field, not a camera viewfinder recognizing on-package text; (2) the
+> crowdsourcing submission path (`source: 'manual'`, `POST
+> /api/v1/products/suggest`, `pending` review) — manually-added products save
+> locally only, with no server suggestion queue. The corpus schema already
+> reserves a `'community'` source value for this, but the submission pipeline
+> itself is unbuilt. See `handoff/INTEGRATION_GUIDE.md` for the as-built
+> corpus architecture, including the `source='obf_import'` cutover: today's
+> corpus is 100% dogfood OBF-import data (ODbL-licensed, not Vials-owned) —
+> "the global database" this story refers to is not yet populated with
+> genuinely-owned (`vials_seed`/`community`) records.

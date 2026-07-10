@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 
-import { Checkbox } from '@/components/ui/forms/Checkbox';
+import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
-import { formatScheduleDays } from '@/utils/routineLabel';
-import type { Product, ProductType, RoutineStep } from '@/types';
+import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
+import type { Product, ProductType } from '@/types';
 
 // ─── Product type → badge color ───────────────────────────────────────────────
 
@@ -22,11 +23,11 @@ const TYPE_COLORS: Partial<Record<ProductType, { bg: string; text: string }>> = 
   lotion:        { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
   oil:           { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
   spf:           { bg: palette.amberTint,        text: palette.amber },
-  eye_cream:     { bg: palette.cabernetTint,     text: palette.cabernet },
-  mask:          { bg: palette.cabernetTint,     text: palette.cabernet },
-  peeling:       { bg: palette.cabernetTint,     text: palette.cabernet },
-  spot_treatment:{ bg: palette.cabernetTint,     text: palette.cabernet },
-  balm:          { bg: palette.cabernetTint,     text: palette.cabernet },
+  eye_cream:     { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
+  mask:          { bg: palette.amberTint,        text: palette.amber },
+  peeling:       { bg: palette.amberTint,        text: palette.amber },
+  spot_treatment:{ bg: palette.amberTint,        text: palette.amber },
+  balm:          { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
 };
 
 const DEFAULT_TYPE_COLOR = { bg: palette.zinc100, text: palette.zinc600 };
@@ -34,124 +35,236 @@ const DEFAULT_TYPE_COLOR = { bg: palette.zinc100, text: palette.zinc600 };
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface RoutineStepCardProps {
-  step: RoutineStep;
   product: Product;
-  checked: boolean;
-  onToggle: () => void;
-  onCardPress: () => void;
-  onSchedulePress: () => void;
+  onCardPress?: () => void;
   conflictingProductName?: string | null;
+  /**
+   * The raw `drag` callback from DraggableFlatList's renderItem.
+   * Only rendered (via the drag handle) when isEditMode is true.
+   */
+  drag?: () => void;
+  /** Switches the card between normal mode and edit mode (drag handle + delete). */
+  isEditMode?: boolean;
+  /** Called when the user taps the delete button in edit mode. */
+  onDelete?: () => void;
+  /**
+   * Adaptation week (1–4) while the engine micro-doses this product
+   * (research §2.6). Renders the ⏳ status line — informational, not a warning.
+   */
+  adaptationWeek?: number | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function RoutineStepCard({
-  step,
   product,
-  checked,
-  onToggle,
   onCardPress,
-  onSchedulePress,
   conflictingProductName,
+  drag,
+  isEditMode = false,
+  onDelete,
+  adaptationWeek,
 }: RoutineStepCardProps) {
   const hasConflict = !!conflictingProductName;
 
-  // Resolve active ingredient label (prefer confirmed activeTags, fall back to activeIngredients)
   const activeKey = product.activeTags?.[0] ?? product.activeIngredients?.[0]?.key ?? null;
   const activeLabel = activeKey ? (ACTIVE_INGREDIENT_LABELS[activeKey] ?? null) : null;
 
+  const [attributionVisible, setAttributionVisible] = useState(false);
+  const activeMatches = activeKey ? getMatchesForKey(product.fullIngredientText, activeKey) : [];
+  const showAliasIcon = hasAliasOverride(activeMatches);
+
   const typeLabel = PRODUCT_TYPE_LABELS[product.productType] ?? product.productType;
   const typeColor = TYPE_COLORS[product.productType] ?? DEFAULT_TYPE_COLOR;
-  const scheduleLabel = formatScheduleDays(step.scheduledDays);
 
-  return (
-    <Pressable
-      onPress={onCardPress}
-      style={({ pressed }) => [
-        styles.card,
-        hasConflict && styles.cardConflict,
-        pressed && styles.cardPressed,
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={`${product.name}, tap to view product detail`}
-    >
-      {/* Main row: left content + right badges/checkbox */}
-      <View style={styles.mainRow}>
-        {/* Left column */}
-        <View style={styles.leftCol}>
-          <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
+  const cardStyle = [styles.card, hasConflict && styles.cardConflict];
 
+  // ── Shared card body ──────────────────────────────────────────────────────
+  //
+  // In edit mode the card root is a plain View so there is no RNGH touch
+  // responder competing with the drag handle's TouchableOpacity.
+  // In normal mode the root is an RNGH TouchableOpacity for navigation.
+  // Keeping the two branches explicit avoids the nested-RNGH-handler problem
+  // that caused drag gestures to be swallowed by the outer touch responder.
+
+  const mainRow = (
+    <View style={styles.mainRow}>
+      {/* Drag handle — only in edit mode, directly calls the RNDFL drag fn */}
+      {isEditMode && drag ? (
+        // RN Pressable (not RNGH) so RNDFL's GestureDetector can claim the
+        // touch after drag() is called without a competing RNGH handler.
+        <Pressable
+          onLongPress={drag}
+          delayLongPress={150}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={dragStyles.container}
+          accessibilityLabel="Hold to reorder"
+        >
+          <View style={dragStyles.dotsGrid}>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <View key={i} style={dragStyles.dot} />
+            ))}
+          </View>
+        </Pressable>
+      ) : null}
+
+      {/* Content area */}
+      <View style={styles.contentArea}>
+        {/* Top row: product name (left, up to 2 lines) + brand (right, 1 line) */}
+        <View style={styles.topRow}>
+          <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
           {product.brand ? (
             <Text style={styles.brandName} numberOfLines={1}>{product.brand}</Text>
           ) : null}
-
-          {/* Schedule row — own Pressable so it doesn't trigger card navigation */}
-          <Pressable
-            onPress={onSchedulePress}
-            style={styles.scheduleRow}
-            accessibilityRole="button"
-            accessibilityLabel={`Schedule: ${scheduleLabel}, tap to edit`}
-            hitSlop={6}
-          >
-            <Feather name="calendar" size={11} color={palette.cabernet} />
-            <Text style={styles.scheduleText}>{scheduleLabel}</Text>
-          </Pressable>
         </View>
 
-        {/* Right column: badges (top) + checkbox (bottom) */}
-        <View style={styles.rightCol}>
+        {/* Bottom row: badges (left) + delete button in edit mode (right) */}
+        <View style={styles.bottomRow}>
           <View style={styles.badgesRow}>
-            {activeLabel ? (
-              <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText} numberOfLines={1}>
-                  {activeLabel}
-                </Text>
-              </View>
-            ) : null}
             <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
-              <Text
-                style={[styles.typeBadgeText, { color: typeColor.text }]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
                 {typeLabel}
               </Text>
             </View>
+            {activeLabel && activeKey ? (
+              <Pressable
+                testID={`active-badge-${activeKey}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${activeLabel} detected, tap for details`}
+                onPress={() => setAttributionVisible(true)}
+                style={styles.activeBadge}
+              >
+                <Text style={styles.activeBadgeText}>
+                  {activeLabel}
+                </Text>
+                {showAliasIcon ? (
+                  <View
+                    testID={`active-badge-alias-icon-${activeKey}`}
+                    accessibilityLabel="Detected via regional ingredient name"
+                    style={styles.aliasIconWrap}
+                  >
+                    <Feather name="globe" size={10} color={palette.zinc500} />
+                  </View>
+                ) : null}
+              </Pressable>
+            ) : null}
           </View>
 
-          {/* Checkbox — inner Pressable captures its own tap, outer card press won't fire */}
-          <Checkbox checked={checked} onValueChange={() => onToggle()} size="md" />
+          {isEditMode ? (
+            <TouchableOpacity
+              onPress={onDelete}
+              disabled={!onDelete}
+              activeOpacity={0.5}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ opacity: onDelete ? 1 : 0.35 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${product.name}`}
+            >
+              <Feather name="trash-2" size={18} color={palette.zinc500} />
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
+    </View>
+  );
 
-      {/* Conflict row — shown only when there is an active conflict */}
-      {hasConflict ? (
-        <View style={styles.conflictRow}>
-          <Feather name="alert-triangle" size={11} color={palette.amber} />
-          <Text style={styles.conflictText} numberOfLines={1}>
-            Conflicts with {conflictingProductName}
-          </Text>
+  const conflictRow = hasConflict ? (
+    <View style={styles.conflictRow}>
+      <Feather name="alert-triangle" size={11} color={palette.amber} />
+      <Text style={styles.conflictText} numberOfLines={1}>
+        Conflicts with {conflictingProductName}
+      </Text>
+    </View>
+  ) : null;
+
+  // Status, not a warning — the one deliberate visibility exception (§2.6)
+  const adaptationRow =
+    adaptationWeek != null ? (
+      <View style={styles.adaptationRow}>
+        <Text style={styles.adaptationText} numberOfLines={2}>
+          ⏳ Adaptation Phase (Week {adaptationWeek} of 4) — frequency managed to
+          prevent purging
+        </Text>
+      </View>
+    ) : null;
+
+  const attributionTooltip = (
+    <AttributionTooltip
+      visible={attributionVisible}
+      onClose={() => setAttributionVisible(false)}
+      displayName={activeLabel ?? ''}
+      matches={activeMatches}
+    />
+  );
+
+  // Edit mode: plain View root — no RNGH handler competing with drag handle
+  if (isEditMode) {
+    return (
+      <>
+        <View style={cardStyle}>
+          {mainRow}
+          {conflictRow}
+          {adaptationRow}
         </View>
-      ) : null}
-    </Pressable>
+        {attributionTooltip}
+      </>
+    );
+  }
+
+  // Normal mode: RNGH TouchableOpacity for tap-to-navigate
+  return (
+    <>
+      <TouchableOpacity
+        onPress={onCardPress}
+        activeOpacity={onCardPress ? 0.92 : 1}
+        style={cardStyle}
+        accessibilityRole="button"
+        accessibilityLabel={`${product.name}, tap to view product detail`}
+      >
+        {mainRow}
+        {conflictRow}
+        {adaptationRow}
+      </TouchableOpacity>
+      {attributionTooltip}
+    </>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
+const dragStyles = StyleSheet.create({
+  container: {
+    width: 20,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  dotsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: 10,
+    gap: 3,
+  },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: palette.zinc300,
+  },
+});
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: palette.white,
     borderWidth: 1,
-    borderColor: palette.zinc100,
-    borderRadius: radius.md,
-    paddingHorizontal: space[3],
+    borderColor: palette.zinc200,
+    borderRadius: radius.sm,
+    paddingHorizontal: space[4],
     paddingVertical: space[3],
   },
   cardConflict: {
     borderColor: palette.amber,
-  },
-  cardPressed: {
-    backgroundColor: colors.bgSubtle,
   },
 
   mainRow: {
@@ -160,13 +273,19 @@ const styles = StyleSheet.create({
     gap: space[3],
   },
 
-  // Left column
-  leftCol: {
+  contentArea: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
+    gap: space[2],
+  },
+
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[2],
   },
   productName: {
+    flex: 1,
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: palette.black,
@@ -174,59 +293,57 @@ const styles = StyleSheet.create({
   brandName: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-  },
-  scheduleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    marginTop: 1,
-  },
-  scheduleText: {
-    ...typography.caption,
-    color: colors.textSecondary,
+    flexShrink: 0,
+    maxWidth: 110,
+    textAlign: 'right',
   },
 
-  // Right column
-  rightCol: {
-    alignItems: 'flex-end',
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    flexShrink: 0,
   },
   badgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[1],
+    flexShrink: 1,
     flexWrap: 'wrap',
-    justifyContent: 'flex-end',
-    maxWidth: 140,
-  },
-  activeBadge: {
-    backgroundColor: palette.black,
-    borderRadius: radius.pill,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    maxWidth: 80,
-  },
-  activeBadgeText: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 10,
-    lineHeight: 14,
-    color: palette.white,
   },
   typeBadge: {
     borderRadius: radius.pill,
     paddingHorizontal: 7,
     paddingVertical: 2,
-    maxWidth: 96,
   },
   typeBadgeText: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: typography.bodySmall.fontSize,
+    lineHeight: typography.bodySmall.lineHeight,
+    includeFontPadding: false,
+  },
+  activeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: palette.white,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: palette.zinc300,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  aliasIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeBadgeText: {
+    fontFamily: 'DMSans-Medium',
+    fontSize: typography.bodySmall.fontSize,
+    lineHeight: typography.bodySmall.lineHeight,
+    includeFontPadding: false,
+    color: palette.black,
   },
 
-  // Conflict row
   conflictRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -236,10 +353,15 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: palette.amberLine,
   },
+  adaptationRow: {
+    marginTop: space[2],
+    paddingTop: space[2],
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
+  },
+  adaptationText: { ...typography.bodySmall, color: colors.textSecondary },
   conflictText: {
-    fontFamily: 'DMSans-Regular',
-    fontSize: 12,
-    lineHeight: 16,
+    ...typography.bodySmall,
     color: palette.amber,
     flexShrink: 1,
   },

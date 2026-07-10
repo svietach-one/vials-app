@@ -19,7 +19,12 @@
  * clearly on the correct side of the threshold, which reflects realistic usage.
  */
 
-import { computeStatus, getProgress } from '@/utils/procedureLifespanHelpers';
+import {
+  computeStatus,
+  getProcedureDisplayName,
+  getProgress,
+  getTimelineConfig,
+} from '@/utils/procedureLifespanHelpers';
 import type { UserProcedureLog } from '@/types';
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
@@ -264,5 +269,173 @@ describe('getProgress', () => {
 
     expect(result).toBeGreaterThan(0.66);
     expect(result).toBeLessThan(0.72);
+  });
+});
+
+// ─── Custom procedures ────────────────────────────────────────────────────────
+//
+// Custom procedures have no CLINICAL_RULES_DB entry. Their timeline is derived
+// from the span between datePerformed and estimatedReturnDate:
+//   totalEffectMonths = spanDays / 30.44
+//   fadeTriggerMonth  = totalEffectMonths * 0.75
+//   rehabDays         = 0 (no clinical rehab rules)
+//
+// Fixture: performed 2026-01-01, return 2026-07-01 → 181-day span,
+// fading threshold at 75% ≈ day 136.
+
+const CUSTOM_PERFORMED = '2026-01-01';
+const CUSTOM_RETURN = '2026-07-01';
+const CUSTOM_SPAN_DAYS = 181;
+
+function makeCustomProc(overrides: Partial<UserProcedureLog> = {}): UserProcedureLog {
+  return makeProc({
+    procedureKey: 'custom',
+    customName: 'Laser Resurfacing',
+    datePerformed: CUSTOM_PERFORMED,
+    estimatedReturnDate: CUSTOM_RETURN,
+    status: 'active',
+    ...overrides,
+  });
+}
+
+describe('getTimelineConfig — custom', () => {
+  it('should derive totalEffectMonths from the performed-to-return date span', () => {
+    const proc = makeCustomProc();
+
+    const config = getTimelineConfig(proc);
+
+    expect(config.totalEffectMonths).toBeCloseTo(CUSTOM_SPAN_DAYS / 30.44, 5);
+  });
+
+  it('should place the fade trigger at 75% of the derived lifespan', () => {
+    const proc = makeCustomProc();
+
+    const config = getTimelineConfig(proc);
+
+    expect(config.fadeTriggerMonth).toBeCloseTo(config.totalEffectMonths * 0.75, 5);
+  });
+
+  it('should have no rehab window when the log carries no customRehabDays', () => {
+    const proc = makeCustomProc();
+
+    expect(getTimelineConfig(proc).rehabDays).toBe(0);
+  });
+
+  it('should use the user-resolved customRehabDays as the rehab window (FE-10)', () => {
+    const proc = makeCustomProc({ customRehabDays: 7 });
+
+    expect(getTimelineConfig(proc).rehabDays).toBe(7);
+  });
+
+  it('should clamp to a minimum 1-day span when the return date equals the performed date', () => {
+    const proc = makeCustomProc({ estimatedReturnDate: CUSTOM_PERFORMED });
+
+    const config = getTimelineConfig(proc);
+
+    expect(config.totalEffectMonths).toBeCloseTo(1 / 30.44, 5);
+  });
+
+  it('should clamp to a minimum 1-day span when the return date is before the performed date', () => {
+    const proc = makeCustomProc({ estimatedReturnDate: '2025-06-01' }); // before CUSTOM_PERFORMED
+
+    const config = getTimelineConfig(proc);
+
+    expect(config.totalEffectMonths).toBeCloseTo(1 / 30.44, 5);
+  });
+
+  it('should clamp to a minimum 1-day span when estimatedReturnDate is missing', () => {
+    const proc = makeCustomProc({ estimatedReturnDate: undefined });
+
+    const config = getTimelineConfig(proc);
+
+    expect(config.totalEffectMonths).toBeCloseTo(1 / 30.44, 5);
+  });
+
+  it('should return the CLINICAL_RULES_DB config unchanged for pre-defined procedures', () => {
+    const proc = makeProc({ procedureKey: 'botox', datePerformed: CUSTOM_PERFORMED });
+
+    const config = getTimelineConfig(proc);
+
+    expect(config).toEqual({ rehabDays: 7, totalEffectMonths: 6, fadeTriggerMonth: 4 });
+  });
+});
+
+describe('computeStatus — custom', () => {
+  it('should return active on day 1 when no recovery window was specified', () => {
+    const proc = makeCustomProc();
+
+    expect(computeStatus(proc, daysAfter(CUSTOM_PERFORMED, 1))).toBe('active');
+  });
+
+  it('should return rehab inside a user-resolved customRehabDays window (FE-10)', () => {
+    const proc = makeCustomProc({ customRehabDays: 7 });
+
+    expect(computeStatus(proc, daysAfter(CUSTOM_PERFORMED, 3))).toBe('rehab');
+    expect(computeStatus(proc, daysAfter(CUSTOM_PERFORMED, 10))).toBe('active');
+  });
+
+  it('should return active before 75% of the lifespan (day 100 of 181)', () => {
+    const proc = makeCustomProc();
+
+    expect(computeStatus(proc, daysAfter(CUSTOM_PERFORMED, 100))).toBe('active');
+  });
+
+  it('should return fading past 75% of the lifespan (day 140 of 181)', () => {
+    const proc = makeCustomProc();
+
+    expect(computeStatus(proc, daysAfter(CUSTOM_PERFORMED, 140))).toBe('fading');
+  });
+
+  it('should return completed after the estimated return date (day 182 of 181)', () => {
+    const proc = makeCustomProc();
+
+    expect(computeStatus(proc, daysAfter(CUSTOM_PERFORMED, 182))).toBe('completed');
+  });
+
+  it('should return archived regardless of elapsed time when stored status is archived', () => {
+    const proc = makeCustomProc({ status: 'archived' });
+
+    expect(computeStatus(proc, daysAfter(CUSTOM_PERFORMED, 1))).toBe('archived');
+  });
+});
+
+describe('getProgress — custom', () => {
+  it('should return 0 at the moment of the procedure', () => {
+    const proc = makeCustomProc();
+
+    expect(getProgress(proc, new Date(CUSTOM_PERFORMED))).toBeCloseTo(0, 5);
+  });
+
+  it('should return approximately 0.5 halfway to the estimated return date', () => {
+    const proc = makeCustomProc();
+    const now = daysAfter(CUSTOM_PERFORMED, Math.round(CUSTOM_SPAN_DAYS / 2));
+
+    expect(getProgress(proc, now)).toBeCloseTo(0.5, 1);
+  });
+
+  it('should cap progress at 1 past the estimated return date', () => {
+    const proc = makeCustomProc();
+
+    expect(getProgress(proc, daysAfter(CUSTOM_PERFORMED, 250))).toBe(1);
+  });
+});
+
+describe('getProcedureDisplayName', () => {
+  it('should return the user-provided name for custom procedures', () => {
+    const proc = makeCustomProc();
+
+    expect(getProcedureDisplayName(proc)).toBe('Laser Resurfacing');
+  });
+
+  it('should fall back to a generic label when a custom procedure has no name', () => {
+    const proc = makeCustomProc({ customName: undefined });
+
+    expect(getProcedureDisplayName(proc)).toBe('Custom procedure');
+  });
+
+  it('should return the catalog label for pre-defined procedures', () => {
+    const proc = makeProc({ procedureKey: 'botox', datePerformed: CUSTOM_PERFORMED });
+
+    expect(getProcedureDisplayName(proc)).toBe('Botox / Dysport');
   });
 });

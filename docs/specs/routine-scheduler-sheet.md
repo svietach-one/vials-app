@@ -1,7 +1,21 @@
 # Routine Scheduler Sheet
 Date: 2026-06-21
 Author: planner-agent
-Status: APPROVED
+Status: IMPLEMENTED
+
+> **Implementation note (2026-07-02):** `RoutineSchedulerSheet` grew beyond
+> the single ProductDetailScreen entry point described below. It is now also
+> mounted on `CatalogScreen` (opened from a product's routine badge/icon,
+> title="Add to Routine") and on `ManualProductFormScreen` (opened
+> immediately after saving a new product, `cancelLabel="Skip"`,
+> `saveLabel="Save & Next"` — see `decouple-routine-from-form.md`). To support
+> this, the component gained `title`, `cancelLabel`, `saveLabel`, `onHide`,
+> and `onRemove` props not in the original design — all optional, all
+> backward-compatible with the single-entry-point behavior described here.
+> Still RN `Modal`-based, not migrated to `@gorhom/bottom-sheet` (that
+> migration only happened for the separate `AddToRoutineSheet` component used
+> by `RoutinesScreen` — see `routine-redesign.md`). Button label wording is
+> `"In Routine (...)"`, matching this spec exactly.
 
 ## AI-SDLC Flags
 ```

@@ -11,7 +11,6 @@ import DraggableFlatList, {
 } from 'react-native-draggable-flatlist';
 import type { RenderItemParams } from 'react-native-draggable-flatlist';
 
-import { ConflictWarningInline } from '@/components/routine/ConflictWarningInline';
 import { WeeklySchedulePicker } from '@/components/routine/WeeklySchedulePicker';
 import { SegmentedControl } from '@/components/ui/forms/SegmentedControl';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
@@ -22,6 +21,10 @@ import type { Product, Routine, RoutineStep } from '@/types';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Period = 'morning' | 'evening';
+
+interface WeeklyPlanViewProps {
+  initialPeriod?: Period;
+}
 
 interface StepRowProps {
   item: RoutineStep;
@@ -192,12 +195,12 @@ const emptyStyles = StyleSheet.create({
  * Weekly Plan sub-view. Uses DraggableFlatList — must NOT be nested inside
  * another ScrollView. GestureHandlerRootView is provided by App.tsx.
  */
-export function WeeklyPlanView() {
+export function WeeklyPlanView({ initialPeriod = 'morning' }: WeeklyPlanViewProps) {
   const routines = useRoutinesStore((s) => s.routines);
   const updateRoutine = useRoutinesStore((s) => s.updateRoutine);
   const products = useProductsStore((s) => s.products);
 
-  const [activePeriod, setActivePeriod] = useState<Period>('morning');
+  const [activePeriod, setActivePeriod] = useState<Period>(initialPeriod);
 
   const activeRoutine: Routine | undefined = routines.find(
     (r) => r.timeOfDay === activePeriod,
@@ -259,11 +262,7 @@ export function WeeklyPlanView() {
         style={styles.list}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={<WeeklyEmptyState />}
-        ListFooterComponent={
-          visibleSteps.length > 0 ? (
-            <ConflictWarningInline routines={routines} products={products} />
-          ) : null
-        }
+        ListFooterComponent={null}
       />
     </View>
   );

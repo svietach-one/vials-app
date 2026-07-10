@@ -4,6 +4,7 @@ import { NavigationContainer, NavigatorScreenParams } from '@react-navigation/na
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { colors, palette } from '@/constants/tokens';
+import type { CorpusProduct } from '@/services/corpus/types';
 import { useProfileStore } from '@/store/profileStore';
 
 // ─── Onboarding screens ───────────────────────────────────────────────────────
@@ -38,7 +39,8 @@ export type CatalogStackParamList = {
   Catalog: undefined;
   AddProductHub: undefined;
   ManualProductForm: {
-    prefillOBFProduct?: { obfId: string; name: string; brand: string; ingredientsText: string };
+    /** A corpus (Turso) hit the user picked via search or barcode scan — see src/services/corpus. */
+    prefillCorpusProduct?: CorpusProduct;
     editingProductId?: string;
   };
   ProductDetail: { productId: string };
@@ -46,9 +48,9 @@ export type CatalogStackParamList = {
 };
 
 export type RootTabParamList = {
-  'Routine Hub': undefined;
+  Routines: undefined;
   // NavigatorScreenParams allows typed deep-linking into the nested stack
-  Vials: NavigatorScreenParams<CatalogStackParamList>;
+  'My Shelf': NavigatorScreenParams<CatalogStackParamList>;
   Clinic: undefined;
   Profile: undefined;
 };
@@ -60,18 +62,11 @@ const CatalogStack = createNativeStackNavigator<CatalogStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 const TAB_ICONS: Record<keyof RootTabParamList, keyof typeof Feather.glyphMap> = {
-  'Routine Hub': 'calendar',
-  Vials: 'package',
+  Routines: 'calendar',
+  'My Shelf': 'package',
   Clinic: 'activity',
   Profile: 'user',
 };
-
-const SHARED_HEADER_OPTIONS = {
-  headerStyle: { backgroundColor: colors.bgBase },
-  headerTintColor: colors.textPrimary,
-  headerTitleStyle: { fontFamily: 'DMSans-Medium', fontSize: 16 },
-  headerBackTitleVisible: false,
-} as const;
 
 function OnboardingNavigator() {
   return (
@@ -85,32 +80,12 @@ function OnboardingNavigator() {
 
 function CatalogNavigator() {
   return (
-    <CatalogStack.Navigator screenOptions={SHARED_HEADER_OPTIONS}>
-      <CatalogStack.Screen
-        name="Catalog"
-        component={CatalogScreen}
-        options={{ title: 'Vials' }}
-      />
-      <CatalogStack.Screen
-        name="AddProductHub"
-        component={AddProductHubScreen}
-        options={{ title: 'Add Product' }}
-      />
-      <CatalogStack.Screen
-        name="ManualProductForm"
-        component={ManualProductFormScreen}
-        options={{ title: 'Add Product' }}
-      />
-      <CatalogStack.Screen
-        name="ProductDetail"
-        component={ProductDetailScreen}
-        options={{ title: '' }}
-      />
-      <CatalogStack.Screen
-        name="BarcodeScanner"
-        component={BarcodeScannerScreen}
-        options={{ title: 'Scan Barcode' }}
-      />
+    <CatalogStack.Navigator screenOptions={{ headerShown: false }}>
+      <CatalogStack.Screen name="Catalog" component={CatalogScreen} />
+      <CatalogStack.Screen name="AddProductHub" component={AddProductHubScreen} />
+      <CatalogStack.Screen name="ManualProductForm" component={ManualProductFormScreen} />
+      <CatalogStack.Screen name="ProductDetail" component={ProductDetailScreen} />
+      <CatalogStack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
     </CatalogStack.Navigator>
   );
 }
@@ -119,9 +94,6 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerStyle: { backgroundColor: colors.bgBase },
-        headerTintColor: colors.textPrimary,
-        headerTitleStyle: { fontFamily: 'DMSans-Medium', fontSize: 16 },
         tabBarActiveTintColor: palette.black,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
@@ -131,7 +103,7 @@ function MainTabs() {
         },
         tabBarLabelStyle: {
           fontFamily: 'DMSans-Regular',
-          fontSize: 11,
+          fontSize: 14,
         },
         tabBarIcon: ({ color, size }) => (
           <Feather
@@ -142,15 +114,16 @@ function MainTabs() {
         ),
       })}
     >
-      <Tab.Screen name="Routine Hub" component={RoutinesScreen} />
-      {/* Vials tab: headerShown:false because CatalogNavigator provides its own header */}
+      {/* Routines is the first tab: the daily execution loop is the app's default view */}
+      <Tab.Screen name="Routines" component={RoutinesScreen} options={{ headerShown: false }} />
+      {/* My Shelf tab: headerShown:false because CatalogNavigator provides its own header */}
       <Tab.Screen
-        name="Vials"
+        name="My Shelf"
         component={CatalogNavigator}
         options={{ headerShown: false }}
       />
-      <Tab.Screen name="Clinic" component={ClinicScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Clinic" component={ClinicScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 }

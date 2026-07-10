@@ -113,7 +113,7 @@ export default function MarketingSlidesScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
   },
   scroll: {
     flex: 1,
@@ -125,12 +125,7 @@ const styles = StyleSheet.create({
     gap: space[4],
   },
 
-  eyebrow: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 11,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
-  },
+  eyebrow: { ...typography.label },
   title: {
     ...typography.h1,
     color: colors.textPrimary,

@@ -1,0 +1,61 @@
+{
+  "task": "multi-active-badges",
+  "phase": "implementation",
+  "status": "PR_REVIEW",
+  "next_agent": "none",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/multi-active-badges.md",
+    "tech_design": "docs/tech-design/multi-active-badges.md",
+    "progress": "progress/multi-active-badges.md",
+    "tests_extended": [
+      "tests/product-shelf-card/ProductShelfCard.test.tsx",
+      "tests/product-shelf-card/fixtures.ts"
+    ],
+    "tests_untouched_sibling": "tests/catalog/product-shelf-card-hidden.test.tsx",
+    "code_new": [
+      "src/utils/activeBadges.ts",
+      "src/utils/activeBadges.test.ts"
+    ],
+    "code_modified": [
+      "src/types/index.ts",
+      "src/components/product/ProductShelfCard.tsx"
+    ]
+  },
+  "engineer_notes": {
+    "verification": {
+      "tsc": "npx tsc --noEmit -> 0 errors",
+      "feature_tests": "npx jest tests/product-shelf-card tests/catalog/product-shelf-card-hidden.test.tsx src/utils/activeBadges.test.ts -> 4 suites, 87/87 passed"
+    },
+    "documented_deviations": [
+      "src/utils/activeBadges.ts: tech design named the new function getProductActiveKeys(product), but src/utils/ingredientParser.ts already exports a function with that exact name (used by conflictEngine.ts and routineEngine/rehabFilter.ts for broader, safety-critical conflict detection). Renamed to getProductActiveBadgeKeys to avoid a same-name/different-behavior collision. Detailed in progress/multi-active-badges.md (engineer entry)."
+    ],
+    "testid_contract": "active-badge-${key} on each active-ingredient badge container, one per ActiveIngredientKey rendered, per docs/tech-design/multi-active-badges.md."
+  },
+  "tech_lead_review": {
+    "verdict": "ACCEPT",
+    "date": "2026-07-06",
+    "scope_note": "Reviewed only the files listed in artifacts above, per explicit task scope. OcrScannerSheet.tsx, ProductDetailScreen.tsx, GenerateCard.tsx, OptimizeStrip.tsx, RehabWidget.tsx, inci-attribution-highlighting, and tools/ were explicitly out of scope and not reviewed.",
+    "verification": {
+      "tsc": "npx tsc --noEmit -> 0 errors (re-verified independently)",
+      "feature_tests": "npx jest tests/product-shelf-card tests/catalog/product-shelf-card-hidden.test.tsx src/utils/activeBadges.test.ts -> 4 suites, 87/87 passed (re-verified independently)",
+      "grep_checks": [
+        "getProductActiveKeys collision claim confirmed real (ingredientParser.ts:129, used by conflictEngine.ts + rehabFilter.ts)",
+        "no 'react'/'react-native'/'@/store' imports in activeBadges.ts",
+        "no AsyncStorage/fetch( in ProductShelfCard.tsx",
+        "ActiveBadgeCategory defined only in src/types/index.ts",
+        "no hardcoded hex colors in ProductShelfCard.tsx",
+        "no TODO/FIXME/HACK/console.log/debugger in new or changed files"
+      ]
+    },
+    "notes": [
+      "Documented function rename (getProductActiveKeys -> getProductActiveBadgeKeys) reviewed and accepted: verified the naming collision is real and the rename is the correct engineering call, not merely tolerated.",
+      "All 4 spec user stories have direct test coverage in ProductShelfCard.test.tsx's Multi-active badges blocks, backed by activeBadges.test.ts's exhaustive 18-key category completeness check.",
+      "Non-blocking: ProductShelfCard's component function is ~140 lines, pre-existing shape not newly introduced by this task's ~small diff."
+    ]
+  }
+}

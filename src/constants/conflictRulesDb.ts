@@ -1,13 +1,9 @@
-import {
-  ActiveIngredientKey,
-  ConflictRule,
-  ProcedureCollisionRule,
-} from '@/types';
+import { ConflictRule, ProcedureCollisionRule } from '@/types';
 
 export const INGREDIENT_CONFLICT_RULES: ConflictRule[] = [
   {
     id: 'rule_retinol_aha',
-    itemA: 'retinol',
+    itemA: 'retinoid',
     itemB: 'aha',
     severity: 'avoid',
     explanation:
@@ -17,7 +13,7 @@ export const INGREDIENT_CONFLICT_RULES: ConflictRule[] = [
   },
   {
     id: 'rule_retinol_bha',
-    itemA: 'retinol',
+    itemA: 'retinoid',
     itemB: 'bha',
     severity: 'avoid',
     explanation:
@@ -26,7 +22,7 @@ export const INGREDIENT_CONFLICT_RULES: ConflictRule[] = [
   },
   {
     id: 'rule_vitc_niacinamide',
-    itemA: 'vitamin_c',
+    itemA: 'vitamin_c_pure',
     itemB: 'niacinamide',
     severity: 'caution',
     explanation:
@@ -37,7 +33,7 @@ export const INGREDIENT_CONFLICT_RULES: ConflictRule[] = [
   {
     id: 'rule_benzoyl_retinol',
     itemA: 'benzoyl_peroxide',
-    itemB: 'retinol',
+    itemB: 'retinoid',
     severity: 'avoid',
     explanation:
       'Benzoyl Peroxide oxidizes Retinol, rendering both compounds completely useless while doubling skin dryness.',
@@ -65,19 +61,3 @@ export const PROCEDURE_COLLISION_RULES: ProcedureCollisionRule[] = [
       'Ensure at least 14 days of complete internal healing post-filler injection before applying professional peels.',
   },
 ];
-
-/** Starter INCI mapping kit for Open Beauty Facts parser */
-export const INCI_INGREDIENT_MAP: Record<string, ActiveIngredientKey> = {
-  retinol: 'retinol',
-  'retinyl palmitate': 'retinol',
-  'glycolic acid': 'aha',
-  'lactic acid': 'aha',
-  'salicylic acid': 'bha',
-  'ascorbic acid': 'vitamin_c',
-  'sodium ascorbyl phosphate': 'vitamin_c',
-  niacinamide: 'niacinamide',
-  'benzoyl peroxide': 'benzoyl_peroxide',
-  'copper tripeptide-1': 'copper_peptides',
-  'zinc oxide': 'spf_chemical',
-  'titanium dioxide': 'spf_chemical',
-};

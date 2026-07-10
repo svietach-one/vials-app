@@ -1,0 +1,317 @@
+import React, { useCallback, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetScrollView,
+  type BottomSheetBackdropProps,
+} from '@gorhom/bottom-sheet';
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Button } from '@/components/ui/core/Button';
+import { colors, radius, space, typography } from '@/constants/tokens';
+import type { PlanCommitScope } from '@/domain/routinePlanActions';
+import { useProductsStore } from '@/store/productsStore';
+import { useRoutinesStore } from '@/store/routinesStore';
+import type { RoutinePlan } from '@/utils/routineEngine/generate';
+import { buildDraftSummaryLines } from '@/utils/routineEngine/planApply';
+import type { PlannedStep } from '@/utils/routineEngine/planTypes';
+import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface DraftPreviewSheetProps {
+  visible: boolean;
+  onClose: () => void;
+  plan: RoutinePlan | null;
+  diff: PlanDiffEntry[];
+  onCommit: (scope: PlanCommitScope) => void;
+}
+
+const SNAP_POINTS = ['88%'];
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+/**
+ * Draft Preview (Diff Mode, research §3): a Before → After layout with at
+ * most three quiet summary lines and the four-way commit scope. Nothing here
+ * writes — the commit callback routes through routinePlanActions.
+ */
+export function DraftPreviewSheet({ visible, onClose, plan, diff, onCommit }: DraftPreviewSheetProps) {
+  const insets = useSafeAreaInsets();
+  const sheetRef = useRef<BottomSheetModal>(null);
+  const wasPresented = useRef(false);
+
+  const products = useProductsStore((s) => s.products);
+  const routines = useRoutinesStore((s) => s.routines);
+
+  // Only dismiss after a real present — see AddToRoutineSheet for the
+  // modal-stack corruption this guards against.
+  useEffect(() => {
+    if (visible) {
+      wasPresented.current = true;
+      sheetRef.current?.present();
+    } else if (wasPresented.current) {
+      sheetRef.current?.dismiss();
+    }
+  }, [visible]);
+
+  const renderBackdrop = useCallback(
+    (backdropProps: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop
+        {...backdropProps}
+        appearsOnIndex={0}
+        disappearsOnIndex={-1}
+        pressBehavior="close"
+        opacity={0.45}
+      />
+    ),
+    [],
+  );
+
+  if (!plan) return null;
+
+  const nameOf = (productId: string | null) =>
+    (productId && products.find((p) => p.id === productId)?.name) ?? 'Unknown product';
+  const summaryLines = buildDraftSummaryLines(plan, diff, products);
+
+  const beforeFor = (timeOfDay: 'morning' | 'evening') =>
+    routines
+      .filter((r) => r.timeOfDay === timeOfDay)
+      .flatMap((r) => r.steps.filter((s) => !s.hidden && s.productId))
+      .map((s) => nameOf(s.productId));
+
+  const afterFor = (steps: PlannedStep[]) => steps.map((s) => nameOf(s.productId));
+
+  // Every frozen item gets a row — clinical pauses with their expiry date,
+  // pair-rule freezes with a conflict note (nothing vanishes silently, §1.8)
+  const pausedNames = plan.frozen.map((f) =>
+    f.until
+      ? `${nameOf(f.productId)} — paused until ${f.until}`
+      : `${nameOf(f.productId)} — set aside to avoid a conflict`,
+  );
+
+  return (
+    <BottomSheetModal
+      ref={sheetRef}
+      snapPoints={SNAP_POINTS}
+      enableDynamicSizing={false}
+      onDismiss={onClose}
+      backgroundStyle={styles.sheetBackground}
+      handleIndicatorStyle={styles.handleIndicator}
+      backdropComponent={renderBackdrop}
+    >
+      <BottomSheetScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space[6] }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.title}>Routine Draft</Text>
+
+        {summaryLines.length > 0 ? (
+          <View style={styles.summary}>
+            {summaryLines.map((line) => (
+              <View key={line} style={styles.summaryRow}>
+                <Feather name="check" size={14} color={colors.statusSafe} />
+                <Text style={styles.summaryText}>{line}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        <PeriodDiff
+          label="Morning"
+          before={beforeFor('morning')}
+          after={afterFor(plan.periods.morning)}
+        />
+        <PeriodDiff
+          label="Evening"
+          before={beforeFor('evening')}
+          after={afterFor(plan.periods.evening)}
+        />
+
+        {pausedNames.length > 0 ? (
+          <View style={styles.pausedBlock}>
+            {pausedNames.map((line) => (
+              <Text key={line} style={styles.pausedText}>
+                {line}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        <View style={styles.actions}>
+          <Button
+            variant="primary"
+            size="md"
+            fullWidth
+            onPress={() => onCommit('both')}
+            accessibilityLabel="Save for Both (AM & PM)"
+          >
+            Save for Both (AM & PM)
+          </Button>
+          <View style={styles.actionRow}>
+            <View style={styles.actionHalf}>
+              <Button
+                variant="secondary"
+                size="md"
+                fullWidth
+                onPress={() => onCommit('am')}
+                accessibilityLabel="Save for AM Only"
+              >
+                Save for AM Only
+              </Button>
+            </View>
+            <View style={styles.actionHalf}>
+              <Button
+                variant="secondary"
+                size="md"
+                fullWidth
+                onPress={() => onCommit('pm')}
+                accessibilityLabel="Save for PM Only"
+              >
+                Save for PM Only
+              </Button>
+            </View>
+          </View>
+          <Button
+            variant="ghost"
+            size="md"
+            fullWidth
+            onPress={onClose}
+            accessibilityLabel="Cancel and discard draft"
+          >
+            Cancel / Discard Draft
+          </Button>
+        </View>
+      </BottomSheetScrollView>
+    </BottomSheetModal>
+  );
+}
+
+// ─── Before → After block ─────────────────────────────────────────────────────
+
+function PeriodDiff({ label, before, after }: { label: string; before: string[]; after: string[] }) {
+  return (
+    <View style={styles.periodBlock}>
+      <Text style={styles.periodLabel}>{label}</Text>
+      <View style={styles.diffColumns}>
+        <View style={styles.diffColumn}>
+          <Text style={styles.columnLabel}>Before</Text>
+          {before.length > 0 ? (
+            before.map((name, i) => (
+              <Text key={`${name}-${i}`} style={styles.diffItemMuted} numberOfLines={1}>
+                {name}
+              </Text>
+            ))
+          ) : (
+            <Text style={styles.diffItemMuted}>—</Text>
+          )}
+        </View>
+        <Feather name="arrow-right" size={16} color={colors.textTertiary} style={styles.diffArrow} />
+        <View style={styles.diffColumn}>
+          <Text style={styles.columnLabel}>After</Text>
+          {after.length > 0 ? (
+            after.map((name, i) => (
+              <Text key={`${name}-${i}`} style={styles.diffItem} numberOfLines={1}>
+                {name}
+              </Text>
+            ))
+          ) : (
+            <Text style={styles.diffItemMuted}>—</Text>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  sheetBackground: {
+    backgroundColor: colors.bgBase,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+  },
+  handleIndicator: {
+    backgroundColor: colors.borderStrong,
+  },
+  content: {
+    paddingHorizontal: space.gutterScreen,
+    paddingTop: space[2],
+    gap: space[4],
+  },
+  title: {
+    ...typography.h3,
+    color: colors.textPrimary,
+  },
+  summary: {
+    backgroundColor: colors.statusSafeTint,
+    borderRadius: radius.md,
+    padding: space[3],
+    gap: space[1],
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  summaryText: {
+    ...typography.bodySmall,
+    color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  periodBlock: {
+    gap: space[2],
+  },
+  periodLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+  },
+  diffColumns: {
+    flexDirection: 'row',
+    gap: space[2],
+    alignItems: 'flex-start',
+  },
+  diffColumn: {
+    flex: 1,
+    gap: space[1],
+  },
+  diffArrow: {
+    marginTop: space[5],
+  },
+  columnLabel: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
+  diffItem: {
+    ...typography.bodySmall,
+    color: colors.textPrimary,
+  },
+  diffItemMuted: {
+    ...typography.bodySmall,
+    color: colors.textTertiary,
+  },
+  pausedBlock: {
+    backgroundColor: colors.surfaceSunken,
+    borderRadius: radius.md,
+    padding: space[3],
+    gap: space[1],
+  },
+  pausedText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  actions: {
+    gap: space[2],
+    marginTop: space[2],
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: space[2],
+  },
+  actionHalf: {
+    flex: 1,
+  },
+});

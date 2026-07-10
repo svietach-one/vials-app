@@ -1,5 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import {
+  BASELINE_SCHEMA_VERSION,
+  CURRENT_SCHEMA_VERSION,
+} from '@/utils/routineEngine/migrations';
+
 export async function loadJson<T>(key: string, fallback: T): Promise<T> {
   try {
     const raw = await AsyncStorage.getItem(key);
@@ -25,4 +30,24 @@ export const STORAGE_KEYS = {
   routines: '@vials/routines',
   procedures: '@vials/procedures',
   settings: '@vials/settings',
+  /** Persisted schema version driving one-time migrations on hydrate. */
+  schemaVersion: '@vials/schemaVersion',
+  /** Dynamic-cycling state + per-product application counters (FE-6). */
+  tracking: '@vials/tracking',
 } as const;
+
+/** Reads the persisted schema version, defaulting to the pre-versioning baseline. */
+export async function loadSchemaVersion(): Promise<number> {
+  return loadJson<number>(STORAGE_KEYS.schemaVersion, BASELINE_SCHEMA_VERSION);
+}
+
+/**
+ * Persists the current schema version when the stored version is behind.
+ * Writes a constant, so concurrent calls from parallel store hydrations
+ * converge regardless of ordering.
+ */
+export function persistSchemaVersionIfBehind(storedVersion: number): void {
+  if (storedVersion < CURRENT_SCHEMA_VERSION) {
+    void saveJson(STORAGE_KEYS.schemaVersion, CURRENT_SCHEMA_VERSION);
+  }
+}

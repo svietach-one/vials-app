@@ -60,7 +60,7 @@ export function Tag({ children, tone = 'neutral', onRemove, style }: TagProps) {
         style,
       ]}
     >
-      <Text style={[styles.label, { color: textColor }]} numberOfLines={1}>
+      <Text style={[styles.label, { color: textColor }]}>
         {children}
       </Text>
 
@@ -108,8 +108,8 @@ const styles = StyleSheet.create({
 
   label: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: -0.1,
     includeFontPadding: false,
   },

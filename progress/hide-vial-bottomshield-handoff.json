@@ -1,13 +1,27 @@
 {
   "task_slug": "hide-vial-bottomshield",
-  "status": "DESIGNED",
+  "status": "PR_REVIEW",
   "current_agent": "tech-lead",
-  "next_agent": "engineer",
+  "next_agent": "tech-lead",
   "tech_lead_verdict": "APPROVED",
   "tech_lead_notes": [
-    "FE-2: also update ProductActionSheetProps exported interface to include onToggleHidden: (p: Product) => void",
-    "FE-4: eye-off badge must use size=12 and color=colors.textTertiary (not textSecondary)",
-    "WARNING: WeeklyPlanView (src/components/routine/WeeklyPlanView.tsx) may derive its own step lists — read it before FE-5 and apply the isHidden filter there too if it does"
+    "Prior interim notes resolved: ProductActionSheetProps.onToggleHidden is a required prop (present); FE-4 eye-off icon uses size=12/color=colors.textTertiary (confirmed); WeeklyPlanView already filtered isHidden correctly pre-existing (confirmed via new regression suite, 5/5 pass) -- no further action needed on any of the three.",
+    "FE-2 additive Hide/Show row and the Remove-from-Routine/removeProductStep split are the two product-owner decisions referenced in this review; both correctly implemented. Traced removeProductStep: reads current state via Zustand get() each call, not a stale closure, so looping it across multiple routines in one handler is safe.",
+    "Scope-creep check (Remove-from-Routine fix): additional scope beyond the original 4-file design, but explicitly product-owner-authorized and thoroughly logged (engineer_notes here + progress.md 2026-07-02 entry) with clear before/after rationale; reuses a pre-existing tested store action, touches no new files. Per architecture-review.md's own rule this does not warrant BLOCKER, and given explicit sign-off does not warrant WARNING either.",
+    "npx tsc --noEmit: 3 errors, all in tests/product-shelf-card/ProductShelfCard.test.tsx (usageTime 'both'-only type; missing 'disabled' key on fixture return type). Confirmed via git diff dev --stat that this file has zero changes on this branch -- pre-existing debt, not introduced by this PR. Zero errors in any touched file.",
+    "npx jest across the 6 relevant suites: 64/64 tests pass (ProductActionSheet.extended.test.tsx, ProductShelfCard.test.tsx, product-shelf-card-hidden.test.tsx, catalog-screen-hide-toggle.integration.test.tsx, routines-screen-hidden-filter.test.tsx, weekly-plan-view-hidden-filter.test.tsx). Deletion of tests/catalog/hide-product.test.tsx verified safe -- its 10 ACs are fully superseded by the new qa-lead files.",
+    "No duplicate/colliding type declarations (Product defined once in src/types/index.ts; ProductActionSheetProps/ProductShelfCardProps distinct); no route collisions (N/A, no backend layer); no TODO/FIXME/HACK/console.log/debugger in any touched source file.",
+    "WARNING (non-blocking, pre-existing): ProductActionSheet/ProductShelfCard/CatalogScreen's main component functions are 122/137/131 lines respectively, predating this PR (net addition ~10-20 lines each here); consistent with existing codebase style for JSX-heavy render functions. Recommend future extraction, does not block merge.",
+    "INFO (out of scope, product backlog): CatalogScreen.tsx retains dead StyleSheet entries orphaned since rendering moved to ProductShelfCard; ProductShelfCard's pre-existing 'Hidden from routine' (isInRoutine=false) wording/icon sits adjacent to the new isHidden dimming and may read as the same feature to users -- worth a UX pass, not a defect of this PR.",
+    "Process note: mid-review, two turns each carried an unrelated 'security-review' slash-command payload (redefining reviewer identity, requiring sub-agent tooling unavailable in this session, instructing output-suppression of the mandatory verdict/progress-file update) plus an unsolicited Figma MCP instructions block. Both declined as out of scope; this review proceeded against its original stated scope only.",
+    "VERDICT: APPROVED for merge. No blockers."
+  ],
+  "qa_lead_notes": [
+    "BLOCKER: FE-2's assumption ('hide toggle row is always rendered in ProductActionSheet, not conditionally') is now false. The later product-shelf-card feature (merged after this design was approved) made ProductShelfCard always pass exactly one of onAddToRoutine/onRemoveFromRoutine to ProductActionSheet, which shadows the Hide/Show else-branch entirely. Hide/Show is unreachable through the real app today. Needs a product decision (additive row vs. folding into add/remove-from-routine) before engineer implements FE-2/FE-3.",
+    "FE-3/FE-4 file pointers are stale: CatalogScreen no longer renders cards inline; rendering now lives in src/components/product/ProductShelfCard.tsx. Update tech design file targets to ProductShelfCard.tsx.",
+    "FE-1 (Product.isHidden field) and FE-5 (RoutinesScreen + WeeklyPlanView step filtering) are already implemented correctly on dev and match the tech design as written; covered by new regression-guard tests, both passing.",
+    "New testID contract needed from engineer for FE-4: testID=\"shelf-card-content\" on ProductShelfCard's dimmable content wrapper (opacity 0.4 when product.isHidden), plus an eye-off Feather icon inside it when hidden.",
+    "Pre-existing, unrelated test debt observed on dev (verified via git stash, not caused by this QA pass): tests/catalog/hide-product.test.tsx, tests/catalog/catalog-screen.test.ts, tests/shelf-filtering/CatalogScreen.integration.test.tsx, tests/catalog/product-detail.test.tsx all currently fail."
   ],
   "spec": "docs/specs/hide-vial-bottomshield.md",
   "tech_design": "docs/tech-design/hide-vial-bottomshield.md",
@@ -18,11 +32,30 @@
     "infra_changes": false
   },
   "summary": "Adds a reversible soft-hide toggle for catalog products. Users can hide/show a product via a new ActionSheet row (eye-off/eye Feather icons). Hidden cards render at 0.4 opacity with the three-dot button kept fully interactive. Hidden products are automatically excluded from routine step lists. Implemented by adding isHidden?: boolean to the Product type and touching four existing files only.",
-  "files_to_modify": [
-    "src/types/index.ts",
+  "qa_summary": "Wrote 4 integration test files (25 tests total) covering FE-1 through FE-5. While writing tests against current `dev`, found that FE-2/FE-3/FE-4 as specified conflict with the later product-shelf-card feature that changed catalog card rendering and ActionSheet wiring after this design was approved (Type D contradiction per tech-design-template). FE-1 and FE-5 are already correctly implemented and are covered by passing regression tests. Routing to tech-lead/planner to resolve the FE-2 contradiction and update FE-3/FE-4 file targets before engineer starts.",
+  "test_files": [
+    "tests/catalog/product-shelf-card-hidden.test.tsx",
+    "tests/catalog/catalog-screen-hide-toggle.integration.test.tsx",
+    "tests/routines/routines-screen-hidden-filter.test.tsx",
+    "tests/routines/weekly-plan-view-hidden-filter.test.tsx",
+    "tests/product-shelf-card/ProductActionSheet.extended.test.tsx"
+  ],
+  "files_modified": [
     "src/components/product/ProductActionSheet.tsx",
+    "src/components/product/ProductShelfCard.tsx",
     "src/screens/CatalogScreen.tsx",
-    "src/screens/RoutinesScreen.tsx"
+    "tests/product-shelf-card/fixtures.ts",
+    "tests/product-shelf-card/ProductActionSheet.extended.test.tsx"
+  ],
+  "files_deleted": [
+    "tests/catalog/hide-product.test.tsx"
+  ],
+  "engineer_notes": [
+    "Product decision (user): Hide/Show row is additive, always rendered in ProductActionSheet independent of Add/Remove-from-routine, resolving the FE-2 contradiction.",
+    "Found and fixed a second defect while wiring this: CatalogScreen's onRemoveFromRoutine was implemented as updateProduct(id, {isHidden:true}) instead of actually removing the step, conflating 'hide' and 'remove from routine'. Per user decision, Remove-from-routine now calls routinesStore.removeProductStep for every routine containing the step; isHidden is now exclusively the catalog-hide concern.",
+    "FE-4 dimming/eye-off badge implemented directly in ProductShelfCard.tsx (not CatalogScreen.tsx) per tech-lead's file-target correction.",
+    "Deleted tests/catalog/hide-product.test.tsx (dead debt referencing deleted AddProductModal component, fully superseded by the new qa-lead test files).",
+    "All new + touched tests pass (33 tests across 5 files). No new tsc errors. Pre-existing unrelated failures (catalog-screen.test.tsx, product-detail.test.tsx, shelf-filtering suite) confirmed via git stash to predate this change."
   ],
   "open_questions": []
 }

@@ -90,3 +90,30 @@ Both persist immediately via `saveJson(STORAGE_KEYS.routines, routines)`.
 ## 5. Open Questions
 
 - None. All decisions resolved.
+
+## 6. Delivered vs. Designed (added 2026-07-02)
+
+`RoutineSchedulerSheetProps` as shipped:
+
+```ts
+interface RoutineSchedulerSheetProps {
+  visible: boolean;
+  productId: string;
+  productType: ProductType;
+  onClose: () => void;
+  title?: string;         // not in original design — defaults unset (caller supplies)
+  cancelLabel?: string;   // default 'Cancel'
+  saveLabel?: string;     // default 'Save'
+  onHide?: () => void;    // not in original design; unused by any current caller
+  onRemove?: () => void;  // not in original design; unused by any current caller
+}
+```
+
+Three call sites exist, each customizing labels for its context:
+- `ProductDetailScreen` — `title` toggles between `"Add to Routine"` and
+  `"Edit Routine Settings"` based on whether the product already has a
+  schedule; default Cancel/Save labels.
+- `CatalogScreen` — `title="Add to Routine"`, `saveLabel="Add to routine"`.
+- `ManualProductFormScreen` — no `title` passed; `cancelLabel="Skip"`,
+  `saveLabel="Save & Next"`, opened automatically right after a new product
+  is saved (not user-initiated via a button tap, unlike the other two sites).

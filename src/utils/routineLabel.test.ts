@@ -118,3 +118,25 @@ describe('deriveProductSchedule', () => {
     expect(result).toEqual({ morning: false, evening: false, scheduledDays: [] });
   });
 });
+
+// ─── isInRoutine derivation pattern ──────────────────────────────────────────
+
+describe('isInRoutine derivation', () => {
+  it('should return true when a product has a matching step in at least one routine', () => {
+    const routines = makeRoutines([{ productId: 'p1', scheduledDays: [] }], []);
+    const isInRoutine = routines.some((r) => r.steps.some((s) => s.productId === 'p1'));
+    expect(isInRoutine).toBe(true);
+  });
+
+  it('should return false when no step in any routine matches the product id', () => {
+    const routines = makeRoutines([{ productId: 'other', scheduledDays: [] }], []);
+    const isInRoutine = routines.some((r) => r.steps.some((s) => s.productId === 'p1'));
+    expect(isInRoutine).toBe(false);
+  });
+
+  it('should return false when the routines array is empty', () => {
+    const routines: Routine[] = [];
+    const isInRoutine = routines.some((r) => r.steps.some((s) => s.productId === 'p1'));
+    expect(isInRoutine).toBe(false);
+  });
+});

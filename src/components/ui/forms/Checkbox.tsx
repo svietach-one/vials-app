@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { colors, palette, radius, space } from '@/constants/tokens';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,10 +110,10 @@ const styles = StyleSheet.create({
   boxUnchecked: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: palette.cabernet,
+    borderColor: colors.controlFill,
   },
   boxChecked: {
-    backgroundColor: palette.cabernet,
+    backgroundColor: colors.controlFill,
     borderWidth: 0,
   },
 
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 15,
+    fontSize: typography.body.fontSize,
     lineHeight: 20,
     color: colors.textPrimary,
   },
@@ -132,10 +132,5 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     color: colors.textTertiary,
   },
-  sublabel: {
-    fontFamily: 'DMSans-Regular',
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.textSecondary,
-  },
+  sublabel: { ...typography.bodySmall, color: colors.textSecondary },
 });

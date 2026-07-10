@@ -1,3 +1,16 @@
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Whole days elapsed between a YYYY-MM-DD date and `now`. Both sides resolve
+ * to UTC midnight so the diff counts whole skincare days regardless of the
+ * device's local time-of-day.
+ */
+export function getElapsedDays(dateStr: string, now: Date = new Date()): number {
+  const start = new Date(dateStr).getTime();
+  const today = new Date(now.toISOString().split('T')[0]).getTime();
+  return Math.floor((today - start) / MS_PER_DAY);
+}
+
 /**
  * Returns the current skincare date with a day boundary at 04:00.
  * Activity logged between 00:00–03:59 counts toward the previous calendar day.

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -11,16 +12,21 @@ import {
 import { Feather } from '@expo/vector-icons';
 
 import { SkinProfileEditModal } from '@/components/profile/SkinProfileEditModal';
+import { AppHeader } from '@/components/ui/core/AppHeader';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { ListRow } from '@/components/ui/core/ListRow';
+import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { switchCycleType } from '@/domain/trackingActions';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { searchCities } from '@/utils/citySearch';
 import type {
+  CityLocation,
   SkinPhototype,
   SkinType,
   UserProfile,
@@ -81,10 +87,7 @@ function SectionHeader({ title }: { title: string }) {
 
 const sectionStyles = StyleSheet.create({
   header: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 11,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
+    ...typography.label,
     color: colors.textSecondary,
     marginBottom: space[1],
     marginTop: space[2],
@@ -106,8 +109,13 @@ function ProfileSummary({ profile }: { profile: UserProfile | null }) {
       filled: profile?.skinType != null,
     },
     {
-      label: profile?.phototype ? `FP ${PHOTOTYPE_LABELS[profile.phototype]}` : 'Phototype',
-      filled: profile?.phototype != null,
+      // Numeric Fitzpatrick is authoritative since FE-9; grouped is the fallback
+      label: profile?.fitzpatrick
+        ? `FP ${['I', 'II', 'III', 'IV', 'V', 'VI'][profile.fitzpatrick - 1]}`
+        : profile?.phototype
+          ? `FP ${PHOTOTYPE_LABELS[profile.phototype]}`
+          : 'Phototype',
+      filled: profile?.fitzpatrick != null || profile?.phototype != null,
     },
   ];
 
@@ -169,6 +177,91 @@ const summaryStyles = StyleSheet.create({
   },
 });
 
+// ─── City autocomplete (offline, research §1.7 — no GPS, no network) ──────────
+
+function CityField({
+  city,
+  onSelect,
+  onClear,
+}: {
+  city: CityLocation | null;
+  onSelect: (city: CityLocation) => void;
+  onClear: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const suggestions = searchCities(query, 5);
+
+  if (city) {
+    return (
+      <View style={cityStyles.selectedRow}>
+        <Feather name="map-pin" size={16} color={colors.textSecondary} />
+        <Text style={cityStyles.selectedName}>{city.name}</Text>
+        <Pressable
+          onPress={onClear}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Clear city"
+        >
+          <Feather name="x" size={16} color={colors.textTertiary} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View style={cityStyles.wrap}>
+      <Input
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search your city…"
+        autoCorrect={false}
+        returnKeyType="search"
+      />
+      {suggestions.map((suggestion) => (
+        <Pressable
+          key={suggestion.name}
+          onPress={() => {
+            onSelect(suggestion);
+            setQuery('');
+          }}
+          style={cityStyles.suggestionRow}
+          accessibilityRole="button"
+          accessibilityLabel={`Select ${suggestion.name}`}
+        >
+          <Feather name="map-pin" size={14} color={colors.textTertiary} />
+          <Text style={cityStyles.suggestionText}>{suggestion.name}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+const cityStyles = StyleSheet.create({
+  wrap: { gap: space[1] },
+  selectedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    paddingVertical: space[2],
+  },
+  selectedName: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    paddingVertical: space[2],
+    paddingHorizontal: space[2],
+  },
+  suggestionText: {
+    ...typography.bodySmall,
+    color: colors.textPrimary,
+  },
+});
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
@@ -177,6 +270,23 @@ export default function ProfileScreen() {
 
   const gamificationEnabled = useSettingsStore((s) => s.gamificationEnabled);
   const setGamificationEnabled = useSettingsStore((s) => s.setGamificationEnabled);
+  const routineCycleType = useSettingsStore((s) => s.routineCycleType);
+
+  function handleCycleToggle(enableDynamic: boolean) {
+    if (!enableDynamic) {
+      // Dynamic → fixed discards cycle progress — confirm first (research §1.4)
+      Alert.alert(
+        'Switch to fixed days?',
+        'Your skin-cycle progress will be discarded. Application counters are kept.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Switch', style: 'destructive', onPress: () => switchCycleType('fixed') },
+        ],
+      );
+      return;
+    }
+    switchCycleType('dynamic');
+  }
 
   const productCount = useProductsStore((s) => s.products.length);
   const procedureCount = useProceduresStore((s) => s.procedures.length);
@@ -190,6 +300,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppHeader title="Profile" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -206,7 +317,7 @@ export default function ProfileScreen() {
               accessibilityRole="button"
               accessibilityLabel="Edit skin profile"
             >
-              <Feather name="edit-2" size={14} color={colors.textLink} />
+              <Feather name="edit-2" size={14} color={palette.bottleGreen} />
               <Text style={styles.editBtnText}>Edit</Text>
             </Pressable>
           </View>
@@ -252,7 +363,35 @@ export default function ProfileScreen() {
                   size="sm"
                 />
               }
+              divider
+            />
+            <ListRow
+              title="Dynamic Skin Cycling"
+              subtitle="4-night cycle driven by your daily check-in instead of fixed weekdays"
+              trailing={
+                <Switch
+                  checked={routineCycleType === 'dynamic'}
+                  onValueChange={handleCycleToggle}
+                  size="sm"
+                />
+              }
               divider={false}
+            />
+          </View>
+        </View>
+
+        {/* ── Weather & Seasons ────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <SectionHeader title="Weather & Seasons" />
+          <View style={styles.card}>
+            <Text style={styles.cityHint}>
+              Pick your city to let seasonal routine rules follow the real
+              weather. No GPS — a weekly forecast check only.
+            </Text>
+            <CityField
+              city={profile?.city ?? null}
+              onSelect={(city) => updateProfile({ city })}
+              onClear={() => updateProfile({ city: null })}
             />
           </View>
         </View>
@@ -308,7 +447,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.bgSubtle,
   },
   scroll: { flex: 1 },
   content: {
@@ -341,7 +480,7 @@ const styles = StyleSheet.create({
   editBtnText: {
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
-    color: colors.textLink,
+    color: palette.bottleGreen,
   },
 
   statsRow: {
@@ -373,4 +512,9 @@ const styles = StyleSheet.create({
   },
 
   section: { gap: space[2] },
+
+  cityHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
 });

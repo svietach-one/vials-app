@@ -63,7 +63,7 @@ export function Badge({
 
   return (
     <View style={[styles.pill, bgStyles[key], style]} {...rest}>
-      <Text style={[styles.label, fgStyles[key], textStyle]} numberOfLines={1}>
+      <Text style={[styles.label, fgStyles[key], textStyle]}>
         {children}
       </Text>
     </View>

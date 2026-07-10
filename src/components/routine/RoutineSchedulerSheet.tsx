@@ -250,17 +250,17 @@ const styles = StyleSheet.create({
     color: palette.white,
   },
   errorBanner: {
-    backgroundColor: colors.statusSOSTint,
+    backgroundColor: colors.statusErrorTint,
     borderRadius: radius.sm,
     paddingHorizontal: space[3],
     paddingVertical: space[2],
     borderLeftWidth: 3,
-    borderLeftColor: colors.statusSOS,
+    borderLeftColor: colors.statusError,
     marginBottom: space[5],
   },
   errorBannerText: {
     ...typography.caption,
-    color: colors.statusSOS,
+    color: colors.statusError,
     lineHeight: 18,
   },
   actions: {
@@ -286,6 +286,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   destructiveLinkTextDanger: {
-    color: colors.statusSOS,
+    color: colors.statusError,
   },
 });

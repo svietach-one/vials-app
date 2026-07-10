@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   FlatList,
   SafeAreaView,
@@ -11,7 +11,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
-import { CatalogFilterHeader } from '@/components/catalog/CatalogFilterHeader';
+import { ProductShelfCard } from '@/components/product/ProductShelfCard';
+import { CatalogFilterTrigger } from '@/components/catalog/CatalogFilterTrigger';
+import { FilterSheet } from '@/components/catalog/FilterSheet';
+import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
+import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { Card } from '@/components/ui/core/Card';
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -19,35 +23,24 @@ import { Badge } from '@/components/ui/feedback/Badge';
 import { Tag } from '@/components/ui/core/Tag';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, space, typography } from '@/constants/tokens';
-import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import {
+  ACTIVE_INGREDIENT_LABELS,
+  FUNCTIONAL_BENEFIT_INGREDIENTS,
+  PRODUCT_TYPE_LABELS,
+} from '@/constants/labels';
+import { deleteProductCascade } from '@/domain/productActions';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
-import type {
-  ActiveIngredientKey,
-  BiomarkerTag,
-  CatalogFilterState,
-  CategoryFilter,
-  Product,
-  ProductType,
-} from '@/types';
+import type { CatalogFilterState, Product } from '@/types';
 import { CATALOG_FILTER_DEFAULT } from '@/types';
 import { getProductRoutineStatus, type RoutineStatusResult } from '@/utils/routineStatus';
 import { getProductPaoStatus } from '@/utils/paoHelpers';
+import { formatScheduleDays } from '@/utils/routineLabel';
 
 type Props = NativeStackScreenProps<CatalogStackParamList, 'Catalog'>;
 
 // ─── Module-level filter constants ────────────────────────────────────────────
-
-const CATEGORY_PRODUCT_TYPES: Record<Exclude<CategoryFilter, 'All'>, ProductType[]> = {
-  Serums:       ['serum', 'essence', 'ampoule'],
-  Moisturizers: ['moisturizer', 'cream', 'lotion', 'oil'],
-  SPF:          ['spf'],
-};
-
-const ACTIVES_KEYS: ActiveIngredientKey[] = ['retinol', 'aha', 'bha', 'vitamin_c', 'benzoyl_peroxide'];
-const SOOTHING_KEYS: ActiveIngredientKey[] = ['niacinamide', 'copper_peptides'];
-const HYDRATION_TYPES: ProductType[] = ['moisturizer', 'cream', 'lotion', 'oil', 'essence', 'toner'];
 
 const PAO_AMBER = '#D97706';
 
@@ -55,7 +48,7 @@ const PAO_AMBER = '#D97706';
 
 export function applyFilters(
   products: Product[],
-  { searchQuery, selectedCategory, selectedBiomarkers }: CatalogFilterState,
+  { searchQuery, selectedCategory, selectedBenefits }: CatalogFilterState,
 ): Product[] {
   return products.filter((p) => {
     // Gate 1 — text search
@@ -70,22 +63,12 @@ export function applyFilters(
     }
 
     // Gate 2 — category
-    if (selectedCategory !== 'All') {
-      const allowed = CATEGORY_PRODUCT_TYPES[selectedCategory];
-      if (!allowed.includes(p.productType)) return false;
-    }
+    if (selectedCategory !== 'All' && p.productType !== selectedCategory) return false;
 
-    // Gate 3 — biomarkers (ALL selected must pass)
-    for (const biomarker of selectedBiomarkers) {
-      if (biomarker === 'Actives') {
-        if (!(p.activeTags ?? []).some((k) => ACTIVES_KEYS.includes(k))) return false;
-      }
-      if (biomarker === 'Soothing') {
-        if (!(p.activeTags ?? []).some((k) => SOOTHING_KEYS.includes(k))) return false;
-      }
-      if (biomarker === 'Hydration') {
-        if (!HYDRATION_TYPES.includes(p.productType)) return false;
-      }
+    // Gate 3 — functional benefits (ALL selected must pass)
+    for (const benefit of selectedBenefits) {
+      const matchingKeys = FUNCTIONAL_BENEFIT_INGREDIENTS[benefit];
+      if (!(p.activeTags ?? []).some((k) => matchingKeys.includes(k))) return false;
     }
 
     return true;
@@ -97,41 +80,27 @@ export function applyFilters(
 export default function CatalogScreen({ navigation }: Props) {
   const products = useProductsStore((s) => s.products);
   const updateProduct = useProductsStore((s) => s.updateProduct);
-  const removeProduct = useProductsStore((s) => s.removeProduct);
   const routines = useRoutinesStore((s) => s.routines);
+  const removeProductStep = useRoutinesStore((s) => s.removeProductStep);
 
   const [filterState, setFilterState] = useState<CatalogFilterState>(CATALOG_FILTER_DEFAULT);
-  const [actionTarget, setActionTarget] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
-
-  // Header "+" button — navigates to the Add Product Hub
-  useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <IconButton
-          icon={<Feather name="plus" size={20} color={colors.textOnDark} />}
-          label="Add product"
-          variant="filled"
-          size="sm"
-          round
-          onPress={() => navigation.navigate('AddProductHub')}
-          style={styles.headerBtn}
-        />
-      ),
-    });
-  }, [navigation]);
+  const [schedulerTarget, setSchedulerTarget] = useState<Product | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const filteredProducts = applyFilters(products, filterState);
+  const activeFilterCount =
+    (filterState.selectedCategory !== 'All' ? 1 : 0) + filterState.selectedBenefits.length;
   const hasActiveFilters =
     filterState.searchQuery.trim() !== '' ||
     filterState.selectedCategory !== 'All' ||
-    filterState.selectedBiomarkers.length > 0;
+    filterState.selectedBenefits.length > 0;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   function handleDeleteConfirm() {
     if (deleteTarget) {
-      removeProduct(deleteTarget.id);
+      deleteProductCascade(deleteTarget.id);
       setDeleteTarget(null);
     }
   }
@@ -139,48 +108,37 @@ export default function CatalogScreen({ navigation }: Props) {
   // ── Render item ───────────────────────────────────────────────────────────
 
   function renderItem({ item }: { item: Product }) {
-    const routineStatus = getProductRoutineStatus(item.id, routines);
-    return (
-      <Card
-        variant="surface"
-        padding="sm"
-        interactive
-        onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-        style={styles.card}
-      >
-        <View style={styles.cardInner}>
-          {/* Content layer — dimmed independently so the three-dot button stays opaque */}
-          <View style={[styles.cardContent, item.isHidden && styles.cardContentHidden]}>
-            <View style={styles.nameRow}>
-              {item.isHidden ? (
-                <Feather name="eye-off" size={12} color={colors.textTertiary} />
-              ) : null}
-              <Text style={styles.productName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Tag tone="neutral">
-                {PRODUCT_TYPE_LABELS[item.productType] ?? item.productType}
-              </Tag>
-              <RoutineBadge status={routineStatus} />
-            </View>
-            {item.brand ? (
-              <Text style={styles.brand} numberOfLines={1}>
-                {item.brand}
-              </Text>
-            ) : null}
-            <PaoChip product={item} />
-          </View>
+    const isInRoutine = routines.some((r) => r.steps.some((s) => s.productId === item.id));
+    const matchingStep = routines
+      .flatMap((r) => r.steps)
+      .find((s) => s.productId === item.id);
+    const scheduleLabel = formatScheduleDays(matchingStep?.scheduledDays ?? []);
 
-          {/* Three-dot — inner Pressable captures the responder; card onPress won't fire */}
-          <IconButton
-            icon={<Feather name="more-vertical" size={18} color={colors.textSecondary} />}
-            label={`Options for ${item.name}`}
-            variant="ghost"
-            size="sm"
-            onPress={() => setActionTarget(item)}
-          />
-        </View>
-      </Card>
+    return (
+      <ProductShelfCard
+        product={item}
+        isInRoutine={isInRoutine}
+        scheduleLabel={scheduleLabel}
+        usageTime={item.usageTime}
+        onCardPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+        onEdit={(p) => {
+          navigation.navigate('ManualProductForm', { editingProductId: p.id });
+        }}
+        onDelete={(p) => {
+          setDeleteTarget(p);
+        }}
+        onAddToRoutine={(p) => setSchedulerTarget(p)}
+        onRemoveFromRoutine={(p) => {
+          for (const r of routines) {
+            if (r.steps.some((s) => s.productId === p.id)) {
+              removeProductStep(r.id, p.id);
+            }
+          }
+        }}
+        onToggleHidden={(p) => {
+          updateProduct(p.id, { isHidden: !p.isHidden });
+        }}
+      />
     );
   }
 
@@ -188,6 +146,19 @@ export default function CatalogScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppHeader
+        title="My Shelf"
+        rightAction={
+          <IconButton
+            icon={<Feather name="plus" size={20} color={colors.textPrimary} />}
+            label="Add product"
+            variant="ghost"
+            size="sm"
+            round
+            onPress={() => navigation.navigate('AddProductHub')}
+          />
+        }
+      />
       <FlatList
         data={filteredProducts}
         keyExtractor={(item) => item.id}
@@ -201,16 +172,21 @@ export default function CatalogScreen({ navigation }: Props) {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
           <View style={styles.searchWrap}>
-            <Input
-              icon={<Feather name="search" size={15} color={colors.textTertiary} />}
-              value={filterState.searchQuery}
-              onChangeText={(t) => setFilterState((s) => ({ ...s, searchQuery: t }))}
-              placeholder="Search by name, brand or ingredient…"
-              clearButtonMode="while-editing"
-              returnKeyType="search"
-              containerStyle={styles.searchInput}
-            />
-            <CatalogFilterHeader filterState={filterState} onFilterChange={setFilterState} />
+            <View style={styles.searchRow}>
+              <Input
+                icon={<Feather name="search" size={15} color={colors.textTertiary} />}
+                value={filterState.searchQuery}
+                onChangeText={(t) => setFilterState((s) => ({ ...s, searchQuery: t }))}
+                placeholder="Search by name, brand or ingredient…"
+                clearButtonMode="while-editing"
+                returnKeyType="search"
+                containerStyle={styles.searchInputFlex}
+              />
+              <CatalogFilterTrigger
+                activeFilterCount={activeFilterCount}
+                onPress={() => setSheetOpen(true)}
+              />
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -222,27 +198,28 @@ export default function CatalogScreen({ navigation }: Props) {
         }
       />
 
-      <ProductActionSheet
-        product={actionTarget}
-        onEdit={(p) => {
-          setActionTarget(null);
-          navigation.navigate('ManualProductForm', { editingProductId: p.id });
-        }}
-        onDelete={(p) => {
-          setActionTarget(null);
-          setDeleteTarget(p);
-        }}
-        onToggleHidden={(p) => {
-          updateProduct(p.id, { isHidden: !p.isHidden });
-          setActionTarget(null);
-        }}
-        onClose={() => setActionTarget(null)}
-      />
-
       <DeleteProductModal
         product={deleteTarget}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <RoutineSchedulerSheet
+        visible={schedulerTarget !== null}
+        productId={schedulerTarget?.id ?? ''}
+        productType={schedulerTarget?.productType ?? 'serum'}
+        title="Add to Routine"
+        cancelLabel="Cancel"
+        saveLabel="Add to routine"
+        onClose={() => setSchedulerTarget(null)}
+      />
+
+      <FilterSheet
+        visible={sheetOpen}
+        initialState={filterState}
+        products={products}
+        onApply={setFilterState}
+        onClose={() => setSheetOpen(false)}
       />
     </SafeAreaView>
   );
@@ -336,18 +313,19 @@ function CatalogEmptyState({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgBase,
-  },
-  headerBtn: {
-    marginRight: space.gutterScreen,
+    backgroundColor: colors.bgSubtle,
   },
   searchWrap: {
-    paddingHorizontal: space.gutterScreen,
     paddingTop: space[4],
     paddingBottom: space[3],
   },
-  searchInput: {
-    marginBottom: space[2],
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.gapInline,
+  },
+  searchInputFlex: {
+    flex: 1,
   },
   listContent: {
     paddingHorizontal: space.gutterScreen,

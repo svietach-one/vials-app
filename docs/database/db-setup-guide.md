@@ -4,6 +4,14 @@
 **Date:** 2026-06-21  
 **Status:** REFERENCE — read before writing any database code  
 
+> **Sync note (2026-07-08):** Superseded — the product corpus shipped as a
+> Turso/libSQL replica, not Supabase/PostgreSQL. See the sync note atop
+> `docs/database/db-tech-design.md`. Kept for historical reference only; do
+> not follow this guide's Supabase setup steps for the product corpus. The
+> `EXPO_PUBLIC_SUPABASE_URL`/key pair introduced by Phase 2's user-auth
+> feature (`docs/tech-design/user-auth-cloud-backup.md`) is an unrelated,
+> separate Supabase project.
+
 Related docs:
 - `docs/database/db-product-spec.md` — business requirements and user stories  
 - `docs/database/db-tech-design.md` — local SQLite + Supabase technical design  

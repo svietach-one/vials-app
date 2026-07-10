@@ -9,7 +9,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { palette } from '@/constants/tokens';
+import { palette, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ const sizeContainer = StyleSheet.create({
 // Size: label
 const sizeLabel = StyleSheet.create({
   sm: { fontSize: 14, lineHeight: 18 },
-  md: { fontSize: 15, lineHeight: 20 },
+  md: { fontSize: typography.body.fontSize, lineHeight: 21 },
   lg: { fontSize: 16, lineHeight: 22 },
 });
 
@@ -154,11 +154,11 @@ const variantContainerPressed = StyleSheet.create({
     borderColor: 'transparent',
   },
   textActive: {
-    backgroundColor: palette.cabernetTint,
+    backgroundColor: palette.zinc100,
     borderColor: 'transparent',
   },
   destructive: {
-    backgroundColor: palette.cabernetTint,
+    backgroundColor: palette.zinc100,
     borderColor: palette.red,
   },
 });
@@ -192,7 +192,7 @@ const variantLabel = StyleSheet.create({
   primary: { color: palette.white },
   secondary: { color: palette.zinc900 },
   ghost: { color: palette.zinc900 },
-  textActive: { color: palette.cabernet },
+  textActive: { color: palette.bottleGreen },
   destructive: { color: palette.red },
 });
 
@@ -201,6 +201,6 @@ const variantLabelDisabled = StyleSheet.create({
   primary: { color: palette.white },
   secondary: { color: palette.zinc300 },
   ghost: { color: palette.zinc300 },
-  textActive: { color: palette.cabernetLine },
+  textActive: { color: palette.zinc300 },
   destructive: { color: palette.zinc300 },
 });
