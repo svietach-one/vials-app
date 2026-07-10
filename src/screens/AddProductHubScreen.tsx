@@ -15,9 +15,9 @@ import { AppHeader } from '@/components/ui/core/AppHeader';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, radius, space, typography } from '@/constants/tokens';
+import { useProductRepository } from '@/hooks/useCorpusRepositories';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
-import { searchProducts } from '@/services/openBeautyFacts/search';
-import type { OBFProduct } from '@/services/openBeautyFacts/types';
+import type { CorpusProduct } from '@/services/corpus/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,42 +28,41 @@ type Props = NativeStackScreenProps<CatalogStackParamList, 'AddProductHub'>;
 export default function AddProductHubScreen({ navigation }: Props) {
   const [searchText, setSearchText] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<OBFProduct[]>([]);
+  const [searchResults, setSearchResults] = useState<CorpusProduct[]>([]);
   const [searching, setSearching] = useState(false);
-  const [searchFailed, setSearchFailed] = useState(false);
+  const productRepository = useProductRepository();
 
   // Debounce
   useEffect(() => {
     if (searchText.trim().length < 3) {
       setSearchResults([]);
       setDebouncedQuery('');
-      setSearchFailed(false);
       return;
     }
     const t = setTimeout(() => setDebouncedQuery(searchText.trim()), 600);
     return () => clearTimeout(t);
   }, [searchText]);
 
-  // Fetch from OBF
+  // Fetch from the corpus (trigram FTS — tolerates OCR/typo noise)
   useEffect(() => {
-    if (!debouncedQuery) {
+    if (!debouncedQuery || !productRepository) {
       setSearchResults([]);
       return;
     }
     let cancelled = false;
     setSearching(true);
-    searchProducts(debouncedQuery).then(({ products, failed }) => {
+    productRepository.search(debouncedQuery).then((products) => {
       if (!cancelled) {
         setSearchResults(products);
-        setSearchFailed(failed);
         setSearching(false);
       }
     });
     return () => { cancelled = true; };
-  }, [debouncedQuery]);
+  }, [debouncedQuery, productRepository]);
 
   const hasTypedEnough = searchText.trim().length >= 3;
-  const showNotFound = hasTypedEnough && !searching && !searchFailed && searchResults.length === 0;
+  const showNotFound = hasTypedEnough && !searching && searchResults.length === 0;
+  const showObfAttribution = searchResults.some((p) => p.source === 'obf_import');
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -87,13 +86,13 @@ export default function AddProductHubScreen({ navigation }: Props) {
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
-        {/* ── OBF Search ─────────────────────────────────────────────────── */}
+        {/* ── Corpus Search ──────────────────────────────────────────────── */}
         <Text style={styles.sectionLabel}>Search Database</Text>
         <Input
           icon={<Feather name="search" size={16} color={colors.textTertiary} />}
           value={searchText}
           onChangeText={setSearchText}
-          placeholder="Search Open Beauty Facts…"
+          placeholder="Search by name or brand…"
           returnKeyType="search"
           clearButtonMode="while-editing"
           autoFocus
@@ -106,38 +105,39 @@ export default function AddProductHubScreen({ navigation }: Props) {
             color={colors.textSecondary}
             style={styles.loader}
           />
-        ) : hasTypedEnough && searchFailed ? (
-          <Text style={styles.hint}>
-            Search unavailable — add your product manually below.
-          </Text>
         ) : searchResults.length > 0 ? (
-          <View style={styles.resultList}>
-            {searchResults.map((item) => (
-              <Pressable
-                key={item.obfId || item.name}
-                style={({ pressed }) => [
-                  styles.resultRow,
-                  pressed && styles.resultRowPressed,
-                ]}
-                onPress={() =>
-                  navigation.navigate('ManualProductForm', { prefillOBFProduct: item })
-                }
-                accessibilityRole="button"
-                accessibilityLabel={`Add ${item.name}`}
-              >
-                <View style={styles.resultContent}>
-                  <Text style={styles.resultName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  {item.brand ? (
-                    <Text style={styles.resultBrand} numberOfLines={1}>
-                      {item.brand}
+          <View style={{ gap: space[2] }}>
+            <View style={styles.resultList}>
+              {searchResults.map((item) => (
+                <Pressable
+                  key={item.uid}
+                  style={({ pressed }) => [
+                    styles.resultRow,
+                    pressed && styles.resultRowPressed,
+                  ]}
+                  onPress={() =>
+                    navigation.navigate('ManualProductForm', { prefillCorpusProduct: item })
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`Add ${item.name}`}
+                >
+                  <View style={styles.resultContent}>
+                    <Text style={styles.resultName} numberOfLines={1}>
+                      {item.name}
                     </Text>
-                  ) : null}
-                </View>
-                <Feather name="plus" size={18} color={colors.textSecondary} />
-              </Pressable>
-            ))}
+                    {item.brand ? (
+                      <Text style={styles.resultBrand} numberOfLines={1}>
+                        {item.brand}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Feather name="plus" size={18} color={colors.textSecondary} />
+                </Pressable>
+              ))}
+            </View>
+            {showObfAttribution ? (
+              <Text style={styles.attribution}>Product data from Open Beauty Facts (ODbL)</Text>
+            ) : null}
           </View>
         ) : showNotFound ? (
           <View style={styles.notFoundWrap}>
@@ -243,6 +243,11 @@ const styles = StyleSheet.create({
     borderColor: colors.borderDivider,
     overflow: 'hidden',
     backgroundColor: colors.surfaceRaised,
+  },
+  attribution: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    textAlign: 'center',
   },
   resultRow: {
     flexDirection: 'row',

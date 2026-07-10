@@ -14,15 +14,15 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button } from '@/components/ui/core/Button';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { useProductRepository } from '@/hooks/useCorpusRepositories';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
-import { lookupByBarcode } from '@/services/openBeautyFacts/search';
-import type { OBFProduct } from '@/services/openBeautyFacts/types';
+import type { CorpusProduct } from '@/services/corpus/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Props = NativeStackScreenProps<CatalogStackParamList, 'BarcodeScanner'>;
 
-type ScanState = 'scanning' | 'looking_up' | 'found' | 'not_found' | 'error';
+type ScanState = 'scanning' | 'looking_up' | 'found' | 'not_found';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -55,12 +55,12 @@ function CameraPermissionScreen({ permission, onRequest, onBack }: CameraPermiss
 
 interface ScanResultCardProps {
   scanState: ScanState;
-  obfResult: OBFProduct | null;
+  corpusResult: CorpusProduct | null;
   onAdd: () => void;
   onAddManually: () => void;
   onScanAgain: () => void;
 }
-function ScanResultCard({ scanState, obfResult, onAdd, onAddManually, onScanAgain }: ScanResultCardProps) {
+function ScanResultCard({ scanState, corpusResult, onAdd, onAddManually, onScanAgain }: ScanResultCardProps) {
   if (scanState === 'looking_up') {
     return (
       <View style={styles.statusCard}>
@@ -69,13 +69,16 @@ function ScanResultCard({ scanState, obfResult, onAdd, onAddManually, onScanAgai
       </View>
     );
   }
-  if (scanState === 'found' && obfResult) {
+  if (scanState === 'found' && corpusResult) {
     return (
       <View style={styles.resultCard}>
         <View style={styles.resultContent}>
-          <Text style={styles.resultName} numberOfLines={2}>{obfResult.name}</Text>
-          {obfResult.brand ? (
-            <Text style={styles.resultBrand} numberOfLines={1}>{obfResult.brand}</Text>
+          <Text style={styles.resultName} numberOfLines={2}>{corpusResult.name}</Text>
+          {corpusResult.brand ? (
+            <Text style={styles.resultBrand} numberOfLines={1}>{corpusResult.brand}</Text>
+          ) : null}
+          {corpusResult.source === 'obf_import' ? (
+            <Text style={styles.attribution}>Product data from Open Beauty Facts (ODbL)</Text>
           ) : null}
         </View>
         <View style={styles.resultActions}>
@@ -90,15 +93,11 @@ function ScanResultCard({ scanState, obfResult, onAdd, onAddManually, onScanAgai
       </View>
     );
   }
-  if (scanState === 'not_found' || scanState === 'error') {
+  if (scanState === 'not_found') {
     return (
       <View style={styles.resultCard}>
-        <Text style={styles.resultName}>
-          {scanState === 'error' ? 'Lookup unavailable' : 'Product not found in database'}
-        </Text>
-        <Text style={styles.resultBrand}>
-          {scanState === 'error' ? 'Check your connection and try again.' : 'You can still add it manually.'}
-        </Text>
+        <Text style={styles.resultName}>Product not found in database</Text>
+        <Text style={styles.resultBrand}>You can still add it manually.</Text>
         <View style={styles.resultActions}>
           <Pressable style={styles.addBtn} onPress={onAddManually} accessibilityRole="button">
             <Text style={styles.addBtnLabel}>Add Manually</Text>
@@ -118,7 +117,8 @@ function ScanResultCard({ scanState, obfResult, onAdd, onAddManually, onScanAgai
 export default function BarcodeScannerScreen({ navigation }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanState, setScanState] = useState<ScanState>('scanning');
-  const [obfResult, setObfResult] = useState<OBFProduct | null>(null);
+  const [corpusResult, setCorpusResult] = useState<CorpusProduct | null>(null);
+  const productRepository = useProductRepository();
 
   // Cooldown prevents duplicate scans from firing while a lookup is in flight
   const locked = useRef(false);
@@ -135,22 +135,21 @@ export default function BarcodeScannerScreen({ navigation }: Props) {
     locked.current = true;
     setScanState('looking_up');
 
-    const { products, failed } = await lookupByBarcode(data);
+    // No configured/reachable corpus → same as a miss, fall back to manual entry.
+    const product = productRepository ? await productRepository.findByBarcode(data) : null;
 
-    if (failed) {
-      setScanState('error');
-    } else if (products.length > 0) {
-      setObfResult(products[0]);
+    if (product) {
+      setCorpusResult(product);
       setScanState('found');
     } else {
       setScanState('not_found');
     }
-  }, []);
+  }, [productRepository]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   function resetScanner() {
-    setObfResult(null);
+    setCorpusResult(null);
     setScanState('scanning');
     setTimeout(() => { locked.current = false; }, 300);
   }
@@ -219,14 +218,14 @@ export default function BarcodeScannerScreen({ navigation }: Props) {
 
       <ScanResultCard
         scanState={scanState}
-        obfResult={obfResult}
+        corpusResult={corpusResult}
         onAdd={() => {
-          if (obfResult) {
-            navigation.navigate('ManualProductForm', { prefillOBFProduct: obfResult });
+          if (corpusResult) {
+            navigation.navigate('ManualProductForm', { prefillCorpusProduct: corpusResult });
           }
         }}
         onAddManually={() => {
-          setObfResult(null);
+          setCorpusResult(null);
           navigation.navigate('ManualProductForm', {});
         }}
         onScanAgain={resetScanner}
@@ -326,6 +325,10 @@ const styles = StyleSheet.create({
   resultBrand: {
     ...typography.bodySmall,
     color: 'rgba(255,255,255,0.6)',
+  },
+  attribution: {
+    ...typography.caption,
+    color: 'rgba(255,255,255,0.45)',
   },
   resultActions: {
     flexDirection: 'row',

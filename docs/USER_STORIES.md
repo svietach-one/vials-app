@@ -11,6 +11,16 @@ This document defines the complete functional requirements and behavior specific
 > model, `EmptySlotPlaceholder` never built, conflict warnings rendering
 > per-card instead of via `ConflictWarningInline`). See
 > `docs/tech-design/routine-redesign.md` for the full as-built design.
+>
+> **Sync note (2026-07-07):** Audited US-22 against the delivered product
+> corpus integration (`handoff/INTEGRATION_GUIDE.md`, `src/services/corpus/`).
+> The product source is now **only the Vials corpus** — a Turso/libSQL
+> replica synced onto the device and read locally via `expo-sqlite`. There is
+> no Vials REST API and no server-side lookup/search request; barcode and
+> text search both resolve entirely on-device, offline-capable after first
+> sync. Added an "Implementation note" to US-22 with the corrected
+> architecture and the still-unbuilt pieces (camera OCR product search,
+> crowdsourcing submission).
 
 ---
 
@@ -219,3 +229,25 @@ This document defines the complete functional requirements and behavior specific
 * Clicking it transitions the user to `ProductForm`, which is pre-filled with whatever text the OCR camera managed to extract (e.g., the recognized brand and name), minimizing typing friction.
 * Saving the manual form adds the product to the user's shelf instantly (local-first), while queuing a background request to the global database.
 * When saved manually, the newly created item instantly appears in the local `catalogStore` with `source: 'manual'`, while a copy is dispatched to the server via `POST /api/v1/products/suggest` with `status: 'pending'` for admin review.
+
+> **Implementation note (2026-07-07):** Barcode and text search are built,
+> but on a different architecture than described above — there is no Vials
+> REST API. `BarcodeScannerScreen` and `AddProductHubScreen` query
+> `ProductRepository` (`src/services/corpus/ProductRepository.ts`) directly
+> against the on-device Turso/libSQL replica: `findByBarcode()` for the
+> barcode path, `search()` (SQLite FTS5 trigram, ranked by `bm25`) for the
+> text path — both fully local and offline-capable, not `GET
+> /api/v1/products/lookup` / `/search` against a Postgres `pg_trgm` backend.
+> "Not found" degrades to the manual-entry form exactly as specified. Two
+> pieces of this story are **not built**: (1) the unified camera OCR search
+> — only barcode scanning exists; the free-text search is a separate input
+> field, not a camera viewfinder recognizing on-package text; (2) the
+> crowdsourcing submission path (`source: 'manual'`, `POST
+> /api/v1/products/suggest`, `pending` review) — manually-added products save
+> locally only, with no server suggestion queue. The corpus schema already
+> reserves a `'community'` source value for this, but the submission pipeline
+> itself is unbuilt. See `handoff/INTEGRATION_GUIDE.md` for the as-built
+> corpus architecture, including the `source='obf_import'` cutover: today's
+> corpus is 100% dogfood OBF-import data (ODbL-licensed, not Vials-owned) —
+> "the global database" this story refers to is not yet populated with
+> genuinely-owned (`vials_seed`/`community`) records.
