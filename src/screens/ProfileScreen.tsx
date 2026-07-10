@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
+import { DebugAccountSyncCard } from '@/components/debug/DebugAccountSyncCard';
+import { DebugOnboardingPreview } from '@/components/debug/DebugOnboardingPreview';
 import { SkinProfileEditModal } from '@/components/profile/SkinProfileEditModal';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
@@ -292,6 +294,7 @@ export default function ProfileScreen() {
   const procedureCount = useProceduresStore((s) => s.procedures.length);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [debugOnboardingVisible, setDebugOnboardingVisible] = useState(false);
 
   function handleSaveProfile(patch: Partial<UserProfile>) {
     updateProfile(patch);
@@ -418,6 +421,24 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* ── Developer Tools (DEBUG ONLY — remove before shipping) ──────── */}
+        {__DEV__ && (
+          <View style={styles.section}>
+            <SectionHeader title="Developer Tools (Debug)" />
+            <View style={[styles.card, styles.debugCard]}>
+              <ListRow
+                leading={<Feather name="eye" size={18} color={colors.statusWarning} />}
+                title="Debug: View Onboarding"
+                subtitle="Your skin profile is restored on exit — picking a real product still adds it to My Shelf"
+                onPress={() => setDebugOnboardingVisible(true)}
+                chevron
+                divider
+              />
+              <DebugAccountSyncCard />
+            </View>
+          </View>
+        )}
+
         {/* ── About ────────────────────────────────────────────────────── */}
         <View style={styles.section}>
           <SectionHeader title="About" />
@@ -438,6 +459,13 @@ export default function ProfileScreen() {
         onClose={() => setEditModalVisible(false)}
         onSave={handleSaveProfile}
       />
+
+      {__DEV__ && (
+        <DebugOnboardingPreview
+          visible={debugOnboardingVisible}
+          onClose={() => setDebugOnboardingVisible(false)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -465,6 +493,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[4],
     paddingVertical: space[3],
     gap: space[3],
+  },
+  debugCard: {
+    borderColor: colors.statusWarningLine,
+    backgroundColor: colors.statusWarningTint,
   },
   cardHeader: {
     flexDirection: 'row',
