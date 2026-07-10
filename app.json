@@ -14,14 +14,21 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vials.app"
+      "bundleIdentifier": "com.vials.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundColor": "#F5F2EB"
       },
-      "package": "com.vials.app"
+      "package": "com.vials.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ]
     },
     "plugins": [
       "expo-font",
@@ -32,7 +39,25 @@
           "photosPermission": "Allow Vials to access your photos to scan ingredient labels.",
           "cameraPermission": "Allow Vials to take photos of ingredient labels."
         }
-      ]
-    ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Vials to access your camera to scan product barcodes and ingredient labels."
+        }
+      ],
+      [
+        "expo-sqlite",
+        {
+          "useLibSQL": true
+        }
+      ],
+      "./plugins/withLibSQLSimulatorArchFix"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1feca79a-0cdd-4f33-af09-6a89e2621f95"
+      }
+    }
   }
 }

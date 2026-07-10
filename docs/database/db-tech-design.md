@@ -6,6 +6,21 @@
 
 ---
 
+> **Sync note (2026-07-08):** Superseded for the product corpus. The delivered
+> architecture uses a **Turso/libSQL pull-only embedded replica**
+> (`handoff/INTEGRATION_GUIDE.md`, `src/services/corpus/`), not the
+> Supabase/PostgreSQL "Remote Registry" + Edge Functions design below — see
+> the sync note in `docs/database/db-product-spec.md` for the full
+> correction. Kept for historical reference only.
+>
+> Unrelated to this: **Phase 2 introduces a *different* Supabase project**
+> for user authentication + personal-data cloud sync (see
+> `docs/tech-design/user-auth-cloud-backup.md`). Don't confuse the two —
+> that Supabase project has nothing to do with the product corpus and must
+> never hold or proxy `EXPO_PUBLIC_TURSO_*` credentials.
+
+---
+
 ## 1. Architecture Overview
 
 The database layer has two tiers that mirror each other in schema:

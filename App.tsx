@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors } from '@/constants/tokens';
 import { refreshSeasonMaskIfDue } from '@/domain/seasonActions';
 import AppNavigator from '@/navigation/AppNavigator';
+import { CorpusProvider } from '@/providers/CorpusProvider';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
@@ -57,7 +58,9 @@ export default function App() {
       <SafeAreaProvider>
         <BottomSheetModalProvider>
           <StatusBar style="dark" />
-          <AppNavigator />
+          <CorpusProvider>
+            <AppNavigator />
+          </CorpusProvider>
         </BottomSheetModalProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

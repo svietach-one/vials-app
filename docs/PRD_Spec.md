@@ -9,13 +9,25 @@ version: 1.1 (gap-fix revision)
 
 # Vials — Product Requirements & Technical Specifications
 
+> **Sync note (2026-07-07):** Audited the product-ingestion architecture
+> (§4.3, Tab 2) against the delivered corpus integration
+> (`handoff/INTEGRATION_GUIDE.md`, `src/services/corpus/`). Corrected the
+> "proprietary Vials API / self-hosted PostgreSQL" description — there is no
+> such API. Product data source is **only the Vials corpus**: a Turso/libSQL
+> replica pulled onto the device and queried entirely locally via
+> `expo-sqlite`. Also corrected §1's "global search / barcode scanning are
+> online-only, degrade to manual input offline" claim — it's the opposite:
+> barcode/search read the local replica and work fully offline once synced;
+> only the background pull itself needs a network, and it silently no-ops
+> without one.
+
 ## 1. Product Overview & USP
 **Vials** is a premium, unisex personal skincare and aesthetic medicine management mobile app. It helps users track formulations, build dynamic morning/evening schedules (Skin Cycling), avoid ingredient conflicts, and safely navigate clinical cosmetic procedures (Botox, fillers, peels), with **all personal data stored locally on-device**.
 
 * **The Core Value Intersection:** Daily skincare and medical cosmetic tracking combined into an inseparable local engine.
 * **The Trust Anchor:** 100% data confidentiality. Personal data never leaves the device — no cloud backend, no analytics, no trackers.
 * **Connectivity Architecture (The Hybrid Engine):** The application operates on a hybrid data model. The user's personal shelf (`catalogStore`), routine schedules/checklists (`routineStore`), and the ingredient conflict verification engine (`conflictEngine.ts`) run strictly offline-first and local-only (Zustand + MMKV).
-Global search, barcode scanning, label text recognition (OCR), and crowdsourced product suggestions function strictly online-only. In the absence of a network connection, these features gracefully degrade, forcing the UI into manual input mode.
+Global search and barcode scanning read the on-device Vials product corpus (a Turso/libSQL embedded replica, see §4.3) and work fully offline once the device has synced at least once — no network needed at read time. Only the corpus's own background pull needs connectivity, and it silently no-ops without one. Label text recognition (OCR) and crowdsourced product suggestions remain unbuilt (see §4.3 sync note); when a lookup finds no match, the UI falls back to manual input.
 
 ---
 
@@ -88,11 +100,9 @@ The viewport system eliminates layout clutter by routing all configurations into
   * *Level 1 (Category Pills):* `[All] [Serums] [Moisturizers] [SPF]`.
   * *Level 2 (Biomarker Toggles):* Filters by auto-parsed INCI categories: `[🍾 Soothing]` (Centella, Ceramides — Deep Bottle Green), `[🫙 Actives]` (Retinoids, Vitamin C — Rich Amber), `[🧪 Hydration]` (Hyaluronic Acid — Cobalt Apothecary).
 * **`ProductHeaderAction`:** Top-right corner button context (`+ Add Product`), styled as a secondary black outline button to summon entry modules.
-* **Product Ingestion (Proprietary Database Integration):** Instead of calling the third-party Open Beauty Facts API directly, the app queries the dedicated Vials API connected to a self-hosted PostgreSQL dump.
-* **Universal Scanner Loop:** Product lookup is triggered via a unified camera button. The system scans the frame pipeline simultaneously for a barcode (`GET /api/v1/products/lookup`) and product label text/OCR (`GET /api/v1/products/search`). Barcode recognition takes absolute priority. Text search utilizes server-side trigram matching to handle and compensate for OCR recognition typos.
-* **Crowdsourcing & Manual Fallback:** If a product is missing from the global database, the user fills out a manual form. Upon saving:
-  * **Instant Local Activation:** The product is immediately saved to `catalogStore` with `source: 'manual'`, making it available for routines and ingredient conflict checks without waiting for server approval.
-  * **Asynchronous Background Sync:** The app dispatches a `POST /api/v1/products/suggest` request to the server in the background with `status: 'pending'` for admin review. The user is never blocked by a "waiting for moderation" screen.
+* **Product Ingestion (Vials Corpus Integration):** Instead of calling the third-party Open Beauty Facts API directly, the app queries **only our own Vials corpus** — a Turso/libSQL database pulled onto the device as a read-only embedded replica (`src/services/corpus/`) and queried locally via `expo-sqlite`. There is no Vials REST API and no PostgreSQL backend in the request path; reads never leave the device.
+* **Universal Scanner Loop:** Barcode scanning (`BarcodeScannerScreen`) resolves against the local replica via `ProductRepository.findByBarcode()` — indexed, no network round-trip. Free-text catalog search (`AddProductHubScreen`) resolves via `ProductRepository.search()`, using SQLite FTS5 trigram matching ranked by `bm25` to tolerate OCR/typo noise, also entirely local. A unified camera OCR flow that recognizes product label text directly from the viewfinder is **not built** — text search today is a typed input field, not a camera recognition step.
+* **Crowdsourcing & Manual Fallback:** If a product is missing from the corpus, the user fills out a manual form. The product is saved to `catalogStore` immediately (local-first), available for routines and conflict checks right away. Background submission of manually-added products back to a shared/community database (`POST /api/v1/products/suggest`, `pending` review) is **not built** — the corpus schema reserves a `'community'` source value for this, but the submission pipeline doesn't exist yet. See `handoff/INTEGRATION_GUIDE.md` §7: today's corpus is 100% dogfood `obf_import` data (ODbL-licensed, not Vials-owned) and must be purged before public release — "only our Vials DB" becomes fully accurate once `vials_seed`/`community` coverage replaces it.
 * **`DeleteProductModal` (`US-08.1`):** Triggered on item deletion. If the item is active in Tab 1, it renders a confirmation prompt: *"Deleting will remove this step from your routine."* On click, it simultaneously purges the item from both stores.
 
 ### 4.4. Tab 3: Clinic Screen (Aesthetics Hub)

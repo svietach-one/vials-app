@@ -1,6 +1,8 @@
 # Vials — Complete Screen & Component Specifications (4-Tab Optimized)
 
 > **Sync note:** This revision reconciles the screen spec with PRD v1.1 (the gap-fix pass). Five items that had been fixed at the PRD level were missing here and have been restored: import/restore utility, catalog biomarker filters, phototype accessibility labels, onboarding skip path, and the fading-prompt deferral cap.
+>
+> **Sync note (2026-07-07):** Corrected the Tab 2 purpose line — product data now comes only from the on-device Vials corpus (Turso/libSQL replica), not a "proprietary Vials API." See `docs/PRD_Spec.md` §4.3 and `docs/database/db-product-spec.md` for the as-built architecture.
 
 This document defines the interface architecture, component state-machines, and layout hierarchies for Phase 1.
 
@@ -31,7 +33,7 @@ The application consolidates navigation into 4 high-priority bottom tabs.
      "Edit Schedule" header toggle; edit mode is a header icon
      (pencil ⇄ checkmark) that toggles reordering inline.
 2. **TAB 2: CATALOG** (tab bar label `"My Shelf"`, `Feather: package`)
-   * **Purpose:** Physical product inventory list with biomarker/category filtering, proprietary Vials API search via barcode/OCR scanning, and a standalone manual entry form.
+   * **Purpose:** Physical product inventory list with biomarker/category filtering, search against the on-device Vials corpus (Turso/libSQL replica — no external API, see `docs/PRD_Spec.md` §4.3 sync note) via barcode/text scanning, and a standalone manual entry form.
 3. **TAB 3: CLINIC (`Feather: activity`)**
    * **Purpose:** 12-month interactive aesthetic procedure timeline and longevity calculator.
 4. **TAB 4: PROFILE (`Feather: user`)**
