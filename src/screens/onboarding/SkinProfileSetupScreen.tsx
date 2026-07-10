@@ -261,14 +261,7 @@ const styles = StyleSheet.create({
   },
 
   header: { gap: space[2] },
-  eyebrow: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
-    color: colors.textSecondary,
-  },
+  eyebrow: { ...typography.label, color: colors.textSecondary },
   title: { ...typography.h1, color: colors.textPrimary },
   subtitle: { ...typography.body, color: colors.textSecondary },
 

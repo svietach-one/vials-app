@@ -10,7 +10,9 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { AccountBackupSection } from '@/components/profile/AccountBackupSection';
 import { SkinProfileEditModal } from '@/components/profile/SkinProfileEditModal';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
@@ -19,6 +21,7 @@ import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { switchCycleType } from '@/domain/trackingActions';
+import type { ProfileStackParamList } from '@/navigation/AppNavigator';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
@@ -31,6 +34,8 @@ import type {
   SkinType,
   UserProfile,
 } from '@/types';
+
+type Props = NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -87,11 +92,7 @@ function SectionHeader({ title }: { title: string }) {
 
 const sectionStyles = StyleSheet.create({
   header: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
+    ...typography.label,
     color: colors.textSecondary,
     marginBottom: space[1],
     marginTop: space[2],
@@ -268,7 +269,7 @@ const cityStyles = StyleSheet.create({
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }: Props) {
   const profile = useProfileStore((s) => s.profile);
   const updateProfile = useProfileStore((s) => s.updateProfile);
 
@@ -398,6 +399,12 @@ export default function ProfileScreen() {
               onClear={() => updateProfile({ city: null })}
             />
           </View>
+        </View>
+
+        {/* ── Account & Backup ─────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <SectionHeader title="Account & Backup" />
+          <AccountBackupSection navigation={navigation} />
         </View>
 
         {/* ── Data ─────────────────────────────────────────────────────── */}
