@@ -8,6 +8,7 @@ import {
   STORAGE_KEYS,
 } from '@/services/storage';
 import { generateId } from '@/utils/generateId';
+import { findSameSlotStep } from '@/utils/routineEngine/duplicateSlot';
 import { migrateRoutines } from '@/utils/routineEngine/migrations';
 import type { ProductType, Routine, RoutineStep } from '@/types';
 
@@ -42,6 +43,28 @@ interface RoutinesState {
   upsertProductStep: (routineId: string, productId: string, productType: ProductType, scheduledDays: number[]) => void;
   /** Remove the step for a product from a routine. */
   removeProductStep: (routineId: string, productId: string) => void;
+  /**
+   * Story 1 pre-check (routine-similar-product-priority): the existing step
+   * in `routineId` already occupying `productType`'s layering slot, excluding
+   * `excludeProductId` (an exact re-add of the same product never conflicts).
+   * Null when the routine doesn't exist or nothing shares the slot.
+   */
+  findSameSlotConflict: (
+    routineId: string,
+    productType: ProductType,
+    excludeProductId?: string,
+  ) => RoutineStep | null;
+  /**
+   * Story 1 "Replace": swaps `oldProductId`'s step for `newProduct` in place
+   * (preserves layering position instead of appending at the end), in one
+   * set()/persist call.
+   */
+  replaceProductStep: (
+    routineId: string,
+    oldProductId: string,
+    newProduct: { id: string; productType: ProductType },
+    scheduledDays: number[],
+  ) => void;
   /** Replace the steps array for a routine (used for drag-and-drop reordering). */
   reorderSteps: (routineId: string, steps: RoutineStep[]) => void;
   /**
@@ -116,6 +139,26 @@ export const useRoutinesStore = create<RoutinesState>((set, get) => ({
     const routines = get().routines.map((r) => {
       if (r.id !== routineId) return r;
       return { ...r, steps: r.steps.filter((s) => s.productId !== productId) };
+    });
+    set({ routines });
+    void saveJson(STORAGE_KEYS.routines, routines);
+  },
+
+  findSameSlotConflict: (routineId, productType, excludeProductId) => {
+    const routine = get().routines.find((r) => r.id === routineId);
+    if (!routine) return null;
+    return findSameSlotStep(routine.steps, productType, excludeProductId);
+  },
+
+  replaceProductStep: (routineId, oldProductId, newProduct, scheduledDays) => {
+    const routines = get().routines.map((r) => {
+      if (r.id !== routineId) return r;
+      const steps = r.steps.map((s) =>
+        s.productId === oldProductId
+          ? { ...s, productId: newProduct.id, productType: newProduct.productType, scheduledDays, hidden: false }
+          : s,
+      );
+      return { ...r, steps };
     });
     set({ routines });
     void saveJson(STORAGE_KEYS.routines, routines);

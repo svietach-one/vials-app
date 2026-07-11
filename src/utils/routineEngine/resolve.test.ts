@@ -143,7 +143,12 @@ describe('resolvePeriods — pair conflicts and the ladder', () => {
     // rule_copper_peptides_acids). The avoid rule must drive the ladder and
     // the attribution even though the caution partner was admitted first.
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'], usageTime: 'evening' });
-    const copper = makeProduct({ activeTags: ['copper_peptides'], usageTime: 'evening' });
+    // Distinct productType from the default 'serum' — this test is about
+    // pair-rule freeze attribution, not slot competition; sharing a slot with
+    // vitC would otherwise make copper a same-slot loser under the
+    // routine-similar-product-priority engine cap (they have no pair rule
+    // between each other, so nothing else would keep copper out of that slot).
+    const copper = makeProduct({ activeTags: ['copper_peptides'], usageTime: 'evening', productType: 'ampoule' });
     const bha = makeProduct({
       activeTags: ['bha'],
       usageTime: 'evening',
@@ -224,7 +229,11 @@ describe('resolvePeriods — limits and prioritize', () => {
       deferralCount: 0,
     };
     const ceramide = makeProduct({ activeTags: ['ceramides'] });
-    const plain = makeProduct();
+    // Distinct productType from the default 'serum' — this test compares
+    // scores between two conflict-free products; sharing ceramide's slot
+    // would otherwise make one of them a same-slot loser (no PlannedStep at
+    // all) under the routine-similar-product-priority engine cap.
+    const plain = makeProduct({ productType: 'toner' });
     const boosted = resolve([ceramide, plain], { context: makeContext({ procedures: [peel] }) });
     const ceramideStep = stepFor(boosted, 'pm', ceramide.id);
     const plainStep = stepFor(boosted, 'pm', plain.id);
@@ -244,6 +253,103 @@ describe('resolvePeriods — scoring', () => {
     // Both match — verify the score component is visible on the steps instead.
     expect(stepFor(result, 'am', matching.id)?.score).toBe(130);
     expect(stepFor(result, 'pm', other.id)?.score).toBe(130);
+  });
+});
+
+describe('resolvePeriods — same-slot alternatives (routine-similar-product-priority)', () => {
+  it('admits exactly one of two conflict-free same-slot candidates and records the other as an alternative', () => {
+    const spfA = makeProduct({ productType: 'spf', usageTime: 'morning', addedAt: '2026-06-01' });
+    const spfB = makeProduct({ productType: 'spf', usageTime: 'morning', addedAt: '2026-01-01' });
+    const result = resolve([spfA, spfB]);
+
+    // Newer addedAt wins ties (compareCandidates) — spfA admitted, spfB the alternative.
+    expect(stepFor(result, 'am', spfA.id)).toBeDefined();
+    expect(stepFor(result, 'am', spfB.id)).toBeUndefined();
+    expect(result.frozen).toHaveLength(0); // a slot loser is never frozen — it's a swappable alternative
+
+    expect(result.slotAlternatives).toEqual([
+      expect.objectContaining({
+        winnerProductId: spfA.id,
+        period: 'morning',
+        alternatives: [expect.objectContaining({ productId: spfB.id, productType: 'spf' })],
+      }),
+    ]);
+  });
+
+  it('the winning same-slot candidate is chosen by scoreCandidate ordering (concern match wins)', () => {
+    const matching = makeProduct({ activeTags: ['benzoyl_peroxide'], addedAt: '2026-01-01' });
+    const other = makeProduct({ activeTags: ['ceramides'], addedAt: '2026-06-01' }); // newer, would win with no boost
+    const result = resolve([matching, other], { concerns: ['acne'] });
+
+    expect(stepFor(result, 'am', matching.id)).toBeDefined();
+    expect(stepFor(result, 'am', other.id)).toBeUndefined();
+    expect(result.slotAlternatives).toEqual([
+      expect.objectContaining({ winnerProductId: matching.id }),
+    ]);
+  });
+
+  it('never caps the exempt "other" slot — both same-"other" products are admitted', () => {
+    const otherA = makeProduct({ productType: 'other' });
+    const otherB = makeProduct({ productType: 'other' });
+    const result = resolve([otherA, otherB]);
+
+    expect(stepFor(result, 'am', otherA.id)).toBeDefined();
+    expect(stepFor(result, 'am', otherB.id)).toBeDefined();
+    expect(result.slotAlternatives).toHaveLength(0);
+  });
+
+  it('a same-slot loser is never deleted from the shelf or from any other period', () => {
+    const spfA = makeProduct({ productType: 'spf', usageTime: 'morning', addedAt: '2026-06-01' });
+    const spfB = makeProduct({ productType: 'spf', usageTime: 'morning', addedAt: '2026-01-01' });
+    const result = resolve([spfA, spfB]);
+
+    // Not admitted anywhere, not frozen, not silently dropped — recorded as an alternative.
+    expect(stepFor(result, 'am', spfB.id)).toBeUndefined();
+    expect(stepFor(result, 'pm', spfB.id)).toBeUndefined();
+    expect(result.frozen.some((f) => f.productId === spfB.id)).toBe(false);
+    expect(
+      result.slotAlternatives.some((a) => a.alternatives.some((alt) => alt.productId === spfB.id)),
+    ).toBe(true);
+  });
+
+  it('admits the next-ranked same-slot candidate once the top-ranked one is frozen by a pair rule (AC4)', () => {
+    // vitC/copper occupy distinct slots from each other and from bha/plain —
+    // isolates the slot competition to just {bha, plain} sharing the
+    // serum/gel slot (6), independent of the unrelated pair-rule freeze.
+    const vitC = makeProduct({ activeTags: ['vitamin_c_pure'], usageTime: 'evening', productType: 'essence' });
+    const copper = makeProduct({ activeTags: ['copper_peptides'], usageTime: 'evening', productType: 'ampoule' });
+    const bha = makeProduct({
+      activeTags: ['bha'],
+      usageTime: 'evening',
+      productType: 'gel', // shares the serum/gel slot (6) with `plain`
+      fullIngredientText: 'Aqua, Willow Bark Extract', // low potency evidence -> score 10, ranks above plain
+      addedAt: '2026-06-01',
+    });
+    const plain = makeProduct({ productType: 'serum', addedAt: '2026-01-01' }); // same slot as bha, no actives -> score 0
+
+    const result = resolve([vitC, copper, bha, plain]);
+
+    // bha conflicts with BOTH vitC and copper (no day-split room) -> frozen,
+    // never reaches admission — the slot is never actually occupied by it.
+    expect(stepFor(result, 'pm', bha.id)).toBeUndefined();
+    expect(result.frozen).toEqual(
+      expect.arrayContaining([expect.objectContaining({ productId: bha.id })]),
+    );
+    // plain shares bha's slot but has no conflicts of its own — admitted
+    // once bha's freeze leaves that slot open, exactly as AC4 requires.
+    expect(stepFor(result, 'pm', plain.id)).toBeDefined();
+    // bha never competed for the slot (it never got there), so no
+    // alternative entry exists for it.
+    expect(result.slotAlternatives.find((a) => a.slotIndex === 6)).toBeUndefined();
+  });
+
+  it('is deterministic across repeated runs on the same inputs', () => {
+    const spfA = makeProduct({ productType: 'spf', usageTime: 'morning', addedAt: '2026-06-01' });
+    const spfB = makeProduct({ productType: 'spf', usageTime: 'morning', addedAt: '2026-01-01' });
+    const context = makeContext();
+    const a = resolvePeriods({ products: [spfA, spfB], facts: buildShelfFacts([spfA, spfB], NOW), context, concerns: [] });
+    const b = resolvePeriods({ products: [spfA, spfB], facts: buildShelfFacts([spfA, spfB], NOW), context, concerns: [] });
+    expect(a.slotAlternatives).toEqual(b.slotAlternatives);
   });
 });
 

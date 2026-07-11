@@ -15,6 +15,7 @@ import type {
   FrozenItem,
   PlaceholderSlot,
   PlannedStep,
+  SlotAlternative,
 } from '@/utils/routineEngine/planTypes';
 import { buildShelfFacts } from '@/utils/routineEngine/productFacts';
 import { resolvePeriods } from '@/utils/routineEngine/resolve';
@@ -55,6 +56,13 @@ export interface RoutinePlan {
   frozen: FrozenItem[];
   placeholders: PlaceholderSlot[];
   decisions: DecisionLogEntry[];
+  /**
+   * Same-slot losers per period/slot, ranked best-first (routine-similar-
+   * product-priority, Story 2) — optional so pre-existing plan fixtures built
+   * before this field existed keep typechecking; `resolvePeriods` always
+   * populates it (possibly empty) for plans generated after this feature.
+   */
+  slotAlternatives?: SlotAlternative[];
 }
 
 export function generatePlan(input: EngineInput): RoutinePlan {
@@ -103,5 +111,6 @@ export function generatePlan(input: EngineInput): RoutinePlan {
     frozen: [...gateFrozen, ...resolved.frozen],
     placeholders: mandates.placeholders,
     decisions: [...gateDecisions, ...resolved.decisions, ...mandates.decisions],
+    slotAlternatives: resolved.slotAlternatives,
   };
 }
