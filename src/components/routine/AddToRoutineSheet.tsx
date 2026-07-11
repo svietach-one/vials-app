@@ -13,13 +13,15 @@ import { Feather } from '@expo/vector-icons';
 import { Button } from '@/components/ui/core/Button';
 import { FilterChip } from '@/components/ui/core/FilterChip';
 import { Input } from '@/components/ui/forms/Input';
+import { DuplicateSlotChoiceSheet } from '@/components/routine/DuplicateSlotChoiceSheet';
 import { ProductPickerCard } from '@/components/routine/ProductPickerCard';
 import { WeeklySchedulePicker } from '@/components/routine/WeeklySchedulePicker';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { deriveProductSchedule } from '@/utils/routineLabel';
+import { getSlotCategoryLabel } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
-import type { Product, ProductType } from '@/types';
+import type { Product, ProductType, RoutineStep } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,6 +79,16 @@ export function AddToRoutineSheet({
   const [scheduledDays, setScheduledDays] = useState<number[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  // Story 1 (routine-similar-product-priority): the period currently showing
+  // a same-slot choice sheet, and the remaining checked periods still queued
+  // behind it. AM resolves before PM when both are checked (tech design
+  // Assumption — resolved one period at a time).
+  const [duplicateConflict, setDuplicateConflict] = useState<{
+    routineId: string;
+    existingStep: RoutineStep;
+  } | null>(null);
+  const [remainingQueue, setRemainingQueue] = useState<Array<{ routineId: string }>>([]);
+
   const products = useProductsStore((s) => s.products);
   const upsertProductStep = useRoutinesStore((s) => s.upsertProductStep);
 
@@ -104,6 +116,8 @@ export function AddToRoutineSheet({
       setEvening(false);
       setScheduledDays([]);
       setValidationError(null);
+      setDuplicateConflict(null);
+      setRemainingQueue([]);
     }
   }, [visible]);
 
@@ -127,6 +141,31 @@ export function AddToRoutineSheet({
     setValidationError(null);
   }
 
+  // Story 1: walks the checked-period queue one at a time. A same-slot
+  // conflict pauses the walk (opens the choice sheet) and waits for the
+  // user's decision; a conflict-free period commits immediately, exactly
+  // like today's upsert-only behavior, then moves on.
+  function runQueue(queue: Array<{ routineId: string }>) {
+    if (!pendingProduct) return;
+    if (queue.length === 0) {
+      onClose();
+      return;
+    }
+    const [current, ...rest] = queue;
+    const conflict = useRoutinesStore
+      .getState()
+      .findSameSlotConflict(current.routineId, pendingProduct.productType, pendingProduct.id);
+
+    if (conflict) {
+      setDuplicateConflict({ routineId: current.routineId, existingStep: conflict });
+      setRemainingQueue(rest);
+      return;
+    }
+
+    upsertProductStep(current.routineId, pendingProduct.id, pendingProduct.productType, scheduledDays);
+    runQueue(rest);
+  }
+
   function handleSave() {
     if (!pendingProduct) return;
     if (!morning && !evening) {
@@ -138,24 +177,50 @@ export function AddToRoutineSheet({
     const morningRoutine = routines.find((r) => r.timeOfDay === 'morning');
     const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
 
-    let saved = false;
-    if (morning && morningRoutine) {
-      upsertProductStep(morningRoutine.id, pendingProduct.id, pendingProduct.productType, scheduledDays);
-      saved = true;
-    }
-    if (evening && eveningRoutine) {
-      upsertProductStep(eveningRoutine.id, pendingProduct.id, pendingProduct.productType, scheduledDays);
-      saved = true;
-    }
+    const queue: Array<{ routineId: string }> = [];
+    if (morning && morningRoutine) queue.push({ routineId: morningRoutine.id });
+    if (evening && eveningRoutine) queue.push({ routineId: eveningRoutine.id });
 
     // In normal operation DEFAULT_ROUTINES are always seeded on first launch.
     // This guard fires only if the store was cleared or corrupted.
-    if (!saved) {
+    if (queue.length === 0) {
       setValidationError('Could not save — routines not available. Please restart the app.');
       return;
     }
 
-    onClose();
+    runQueue(queue);
+  }
+
+  function handleReplaceDuplicate() {
+    if (!duplicateConflict || !pendingProduct || !duplicateConflict.existingStep.productId) return;
+    useRoutinesStore
+      .getState()
+      .replaceProductStep(
+        duplicateConflict.routineId,
+        duplicateConflict.existingStep.productId,
+        { id: pendingProduct.id, productType: pendingProduct.productType },
+        scheduledDays,
+      );
+    const rest = remainingQueue;
+    setDuplicateConflict(null);
+    setRemainingQueue([]);
+    runQueue(rest);
+  }
+
+  function handleKeepBothDuplicate() {
+    if (!duplicateConflict || !pendingProduct) return;
+    upsertProductStep(duplicateConflict.routineId, pendingProduct.id, pendingProduct.productType, scheduledDays);
+    const rest = remainingQueue;
+    setDuplicateConflict(null);
+    setRemainingQueue([]);
+    runQueue(rest);
+  }
+
+  // AC4: cancelling aborts the WHOLE save — the rest of the queue never runs,
+  // and the routine is unchanged for every period, not just the current one.
+  function handleCancelDuplicate() {
+    setDuplicateConflict(null);
+    setRemainingQueue([]);
   }
 
   const filtered = useMemo(() => {
@@ -226,6 +291,22 @@ export function AddToRoutineSheet({
           insets={insets}
         />
       )}
+
+      {pendingProduct ? (
+        <DuplicateSlotChoiceSheet
+          visible={duplicateConflict !== null}
+          slotLabel={getSlotCategoryLabel(pendingProduct.productType)}
+          existingProduct={
+            (duplicateConflict &&
+              products.find((p) => p.id === duplicateConflict.existingStep.productId)) ||
+            pendingProduct
+          }
+          incomingProduct={pendingProduct}
+          onReplace={handleReplaceDuplicate}
+          onKeepBoth={handleKeepBothDuplicate}
+          onCancel={handleCancelDuplicate}
+        />
+      ) : null}
     </BottomSheetModal>
   );
 }

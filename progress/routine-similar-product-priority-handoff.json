@@ -1,0 +1,87 @@
+{
+  "task": "routine-similar-product-priority",
+  "phase": "implementation",
+  "status": "PR_REVIEW",
+  "next_agent": "none",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/2026-07-11-routine-similar-product-priority.md",
+    "tech_design": "docs/tech-design/routine-similar-product-priority.md",
+    "qa_tests": [
+      "tests/routine-similar-product-priority/fixtures.ts",
+      "tests/routine-similar-product-priority/duplicate-slot-choice-sheet.test.tsx",
+      "tests/routine-similar-product-priority/add-to-routine-sheet-duplicate-flow.test.tsx",
+      "tests/routine-similar-product-priority/duplicate-slot-warning-inline.test.tsx",
+      "tests/routine-similar-product-priority/duplicate-slot-resolution-sheet.test.tsx",
+      "tests/routine-similar-product-priority/routines-screen-duplicate-wiring.test.tsx",
+      "tests/routine-similar-product-priority/slot-alternative-row.test.tsx",
+      "tests/routine-similar-product-priority/draft-preview-sheet-alternatives.test.tsx"
+    ],
+    "code": [
+      "src/utils/routineEngine/duplicateSlot.ts",
+      "src/utils/routineEngine/resolve.ts",
+      "src/utils/routineEngine/planTypes.ts",
+      "src/utils/routineEngine/generate.ts",
+      "src/utils/routineEngine/planApply.ts",
+      "src/utils/routineEngine/index.ts",
+      "src/store/routinesStore.ts",
+      "src/components/routine/DuplicateSlotChoiceSheet.tsx",
+      "src/components/routine/DuplicateSlotWarningInline.tsx",
+      "src/components/routine/DuplicateSlotResolutionSheet.tsx",
+      "src/components/routine/SlotAlternativeRow.tsx",
+      "src/components/routine/AddToRoutineSheet.tsx",
+      "src/components/routine/DraftPreviewSheet.tsx",
+      "src/screens/RoutinesScreen.tsx",
+      "src/constants/labels.ts"
+    ],
+    "unit_tests": [
+      "src/utils/routineEngine/duplicateSlot.test.ts",
+      "src/utils/routineEngine/resolve.test.ts",
+      "src/utils/routineEngine/planApply.test.ts"
+    ]
+  },
+  "engineer_notes": {
+    "verification": {
+      "tsc": "npx tsc --noEmit -> 0 errors (2026-07-11)",
+      "feature_tests": "npx jest tests/routine-similar-product-priority -> 7/7 suites, 36/36 tests passing",
+      "unit_tests": "src/utils/routineEngine/duplicateSlot.test.ts (15 new tests) + resolve.test.ts same-slot-alternatives block (6 new, 21/21 total) + planApply.test.ts applySlotAlternativeSwap block (6 new, 20/20 total) -- all passing",
+      "baseline": "npx jest --testPathIgnorePatterns=worktrees -> 3 failed / 73 passed suites (858 passed / 2 todo / 863 total tests); the 3 failures (tests/catalog/catalog-screen.test.tsx, tests/catalog/product-detail.test.tsx, tests/shelf-filtering/PaoChip.integration.test.tsx) are the same pre-existing baseline failures qa-lead identified via git stash as unrelated to this task -- no new regressions"
+    },
+    "documented_deviations": [
+      "resolve.ts tryAdmit: the same-slot cap (slot_loser outcome) is checked AFTER pair-rule/stacking-cap violations, not before, contrary to the tech design's literal FE-2 wording ('before any pair/cap check'). A candidate the pair-rule/cap ladder would freeze/day-split/relocate is resolved by that ladder exactly as before this feature; the same-slot cap only fires once a candidate has cleared every pair-rule/cap check on its own merits. Reason: the literal ordering broke 8 pre-existing passing tests in resolve.test.ts/entryPoints.test.ts because nearly every fixture defaults two products to productType 'serum' for unrelated pair-rule tests -- the slot check pre-empted the pair-rule system entirely, contradicting the spec's Non-Goal that this feature must not modify findPairViolations/findCapViolations. The reordering satisfies every Story 2 AC (verified by new resolve.test.ts cases including AC4's 'next-ranked candidate admitted after a freeze') and none of the 36 QA-authored tests exercise this ordering (qa-lead scoped Story 2's engine-level ACs out as engineer's unit-test territory). Full reasoning in progress/routine-similar-product-priority.md.",
+      "3 pre-existing engine test fixtures needed a minimal productType override each (single-line changes, each commented inline) because they combined two default-'serum' products with no pair-rule relationship -- a genuine same-slot collision under either check ordering, not fixable by reordering alone: resolve.test.ts ('copper' -> 'ampoule', 'plain' -> 'toner'), entryPoints.test.ts ('retinoid' -> 'toner' in the findSubstitute test).",
+      "tests/routine-engine/generate.test.ts: same fixture-collision fix ('retinoid' -> 'spot_treatment', 'hyaluronic' -> 'eye_cream'), chosen to preserve the exact expected layering-order array positions.",
+      "tests/routine-engine/seasonal-masks.test.ts: the 'winter boosts a barrier-repair product...' test's premise (two same-slot conflict-free products both admitted, merely reordered by score) no longer holds under the new engine cap -- only one is ever admitted per slot. Rewrote the assertions to check the equivalent, now-correct behavior (which product WINS the slot via periods.evening, plus the loser recorded on plan.slotAlternatives), preserving the original intent without asserting behavior this feature intentionally removed.",
+      "SLOT_CATEGORY_LABELS/getSlotCategoryLabel(Plural) were added to src/constants/labels.ts rather than duplicateSlot.ts, because tests/routine-similar-product-priority/routines-screen-duplicate-wiring.test.tsx mocks @/utils/routineEngine/duplicateSlot down to rankSlotGroup only -- any other export from that module would be undefined inside that test. labels.ts was already unmocked and already held PRODUCT_TYPE_LABELS.",
+      "RoutinePlan.slotAlternatives and DraftPreviewSheetProps.onSwapAlternative are typed optional (not required) so several pre-existing test fixtures that predate this feature (e.g. draft-preview-sheet.test.tsx's local makePlan()) keep typechecking without modification; generate.ts always populates the real field at runtime."
+    ],
+    "deviation_noted_from_qa": "Confirmed qa-lead's flag: ConflictWarningInline is not rendered anywhere in the current RoutinesScreen.tsx. DuplicateSlotWarningInline is wired into the screen's listHeader beside SeasonalNoticeBanner/ClinicalRestrictionsBlock (the nearest existing precedent for an always-visible advisory routine-context banner), not 'beside' a render call that doesn't exist.",
+    "no_conflict_severity_change": "No new ConflictSeverity value added; the duplicate-slot signal stays flat/advisory (InlineAlert tone=\"info\"), fully separate from ValidationFinding, per spec/tech-design.",
+    "tech_lead_review": {
+      "verdict": "ACCEPT",
+      "date": "2026-07-11",
+      "verification": {
+        "tsc": "npx tsc --noEmit -> 0 errors (re-verified 2026-07-11)",
+        "feature_tests": "npx jest tests/routine-similar-product-priority -> 7/7 suites, 36/36 passed (re-verified)",
+        "unit_tests": "npx jest src/utils/routineEngine/duplicateSlot.test.ts src/utils/routineEngine/resolve.test.ts src/utils/routineEngine/planApply.test.ts src/utils/routineEngine/entryPoints.test.ts tests/routine-engine/generate.test.ts tests/routine-engine/seasonal-masks.test.ts -> 6/6 suites, 103 passed + 1 pre-existing todo (104 total)",
+        "baseline": "npx jest --testPathIgnorePatterns=worktrees -> 3 failed / 73 passed suites (858 passed / 2 todo / 863 total) -- identical counts to the engineer's report; independently confirmed via an isolated `git worktree add <tmp> dev` (symlinked node_modules, no package.json diff between branches) that the same 3 suites (tests/catalog/catalog-screen.test.tsx, tests/catalog/product-detail.test.tsx, tests/shelf-filtering/PaoChip.integration.test.tsx) fail with identical error signatures on dev before this branch -- pre-existing, unrelated to this change, not a regression"
+      },
+      "notes": [
+        "Design fidelity: implementation matches the tech design's Architecture Overview and all FE-1..FE-10 tasks 1:1; confirmed via git diff dev...feature-branch that src/types/index.ts, src/navigation/AppNavigator.tsx, and src/constants/tokens.ts are untouched, consistent with the spec's Non-Goals (no Product schema change, no new screens/navigation, no ConflictSeverity extension).",
+        "The one documented deviation (same-slot cap checked in tryAdmit AFTER pair-rule/stacking-cap violations, not before, per the tech design's literal FE-2 wording) is present in code exactly as logged. Verified this does not weaken any Story 2 AC -- a dedicated new resolve.test.ts case ('admits the next-ranked same-slot candidate once the top-ranked one is frozen by a pair rule (AC4)') exercises exactly the risk this reordering could have introduced, and passes. The reordering also better preserves the spec's own Non-Goal ('does not modify findPairViolations/findCapViolations') than the literal ordering would have. Per architecture-review.md's troubleshooting rule (clear Log explanation -> downgrade to WARNING), accepted, not a blocker.",
+        "qa-lead's flagged discrepancy (ConflictWarningInline not actually rendered in RoutinesScreen.tsx) was correctly handled: confirmed DuplicateSlotWarningInline is wired into listHeader beside SeasonalNoticeBanner/ClinicalRestrictionsBlock, and that the wiring test does not assert adjacency to a render call that doesn't exist.",
+        "Layer separation clean: grep checks show no AsyncStorage usage outside services/storage.ts (only doc-comment mentions in pre-existing files), no React imports in src/utils/, no fetch( outside src/services/.",
+        "No domain type duplicated outside src/types/index.ts (new interfaces are either component Props or routineEngine pipeline-internal shapes in planTypes.ts, consistent with pre-existing PlannedStep/FrozenItem/DecisionLogEntry precedent); no hardcoded hex colors in any new component -- all styling goes through src/constants/tokens.ts.",
+        "CLAUDE.md constraints verified: minimum font size across new components is 14px (typography tokens only); no pink hues; all copy English-only; grep-confirmed DuplicateSlotWarningInline/DuplicateSlotChoiceSheet/DuplicateSlotResolutionSheet/SlotAlternativeRow are only ever imported from routine-context files (RoutinesScreen.tsx, AddToRoutineSheet.tsx, DraftPreviewSheet.tsx), never a catalog/shelf screen.",
+        "No TODO/FIXME/HACK, no console.log/debugger, no .only/.skip/xit in any new or touched test file.",
+        "Non-blocking: RoutinesScreen's and AddToRoutineSheet's default-export functions both exceed 50 lines, but this is a pre-existing condition (487 and 611 lines respectively before this diff, per git show dev:...) only marginally extended by this feature -- same precedent as the ClinicScreen note in the clinic-forecast-timeline review. planApply.ts's pre-existing buildDraftSummaryLines (~56 lines) is untouched by this diff.",
+        "Non-blocking style nit: DuplicateSlotWarningInline.tsx's `void products;` (keeping an unused prop for shape-parity with ConflictWarningInline) has no precedent elsewhere in the codebase but is harmless and self-documented.",
+        "No security-relevant surface added -- fully local/offline, no new network calls, no new storage keys, no auth, consistent with the spec's §8."
+      ]
+    }
+  }
+}

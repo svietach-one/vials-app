@@ -10,13 +10,14 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/core/Button';
+import { SlotAlternativeRow } from '@/components/routine/SlotAlternativeRow';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import type { PlanCommitScope } from '@/domain/routinePlanActions';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import type { RoutinePlan } from '@/utils/routineEngine/generate';
 import { buildDraftSummaryLines } from '@/utils/routineEngine/planApply';
-import type { PlannedStep } from '@/utils/routineEngine/planTypes';
+import type { PlannedStep, SlotAlternative } from '@/utils/routineEngine/planTypes';
 import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,6 +28,14 @@ export interface DraftPreviewSheetProps {
   plan: RoutinePlan | null;
   diff: PlanDiffEntry[];
   onCommit: (scope: PlanCommitScope) => void;
+  /**
+   * Story 2 (routine-similar-product-priority): fired when the user taps a
+   * SlotAlternativeRow's swap action. The sheet never applies the swap
+   * itself — RoutinesScreen owns rewriting the still-uncommitted draft via
+   * `applySlotAlternativeSwap` (tech design §1). Optional so pre-existing
+   * callers/tests that predate this feature keep typechecking.
+   */
+  onSwapAlternative?: (winnerProductId: string, chosenProductId: string) => void;
 }
 
 const SNAP_POINTS = ['88%'];
@@ -38,7 +47,14 @@ const SNAP_POINTS = ['88%'];
  * most three quiet summary lines and the four-way commit scope. Nothing here
  * writes — the commit callback routes through routinePlanActions.
  */
-export function DraftPreviewSheet({ visible, onClose, plan, diff, onCommit }: DraftPreviewSheetProps) {
+export function DraftPreviewSheet({
+  visible,
+  onClose,
+  plan,
+  diff,
+  onCommit,
+  onSwapAlternative,
+}: DraftPreviewSheetProps) {
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheetModal>(null);
   const wasPresented = useRef(false);
@@ -82,7 +98,15 @@ export function DraftPreviewSheet({ visible, onClose, plan, diff, onCommit }: Dr
       .flatMap((r) => r.steps.filter((s) => !s.hidden && s.productId))
       .map((s) => nameOf(s.productId));
 
-  const afterFor = (steps: PlannedStep[]) => steps.map((s) => nameOf(s.productId));
+  // Story 2 (routine-similar-product-priority): same-slot losers, keyed by
+  // the winning step's productId, scoped to one period — a winner's
+  // alternatives never bleed into the other period's After column.
+  const alternativesFor = (period: 'morning' | 'evening'): Map<string, SlotAlternative['alternatives']> =>
+    new Map(
+      (plan.slotAlternatives ?? [])
+        .filter((a) => a.period === period)
+        .map((a) => [a.winnerProductId, a.alternatives]),
+    );
 
   // Every frozen item gets a row — clinical pauses with their expiry date,
   // pair-rule freezes with a conflict note (nothing vanishes silently, §1.8)
@@ -122,12 +146,18 @@ export function DraftPreviewSheet({ visible, onClose, plan, diff, onCommit }: Dr
         <PeriodDiff
           label="Morning"
           before={beforeFor('morning')}
-          after={afterFor(plan.periods.morning)}
+          afterSteps={plan.periods.morning}
+          nameOf={nameOf}
+          alternativesByWinner={alternativesFor('morning')}
+          onSwapAlternative={onSwapAlternative}
         />
         <PeriodDiff
           label="Evening"
           before={beforeFor('evening')}
-          after={afterFor(plan.periods.evening)}
+          afterSteps={plan.periods.evening}
+          nameOf={nameOf}
+          alternativesByWinner={alternativesFor('evening')}
+          onSwapAlternative={onSwapAlternative}
         />
 
         {pausedNames.length > 0 ? (
@@ -191,7 +221,21 @@ export function DraftPreviewSheet({ visible, onClose, plan, diff, onCommit }: Dr
 
 // ─── Before → After block ─────────────────────────────────────────────────────
 
-function PeriodDiff({ label, before, after }: { label: string; before: string[]; after: string[] }) {
+function PeriodDiff({
+  label,
+  before,
+  afterSteps,
+  nameOf,
+  alternativesByWinner,
+  onSwapAlternative,
+}: {
+  label: string;
+  before: string[];
+  afterSteps: PlannedStep[];
+  nameOf: (productId: string | null) => string;
+  alternativesByWinner: Map<string, SlotAlternative['alternatives']>;
+  onSwapAlternative?: (winnerProductId: string, chosenProductId: string) => void;
+}) {
   return (
     <View style={styles.periodBlock}>
       <Text style={styles.periodLabel}>{label}</Text>
@@ -211,11 +255,21 @@ function PeriodDiff({ label, before, after }: { label: string; before: string[];
         <Feather name="arrow-right" size={16} color={colors.textTertiary} style={styles.diffArrow} />
         <View style={styles.diffColumn}>
           <Text style={styles.columnLabel}>After</Text>
-          {after.length > 0 ? (
-            after.map((name, i) => (
-              <Text key={`${name}-${i}`} style={styles.diffItem} numberOfLines={1}>
-                {name}
-              </Text>
+          {afterSteps.length > 0 ? (
+            afterSteps.map((step) => (
+              <View key={step.productId}>
+                <Text style={styles.diffItem} numberOfLines={1}>
+                  {nameOf(step.productId)}
+                </Text>
+                {(alternativesByWinner.get(step.productId) ?? []).map((alt) => (
+                  <SlotAlternativeRow
+                    key={alt.productId}
+                    winnerProductName={nameOf(step.productId)}
+                    alternativeProductName={nameOf(alt.productId)}
+                    onSwap={() => onSwapAlternative?.(step.productId, alt.productId)}
+                  />
+                ))}
+              </View>
             ))
           ) : (
             <Text style={styles.diffItemMuted}>—</Text>

@@ -12,6 +12,7 @@ export {
   type ValidationResult,
 } from './validate';
 export { findSubstitute, type SubstituteResult } from './substitute';
+export { findSameSlotStep, findSlotDuplicateGroups, rankSlotGroup } from './duplicateSlot';
 export {
   getDailyView,
   type DailyRoutineView,
@@ -23,6 +24,7 @@ export type {
   FrozenItem,
   PlaceholderSlot,
   PlannedStep,
+  SlotAlternative,
 } from './planTypes';
 export { buildRehabWidgetState, applyRehabFilter, getRehabDays } from './rehabFilter';
 export { migrateProfile, migrateProducts, migrateRoutines } from './migrations';
