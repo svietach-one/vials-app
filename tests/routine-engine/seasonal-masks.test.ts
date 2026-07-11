@@ -48,23 +48,45 @@ describe('Story 8 AC: seasonal rules apply through generate/validate once a Seas
     expect(step?.scheduledDays).toEqual([3]); // Wednesday
   });
 
-  it('winter boosts a barrier-repair product ahead of a newer-but-plain competitor in PM ordering', () => {
-    // Both share the "serum" slot and are benign (irritancy 0), so both are
-    // admitted regardless of season — the observable seasonal effect is
-    // ordering: winter_barrier_priority (period: pm) boosts ceramide's score,
-    // overriding the normal newer-addedAt-wins tie-break (slotting.ts orderSteps).
+  it('winter boosts a barrier-repair product ahead of a newer-but-plain competitor for the PM serum slot', () => {
+    // Both share the "serum" slot and are benign (irritancy 0) with no pair
+    // rule between them, so under the routine-similar-product-priority engine
+    // cap (only one product admitted per slot per period) they now COMPETE
+    // for that one PM slot rather than both coexisting — the observable
+    // seasonal effect is which one WINS: winter_barrier_priority (period: pm)
+    // boosts ceramide's score, overriding the normal newer-addedAt-wins
+    // tie-break (resolve.ts compareCandidates), and the loser is recorded as
+    // a swappable alternative instead of being dropped (plan.slotAlternatives).
     const ceramideSerum = makeProduct({ activeTags: ['ceramides'], addedAt: '2026-01-01' });
-    const plainSerum = makeProduct({ addedAt: '2026-06-01' }); // newer -> would sort first with no boost
+    const plainSerum = makeProduct({ addedAt: '2026-06-01' }); // newer -> would win with no boost
 
-    const springOrder = generatePlan(
+    // Both are also benign/non-treatment in AM, so they compete for that slot
+    // too — this assertion scopes to the PM entry only, mirroring how the
+    // original assertions scoped to periods.evening.
+    const pmAlternative = (plan: ReturnType<typeof generatePlan>) =>
+      (plan.slotAlternatives ?? []).find((a) => a.period === 'evening');
+
+    const springPlan = generatePlan(
       makeEngineInput([ceramideSerum, plainSerum], { seasonMask: makeSeasonMask('spring') }),
-    ).periods.evening.map((s) => s.productId);
-    expect(springOrder).toEqual([plainSerum.id, ceramideSerum.id]); // baseline: newer addedAt first
+    );
+    expect(springPlan.periods.evening.map((s) => s.productId)).toEqual([plainSerum.id]); // baseline: newer addedAt wins
+    expect(pmAlternative(springPlan)).toEqual(
+      expect.objectContaining({
+        winnerProductId: plainSerum.id,
+        alternatives: [expect.objectContaining({ productId: ceramideSerum.id })],
+      }),
+    );
 
-    const winterOrder = generatePlan(
+    const winterPlan = generatePlan(
       makeEngineInput([ceramideSerum, plainSerum], { seasonMask: makeSeasonMask('winter') }),
-    ).periods.evening.map((s) => s.productId);
-    expect(winterOrder).toEqual([ceramideSerum.id, plainSerum.id]); // boosted -> sorts first despite being older
+    );
+    expect(winterPlan.periods.evening.map((s) => s.productId)).toEqual([ceramideSerum.id]); // boosted -> wins despite being older
+    expect(pmAlternative(winterPlan)).toEqual(
+      expect.objectContaining({
+        winnerProductId: ceramideSerum.id,
+        alternatives: [expect.objectContaining({ productId: plainSerum.id })],
+      }),
+    );
   });
 
   it('validate reports the summer SPF gap as a finding over a saved routine missing SPF', () => {

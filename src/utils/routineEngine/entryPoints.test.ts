@@ -267,7 +267,12 @@ describe('findSubstitute', () => {
   it('skips candidates that conflict with the rest of the period', () => {
     // Evening plan: retinoid + ceramide serum. Substituting the ceramide must
     // not offer AHA (conflicts with the remaining retinoid) — panthenol wins.
-    const retinoid = makeProduct({ activeTags: ['retinoid'] });
+    // retinoid's productType is distinct from the default 'serum' so it
+    // doesn't compete with ceramide/aha/panthenol for the serum slot under
+    // the routine-similar-product-priority engine cap (this test is about
+    // pair-rule-aware substitution, not slot competition) — aha/panthenol
+    // must still share ceramide's real slot for the substitute lookup itself.
+    const retinoid = makeProduct({ activeTags: ['retinoid'], productType: 'toner' });
     const ceramide = makeProduct({ activeTags: ['ceramides'] });
     const aha = makeProduct({ activeTags: ['aha'] });
     const panthenol = makeProduct({ activeTags: ['panthenol'], usageTime: 'evening' });

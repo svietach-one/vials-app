@@ -29,8 +29,14 @@ describe('Story 1 AC: generate builds a complete, conflict-free AM/PM draft from
     const toner = makeProduct({ productType: 'toner' });
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
     const niacinamide = makeProduct({ activeTags: ['niacinamide'] });
-    const retinoid = makeProduct({ activeTags: ['retinoid'] });
-    const hyaluronic = makeProduct({ activeTags: ['hyaluronic_acid'] });
+    // Distinct productType from the default 'serum' (routine-similar-product-
+    // priority: only one product per layering slot is admitted per period).
+    // retinoid and niacinamide have no pair rule between them and would
+    // otherwise compete for one PM serum slot instead of both being admitted.
+    const retinoid = makeProduct({ activeTags: ['retinoid'], productType: 'spot_treatment' });
+    // Same reasoning vs. vitC's AM serum slot — hyaluronic is benign and has
+    // no pair rule with vitC, so it needs its own slot to coexist with it.
+    const hyaluronic = makeProduct({ activeTags: ['hyaluronic_acid'], productType: 'eye_cream' });
     const moisturizer = makeProduct({ productType: 'moisturizer' });
     const spf = makeProduct({ productType: 'spf', usageTime: 'morning' });
 

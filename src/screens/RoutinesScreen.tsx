@@ -14,6 +14,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { AddToRoutineSheet } from '@/components/routine/AddToRoutineSheet';
 import { ClinicalRestrictionsBlock } from '@/components/routine/ClinicalRestrictionsBlock';
 import { DraftPreviewSheet } from '@/components/routine/DraftPreviewSheet';
+import { DuplicateSlotResolutionSheet } from '@/components/routine/DuplicateSlotResolutionSheet';
+import {
+  DuplicateSlotWarningInline,
+  type DuplicateSlotGroupPress,
+} from '@/components/routine/DuplicateSlotWarningInline';
 import { GenerateCard } from '@/components/routine/GenerateCard';
 import { OptimizeStrip } from '@/components/routine/OptimizeStrip';
 import { PlannerBlock } from '@/components/routine/PlannerBlock';
@@ -24,6 +29,7 @@ import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner'
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { getSlotCategoryLabel } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import {
@@ -40,8 +46,11 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
 import { getAdaptationStatus } from '@/utils/routineEngine/adaptation';
+import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { getDailyView, type FrozenStepView } from '@/utils/routineEngine/dailyView';
-import { buildProductFacts } from '@/utils/routineEngine/productFacts';
+import { rankSlotGroup } from '@/utils/routineEngine/duplicateSlot';
+import { applySlotAlternativeSwap } from '@/utils/routineEngine/planApply';
+import { buildProductFacts, buildShelfFacts } from '@/utils/routineEngine/productFacts';
 import { buildRehabWidgetState } from '@/utils/routineEngine/rehabFilter';
 import type { ValidationResult } from '@/utils/routineEngine/validate';
 import type { Product, RoutineStep } from '@/types';
@@ -78,6 +87,9 @@ export default function RoutinesScreen({ navigation }: Props) {
   const [pendingRemoval, setPendingRemoval] = useState<{ stepId: string; productId: string; productName: string } | null>(null);
   // Draft Preview state — a generated plan lives only here until committed
   const [draft, setDraft] = useState<ValidationResult | null>(null);
+  // Story 3 (routine-similar-product-priority): the duplicate-slot group
+  // currently opened in the resolution sheet, if any.
+  const [pendingDuplicateGroup, setPendingDuplicateGroup] = useState<DuplicateSlotGroupPress | null>(null);
 
   // Restore today's day and exit edit mode when the screen gains focus.
   useFocusEffect(
@@ -132,6 +144,48 @@ export default function RoutinesScreen({ navigation }: Props) {
     },
     [draft],
   );
+
+  // Story 2 (routine-similar-product-priority): one-tap swap over the
+  // still-uncommitted draft — a pure array splice, no re-run of eligibility/
+  // frequency-cap math (planApply.ts). Never touches the saved routines.
+  const handleSwapAlternative = useCallback((winnerProductId: string, chosenProductId: string) => {
+    setDraft((prev) =>
+      prev
+        ? { ...prev, proposedPlan: applySlotAlternativeSwap(prev.proposedPlan, winnerProductId, chosenProductId) }
+        : prev,
+    );
+  }, []);
+
+  // Story 3 (routine-similar-product-priority): tapping a duplicate-slot
+  // banner row ranks that group (best/recommended first) and opens the
+  // resolution sheet with it.
+  const handlePressDuplicateGroup = useCallback((group: DuplicateSlotGroupPress) => {
+    setPendingDuplicateGroup(group);
+  }, []);
+
+  const duplicateResolution = useMemo(() => {
+    if (!pendingDuplicateGroup) return null;
+    const routine = routines.find((r) => r.id === pendingDuplicateGroup.routineId);
+    if (!routine) return null;
+    const idSet = new Set(pendingDuplicateGroup.productIds);
+    const group = routine.steps.filter((s) => s.productId && idSet.has(s.productId));
+    if (group.length === 0) return null;
+
+    const facts = buildShelfFacts(products);
+    const context = buildRoutineContext({
+      procedures,
+      profile: { fitzpatrick: profile?.fitzpatrick ?? null },
+      seasonMask: getActiveSeasonMask(),
+    });
+    const period = routine.timeOfDay === 'morning' ? 'am' : 'pm';
+    const rankedProducts = rankSlotGroup(group, products, facts, context, profile?.concerns ?? [], period);
+
+    return {
+      routineId: routine.id,
+      slotLabel: getSlotCategoryLabel(group[0].productType),
+      rankedProducts,
+    };
+  }, [pendingDuplicateGroup, routines, products, procedures, profile]);
 
   // Adaptation weeks per product (⏳ status line, research §2.6) + clinical
   // "Paused until" rows from the daily-mask projection.
@@ -263,6 +317,11 @@ export default function RoutinesScreen({ navigation }: Props) {
         <RehabWidget state={rehabState} />
         <SeasonalNoticeBanner />
         <ClinicalRestrictionsBlock />
+        <DuplicateSlotWarningInline
+          routines={routines}
+          products={products}
+          onPressGroup={handlePressDuplicateGroup}
+        />
         <PlannerBlock
           activePeriod={activePeriod}
           onPeriodChange={handlePeriodChange}
@@ -271,7 +330,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         />
       </View>
     ),
-    [activePeriod, selectedDow, handlePeriodChange, handleDaySelect, rehabState],
+    [activePeriod, selectedDow, handlePeriodChange, handleDaySelect, rehabState, routines, products, handlePressDuplicateGroup],
   );
 
   return (
@@ -362,6 +421,15 @@ export default function RoutinesScreen({ navigation }: Props) {
         plan={draft?.proposedPlan ?? null}
         diff={draft?.diff ?? []}
         onCommit={handleCommitDraft}
+        onSwapAlternative={handleSwapAlternative}
+      />
+
+      <DuplicateSlotResolutionSheet
+        visible={pendingDuplicateGroup !== null}
+        onClose={() => setPendingDuplicateGroup(null)}
+        routineId={duplicateResolution?.routineId ?? ''}
+        slotLabel={duplicateResolution?.slotLabel ?? ''}
+        rankedProducts={duplicateResolution?.rankedProducts ?? []}
       />
 
       <RemoveStepModal
