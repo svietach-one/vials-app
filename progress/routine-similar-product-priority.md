@@ -1,4 +1,4 @@
-Status: IMPLEMENTED
+Status: PR_REVIEW
 Tech Design: docs/tech-design/routine-similar-product-priority.md
 Code: src/utils/routineEngine/duplicateSlot.ts, src/utils/routineEngine/resolve.ts,
   src/utils/routineEngine/planTypes.ts, src/utils/routineEngine/generate.ts,
@@ -16,7 +16,7 @@ Code: src/utils/routineEngine/duplicateSlot.ts, src/utils/routineEngine/resolve.
 - [x] Technical design (planner)
 - [x] QA tests (qa-lead)
 - [x] Implementation (engineer)
-- [ ] Architecture review (tech-lead)
+- [x] Architecture review (tech-lead)
 
 ## Log
 - [2026-07-11] planner: wrote the technical design for same-slot duplicate
@@ -310,3 +310,116 @@ Code: src/utils/routineEngine/duplicateSlot.ts, src/utils/routineEngine/resolve.
     before and after every fixture change described above.
 
   Status -> IMPLEMENTED, handoff -> tech-lead.
+
+- [2026-07-11] tech-lead: full architecture review of
+  `feature-routine-similar-product-priority` (commits `c8bd70b`, `66b5157`)
+  against `docs/specs/2026-07-11-routine-similar-product-priority.md`,
+  `docs/tech-design/routine-similar-product-priority.md`, and
+  `.claude/rules/architecture-review.md`. **Verdict: ACCEPT.**
+
+  **Design fidelity.** Implementation matches the tech design's Architecture
+  Overview and all of FE-1..FE-10 one-to-one (duplicateSlot.ts's
+  findSameSlotStep/findSlotDuplicateGroups/rankSlotGroup; resolve.ts's
+  slot_loser outcome in tryAdmit; planTypes.ts's SlotAlternative;
+  generate.ts's RoutinePlan.slotAlternatives; planApply.ts's
+  applySlotAlternativeSwap; routinesStore.ts's findSameSlotConflict/
+  replaceProductStep; the four new components; DraftPreviewSheet/
+  RoutinesScreen wiring). Confirmed via `git diff dev...feature-branch` that
+  `src/types/index.ts`, `src/navigation/AppNavigator.tsx`, and
+  `src/constants/tokens.ts` are untouched — matches the spec's Non-Goals (no
+  Product schema change, no new screens/navigation, no ConflictSeverity
+  extension).
+
+  **The one documented deviation** (same-slot cap in `tryAdmit` checked AFTER
+  pair-rule/stacking-cap violations, not before, contra the tech design's
+  literal FE-2 wording) is present in the code exactly as logged (see the
+  inline comment block in `resolve.ts`'s `tryAdmit`). Independently verified
+  this does not weaken any Story 2 AC: `resolve.test.ts`'s new "admits the
+  next-ranked same-slot candidate once the top-ranked one is frozen by a pair
+  rule (AC4)" test exercises precisely the risk this reordering could have
+  introduced, and passes. The reordering also better preserves the spec's own
+  Non-Goal ("does not modify findPairViolations/findCapViolations") than the
+  literal ordering would have. Per `architecture-review.md`'s troubleshooting
+  rule (clear Log explanation -> downgrade to WARNING), this is accepted, not
+  a blocker. The three follow-on fixture edits (resolve.test.ts x2,
+  entryPoints.test.ts, generate.test.ts, seasonal-masks.test.ts) were spot
+  checked via `git diff` — each is a minimal, commented `productType`
+  override; `seasonal-masks.test.ts`'s rewrite preserves the original test's
+  intent (winter boost overrides the addedAt tiebreak) while asserting the
+  new, correct one-winner-per-slot behavior rather than hiding it.
+
+  **qa-lead's flagged discrepancy** (ConflictWarningInline not actually
+  rendered in RoutinesScreen.tsx) was correctly handled: confirmed
+  `DuplicateSlotWarningInline` is wired into `listHeader` beside
+  `SeasonalNoticeBanner`/`ClinicalRestrictionsBlock`, and that
+  `routines-screen-duplicate-wiring.test.tsx` does not assert adjacency to a
+  render call that doesn't exist.
+
+  **Layer separation** — all grep checks from `architecture-review.md` come
+  back clean: no `AsyncStorage` usage outside `services/storage.ts` (only
+  doc-comment mentions in pre-existing files), no `from 'react'` imports in
+  `src/utils/`, no `fetch(` outside `src/services/`. Screens/components
+  delegate all business logic to `routinesStore`/`routineEngine` — no rules
+  duplicated ad hoc in `RoutinesScreen.tsx` or `AddToRoutineSheet.tsx`.
+
+  **Duplication detection** — no domain type recreated outside
+  `src/types/index.ts` (all new interfaces are either component Props or
+  routineEngine pipeline-internal shapes in `planTypes.ts`, consistent with
+  existing `PlannedStep`/`FrozenItem`/`DecisionLogEntry` precedent); no
+  hardcoded hex colors in any new component — all styling goes through
+  `src/constants/tokens.ts`.
+
+  **CLAUDE.md constraints** — minimum font size across new components is
+  14px (typography tokens only, verified against `tokens.ts`); no pink hues;
+  all copy English-only; confirmed by grep that
+  `DuplicateSlotWarningInline`/`DuplicateSlotChoiceSheet`/
+  `DuplicateSlotResolutionSheet`/`SlotAlternativeRow` are only ever imported
+  from routine-context files (`RoutinesScreen.tsx`, `AddToRoutineSheet.tsx`,
+  `DraftPreviewSheet.tsx`) — never a catalog/shelf screen.
+
+  **Quality/debt** — no TODO/FIXME/HACK, no `console.log`/`debugger`, no
+  `.only`/`.skip`/`xit` in any new or touched test file. Non-blocking:
+  `RoutinesScreen`'s and `AddToRoutineSheet`'s default-export functions both
+  exceed 50 lines, but this is a pre-existing condition (487 and 611 lines
+  respectively before this diff, per `git show dev:...`) only marginally
+  extended by this feature — same precedent as the ClinicScreen note in the
+  clinic-forecast-timeline review. `planApply.ts`'s pre-existing
+  `buildDraftSummaryLines` (~56 lines) is untouched by this diff, not a new
+  issue. Non-blocking style nit:
+  `DuplicateSlotWarningInline.tsx`'s `void products;` (keeping an unused prop
+  for shape-parity with `ConflictWarningInline`) has no precedent elsewhere
+  in the codebase but is harmless and self-documented.
+
+  **Type safety gate** — `npx tsc --noEmit` -> 0 errors (re-verified).
+
+  **Tests independently re-run** (not just trusted from the engineer's
+  report):
+  - `npx jest tests/routine-similar-product-priority` -> 7/7 suites, 36/36
+    passing.
+  - `npx jest src/utils/routineEngine/duplicateSlot.test.ts
+    src/utils/routineEngine/resolve.test.ts
+    src/utils/routineEngine/planApply.test.ts
+    src/utils/routineEngine/entryPoints.test.ts
+    tests/routine-engine/generate.test.ts
+    tests/routine-engine/seasonal-masks.test.ts` -> 6/6 suites, 103 passed +
+    1 pre-existing todo (104 total).
+  - `npx jest --testPathIgnorePatterns=worktrees` -> 3 failed / 73 passed
+    suites (858 passed / 2 todo / 863 total) — identical counts to the
+    engineer's report.
+  - Went one step further than trusting the log: none of the 3 failing files
+    (`tests/catalog/catalog-screen.test.tsx`,
+    `tests/catalog/product-detail.test.tsx`,
+    `tests/shelf-filtering/PaoChip.integration.test.tsx`) appear anywhere in
+    `git diff --stat dev...feature-branch`. Additionally checked out `dev`
+    (7e9675d) in an isolated `git worktree` (symlinked `node_modules`, no
+    package.json changes between branches) and re-ran exactly those 3 files
+    — all 3 fail identically on `dev`, same error signatures
+    (`palette.cobaltTint` undefined in `ProductShelfCard.tsx`, native
+    `AsyncStorage` module null in the test env, `PaoChip` "Expired" text not
+    found). Confirmed pre-existing and unrelated to this branch, not a
+    regression.
+
+  No security-relevant surface added (fully local/offline, no new network
+  calls, no new storage keys, no auth) — consistent with the spec's §8.
+
+  Status -> PR_REVIEW, handoff -> none (ready for human merge).

@@ -1,8 +1,8 @@
 {
   "task": "routine-similar-product-priority",
   "phase": "implementation",
-  "status": "IMPLEMENTED",
-  "next_agent": "tech-lead",
+  "status": "PR_REVIEW",
+  "next_agent": "none",
   "flags": {
     "backend_layer": false,
     "frontend_layer": true,
@@ -60,6 +60,28 @@
       "RoutinePlan.slotAlternatives and DraftPreviewSheetProps.onSwapAlternative are typed optional (not required) so several pre-existing test fixtures that predate this feature (e.g. draft-preview-sheet.test.tsx's local makePlan()) keep typechecking without modification; generate.ts always populates the real field at runtime."
     ],
     "deviation_noted_from_qa": "Confirmed qa-lead's flag: ConflictWarningInline is not rendered anywhere in the current RoutinesScreen.tsx. DuplicateSlotWarningInline is wired into the screen's listHeader beside SeasonalNoticeBanner/ClinicalRestrictionsBlock (the nearest existing precedent for an always-visible advisory routine-context banner), not 'beside' a render call that doesn't exist.",
-    "no_conflict_severity_change": "No new ConflictSeverity value added; the duplicate-slot signal stays flat/advisory (InlineAlert tone=\"info\"), fully separate from ValidationFinding, per spec/tech-design."
+    "no_conflict_severity_change": "No new ConflictSeverity value added; the duplicate-slot signal stays flat/advisory (InlineAlert tone=\"info\"), fully separate from ValidationFinding, per spec/tech-design.",
+    "tech_lead_review": {
+      "verdict": "ACCEPT",
+      "date": "2026-07-11",
+      "verification": {
+        "tsc": "npx tsc --noEmit -> 0 errors (re-verified 2026-07-11)",
+        "feature_tests": "npx jest tests/routine-similar-product-priority -> 7/7 suites, 36/36 passed (re-verified)",
+        "unit_tests": "npx jest src/utils/routineEngine/duplicateSlot.test.ts src/utils/routineEngine/resolve.test.ts src/utils/routineEngine/planApply.test.ts src/utils/routineEngine/entryPoints.test.ts tests/routine-engine/generate.test.ts tests/routine-engine/seasonal-masks.test.ts -> 6/6 suites, 103 passed + 1 pre-existing todo (104 total)",
+        "baseline": "npx jest --testPathIgnorePatterns=worktrees -> 3 failed / 73 passed suites (858 passed / 2 todo / 863 total) -- identical counts to the engineer's report; independently confirmed via an isolated `git worktree add <tmp> dev` (symlinked node_modules, no package.json diff between branches) that the same 3 suites (tests/catalog/catalog-screen.test.tsx, tests/catalog/product-detail.test.tsx, tests/shelf-filtering/PaoChip.integration.test.tsx) fail with identical error signatures on dev before this branch -- pre-existing, unrelated to this change, not a regression"
+      },
+      "notes": [
+        "Design fidelity: implementation matches the tech design's Architecture Overview and all FE-1..FE-10 tasks 1:1; confirmed via git diff dev...feature-branch that src/types/index.ts, src/navigation/AppNavigator.tsx, and src/constants/tokens.ts are untouched, consistent with the spec's Non-Goals (no Product schema change, no new screens/navigation, no ConflictSeverity extension).",
+        "The one documented deviation (same-slot cap checked in tryAdmit AFTER pair-rule/stacking-cap violations, not before, per the tech design's literal FE-2 wording) is present in code exactly as logged. Verified this does not weaken any Story 2 AC -- a dedicated new resolve.test.ts case ('admits the next-ranked same-slot candidate once the top-ranked one is frozen by a pair rule (AC4)') exercises exactly the risk this reordering could have introduced, and passes. The reordering also better preserves the spec's own Non-Goal ('does not modify findPairViolations/findCapViolations') than the literal ordering would have. Per architecture-review.md's troubleshooting rule (clear Log explanation -> downgrade to WARNING), accepted, not a blocker.",
+        "qa-lead's flagged discrepancy (ConflictWarningInline not actually rendered in RoutinesScreen.tsx) was correctly handled: confirmed DuplicateSlotWarningInline is wired into listHeader beside SeasonalNoticeBanner/ClinicalRestrictionsBlock, and that the wiring test does not assert adjacency to a render call that doesn't exist.",
+        "Layer separation clean: grep checks show no AsyncStorage usage outside services/storage.ts (only doc-comment mentions in pre-existing files), no React imports in src/utils/, no fetch( outside src/services/.",
+        "No domain type duplicated outside src/types/index.ts (new interfaces are either component Props or routineEngine pipeline-internal shapes in planTypes.ts, consistent with pre-existing PlannedStep/FrozenItem/DecisionLogEntry precedent); no hardcoded hex colors in any new component -- all styling goes through src/constants/tokens.ts.",
+        "CLAUDE.md constraints verified: minimum font size across new components is 14px (typography tokens only); no pink hues; all copy English-only; grep-confirmed DuplicateSlotWarningInline/DuplicateSlotChoiceSheet/DuplicateSlotResolutionSheet/SlotAlternativeRow are only ever imported from routine-context files (RoutinesScreen.tsx, AddToRoutineSheet.tsx, DraftPreviewSheet.tsx), never a catalog/shelf screen.",
+        "No TODO/FIXME/HACK, no console.log/debugger, no .only/.skip/xit in any new or touched test file.",
+        "Non-blocking: RoutinesScreen's and AddToRoutineSheet's default-export functions both exceed 50 lines, but this is a pre-existing condition (487 and 611 lines respectively before this diff, per git show dev:...) only marginally extended by this feature -- same precedent as the ClinicScreen note in the clinic-forecast-timeline review. planApply.ts's pre-existing buildDraftSummaryLines (~56 lines) is untouched by this diff.",
+        "Non-blocking style nit: DuplicateSlotWarningInline.tsx's `void products;` (keeping an unused prop for shape-parity with ConflictWarningInline) has no precedent elsewhere in the codebase but is harmless and self-documented.",
+        "No security-relevant surface added -- fully local/offline, no new network calls, no new storage keys, no auth, consistent with the spec's §8."
+      ]
+    }
   }
 }
