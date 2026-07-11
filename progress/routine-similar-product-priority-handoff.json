@@ -1,0 +1,45 @@
+{
+  "task": "routine-similar-product-priority",
+  "phase": "qa",
+  "status": "IN_PROGRESS",
+  "next_agent": "engineer",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/2026-07-11-routine-similar-product-priority.md",
+    "tech_design": "docs/tech-design/routine-similar-product-priority.md",
+    "qa_tests": [
+      "tests/routine-similar-product-priority/fixtures.ts",
+      "tests/routine-similar-product-priority/duplicate-slot-choice-sheet.test.tsx",
+      "tests/routine-similar-product-priority/add-to-routine-sheet-duplicate-flow.test.tsx",
+      "tests/routine-similar-product-priority/duplicate-slot-warning-inline.test.tsx",
+      "tests/routine-similar-product-priority/duplicate-slot-resolution-sheet.test.tsx",
+      "tests/routine-similar-product-priority/routines-screen-duplicate-wiring.test.tsx",
+      "tests/routine-similar-product-priority/slot-alternative-row.test.tsx",
+      "tests/routine-similar-product-priority/draft-preview-sheet-alternatives.test.tsx"
+    ]
+  },
+  "qa_notes": {
+    "scope": "Component/integration layer only (choice sheet, warning banner, resolution sheet, alternative row, and their wiring into AddToRoutineSheet/RoutinesScreen/DraftPreviewSheet). Pure-util unit tests for src/utils/routineEngine/duplicateSlot.ts, resolve.ts's slot_loser outcome, and planApply.ts's applySlotAlternativeSwap are the engineer's, per .claude/rules/testing.md.",
+    "test_count": "36 tests across 7 files (Story 1: 12, Story 3: 16, Story 2 (component layer only): 8)",
+    "expected_to_fail_until": [
+      "FE-2/FE-3 (resolve.ts + planTypes.ts SlotAlternative type, RoutinePlan.slotAlternatives field)",
+      "FE-5 (routinesStore.findSameSlotConflict, replaceProductStep)",
+      "FE-6 (src/components/routine/DuplicateSlotChoiceSheet.tsx)",
+      "FE-7 (AddToRoutineSheet.tsx handleSave() wiring)",
+      "FE-8 (src/components/routine/DuplicateSlotWarningInline.tsx + RoutinesScreen.tsx wiring)",
+      "FE-9 (src/components/routine/DuplicateSlotResolutionSheet.tsx)",
+      "FE-10 (src/components/routine/SlotAlternativeRow.tsx + DraftPreviewSheet.tsx onSwapAlternative prop)"
+    ],
+    "binding_contract": "Component prop shapes, testIDs/accessibilityLabels, and the AddToRoutineSheet AM-then-PM sequencing behavior are pinned in the header docblock of tests/routine-similar-product-priority/fixtures.ts (tech design left these unspecified) — implement against that contract, not a guess.",
+    "deviation_noted": "ConflictWarningInline is not actually rendered in the current RoutinesScreen.tsx (conflicts are computed inline via ConflictEngine.detectConflicts instead) — the tech design's 'beside the existing ConflictWarningInline render call' phrasing is stale. The RoutinesScreen wiring test does not assert adjacency to it, only that DuplicateSlotWarningInline renders and wires correctly to DuplicateSlotResolutionSheet.",
+    "verification": {
+      "tsc": "npx tsc --noEmit -> errors confined to the not-yet-existing modules/fields listed above (2026-07-11)",
+      "feature_tests": "npx jest tests/routine-similar-product-priority -> 7/7 suites fail as expected (tests-first)",
+      "baseline": "npx jest --testPathIgnorePatterns=worktrees -> 10 failed / 65 passed suites; verified via git stash that the 3 failures outside the new folder (PaoChip.integration, catalog-screen, product-detail) are pre-existing, unrelated to this task"
+    }
+  }
+}
