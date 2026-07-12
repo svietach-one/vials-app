@@ -5,7 +5,7 @@ import type { ActiveIngredientKey } from '@/types';
 import { toTrigramQuery } from './trigramSearch';
 import type { CorpusProduct } from './types';
 
-const COLS = `uid, barcode, brand, name, type, inci_raw as inciRaw, image_url as imageUrl, source`;
+const COLS = `uid, barcode, brand, name, type, inci_raw as inciRaw, image_url as imageUrl, source, url, name_lacin as nameLacin`;
 
 /**
  * Read-only access to the pull-only corpus replica. Never issues a write.
@@ -48,7 +48,7 @@ export class ProductRepository {
           .map((c) => 'p.' + c.trim())
           .join(', ')}
          FROM products_fts f JOIN products p ON p.id = f.rowid
-         WHERE products_fts MATCH ? ORDER BY bm25(products_fts) LIMIT 20`,
+         WHERE products_fts MATCH ? ORDER BY bm25(products_fts, 2.0, 1.0) LIMIT 20`,
         [match],
       );
     } catch {

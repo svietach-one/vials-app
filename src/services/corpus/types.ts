@@ -10,6 +10,10 @@ export interface CorpusProduct {
   inciRaw: string | null;
   imageUrl: string | null;
   source: 'obf_import' | 'vials_seed' | 'community';
+  /** Product page URL — populated for vials_seed rows, NULL for obf_import (schema v2.1). */
+  url: string | null;
+  /** Latin transliteration of `name` — populated for ~594 vials_seed rows (schema v2.1). */
+  nameLacin: string | null;
 }
 
 /** Row shape read from `ingredients` (autocomplete + tag vocabulary). */
