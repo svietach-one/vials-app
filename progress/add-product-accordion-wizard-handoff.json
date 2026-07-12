@@ -1,0 +1,30 @@
+{
+  "taskSlug": "add-product-accordion-wizard",
+  "status": "IMPLEMENTED",
+  "branch": "feature-add-product-accordion-wizard",
+  "baseBranch": "origin/dev",
+  "lastAgent": "engineer",
+  "updatedAt": "2026-07-11",
+  "spec": "docs/specs/add-product-flow/",
+  "completedTasks": [
+    "01-types",
+    "02-form-reducer",
+    "03-parsing-utils",
+    "04-camera-modal",
+    "05-inci-notice",
+    "06-accordion-shell",
+    "07-section-components",
+    "08-screen-assembly",
+    "09-save-and-sync",
+    "10-testing-checklist (automated portion)"
+  ],
+  "pendingTasks": [
+    "device-manual QA: camera permission denial x3 modes, airplane-mode save, real OCR quality",
+    "tech-lead review"
+  ],
+  "verification": {
+    "typecheck": "clean",
+    "tests": "75 suites / 882 tests pass incl. tests/add-product-flow (29 tests); 3 pre-existing failures also present on clean origin/dev (catalog-screen, product-detail, PaoChip.integration)"
+  },
+  "notes": "All spec deviations documented in progress/add-product-accordion-wizard.md Log — read before review. Privacy boundary enforced via hand-declared SuggestPayload + saveProduct.test.ts key-set assertion."
+}

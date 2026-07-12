@@ -143,11 +143,25 @@ export function migrateProductActiveKeys(product: Product): Product {
   };
 }
 
-/** Applies {@link migrateProductActiveKeys} across a list, same-ref when unchanged. */
+/**
+ * Backfills `source` for products persisted before the provenance field
+ * existed: an Open Beauty Facts id means the product came from an OBF
+ * result ('obf_import'); everything else was typed in by hand
+ * ('user_local'). Same-ref when already set.
+ */
+export function migrateProductSource(product: Product): Product {
+  if (product.source !== undefined) return product;
+  return {
+    ...product,
+    source: product.openBeautyFactsId !== null ? 'obf_import' : 'user_local',
+  };
+}
+
+/** Applies the per-product migrations across a list, same-ref when unchanged. */
 export function migrateProducts(products: Product[]): Product[] {
   let changed = false;
   const next = products.map((p) => {
-    const migrated = migrateProductActiveKeys(p);
+    const migrated = migrateProductSource(migrateProductActiveKeys(p));
     if (migrated !== p) changed = true;
     return migrated;
   });

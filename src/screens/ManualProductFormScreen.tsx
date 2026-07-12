@@ -457,6 +457,9 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       notes: null,
       openedDate: isOpened ? openedDate : null,
       paoMonths: resolvedPaoMonths,
+      // Edits preserve the original provenance; new records split on
+      // whether they came from an OBF result or pure manual entry.
+      source: editingProduct?.source ?? (obfId ? 'obf_import' : 'user_local'),
     };
 
     if (isEditMode) {

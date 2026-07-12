@@ -10,7 +10,7 @@
  *   AC-16 Zero-results state shows "No results for…" text and an "Add Manually" button
  *   AC-17 OBF API failure shows the "Search unavailable" hint
  *   AC-18 "Scan Barcode" row navigates to BarcodeScanner route
- *   AC-19 "Create Product Manually" navigates to ManualProductForm
+ *   AC-19 "Create Product Manually" navigates to the accordion AddProduct screen
  */
 
 import React from 'react';
@@ -227,14 +227,17 @@ describe('AC-16: zero results state shows hint text and manual fallback', () => 
     });
   });
 
-  it('should navigate to ManualProductForm when "Add Manually" is pressed in zero-results state', async () => {
+  it('should navigate to the accordion AddProduct screen when "Add Manually" is pressed in zero-results state', async () => {
     mockSearchProducts.mockResolvedValue({ products: [], failed: false });
     renderScreen();
     fireEvent.changeText(screen.getByTestId('hub-search-input'), 'zzznothing');
     act(() => jest.runAllTimers());
     await waitFor(() => screen.getByText('Add Manually'));
     fireEvent.press(screen.getByText('Add Manually'));
-    expect(mockNavigate).toHaveBeenCalledWith('ManualProductForm', {});
+    // The manual/not-found entry path is the accordion wizard
+    // (docs/specs/add-product-flow/08); the OBF-prefill path (AC-15)
+    // stays on ManualProductForm.
+    expect(mockNavigate).toHaveBeenCalledWith('AddProduct');
   });
 });
 
@@ -271,15 +274,18 @@ describe('AC-18: "Scan Barcode" row navigates to BarcodeScanner', () => {
 
 // ── AC-19: Manual entry navigates to form screen ─────────────────────────────
 
-describe('AC-19: "Create Product Manually" navigates to ManualProductForm', () => {
+describe('AC-19: "Create Product Manually" navigates to the accordion AddProduct screen', () => {
   it('should render the Manual Entry section', () => {
     renderScreen();
     expect(screen.getByText('Manual Entry')).toBeTruthy();
   });
 
-  it('should navigate to ManualProductForm without prefill when "Create Product Manually" is pressed', () => {
+  it('should navigate to AddProduct when "Create Product Manually" is pressed', () => {
     renderScreen();
     fireEvent.press(screen.getByText('Create Product Manually'));
-    expect(mockNavigate).toHaveBeenCalledWith('ManualProductForm', {});
+    // The manual/not-found entry path is the accordion wizard
+    // (docs/specs/add-product-flow/08); the OBF-prefill path (AC-15)
+    // stays on ManualProductForm.
+    expect(mockNavigate).toHaveBeenCalledWith('AddProduct');
   });
 });
