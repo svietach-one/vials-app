@@ -4,6 +4,7 @@ import { NavigationContainer, NavigatorScreenParams } from '@react-navigation/na
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { colors, palette } from '@/constants/tokens';
+import type { CorpusProduct } from '@/services/corpus/types';
 import { useProfileStore } from '@/store/profileStore';
 
 // ─── Onboarding screens ───────────────────────────────────────────────────────
@@ -39,7 +40,8 @@ export type CatalogStackParamList = {
   Catalog: undefined;
   AddProductHub: undefined;
   ManualProductForm: {
-    prefillOBFProduct?: { obfId: string; name: string; brand: string; ingredientsText: string };
+    /** A corpus (Turso) hit the user picked via search or barcode scan — see src/services/corpus. */
+    prefillCorpusProduct?: CorpusProduct;
     editingProductId?: string;
   };
   ProductDetail: { productId: string };

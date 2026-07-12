@@ -7,6 +7,32 @@
 
 ---
 
+> **Sync note (2026-07-07):** This draft predates the delivered database. The
+> actual corpus (`handoff/corpus_schema.sql`, `handoff/INTEGRATION_GUIDE.md`)
+> diverges from this spec in three load-bearing ways — see the inline notes
+> in §4.1 and §5:
+> 1. It's a **pull-only Turso/libSQL embedded replica** read locally via
+>    `expo-sqlite` — not a client/server pair calling a "remote registry"
+>    (§3, AC-1.2). The app never writes to it; there is no live per-request
+>    remote query, only a background full-replica sync.
+> 2. The record key is `id INTEGER PK` (internal rowid) + `uid TEXT UNIQUE`
+>    (the app-facing id) — not a single UUID PK.
+> 3. §5's claim that OBF-imported records "are owned by Vials and diverge
+>    independently of OBF" is **incorrect** for what shipped: `obf_import`
+>    rows stay ODbL-licensed dogfood data and must be deleted before public
+>    release (`INTEGRATION_GUIDE.md` §7). Only `vials_seed`/`community` rows
+>    are genuinely Vials-owned. Today the corpus is 100% `obf_import`
+>    (24,100 ingredients / 17,346 products / ~9,000 tags, dogfood-only) — "our
+>    own DB" is architecturally true (no third-party API in the request
+>    path) but not yet true of the *data* until the cutover runs.
+>
+> US-2 (ingredient autocomplete) and US-3 (community contribution) are
+> reference-implemented (`IngredientRepository.autocomplete`) or schema-only
+> (`'community'` source value) respectively, but neither is wired into a
+> screen yet — see the US-22 implementation note in `docs/USER_STORIES.md`.
+
+---
+
 ## 1. Problem Statement
 
 Vials relies on Open Beauty Facts (OBF) as the sole product data source. This introduces three critical failure modes:
@@ -38,7 +64,17 @@ Our own Cosmetics Product Database eliminates all three problems by giving Vials
 **Acceptance Criteria:**
 - AC-1.1: If a local SQLite record exists for the barcode, the product detail screen loads without a network request.
 - AC-1.2: If no local record exists, the app queries the remote registry. On match, the record is cached locally before displaying.
+
+  > **As delivered:** there is no per-request remote query. The whole corpus
+  > is pulled as a replica in the background (`syncCorpus`); a barcode miss
+  > against the local replica is final for that lookup — it degrades
+  > straight to AC-1.3, same as a genuine miss. A later sync may bring the
+  > record in for the *next* scan.
 - AC-1.3: If neither local nor remote has a match, the manual-entry form is pre-populated with any barcode metadata the scan returned (brand name from GS1 prefix if decodable).
+
+  > **As delivered:** the app's `Product` type has no `barcode` field, so the
+  > manual-entry form is not pre-filled with barcode metadata on a miss —
+  > only with a prior corpus/search prefill, or blank for pure manual entry.
 
 ### US-2 — Manual Entry with Ingredient Autocomplete
 > As a user adding a product manually, I want the ingredient field to autocomplete INCI names as I type so that my ingredient list is correctly normalised for the conflict engine.
@@ -70,6 +106,11 @@ Our own Cosmetics Product Database eliminates all three problems by giving Vials
 ## 4. Product Schema Requirements
 
 ### 4.1 Core Product Record
+
+> **As delivered:** `id` is an internal `INTEGER PK` (rowid, used for joins to
+> `product_tags`/FTS); `uid TEXT UNIQUE` is the actual app-facing id described
+> below — store `uid` on the shelf, never the internal `id`. See
+> `handoff/corpus_schema.sql`.
 
 ```
 CosmeticsProduct {
@@ -133,6 +174,18 @@ InciEntry {
 | Community submissions | Ongoing gap-filling; gated by moderation | Grows with user base |
 
 OBF import is treated as bootstrap data only. Once imported, records are owned by Vials and diverge independently of OBF.
+
+> **Correction (2026-07-07):** This is not how the shipped licensing model
+> works, and must not be treated as accurate. `source='obf_import'` rows
+> remain ODbL-licensed Open Beauty Facts data — they are dogfood content for
+> internal testing, not data Vials owns, and **must be deleted before public
+> release** (`DELETE FROM products WHERE source = 'obf_import'`, cascading to
+> `product_tags`). Only `vials_seed` (editorial) and `community` (moderated
+> contributions) rows are Vials-owned. The app must never label an
+> `obf_import` row as Vials-owned in the UI, and must show the attribution
+> "Product data from Open Beauty Facts (ODbL)" wherever one is displayed.
+> Track cutover readiness via "% of scans answered by non-`obf_import` rows."
+> See `handoff/INTEGRATION_GUIDE.md` §7.
 
 ---
 

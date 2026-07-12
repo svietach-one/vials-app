@@ -125,13 +125,7 @@ const styles = StyleSheet.create({
     gap: space[4],
   },
 
-  eyebrow: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
-  },
+  eyebrow: { ...typography.label },
   title: {
     ...typography.h1,
     color: colors.textPrimary,

@@ -87,11 +87,7 @@ function SectionHeader({ title }: { title: string }) {
 
 const sectionStyles = StyleSheet.create({
   header: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
+    ...typography.label,
     color: colors.textSecondary,
     marginBottom: space[1],
     marginTop: space[2],

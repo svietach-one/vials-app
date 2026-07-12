@@ -99,7 +99,7 @@ def main():
             annexes     = json.dumps(parse_annexes(r.get("Restriction") or "")),
             description = clean(r.get("Chem/IUPAC Name / Description")) or None,
             cas_number  = clean(r.get("CAS No")) or None,
-            ec_number   = clean(r.get("EINECS/ELINCS No")) or None,
+            ec_number   = clean(r.get("EINECS/ELINCS No") or r.get("EC No")) or None,
         )
         key = name.lower()
         if key in records:                                       # dedupe on normalized name

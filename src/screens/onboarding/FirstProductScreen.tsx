@@ -17,12 +17,13 @@ import { Button } from '@/components/ui/core/Button';
 import { Card } from '@/components/ui/core/Card';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, radius, space, typography } from '@/constants/tokens';
-import { searchProducts } from '@/services/openBeautyFacts/search';
-import type { OBFProduct } from '@/services/openBeautyFacts/types';
+import { useProductRepository } from '@/hooks/useCorpusRepositories';
+import type { CorpusProduct } from '@/services/corpus/types';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
-import type { Product, ProductType } from '@/types';
+import type { Product } from '@/types';
 import { generateId } from '@/utils/generateId';
+import { resolveProductType } from '@/utils/productType';
 import type { OnboardingStackParamList } from '@/navigation/AppNavigator';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -36,35 +37,35 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
   const updateProfile = useProfileStore((s) => s.updateProfile);
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<OBFProduct[]>([]);
+  const [results, setResults] = useState<CorpusProduct[]>([]);
   const [searching, setSearching] = useState(false);
-  const [searchFailed, setSearchFailed] = useState(false);
+  const productRepository = useProductRepository();
 
   async function handleSearch(text: string) {
     setQuery(text);
-    if (text.trim().length < 3) {
+    if (text.trim().length < 3 || !productRepository) {
       setResults([]);
-      setSearchFailed(false);
       return;
     }
     setSearching(true);
-    const { products, failed } = await searchProducts(text);
+    const products = await productRepository.search(text);
     setResults(products);
-    setSearchFailed(failed);
     setSearching(false);
   }
 
-  function handleSelect(item: OBFProduct) {
+  async function handleSelect(item: CorpusProduct) {
+    const activeTags = productRepository ? await productRepository.getActiveKeys(item.uid) : [];
     const product: Product = {
       id: generateId(),
       name: item.name,
       brand: item.brand || null,
-      productType: 'serum' as ProductType,
-      imageUrl: null,
+      productType: resolveProductType(item.type),
+      imageUrl: item.imageUrl,
       activeIngredients: [],
-      fullIngredientText: item.ingredientsText || null,
+      activeTags,
+      fullIngredientText: item.inciRaw || null,
       usageTime: 'both',
-      openBeautyFactsId: item.obfId || null,
+      openBeautyFactsId: item.source === 'obf_import' ? item.uid : null,
       addedAt: new Date().toISOString(),
       notes: null,
       openedDate: null,
@@ -120,10 +121,17 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
           ) : results.length > 0 ? (
             <FlatList
               data={results}
-              keyExtractor={(item) => item.obfId || item.name}
+              keyExtractor={(item) => item.uid}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
+              ListFooterComponent={
+                results.some((r) => r.source === 'obf_import') ? (
+                  <Text style={styles.attribution}>
+                    Product data from Open Beauty Facts (ODbL)
+                  </Text>
+                ) : null
+              }
               renderItem={({ item }) => (
                 <Pressable onPress={() => handleSelect(item)}>
                   {({ pressed }) => (
@@ -147,14 +155,8 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
             />
           ) : query.length >= 3 && !searching ? (
             <View style={styles.emptyState}>
-              <Feather
-                name={searchFailed ? 'wifi-off' : 'inbox'}
-                size={32}
-                color={colors.textTertiary}
-              />
-              <Text style={styles.emptyText}>
-                {searchFailed ? 'Search unavailable.' : 'No results found.'}
-              </Text>
+              <Feather name="inbox" size={32} color={colors.textTertiary} />
+              <Text style={styles.emptyText}>No results found.</Text>
               <Text style={styles.emptySubtext}>
                 You can add products manually from the Catalog tab.
               </Text>
@@ -190,14 +192,7 @@ const styles = StyleSheet.create({
     gap: space[2],
     marginBottom: space[5],
   },
-  eyebrow: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase',
-    color: colors.textSecondary,
-  },
+  eyebrow: { ...typography.label, color: colors.textSecondary },
   title: { ...typography.h1, color: colors.textPrimary },
   subtitle: { ...typography.body, color: colors.textSecondary },
 
@@ -222,6 +217,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     gap: 2,
   },
+  attribution: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginTop: space[3],
+  },
   resultCardPressed: {
     backgroundColor: colors.surfaceSunken,
   },
@@ -230,12 +231,7 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
-  resultBrand: {
-    fontFamily: 'DMSans-Regular',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textSecondary,
-  },
+  resultBrand: { ...typography.bodySmall, color: colors.textSecondary },
 
   emptyState: {
     marginTop: space[10],

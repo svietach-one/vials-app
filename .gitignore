@@ -39,3 +39,7 @@ yarn-error.*
 # Testing
 coverage/
 .claude/
+
+# Generated corpus dumps (regenerate via handoff/ pipeline scripts)
+handoff/out/
+handoff/*.csv
