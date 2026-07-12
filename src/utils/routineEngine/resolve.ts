@@ -17,6 +17,7 @@ import type {
   DecisionLogEntry,
   FrozenItem,
   PlannedStep,
+  SlotAlternative,
 } from '@/utils/routineEngine/planTypes';
 import type { ProductFacts } from '@/utils/routineEngine/productFacts';
 import {
@@ -42,6 +43,8 @@ const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 /** Tue/Sat — the spread used when a loser is split onto 2 nights a week. */
 const SPLIT_DAY_PREFERENCE = [2, 6];
 const POTENCY_RANK: Record<Potency, number> = { low: 1, medium: 2, high: 3, rx: 4 };
+/** Slot index 7 ("other") is a catch-all, not a category — exempt everywhere. */
+const OTHER_SLOT_INDEX = 7;
 
 export interface ResolveInput {
   /** Pre-gated eligible products (eligibility.ts output). */
@@ -57,6 +60,8 @@ export interface ResolveResult {
   periods: { am: PlannedStep[]; pm: PlannedStep[] };
   frozen: FrozenItem[];
   decisions: DecisionLogEntry[];
+  /** Same-slot losers per period/slot, ranked best-first (routine-similar-product-priority). */
+  slotAlternatives: SlotAlternative[];
 }
 
 interface Candidate {
@@ -300,7 +305,10 @@ function attemptDaySplit(days: number[], violations: Violation[]): DaySplit | nu
 type AdmitOutcome =
   | { kind: 'admitted'; step: PlannedStep }
   | { kind: 'relocate' }
-  | { kind: 'frozen'; item: FrozenItem };
+  | { kind: 'frozen'; item: FrozenItem }
+  /** A same-slot loser (routine-similar-product-priority) — never walks the
+   *  pair-rule/cap ladder; recorded as an alternative onto the winner's slot. */
+  | { kind: 'slot_loser'; step: PlannedStep };
 
 interface AdmitOptions {
   canRelocate: boolean;
@@ -440,8 +448,32 @@ function tryAdmit(
     ...findPairViolations(candidate.facts, days, admitted, opts.pairRules),
     ...findCapViolations(candidate.facts, days, admitted),
   ];
-  if (violations.length === 0) return { kind: 'admitted', step: makeStep(candidate, days) };
-  return walkResolutionLadder(candidate, period, days, violations, opts, decisions);
+
+  // A candidate the pair-rule/cap ladder would freeze, day-split, or relocate
+  // is resolved by that mechanism exactly as before this feature — the
+  // same-slot cap never double-classifies a candidate the ladder already has
+  // an opinion about (keeps this feature strictly additive to
+  // findPairViolations/findCapViolations, per the spec's Non-Goals; see
+  // progress/routine-similar-product-priority.md for why this check order
+  // deviates from the tech design's literal "before any pair/cap check"
+  // phrasing — that ordering broke the existing pair-rule/stacking-cap suite
+  // for same-slot products, e.g. two default-fixture "serum" products with a
+  // real pair-rule relationship).
+  if (violations.length > 0) {
+    return walkResolutionLadder(candidate, period, days, violations, opts, decisions);
+  }
+
+  // Same-slot cap (routine-similar-product-priority): once a slot is occupied
+  // and the candidate has cleared every pair-rule/cap check on its own
+  // merits, a later same-slot candidate is recorded purely as an alternative
+  // rather than admitted twice into one layering position. The exempt
+  // `other` slot never competes.
+  const slotIndex = getSlotIndex(candidate.product.productType);
+  if (slotIndex !== OTHER_SLOT_INDEX && admitted.some((a) => a.step.slotIndex === slotIndex)) {
+    return { kind: 'slot_loser', step: makeStep(candidate, days) };
+  }
+
+  return { kind: 'admitted', step: makeStep(candidate, days) };
 }
 
 // ─── Pool building & the period loop ────────────────────────────────────────
@@ -467,12 +499,38 @@ function buildPools(input: ResolveInput, prioritize: PrioritizeTarget[]): Record
   return pools;
 }
 
+/** Internal accumulator for one period/slot's same-slot losers (pre morning/evening mapping). */
+interface SlotAlternativeAccumulator {
+  winnerProductId: string;
+  period: Period;
+  slotIndex: number;
+  alternatives: PlannedStep[];
+}
+
 /** Shared mutable state of one resolution run. */
 interface ResolveRun {
   admitted: Record<Period, AdmittedEntry[]>;
   frozen: FrozenItem[];
   decisions: DecisionLogEntry[];
+  /** Keyed by `${period}-${slotIndex}` — one entry per contested slot. */
+  slotAlternatives: Map<string, SlotAlternativeAccumulator>;
   optsFor: (relocated: boolean) => AdmitOptions;
+}
+
+/** Attaches a same-slot loser onto its slot's alternatives list, best-first
+ *  (candidates already arrive score-ordered from `runPeriodPass`'s sorted pool). */
+function recordSlotLoser(run: ResolveRun, period: Period, loserStep: PlannedStep): void {
+  const winner = run.admitted[period].find((a) => a.step.slotIndex === loserStep.slotIndex);
+  if (!winner) return; // defensive — slot_loser is only ever returned when a winner exists
+  const key = `${period}-${loserStep.slotIndex}`;
+  const entry = run.slotAlternatives.get(key) ?? {
+    winnerProductId: winner.step.productId,
+    period,
+    slotIndex: loserStep.slotIndex,
+    alternatives: [],
+  };
+  entry.alternatives.push(loserStep);
+  run.slotAlternatives.set(key, entry);
 }
 
 /**
@@ -497,6 +555,8 @@ function runPeriodPass(
     if (outcome.kind === 'admitted') {
       run.admitted[period].push({ step: outcome.step, facts: candidate.facts });
       run.decisions.push({ action: 'admit', productId: candidate.product.id, period });
+    } else if (outcome.kind === 'slot_loser') {
+      recordSlotLoser(run, period, outcome.step);
     } else if (outcome.kind === 'relocate') {
       run.decisions.push({
         action: 'relocate',
@@ -531,6 +591,10 @@ function retryRelocatedInAm(candidate: Candidate, run: ResolveRun): void {
     run.decisions.push({ action: 'admit', productId: candidate.product.id, period: 'am' });
     return;
   }
+  if (retry.kind === 'slot_loser') {
+    recordSlotLoser(run, 'am', retry.step);
+    return;
+  }
   const item =
     retry.kind === 'frozen'
       ? retry.item
@@ -553,6 +617,7 @@ export function resolvePeriods(input: ResolveInput): ResolveResult {
     admitted: { am: [], pm: [] },
     frozen: [],
     decisions: [],
+    slotAlternatives: new Map(),
     optsFor: (relocated) => ({ canRelocate: !relocated, pairRules, limits, adaptationLimits }),
   };
 
@@ -574,5 +639,11 @@ export function resolvePeriods(input: ResolveInput): ResolveResult {
     },
     frozen: run.frozen,
     decisions: run.decisions,
+    slotAlternatives: [...run.slotAlternatives.values()].map((entry) => ({
+      winnerProductId: entry.winnerProductId,
+      period: entry.period === 'am' ? 'morning' : 'evening',
+      slotIndex: entry.slotIndex,
+      alternatives: entry.alternatives,
+    })),
   };
 }

@@ -47,6 +47,20 @@ export interface PlaceholderSlot {
   severity: ConflictSeverity;
 }
 
+/**
+ * A layering slot where more than one eligible product competed for admission
+ * (routine-similar-product-priority, Story 2): `winnerProductId` is the one
+ * `resolvePeriods` admitted; `alternatives` are the same-slot losers, ranked
+ * best-first, recorded as full snapshots (tech design Assumption 1) so a
+ * one-tap swap never re-runs eligibility/frequency-cap math.
+ */
+export interface SlotAlternative {
+  winnerProductId: string;
+  period: 'morning' | 'evening';
+  slotIndex: number;
+  alternatives: PlannedStep[];
+}
+
 export type DecisionAction =
   | 'admit'
   | 'relocate'

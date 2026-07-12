@@ -4,6 +4,43 @@ import type { FrozenItem, PlannedStep } from '@/utils/routineEngine/planTypes';
 import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
 
 /**
+ * Story 2 (routine-similar-product-priority) one-tap swap over an
+ * uncommitted Draft Preview plan: replaces the admitted winner's step in its
+ * period with one of its recorded `slotAlternatives` entries. Pure array
+ * splice — the alternative was already a full `PlannedStep` snapshot recorded
+ * by `resolve.ts` at generation time (tech design Assumption 1), so this
+ * never re-runs eligibility/frequency-cap math. Returns `plan` unchanged if
+ * the winner/alternative pairing isn't found (defensive — should not happen
+ * given the sheet only offers recorded alternatives).
+ */
+export function applySlotAlternativeSwap(
+  plan: RoutinePlan,
+  winnerProductId: string,
+  chosenProductId: string,
+): RoutinePlan {
+  const entry = (plan.slotAlternatives ?? []).find(
+    (a) => a.winnerProductId === winnerProductId && a.alternatives.some((alt) => alt.productId === chosenProductId),
+  );
+  if (!entry) return plan;
+
+  const chosenStep = entry.alternatives.find((alt) => alt.productId === chosenProductId);
+  if (!chosenStep) return plan;
+
+  const periodKey = entry.period;
+  const steps = plan.periods[periodKey];
+  const winnerIndex = steps.findIndex((s) => s.productId === winnerProductId);
+  if (winnerIndex === -1) return plan;
+
+  const nextSteps = [...steps];
+  nextSteps[winnerIndex] = chosenStep;
+
+  return {
+    ...plan,
+    periods: { ...plan.periods, [periodKey]: nextSteps },
+  };
+}
+
+/**
  * Pure plan-application logic behind the Draft Preview save path (research
  * §3 "generate mode"). Converts a committed RoutinePlan period into the
  * routine's next steps array, honoring the two preservation rules:

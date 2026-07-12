@@ -21,6 +21,45 @@ export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
   other: 'Other',
 };
 
+/**
+ * Human-friendly, singular category name per layering slot (routine-similar-
+ * product-priority spec §5) — several productTypes share one slot
+ * (lotion/cream/moisturizer; serum/gel; oil/balm) and get one canonical label,
+ * distinct from the raw per-type PRODUCT_TYPE_LABELS above. `other` is exempt
+ * from duplicate-slot detection everywhere else; its label is never surfaced.
+ */
+export const SLOT_CATEGORY_LABELS: Record<ProductType, string> = {
+  makeup_remover: 'makeup remover',
+  cleanser: 'cleanser',
+  peeling: 'peeling',
+  toner: 'toner',
+  essence: 'essence',
+  ampoule: 'ampoule',
+  serum: 'serum',
+  gel: 'serum',
+  other: 'other',
+  spot_treatment: 'spot treatment',
+  eye_cream: 'eye cream',
+  mask: 'mask',
+  lotion: 'moisturizer',
+  cream: 'moisturizer',
+  moisturizer: 'moisturizer',
+  oil: 'oil',
+  balm: 'oil',
+  spf: 'SPF',
+};
+
+/** Singular human-readable slot/category name, e.g. "moisturizer", "SPF". */
+export function getSlotCategoryLabel(productType: ProductType): string {
+  return SLOT_CATEGORY_LABELS[productType] ?? PRODUCT_TYPE_LABELS[productType];
+}
+
+/** Naive pluralization ("moisturizer" -> "moisturizers", "SPF" -> "SPFs"). */
+export function getSlotCategoryLabelPlural(productType: ProductType): string {
+  const label = getSlotCategoryLabel(productType);
+  return label.endsWith('s') ? label : `${label}s`;
+}
+
 export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   // Canonical (actives.json classes)
   retinoid: 'Retinoids',

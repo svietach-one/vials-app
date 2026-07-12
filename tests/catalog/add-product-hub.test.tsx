@@ -321,3 +321,26 @@ describe('AC-20: Open Beauty Facts attribution shows for obf_import results', ()
     expect(screen.queryByText('Product data from Open Beauty Facts (ODbL)')).toBeNull();
   });
 });
+
+// ── AC-20: OBF attribution ────────────────────────────────────────────────────
+
+describe('AC-20: Open Beauty Facts attribution shows for obf_import results', () => {
+  it('should show the ODbL attribution line when a result is source=obf_import', async () => {
+    mockSearch.mockResolvedValue([OBF_RESULT]);
+    renderScreen();
+    fireEvent.changeText(screen.getByTestId('hub-search-input'), 'vitamin c');
+    act(() => jest.runAllTimers());
+    await waitFor(() => {
+      expect(screen.getByText('Product data from Open Beauty Facts (ODbL)')).toBeTruthy();
+    });
+  });
+
+  it('should NOT show the attribution line when no result is source=obf_import', async () => {
+    mockSearch.mockResolvedValue([CORPUS_RESULT]);
+    renderScreen();
+    fireEvent.changeText(screen.getByTestId('hub-search-input'), 'vitamin c');
+    act(() => jest.runAllTimers());
+    await waitFor(() => screen.getByText('Vitamin C Serum'));
+    expect(screen.queryByText('Product data from Open Beauty Facts (ODbL)')).toBeNull();
+  });
+});

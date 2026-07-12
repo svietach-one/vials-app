@@ -1,7 +1,7 @@
 import type { Product, RoutineStep } from '@/types';
 import type { RoutinePlan } from '@/utils/routineEngine/generate';
-import { buildDraftSummaryLines, buildStepsFromPlan } from '@/utils/routineEngine/planApply';
-import type { FrozenItem, PlannedStep } from '@/utils/routineEngine/planTypes';
+import { applySlotAlternativeSwap, buildDraftSummaryLines, buildStepsFromPlan } from '@/utils/routineEngine/planApply';
+import type { FrozenItem, PlannedStep, SlotAlternative } from '@/utils/routineEngine/planTypes';
 import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
 
 function makePlanned(productId: string, overrides: Partial<PlannedStep> = {}): PlannedStep {
@@ -188,5 +188,84 @@ describe('buildDraftSummaryLines', () => {
 
   it('returns no lines for a plan with nothing noteworthy', () => {
     expect(buildDraftSummaryLines(makePlan(), [], products)).toEqual([]);
+  });
+});
+
+// ─── applySlotAlternativeSwap (routine-similar-product-priority, FE-4) ───────
+
+function makeSlotAlternative(overrides: Partial<SlotAlternative> = {}): SlotAlternative {
+  return {
+    winnerProductId: 'winner',
+    period: 'morning',
+    slotIndex: 6,
+    alternatives: [makePlanned('alt-1')],
+    ...overrides,
+  };
+}
+
+function makeBasePlan(overrides: Partial<RoutinePlan> = {}): RoutinePlan {
+  return {
+    rulesetVersion: 'test',
+    generatedFor: '2026-07-11',
+    periods: {
+      morning: [makePlanned('winner', { slotIndex: 6 })],
+      evening: [],
+    },
+    frozen: [],
+    placeholders: [],
+    decisions: [],
+    slotAlternatives: [makeSlotAlternative()],
+    ...overrides,
+  };
+}
+
+describe('applySlotAlternativeSwap', () => {
+  it('replaces the winner with the chosen alternative at the same array position', () => {
+    const plan = makeBasePlan({
+      periods: {
+        morning: [makePlanned('before', { slotIndex: 0 }), makePlanned('winner', { slotIndex: 6 }), makePlanned('after', { slotIndex: 11 })],
+        evening: [],
+      },
+    });
+    const result = applySlotAlternativeSwap(plan, 'winner', 'alt-1');
+    expect(result.periods.morning.map((s) => s.productId)).toEqual(['before', 'alt-1', 'after']);
+  });
+
+  it('is a pure array splice — the chosen step is the exact recorded snapshot, not recomputed', () => {
+    const altStep = makePlanned('alt-1', { scheduledDays: [2, 6], score: 42, addedAt: '2026-05-01' });
+    const plan = makeBasePlan({
+      slotAlternatives: [makeSlotAlternative({ alternatives: [altStep] })],
+    });
+    const result = applySlotAlternativeSwap(plan, 'winner', 'alt-1');
+    expect(result.periods.morning[0]).toBe(altStep);
+  });
+
+  it('does not mutate the input plan', () => {
+    const plan = makeBasePlan();
+    const originalMorning = plan.periods.morning;
+    applySlotAlternativeSwap(plan, 'winner', 'alt-1');
+    expect(plan.periods.morning).toBe(originalMorning);
+    expect(plan.periods.morning[0].productId).toBe('winner');
+  });
+
+  it('swaps within the evening period when the alternative entry is scoped there', () => {
+    const plan = makeBasePlan({
+      periods: { morning: [], evening: [makePlanned('winner', { slotIndex: 6 })] },
+      slotAlternatives: [makeSlotAlternative({ period: 'evening' })],
+    });
+    const result = applySlotAlternativeSwap(plan, 'winner', 'alt-1');
+    expect(result.periods.evening.map((s) => s.productId)).toEqual(['alt-1']);
+    expect(result.periods.morning).toEqual([]);
+  });
+
+  it('returns the plan unchanged when the winner/alternative pairing is not found', () => {
+    const plan = makeBasePlan();
+    expect(applySlotAlternativeSwap(plan, 'nonexistent-winner', 'alt-1')).toBe(plan);
+    expect(applySlotAlternativeSwap(plan, 'winner', 'nonexistent-alt')).toBe(plan);
+  });
+
+  it('returns the plan unchanged when the winner is no longer present in its period', () => {
+    const plan = makeBasePlan({ periods: { morning: [], evening: [] } });
+    expect(applySlotAlternativeSwap(plan, 'winner', 'alt-1')).toBe(plan);
   });
 });
