@@ -5,6 +5,7 @@ import {
   deriveGroupedPhototype,
   migrateProductActiveKeys,
   migrateProducts,
+  migrateProductSource,
   migrateProfile,
   migrateRoutines,
 } from '@/utils/routineEngine/migrations';
@@ -223,21 +224,55 @@ describe('migrateProductActiveKeys', () => {
   });
 });
 
+// ─── migrateProductSource ─────────────────────────────────────────────────────
+
+describe('migrateProductSource', () => {
+  it('backfills user_local when the product has no OBF id', () => {
+    // Arrange
+    const product = makeProduct({ openBeautyFactsId: null });
+    // Act
+    const result = migrateProductSource(product);
+    // Assert
+    expect(result.source).toBe('user_local');
+  });
+
+  it('backfills obf_import when the product carries an OBF id', () => {
+    // Arrange
+    const product = makeProduct({ openBeautyFactsId: 'obf-123' });
+    // Act
+    const result = migrateProductSource(product);
+    // Assert
+    expect(result.source).toBe('obf_import');
+  });
+
+  it('returns the same reference when source is already set, even if it disagrees with the OBF id', () => {
+    // Arrange — a community-synced record must never be re-labelled.
+    const product = makeProduct({ source: 'community', openBeautyFactsId: 'obf-123' });
+    // Act
+    const result = migrateProductSource(product);
+    // Assert
+    expect(result).toBe(product);
+    expect(result.source).toBe('community');
+  });
+});
+
 // ─── migrateProducts ──────────────────────────────────────────────────────────
 
 describe('migrateProducts', () => {
-  it('migrates every product in the list', () => {
+  it('migrates every product in the list, including the source backfill', () => {
     const products = [
       makeProduct({ id: 'a', activeTags: ['retinol'] }),
-      makeProduct({ id: 'b', activeTags: ['vitamin_c'] }),
+      makeProduct({ id: 'b', activeTags: ['vitamin_c'], openBeautyFactsId: 'obf-9' }),
     ];
     const result = migrateProducts(products);
     expect(result[0].activeTags).toEqual(['retinoid']);
+    expect(result[0].source).toBe('user_local');
     expect(result[1].activeTags).toEqual(['vitamin_c_pure']);
+    expect(result[1].source).toBe('obf_import');
   });
 
   it('returns the same reference when no product changed', () => {
-    const products = [makeProduct({ activeTags: ['retinoid'] })];
+    const products = [makeProduct({ activeTags: ['retinoid'], source: 'user_local' })];
     expect(migrateProducts(products)).toBe(products);
   });
 });

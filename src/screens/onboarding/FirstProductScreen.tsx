@@ -70,6 +70,7 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
       notes: null,
       openedDate: null,
       paoMonths: null,
+      source: item.obfId ? 'obf_import' : 'user_local',
     };
     addProduct(product);
     completeOnboarding();

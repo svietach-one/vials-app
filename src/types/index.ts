@@ -180,6 +180,15 @@ export type ProductType =
   | 'spot_treatment'
   | 'other';
 
+/**
+ * Product provenance — mirrors the server (Turso) products.source enum
+ * (db-product-spec.md §4.1) so values round-trip on sync. Locally created
+ * records use 'user_local' (manual entry) or 'obf_import' (added from an
+ * Open Beauty Facts result); 'vials_seed' / 'community' arrive via the
+ * community-DB pull pipeline.
+ */
+export type ProductSource = 'vials_seed' | 'obf_import' | 'community' | 'user_local';
+
 export interface Product {
   id: string;
   name: string;
@@ -202,6 +211,14 @@ export interface Product {
   openedDate: string | null;
   /** Period-After-Opening in months. Combined with openedDate to compute expiry. */
   paoMonths: number | null;
+  /** EAN/UPC barcode scanned during add flow. Null when skipped or entered manually. */
+  barcode?: string | null;
+  /**
+   * Provenance split (OBF import vs manual entry vs community sync).
+   * Backfilled by migrateProducts for records persisted before this field:
+   * openBeautyFactsId set → 'obf_import', otherwise 'user_local'.
+   */
+  source?: ProductSource;
   /** Soft-hide flag. When true the product is excluded from routine step lists and rendered dimmed in the catalog. Absence is treated as false. */
   isHidden?: boolean;
   /**
@@ -341,6 +358,12 @@ export interface AppSettings {
   dismissedBanners: string[];
   /** Routine cadence model. Defaults to 'fixed'. */
   routineCycleType: RoutineCycleType;
+  /**
+   * Local, per-device count of community contributions (barcode scans /
+   * ingredient submissions). An encouragement signal only — no synced
+   * endpoint backs a global number in this scope.
+   */
+  communityContributionCount: number;
 }
 
 // ─── Catalog filters ──────────────────────────────────────────────────────────
@@ -367,3 +390,63 @@ export const CATALOG_FILTER_DEFAULT: CatalogFilterState = {
   selectedCategory: 'All',
   selectedBenefits: [],
 };
+
+// ─── Add Product wizard ───────────────────────────────────────────────────────
+
+/** Which capture flow the shared camera modal runs. */
+export type CaptureMode = 'label' | 'barcode' | 'inci';
+
+/** Draft state for the accordion Add Product screen. Never persisted as-is. */
+export interface AddProductDraft {
+  // Section 1 — brand, name, category
+  brand: string;
+  brandSource: 'ocr' | 'autocomplete' | 'typed' | null;
+  name: string;
+  nameSource: 'ocr' | 'typed' | null;
+  productType: ProductType | null;
+  productTypeSource: 'auto-detected' | 'manual' | null;
+
+  // Section 2 — barcode
+  barcode: string | null; // null = skipped, never blocks progress
+
+  // Section 3 — ingredients
+  inciRaw: string | null; // full raw text, present only if OCR/paste used
+  activeIngredientKeys: ActiveIngredientKey[]; // deduped
+  ingredientsSource: 'ocr' | 'checklist' | 'mixed';
+
+  // Section 4 — usage details. LOCAL ONLY. Never leaves the device.
+  isOpened: boolean;
+  openedDate: string | null; // ISO 8601, set only if isOpened
+  paoMonths: number | null;
+
+  // Meta
+  sectionStatus: {
+    brand: 'empty' | 'in-progress' | 'complete';
+    barcode: 'empty' | 'skipped' | 'complete';
+    ingredients: 'empty' | 'in-progress' | 'complete';
+    usage: 'empty' | 'complete';
+  };
+  expandedSection: 1 | 2 | 3 | 4 | null;
+}
+
+/** Data returned from the camera modal to the launching section. */
+export type CaptureResult =
+  | { mode: 'label'; rawText: string }
+  | { mode: 'barcode'; code: string }
+  | { mode: 'inci'; rawText: string };
+
+/**
+ * Background-suggest payload. Structurally distinct from Product —
+ * deliberately NOT an Omit<Product, ...> alias: this is the enforcement
+ * point that keeps local-only fields (openedDate, paoMonths) from ever
+ * leaking into a server payload, even if Product gains new personal
+ * fields later.
+ */
+export interface SuggestPayload {
+  brand: string;
+  name: string;
+  productType: ProductType;
+  barcode: string | null;
+  inciRaw: string | null;
+  status: 'pending';
+}

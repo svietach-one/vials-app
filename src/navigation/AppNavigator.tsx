@@ -26,6 +26,7 @@ import AddProductHubScreen from '@/screens/AddProductHubScreen';
 import ManualProductFormScreen from '@/screens/ManualProductFormScreen';
 import ProductDetailScreen from '@/screens/ProductDetailScreen';
 import BarcodeScannerScreen from '@/screens/BarcodeScannerScreen';
+import AddProductScreen from '@/screens/catalog/AddProductScreen';
 
 // ─── Param lists ──────────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ export type CatalogStackParamList = {
   };
   ProductDetail: { productId: string };
   BarcodeScanner: undefined;
+  AddProduct: undefined;
 };
 
 export type RootTabParamList = {
@@ -86,6 +88,7 @@ function CatalogNavigator() {
       <CatalogStack.Screen name="ManualProductForm" component={ManualProductFormScreen} />
       <CatalogStack.Screen name="ProductDetail" component={ProductDetailScreen} />
       <CatalogStack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
+      <CatalogStack.Screen name="AddProduct" component={AddProductScreen} />
     </CatalogStack.Navigator>
   );
 }
