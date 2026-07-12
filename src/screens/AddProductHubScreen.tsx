@@ -125,6 +125,11 @@ export default function AddProductHubScreen({ navigation }: Props) {
                     <Text style={styles.resultName} numberOfLines={1}>
                       {item.name}
                     </Text>
+                    {item.nameLacin ? (
+                      <Text style={styles.resultNameLacin} numberOfLines={1}>
+                        {item.nameLacin}
+                      </Text>
+                    ) : null}
                     {item.brand ? (
                       <Text style={styles.resultBrand} numberOfLines={1}>
                         {item.brand}
@@ -273,6 +278,10 @@ const styles = StyleSheet.create({
   resultBrand: {
     ...typography.bodySmall,
     color: colors.textSecondary,
+  },
+  resultNameLacin: {
+    ...typography.caption,
+    color: colors.textTertiary,
   },
   notFoundWrap: {
     gap: space[3],

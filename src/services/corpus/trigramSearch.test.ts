@@ -29,4 +29,10 @@ describe('toTrigramQuery', () => {
     const query = toTrigramQuery('aaa aaa');
     expect(query).toBe('"aaa"');
   });
+
+  it('decomposes Cyrillic input into overlapping 3-char grams', () => {
+    const query = toTrigramQuery('Кремобаза');
+    expect(query).toContain('"кре"');
+    expect(query).toContain('"баз"');
+  });
 });

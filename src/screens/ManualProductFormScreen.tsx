@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   SafeAreaView,
@@ -347,6 +348,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [isOpened, setIsOpened] = useState(false);
   const [openedDate, setOpenedDate] = useState(todayIso());
   const [showObfAttribution, setShowObfAttribution] = useState(false);
+  const [corpusProductUrl, setCorpusProductUrl] = useState<string | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -379,6 +381,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       setFullIngredientText(p.inciRaw ?? '');
       setObfId(p.source === 'obf_import' ? p.uid : null);
       setShowObfAttribution(p.source === 'obf_import');
+      setCorpusProductUrl(p.url);
       setProductType(resolveProductType(p.type));
 
       // Prefer the corpus's curated tags over a local re-parse of the INCI text.
@@ -521,6 +524,24 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
             </InlineAlert>
           ) : null}
 
+          {corpusProductUrl ? (
+            <InlineAlert
+              tone="info"
+              icon={<Feather name="external-link" size={16} color={colors.statusInfo} />}
+              action={
+                <Pressable
+                  onPress={() => Linking.openURL(corpusProductUrl)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open product page"
+                >
+                  <Text style={s.productLinkAction}>Open</Text>
+                </Pressable>
+              }
+            >
+              Product page available
+            </InlineAlert>
+          ) : null}
+
           {/* ── Block 1: Product Basics ──────────────────────────────── */}
           <Card variant="raised" padding="none" style={s.card}>
             <View style={s.cardContent}>
@@ -646,6 +667,11 @@ const BADGE_SIZE = 26;
 const s = StyleSheet.create({
   // Screen layout
   flex: { flex: 1 },
+  productLinkAction: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: colors.statusInfo,
+  },
   safe: {
     flex: 1,
     backgroundColor: colors.bgSubtle,

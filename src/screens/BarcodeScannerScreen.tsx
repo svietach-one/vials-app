@@ -74,6 +74,9 @@ function ScanResultCard({ scanState, corpusResult, onAdd, onAddManually, onScanA
       <View style={styles.resultCard}>
         <View style={styles.resultContent}>
           <Text style={styles.resultName} numberOfLines={2}>{corpusResult.name}</Text>
+          {corpusResult.nameLacin ? (
+            <Text style={styles.resultNameLacin} numberOfLines={1}>{corpusResult.nameLacin}</Text>
+          ) : null}
           {corpusResult.brand ? (
             <Text style={styles.resultBrand} numberOfLines={1}>{corpusResult.brand}</Text>
           ) : null}
@@ -325,6 +328,10 @@ const styles = StyleSheet.create({
   resultBrand: {
     ...typography.bodySmall,
     color: 'rgba(255,255,255,0.6)',
+  },
+  resultNameLacin: {
+    ...typography.caption,
+    color: 'rgba(255,255,255,0.45)',
   },
   attribution: {
     ...typography.caption,
