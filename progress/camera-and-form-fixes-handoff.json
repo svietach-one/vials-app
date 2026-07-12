@@ -1,0 +1,27 @@
+{
+  "taskSlug": "camera-and-form-fixes",
+  "status": "ACCEPTED",
+  "branch": "fix-camera-add-product",
+  "baseBranch": "main",
+  "lastAgent": "tech-lead",
+  "updatedAt": "2026-07-12",
+  "spec": "docs/specs/camera-and-form-fixes-consolidated.md",
+  "completedTasks": [
+    "step-0 capture split (barcode live modal / label+inci ImagePicker+Tesseract) + ocrTextCleaner restore + multi-shot inci",
+    "step-1 close-button bounds fix + 9s trouble hint",
+    "step-2 manual barcode entry (mod-10 validation, UPC-A→EAN-13, via onCapture)",
+    "step-3 shared Input labels + onClear + iOS lineHeight scroll fix + LabelLinePicker chips + Swap (thumbnail DEFERRED by user decision)",
+    "step-4 always-available manual actives + raw text expanded by default + CLEAR_INCI_RAW with ocrDerivedKeys provenance"
+  ],
+  "pendingTasks": [
+    "device-manual QA (see progress/camera-and-form-fixes.md checklist)",
+    "follow-up task: captured-photo thumbnail + tap-to-enlarge (deferred from spec step 3.4)",
+    "optional cleanup: remove dead APPLY_LABEL_OCR_RESULT reducer action + splitLabelText util (tech-lead WARNING, non-blocking)"
+  ],
+  "verification": {
+    "typecheck": "clean (re-verified by tech-lead review)",
+    "tests": "86 suites / 991 tests pass; 3 pre-existing failures identical on clean HEAD (catalog-screen, product-detail, PaoChip.integration — AsyncStorage mock)",
+    "techLeadVerdict": "ACCEPT (2026-07-12) — no blockers; one non-blocking WARNING for dead code (APPLY_LABEL_OCR_RESULT/splitLabelText unreferenced outside their own tests)"
+  },
+  "notes": "Spec review found one internal conflict (ocrTextCleaner vs label line chips), one false premise (Swap/thumbnail 'already speced'), and one contract violation (in-modal dispatch) — resolutions and user decisions logged in progress/camera-and-form-fixes.md before implementation. FULL session context for review/continuation: progress/camera-and-form-fixes-review-context.md. Tech-lead review was performed directly by the main session, not via subagent, after the first-spawned tech-lead subagent (id ab82234a64b3472c0) reported a suspected prompt-injection payload in its relayed messages across three resumes; that thread was abandoned and not resumed again — see the 2026-07-12 tech-lead review Log entry for details."
+}

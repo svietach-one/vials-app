@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Input } from '@/components/ui/forms/Input';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import { searchBrands } from '@/utils/productForm/brandLookup';
 
@@ -64,21 +65,30 @@ export function BrandAutocompleteInput({
     if (text !== value) onCommitTyped(text);
   }
 
+  function handleClear() {
+    setText('');
+    setSuggestions([]);
+    onCommitTyped('');
+  }
+
   const showDropdown = focused && suggestions.length > 0 && text.trim().length > 0;
 
   return (
     <View>
-      <TextInput
+      {/* Shared Input: persistent label + no lineHeight on the native field
+          (spreading typography.body's lineHeight onto a single-line iOS
+          TextInput breaks caret placement/scroll in long values). */}
+      <Input
+        label="Brand"
         value={text}
         onChangeText={handleChangeText}
         onFocus={() => setFocused(true)}
         onBlur={handleBlur}
         onSubmitEditing={() => onCommitTyped(text)}
-        placeholder="Brand"
-        placeholderTextColor={colors.textTertiary}
+        onClear={handleClear}
+        placeholder="e.g. La Roche-Posay"
         autoCapitalize="words"
         autoCorrect={false}
-        style={styles.input}
         accessibilityLabel="Brand"
       />
       {showDropdown ? (
@@ -102,16 +112,6 @@ export function BrandAutocompleteInput({
 }
 
 const styles = StyleSheet.create({
-  input: {
-    ...typography.body,
-    color: colors.textPrimary,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: radius.md,
-    paddingHorizontal: space[3],
-    paddingVertical: space[3],
-    backgroundColor: colors.surfaceRaised,
-  },
   dropdown: {
     marginTop: space[1],
     borderWidth: 1,

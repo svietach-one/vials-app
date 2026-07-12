@@ -186,6 +186,66 @@ describe('Section 3 — ingredients', () => {
     expect(draft.inciRaw).toBe('Aqua, Retinol');
     expect(draft.sectionStatus.ingredients).toBe('complete');
   });
+
+  it('records OCR-derived keys separately from checklist picks', () => {
+    const draft = apply(
+      initialDraft(),
+      { type: 'TOGGLE_ACTIVE_KEY', key: 'niacinamide' },
+      { type: 'APPLY_INCI_OCR_RESULT', rawText: 'Aqua, Retinol', matchedKeys: ['retinoid'] },
+    );
+
+    expect(draft.activeIngredientKeys).toEqual(['niacinamide', 'retinoid']);
+    expect(draft.ocrDerivedKeys).toEqual(['retinoid']);
+  });
+
+  it('clears raw text and OCR-derived keys but preserves manual checklist picks', () => {
+    const draft = apply(
+      initialDraft(),
+      { type: 'TOGGLE_ACTIVE_KEY', key: 'niacinamide' },
+      { type: 'APPLY_INCI_OCR_RESULT', rawText: 'Aqua, Retinol', matchedKeys: ['retinoid'] },
+      { type: 'CLEAR_INCI_RAW' },
+    );
+
+    expect(draft.inciRaw).toBeNull();
+    expect(draft.activeIngredientKeys).toEqual(['niacinamide']);
+    expect(draft.ocrDerivedKeys).toEqual([]);
+    expect(draft.ingredientsSource).toBe('checklist');
+    expect(draft.sectionStatus.ingredients).toBe('complete');
+  });
+
+  it('returns ingredients section to empty when clearing raw text with no manual picks', () => {
+    const draft = apply(
+      initialDraft(),
+      { type: 'APPLY_INCI_OCR_RESULT', rawText: 'Aqua, Retinol', matchedKeys: ['retinoid'] },
+      { type: 'CLEAR_INCI_RAW' },
+    );
+
+    expect(draft.activeIngredientKeys).toEqual([]);
+    expect(draft.sectionStatus.ingredients).toBe('empty');
+  });
+
+  it('treats a key toggled off and back on as a manual pick that survives raw-text clearing', () => {
+    const draft = apply(
+      initialDraft(),
+      { type: 'APPLY_INCI_OCR_RESULT', rawText: 'Aqua, Retinol, Glycolic Acid', matchedKeys: ['retinoid', 'aha'] },
+      { type: 'TOGGLE_ACTIVE_KEY', key: 'retinoid' }, // deliberate manual removal
+      { type: 'TOGGLE_ACTIVE_KEY', key: 'retinoid' }, // deliberate manual re-add
+      { type: 'CLEAR_INCI_RAW' },
+    );
+
+    expect(draft.activeIngredientKeys).toEqual(['retinoid']);
+    expect(draft.ocrDerivedKeys).toEqual([]);
+  });
+
+  it('prunes a hand-removed detected chip from the OCR-derived set', () => {
+    const draft = apply(
+      initialDraft(),
+      { type: 'APPLY_INCI_OCR_RESULT', rawText: 'Aqua, Retinol', matchedKeys: ['retinoid'] },
+      { type: 'REMOVE_DETECTED_ACTIVE', key: 'retinoid' },
+    );
+
+    expect(draft.ocrDerivedKeys).toEqual([]);
+  });
 });
 
 describe('Section 4 — usage', () => {
