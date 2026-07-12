@@ -146,7 +146,7 @@ export default function AddProductHubScreen({ navigation }: Props) {
             </Text>
             <Pressable
               style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
-              onPress={() => navigation.navigate('ManualProductForm', {})}
+              onPress={() => navigation.navigate('AddProduct')}
               accessibilityRole="button"
               accessibilityLabel="Create product manually"
             >
@@ -192,7 +192,7 @@ export default function AddProductHubScreen({ navigation }: Props) {
             styles.actionRow,
             pressed && styles.actionRowPressed,
           ]}
-          onPress={() => navigation.navigate('ManualProductForm', {})}
+          onPress={() => navigation.navigate('AddProduct')}
           accessibilityRole="button"
           accessibilityLabel="Create product manually"
         >

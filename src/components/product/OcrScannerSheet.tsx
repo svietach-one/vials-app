@@ -8,74 +8,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import WebView from 'react-native-webview';
-import type { WebViewMessageEvent } from 'react-native-webview';
 import * as ImagePicker from 'expo-image-picker';
+import { OcrEngineWebView } from '@/components/camera/OcrEngineWebView';
+import type { OcrEngineHandle } from '@/components/camera/OcrEngineWebView';
 import { ocrTextCleaner } from '@/utils/ocrTextCleaner';
 import { colors, radius, space, typography } from '@/constants/tokens';
-
-// ─── Tesseract WebView HTML ───────────────────────────────────────────────────
-//
-// Inline document strategy:
-//   1. Loads tesseract.js from CDN; signals OCR_ERROR if the CDN is unreachable.
-//   2. Creates a persistent worker immediately so training data downloads
-//      while the user is interacting with the image picker.
-//   3. Exposes processImage(base64) called via injectJavaScript from RN.
-//   4. Posts typed messages back via window.ReactNativeWebView.postMessage.
-//
-const TESSERACT_HTML = `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /></head>
-<body>
-<script>
-  var workerPromise = null;
-
-  function postMsg(obj) {
-    if (window.ReactNativeWebView) {
-      window.ReactNativeWebView.postMessage(JSON.stringify(obj));
-    }
-  }
-
-  function loadTesseract() {
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    s.onload = function () {
-      workerPromise = Tesseract.createWorker('eng', 1, { logger: function () {} });
-      workerPromise
-        .then(function () { postMsg({ type: 'WORKER_READY' }); })
-        .catch(function (e) { postMsg({ type: 'OCR_ERROR', message: String(e) }); });
-    };
-    s.onerror = function () {
-      postMsg({ type: 'OCR_ERROR', message: 'Could not load OCR engine. Check your internet connection.' });
-    };
-    document.head.appendChild(s);
-  }
-
-  function processImage(base64) {
-    if (!workerPromise) {
-      postMsg({ type: 'OCR_ERROR', message: 'OCR engine is still loading — please try again in a moment.' });
-      return;
-    }
-    var dataUrl = 'data:image/jpeg;base64,' + base64;
-    workerPromise
-      .then(function (worker) { return worker.recognize(dataUrl); })
-      .then(function (result) {
-        // Word-level bounding boxes tesseract.js already computes internally.
-        // Captured here for a future highlighting overlay (FE-11 Story 2,
-        // currently BLOCKED on a storage-policy decision) — not persisted or
-        // consumed by any UI yet; purely additive to the message payload.
-        var words = (result.data.words || []).map(function (w) {
-          return { text: w.text, x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1 };
-        });
-        postMsg({ type: 'OCR_RESULT', text: result.data.text, words: words });
-      })
-      .catch(function (e) { postMsg({ type: 'OCR_ERROR', message: String(e) }); });
-  }
-
-  loadTesseract();
-</script>
-</body>
-</html>`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -86,50 +23,20 @@ export interface OcrScannerSheetProps {
   onResult: (text: string) => void;
 }
 
-/** Word-level OCR bounding box, in the source image's pixel coordinates. */
-interface OcrWord {
-  text: string;
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
-}
-
-interface WebViewMsg {
-  type: 'WORKER_READY' | 'OCR_RESULT' | 'OCR_ERROR';
-  text?: string;
-  message?: string;
-  /**
-   * Captured for a future label-photo highlighting overlay (FE-11 Story 2,
-   * BLOCKED pending a storage-policy decision — see
-   * docs/specs/inci-attribution-highlighting.md). Not persisted or consumed
-   * anywhere yet; reading it here is purely additive and must never change
-   * the existing text-only OCR flow's behavior.
-   */
-  words?: OcrWord[];
-}
-
 const SCAN_TIMEOUT_MS = 10_000;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetProps) {
   // `loading` drives the full-screen overlay. Set to true the instant the
-  // user hands us an image — before any WebView work starts.
+  // user hands us an image — before any OCR work starts.
   const [loading, setLoading] = useState(false);
 
-  const webviewRef = useRef<WebView>(null);
-  // Holds a base64 string when the image arrives before the worker is ready.
-  const pendingBase64 = useRef<string | null>(null);
+  // The shared Tesseract engine (hidden WebView) buffers images internally
+  // until its worker is ready, so this sheet only ever calls processImage.
+  const engineRef = useRef<OcrEngineHandle>(null);
   // Fail-safe: if loading stays true for >10s we auto-reset and surface an error.
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // useRef instead of useState — alert callbacks close over this ref and always
-  // read the current value. With useState the alert's captured closure would see
-  // the stale workerReady=false even if WORKER_READY fired while the picker was open,
-  // causing the pending image to sit in pendingBase64 forever (WORKER_READY won't
-  // fire a second time).
-  const workerReadyRef = useRef(false);
 
   // ── Timeout helpers ────────────────────────────────────────────────────────
 
@@ -160,10 +67,9 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
     if (!visible) {
       clearScanTimeout();
       setLoading(false);
-      // workerReadyRef intentionally NOT reset: the WebView is NOT unmounted when
-      // visible toggles, so the Tesseract worker is still alive. Resetting it would
-      // cause pendingBase64 to accumulate on the next open with no way to flush it.
-      pendingBase64.current = null;
+      // The engine's worker readiness survives visibility toggles (the WebView
+      // is NOT unmounted); only a queued image must be dropped.
+      engineRef.current?.clearPending();
       return;
     }
 
@@ -241,74 +147,29 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
       return;
     }
 
-    // ▶ Show the loading overlay IMMEDIATELY, before any WebView work.
+    // ▶ Show the loading overlay IMMEDIATELY, before any OCR work.
     setLoading(true);
     startScanTimeout();
-
-    // Read from ref, not state — this function may have been captured in an Alert
-    // callback before workerReady changed, so a state variable would be stale here.
-    if (workerReadyRef.current) {
-      injectImage(base64);
-    } else {
-      pendingBase64.current = base64;
-    }
+    engineRef.current?.processImage(base64);
   }
 
-  function injectImage(base64: string) {
-    webviewRef.current?.injectJavaScript(`processImage(${JSON.stringify(base64)}); true;`);
-  }
-
-  function handleWebViewMessage(event: WebViewMessageEvent) {
-    const raw = event.nativeEvent.data;
-
-    let msg: WebViewMsg;
-    try {
-      msg = JSON.parse(raw) as WebViewMsg;
-    } catch (err) {
+  function handleOcrText(rawText: string) {
+    clearScanTimeout();
+    const { cleanedText, hadNonLatin } = ocrTextCleaner(rawText);
+    if (!cleanedText.trim()) {
       showOcrError();
       return;
     }
-
-
-    if (msg.type === 'WORKER_READY') {
-      workerReadyRef.current = true;
-      if (pendingBase64.current) {
-        injectImage(pendingBase64.current);
-        pendingBase64.current = null;
-      } else {
-      }
-      return;
+    setLoading(false);
+    if (hadNonLatin) {
+      Alert.alert(
+        'Some Characters Removed',
+        'Many non-Latin characters were stripped from the scan. Check the ingredient list looks correct.',
+        [{ text: 'OK', onPress: () => onResult(cleanedText) }],
+      );
+    } else {
+      onResult(cleanedText);
     }
-
-    if (msg.type === 'OCR_RESULT') {
-      clearScanTimeout();
-      const { cleanedText, hadNonLatin } = ocrTextCleaner(msg.text ?? '');
-      if (!cleanedText.trim()) {
-        showOcrError();
-        return;
-      }
-      setLoading(false);
-      if (hadNonLatin) {
-        Alert.alert(
-          'Some Characters Removed',
-          'Many non-Latin characters were stripped from the scan. Check the ingredient list looks correct.',
-          [{ text: 'OK', onPress: () => onResult(cleanedText) }],
-        );
-      } else {
-        onResult(cleanedText);
-      }
-      return;
-    }
-
-    // OCR_ERROR or any unrecognised message type
-    showOcrError();
-  }
-
-  function handleWebViewError() {
-    // Always surface the error — showOcrError is idempotent (no-ops if not loading).
-    // Guarding on `loading` here would capture a stale closure value and silently
-    // skip the error dialog if the WebView crashes after a timeout already reset state.
-    showOcrError();
   }
 
   function showOcrError() {
@@ -324,35 +185,29 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
   function handleCancelPress() {
     clearScanTimeout();
     setLoading(false);
-    pendingBase64.current = null;
+    engineRef.current?.clearPending();
     onClose();
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  // The WebView is ALWAYS kept mounted while `visible` is true — it must never
-  // be placed inside the loading Modal or it would unmount/remount on each
-  // toggle, destroying the Tesseract worker and forcing a fresh CDN download.
+  // The engine WebView is ALWAYS kept mounted while `visible` is true — it
+  // must never be placed inside the loading Modal or it would unmount/remount
+  // on each toggle, destroying the Tesseract worker and forcing a fresh CDN
+  // download.
   if (!visible) return null;
 
   return (
     <>
-      {/*
-        Hidden WebView: positioned far off-screen with explicit non-zero size.
-        Using `display: none` or zero dimensions would stop JS execution on
-        some platforms, so we keep it rendered but invisible and non-interactive.
-      */}
-      <View style={styles.hiddenWebView}>
-        <WebView
-          ref={webviewRef}
-          source={{ html: TESSERACT_HTML }}
-          onMessage={handleWebViewMessage}
-          onError={handleWebViewError}
-          javaScriptEnabled
-          domStorageEnabled
-          originWhitelist={['*']}
-        />
-      </View>
+      <OcrEngineWebView
+        ref={engineRef}
+        onResult={handleOcrText}
+        // Always surface the error — showOcrError is idempotent (no-ops if not
+        // loading). Guarding on `loading` here would capture a stale closure
+        // value and silently skip the error dialog if the WebView crashes after
+        // a timeout already reset state.
+        onError={showOcrError}
+      />
 
       {/*
         Loading overlay Modal.
@@ -360,7 +215,7 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
         status bar when the parent sheet already occupies the full screen.
         `visible` is driven by the `loading` boolean — set synchronously in
         handlePickedImage before any async work, so it renders before the
-        WebView ever touches the image.
+        engine ever touches the image.
       */}
       <Modal
         visible={loading}
@@ -391,18 +246,6 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  // Off-screen but with real dimensions: WKWebView (iOS) silently stops
-  // executing JavaScript when width/height approach zero. 100×100 is the
-  // minimum safe size confirmed to keep the JS engine running.
-  // pointerEvents omitted — the view is already unreachable at (-2000, -2000).
-  hiddenWebView: {
-    position: 'absolute',
-    top: -2000,
-    left: -2000,
-    width: 100,
-    height: 100,
-    opacity: 0,
-  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(9, 9, 11, 0.6)',

@@ -227,7 +227,7 @@ export default function BarcodeScannerScreen({ navigation }: Props) {
         }}
         onAddManually={() => {
           setObfResult(null);
-          navigation.navigate('ManualProductForm', {});
+          navigation.navigate('AddProduct');
         }}
         onScanAgain={resetScanner}
       />

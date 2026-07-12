@@ -46,6 +46,9 @@ export function makeProduct(overrides: Partial<Product> = {}): Product {
     notes: null,
     openedDate: null,
     paoMonths: null,
+    // Post-migration products always carry a source; same-reference
+    // assertions rely on the backfill being a no-op for these fixtures.
+    source: 'user_local',
     ...overrides,
   };
 }

@@ -16,6 +16,8 @@ interface SettingsState extends AppSettings {
   markLocalDataWarningSeen: () => void;
   dismissBanner: (key: string) => void;
   setRoutineCycleType: (type: RoutineCycleType) => void;
+  /** Bumps the local per-device community contribution counter. */
+  incrementCommunityContribution: () => void;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -23,6 +25,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   hasSeenLocalDataWarning: false,
   dismissedBanners: [],
   routineCycleType: 'fixed',
+  communityContributionCount: 0,
 };
 
 function pickSettings(s: SettingsState): AppSettings {
@@ -31,6 +34,7 @@ function pickSettings(s: SettingsState): AppSettings {
     hasSeenLocalDataWarning: s.hasSeenLocalDataWarning,
     dismissedBanners: s.dismissedBanners,
     routineCycleType: s.routineCycleType,
+    communityContributionCount: s.communityContributionCount,
   };
 }
 
@@ -70,5 +74,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setRoutineCycleType: (type) => {
     set({ routineCycleType: type });
     void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), routineCycleType: type }));
+  },
+
+  incrementCommunityContribution: () => {
+    const next = get().communityContributionCount + 1;
+    set({ communityContributionCount: next });
+    void saveJson(
+      STORAGE_KEYS.settings,
+      pickSettings({ ...get(), communityContributionCount: next }),
+    );
   },
 }));
