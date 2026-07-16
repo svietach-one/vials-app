@@ -8,6 +8,7 @@ export type FormAction =
   | { type: 'SET_BARCODE'; value: string }
   | { type: 'SKIP_BARCODE' }
   | { type: 'APPLY_INCI_OCR_RESULT'; rawText: string; matchedKeys: ActiveIngredientKey[] }
+  | { type: 'CLEAR_INCI_RAW' }
   | { type: 'TOGGLE_ACTIVE_KEY'; key: ActiveIngredientKey }
   | { type: 'REMOVE_DETECTED_ACTIVE'; key: ActiveIngredientKey }
   | { type: 'SET_OPENED'; isOpened: boolean; date?: string }
@@ -70,6 +71,7 @@ export function initialDraft(): AddProductDraft {
     inciRaw: null,
     activeIngredientKeys: [],
     ingredientsSource: 'checklist',
+    ocrDerivedKeys: [],
     isOpened: false,
     openedDate: null,
     paoMonths: null,
@@ -134,20 +136,47 @@ export function formReducer(state: AddProductDraft, action: FormAction): AddProd
       for (const key of action.matchedKeys) {
         if (!merged.includes(key)) merged.push(key);
       }
+      const ocrDerived = [...state.ocrDerivedKeys];
+      for (const key of action.matchedKeys) {
+        if (!ocrDerived.includes(key)) ocrDerived.push(key);
+      }
       return withIngredientsStatus({
         ...state,
         inciRaw: action.rawText,
         activeIngredientKeys: merged,
         ingredientsSource: hadChecklistKeys ? 'mixed' : 'ocr',
+        ocrDerivedKeys: ocrDerived,
       });
     }
 
-    case 'TOGGLE_ACTIVE_KEY':
+    case 'CLEAR_INCI_RAW': {
+      // Drops the raw text and exactly the keys OCR/paste contributed;
+      // manual checklist picks survive.
+      const manualKeys = state.activeIngredientKeys.filter(
+        (k) => !state.ocrDerivedKeys.includes(k),
+      );
       return withIngredientsStatus({
         ...state,
-        activeIngredientKeys: toggleKey(state.activeIngredientKeys, action.key),
-        ingredientsSource: state.inciRaw !== null ? 'mixed' : 'checklist',
+        inciRaw: null,
+        activeIngredientKeys: manualKeys,
+        ingredientsSource: 'checklist',
+        ocrDerivedKeys: [],
       });
+    }
+
+    case 'TOGGLE_ACTIVE_KEY': {
+      const nextKeys = toggleKey(state.activeIngredientKeys, action.key);
+      return withIngredientsStatus({
+        ...state,
+        activeIngredientKeys: nextKeys,
+        ingredientsSource: state.inciRaw !== null ? 'mixed' : 'checklist',
+        // Toggling a key OFF makes it a deliberate manual removal — it must
+        // not come back if the raw text is cleared later.
+        ocrDerivedKeys: nextKeys.includes(action.key)
+          ? state.ocrDerivedKeys
+          : state.ocrDerivedKeys.filter((k) => k !== action.key),
+      });
+    }
 
     case 'REMOVE_DETECTED_ACTIVE':
       // Never clears inciRaw: keeping the raw text with zero confirmed
@@ -155,6 +184,7 @@ export function formReducer(state: AddProductDraft, action: FormAction): AddProd
       return withIngredientsStatus({
         ...state,
         activeIngredientKeys: state.activeIngredientKeys.filter((k) => k !== action.key),
+        ocrDerivedKeys: state.ocrDerivedKeys.filter((k) => k !== action.key),
       });
 
     case 'SET_OPENED': {

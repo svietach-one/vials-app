@@ -49,4 +49,30 @@ describe('detectCategory', () => {
     // 'serum' pattern precedes 'spf' in CATEGORY_PATTERNS.
     expect(detectCategory('Sunscreen Serum SPF 30')).toBe('serum');
   });
+
+  it('detects French category terms', () => {
+    expect(detectCategory('Sérum Éclat')).toBe('serum');
+    expect(detectCategory('Crème Hydratante Visage')).toBe('moisturizer');
+    expect(detectCategory('Gel Nettoyant Doux')).toBe('cleanser');
+    expect(detectCategory('Eau Tonique Apaisante')).toBe('toner');
+    expect(detectCategory('Écran Solaire Invisible')).toBe('spf');
+    expect(detectCategory('Masque Purifiant')).toBe('mask');
+    expect(detectCategory('Huile Démaquillante')).toBe('cleanser');
+    expect(detectCategory('Gommage Corps')).toBe('peeling');
+  });
+
+  it('detects Polish category terms', () => {
+    expect(detectCategory('Krem na dzień')).toBe('moisturizer');
+    expect(detectCategory('Balsam nawilżający do ciała')).toBe('moisturizer');
+    expect(detectCategory('Żel myjący do twarzy')).toBe('cleanser');
+    expect(detectCategory('Tonik łagodzący')).toBe('toner');
+    expect(detectCategory('Emulsja przeciwsłoneczna SPF 50')).toBe('spf');
+    expect(detectCategory('Maska glinkowa')).toBe('mask');
+    expect(detectCategory('Olejek do demakijażu')).toBe('oil');
+    expect(detectCategory('Płatki złuszczające')).toBe('peeling');
+  });
+
+  it('matches Polish diacritics case-insensitively', () => {
+    expect(detectCategory('KREM NAWILŻAJĄCY')).toBe('moisturizer');
+  });
 });

@@ -413,6 +413,12 @@ export interface AddProductDraft {
   inciRaw: string | null; // full raw text, present only if OCR/paste used
   activeIngredientKeys: ActiveIngredientKey[]; // deduped
   ingredientsSource: 'ocr' | 'checklist' | 'mixed';
+  /**
+   * Subset of activeIngredientKeys that came from OCR/paste parsing, so
+   * clearing the raw text removes exactly these and preserves manual
+   * checklist picks. Pruned when the user removes a key by hand.
+   */
+  ocrDerivedKeys: ActiveIngredientKey[];
 
   // Section 4 — usage details. LOCAL ONLY. Never leaves the device.
   isOpened: boolean;
@@ -433,7 +439,8 @@ export interface AddProductDraft {
 export type CaptureResult =
   | { mode: 'label'; rawText: string }
   | { mode: 'barcode'; code: string }
-  | { mode: 'inci'; rawText: string };
+  /** hadNonLatin: ocrTextCleaner stripped a significant non-Latin share. */
+  | { mode: 'inci'; rawText: string; hadNonLatin: boolean };
 
 /**
  * Background-suggest payload. Structurally distinct from Product —

@@ -1,4 +1,26 @@
-import { splitLabelText } from './ocrNormalizer';
+import { splitLabelLines, splitLabelText } from './ocrNormalizer';
+
+describe('splitLabelLines', () => {
+  it('keeps each detected line separate for the chip pool', () => {
+    const lines = splitLabelLines('BIODERMA\nLaboratoire Dermatologique\nHydrabio\nH2O');
+
+    expect(lines).toEqual(['BIODERMA', 'Laboratoire Dermatologique', 'Hydrabio', 'H2O']);
+  });
+
+  it('drops empty lines and normalises in-line whitespace', () => {
+    const lines = splitLabelLines('La   Roche-Posay®\n\n  Effaclar™  Duo(+)  \n');
+
+    expect(lines).toEqual(['La Roche-Posay', 'Effaclar Duo(+)']);
+  });
+
+  it('preserves accented Latin characters common in brand names', () => {
+    expect(splitLabelLines('Avène\nEau Thermale')).toEqual(['Avène', 'Eau Thermale']);
+  });
+
+  it('returns an empty array for whitespace-only input', () => {
+    expect(splitLabelLines('  \n \n')).toEqual([]);
+  });
+});
 
 describe('splitLabelText', () => {
   it('uses the first line as brand and remaining lines as name', () => {

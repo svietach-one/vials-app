@@ -24,8 +24,9 @@ export interface IngredientsSectionProps {
 /**
  * Section 3 — actives via INCI OCR, pasted text, or the manual checklist.
  * Optional by design: zero checked/detected actives is a valid final state.
- * The INCI camera is reachable ONLY through InciScanNotice ("Got it, scan
- * now") — never launch CameraCaptureModal mode="inci" from anywhere else.
+ * A FIRST scan is reachable ONLY through InciScanNotice ("Got it, scan
+ * now"); the multi-shot "Add another shot" re-scan intentionally skips the
+ * notice — it's the same scanning process for the same product.
  */
 export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps) {
   const [noticeVisible, setNoticeVisible] = useState(false);
@@ -34,10 +35,19 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
   const [pasteText, setPasteText] = useState('');
   const [rawExpanded, setRawExpanded] = useState(false);
   const [rawText, setRawText] = useState(draft.inciRaw ?? '');
+  // Whether the open camera is an additive re-shoot (long ingredient lists).
+  const [isReshoot, setIsReshoot] = useState(false);
+  // Manual checklist stays reachable after any OCR result (even garbled
+  // text with zero matches) — and never hides the raw text.
+  const [showChecklist, setShowChecklist] = useState(false);
+  const [stripNote, setStripNote] = useState(false);
 
-  // Keep the editable raw block in sync when OCR/paste replaces the text.
+  // Keep the editable raw block in sync when OCR/paste replaces the text,
+  // and surface a fresh result expanded — the user must immediately see
+  // what was actually scanned.
   useEffect(() => {
     setRawText(draft.inciRaw ?? '');
+    if (draft.inciRaw !== null) setRawExpanded(true);
   }, [draft.inciRaw]);
 
   function applyInciText(text: string) {
@@ -46,6 +56,24 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
       rawText: text,
       matchedKeys: parseInciText(text),
     });
+  }
+
+  function handleInciCapture(capturedText: string, hadNonLatin: boolean) {
+    setCameraVisible(false);
+    setStripNote(hadNonLatin);
+    if (isReshoot && draft.inciRaw !== null) {
+      // Multi-shot: concatenate onto the existing text — parseInciText
+      // already splits the whole string on commas, so no parser changes.
+      applyInciText(`${draft.inciRaw}, ${capturedText}`);
+    } else {
+      applyInciText(capturedText);
+    }
+    setIsReshoot(false);
+  }
+
+  function handleClearRaw() {
+    setStripNote(false);
+    dispatch({ type: 'CLEAR_INCI_RAW' });
   }
 
   const conflictHits = findIntraProductConflicts(draft.activeIngredientKeys);
@@ -80,19 +108,29 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
             </Text>
           )}
 
-          <Pressable
-            style={styles.rawToggle}
-            onPress={() => setRawExpanded((v) => !v)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: rawExpanded }}
-          >
-            <Feather
-              name={rawExpanded ? 'chevron-down' : 'chevron-right'}
-              size={16}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.rawToggleLabel}>Full INCI text (raw)</Text>
-          </Pressable>
+          <View style={styles.rawHeader}>
+            <Pressable
+              style={styles.rawToggle}
+              onPress={() => setRawExpanded((v) => !v)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: rawExpanded }}
+            >
+              <Feather
+                name={rawExpanded ? 'chevron-down' : 'chevron-right'}
+                size={16}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.rawToggleLabel}>Full INCI text (raw)</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleClearRaw}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Clear INCI text"
+            >
+              <Feather name="x-circle" size={16} color={colors.textTertiary} />
+            </Pressable>
+          </View>
 
           {rawExpanded ? (
             <TextInput
@@ -106,6 +144,41 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
               multiline
               style={styles.rawInput}
               accessibilityLabel="Full INCI text"
+            />
+          ) : null}
+
+          {stripNote ? (
+            <Text style={styles.stripNote}>
+              Some non-Latin characters were removed — check the list looks right.
+            </Text>
+          ) : null}
+
+          <Pressable
+            onPress={() => {
+              setIsReshoot(true);
+              setCameraVisible(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Add another shot"
+          >
+            <Text style={styles.pasteLink}>Text didn&apos;t fit? Add another shot.</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setShowChecklist((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel="Choose actives manually"
+            accessibilityState={{ expanded: showChecklist }}
+          >
+            <Text style={styles.pasteLink}>
+              {showChecklist ? 'Hide manual checklist' : 'Choose actives manually'}
+            </Text>
+          </Pressable>
+
+          {showChecklist ? (
+            <ActivesChecklist
+              selectedKeys={draft.activeIngredientKeys}
+              onToggle={(key) => dispatch({ type: 'TOGGLE_ACTIVE_KEY', key })}
             />
           ) : null}
         </>
@@ -157,10 +230,12 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
       <CameraCaptureModal
         mode="inci"
         visible={cameraVisible}
-        onClose={() => setCameraVisible(false)}
-        onCapture={(result) => {
+        onClose={() => {
           setCameraVisible(false);
-          if (result.mode === 'inci') applyInciText(result.rawText);
+          setIsReshoot(false);
+        }}
+        onCapture={(result) => {
+          if (result.mode === 'inci') handleInciCapture(result.rawText, result.hadNonLatin);
         }}
       />
 
@@ -231,10 +306,19 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textSecondary,
   },
+  rawHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   rawToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[1],
+  },
+  stripNote: {
+    ...typography.caption,
+    color: palette.amber,
   },
   rawToggleLabel: {
     ...typography.bodySmall,

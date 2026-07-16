@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import {
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -8,6 +9,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
 import { colors, radius, space, typography } from '@/constants/tokens';
 
@@ -24,6 +26,11 @@ export interface InputProps extends Omit<TextInputProps, 'style'> {
   helper?: string | null;
   /** Error message shown below; overrides helper and turns the border red. */
   error?: string | null;
+  /**
+   * Trailing clear (×) button. Rendered only while the field holds a
+   * non-empty value; pressing it must clear ONLY this field.
+   */
+  onClear?: () => void;
   disabled?: boolean;
   /** Wraps the whole label + field + helper block. */
   containerStyle?: StyleProp<ViewStyle>;
@@ -37,6 +44,7 @@ export function Input({
   suffix,
   helper,
   error,
+  onClear,
   disabled = false,
   containerStyle,
   onFocus,
@@ -76,6 +84,18 @@ export function Input({
         />
 
         {suffix ? <Text style={styles.suffix}>{suffix}</Text> : null}
+
+        {onClear && typeof rest.value === 'string' && rest.value.length > 0 ? (
+          <Pressable
+            onPress={onClear}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={label ? `Clear ${label}` : 'Clear field'}
+            style={styles.clearBtn}
+          >
+            <Feather name="x-circle" size={18} color={colors.textTertiary} />
+          </Pressable>
+        ) : null}
       </View>
 
       {(error || helper) ? (
@@ -138,6 +158,12 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans-Regular',
     fontSize: 14,
     color: colors.textTertiary,
+  },
+
+  clearBtn: {
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   helper: { ...typography.bodySmall, color: colors.textSecondary },
