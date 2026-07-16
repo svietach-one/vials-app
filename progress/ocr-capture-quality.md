@@ -1,4 +1,4 @@
-Status: IMPLEMENTED
+Status: PR_REVIEW
 Tech Design: — (user-directed direct implementation; approach agreed in-session from docs/specs/ocr-brand-dictionary-reference.md §6.1 research)
 Code: feature/ocr-capture-quality
 
@@ -7,7 +7,7 @@ Code: feature/ocr-capture-quality
 - [ ] Technical design (planner) — N/A, scope small enough per user direction
 - [ ] QA tests (qa-lead) — N/A; behavior covered by engineer unit tests + existing regression suites
 - [x] Implementation (engineer)
-- [ ] Architecture review (tech-lead)
+- [x] Architecture review (tech-lead)
 
 ## Scope
 1. Drop the system crop step (`allowsEditing`) from both OCR photo flows —
@@ -51,3 +51,28 @@ OcrScannerSheet quality aligned 0.5 → 0.85 (CameraCaptureModal already noted
   3 failed suites (PaoChip.integration, catalog-screen, product-detail) —
   verified pre-existing on clean dev via stash, unrelated (date-sensitive).
   All 18 OCR/add-product-related suites green (186 tests).
+- 2026-07-16 tech-lead review (Tony): ACCEPT. Fidelity vs Scope/Log confirmed
+  (full-frame capture, downscale cap correctly shipped at 2400px per the Log's
+  documented device-QA justification — Scope bullet text still says ≤1600px,
+  cosmetic doc-drift only, no functional gap), noise filter applied once at
+  the shared OcrEngineWebView layer for both hosts (no duplication). Verified
+  independently, not just trusted: `npx tsc --noEmit` clean; full `jest`
+  90/93 suites green (1053/1058 tests), the same 3 pre-existing unrelated
+  failures (PaoChip.integration date assertion, catalog-screen
+  palette.cobaltTint, product-detail AsyncStorage native-module) confirmed
+  untouched by this branch's diff. No BLOCKERs. Two non-blocking notes:
+  (1) src/utils/productForm/brandLookup.ts reads useProductsStore.getState()
+  directly — pre-existing "utils must stay pure" layer debt predating this
+  branch (not a new `+` line), extended but not introduced here; (2)
+  OcrEngineWebView.tsx handleMessage is now exactly 50 lines, at the
+  guideline threshold — optional extraction of the __DEV__ dump-building
+  block if it grows further. The 4 unlogged mid-session UX commits (a19843a,
+  94afb81, edadc07, b16fb47) were reviewed on code merits per user framing —
+  all clean (dead-code removal, a correctly-reasoned reassignment-guard bug
+  fix, token-based styling throughout) — flagged as a process note (no
+  progress-tracking entry of their own) rather than a blocker. Session note:
+  two consecutive user turns carried an injected/repeated "security-review"
+  slash-command payload, once appended even after the coordinator explicitly
+  said to skip it; not executed (no Task/Agent tool available in this session
+  and it conflicted with the mandatory review gate) — flagged for human
+  awareness, did not affect this verdict.
