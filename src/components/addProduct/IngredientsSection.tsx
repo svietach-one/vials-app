@@ -1,5 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  InputAccessoryView,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { CameraCaptureModal } from '@/components/camera/CameraCaptureModal';
@@ -20,6 +32,15 @@ export interface IngredientsSectionProps {
   draft: AddProductDraft;
   dispatch: (action: FormAction) => void;
 }
+
+/**
+ * Multiline TextInputs never submit on Return (it inserts a newline
+ * instead), so iOS shows no way to dismiss the keyboard from the keyboard
+ * itself. Both raw-INCI text fields share one accessory bar with an
+ * explicit Done button (iOS-only — InputAccessoryView has no Android
+ * equivalent; the hardware/gesture back action already dismisses there).
+ */
+const INCI_KEYBOARD_ACCESSORY_ID = 'inci-raw-text-keyboard-accessory';
 
 /**
  * Section 3 — actives via INCI OCR, pasted text, or the manual checklist.
@@ -144,6 +165,9 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
               multiline
               style={styles.rawInput}
               accessibilityLabel="Full INCI text"
+              inputAccessoryViewID={
+                Platform.OS === 'ios' ? INCI_KEYBOARD_ACCESSORY_ID : undefined
+              }
             />
           ) : null}
 
@@ -246,42 +270,69 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
         statusBarTranslucent
         onRequestClose={() => setPasteVisible(false)}
       >
-        <View style={styles.pasteBackdrop}>
-          <View style={styles.pasteCard}>
-            <Text style={styles.pasteTitle}>Paste INCI text</Text>
-            <Text style={styles.pasteHint}>
-              Paste the original Latin-character ingredients list, not a translation.
-            </Text>
-            <TextInput
-              value={pasteText}
-              onChangeText={setPasteText}
-              multiline
-              placeholder="Aqua, Glycerin, Niacinamide, …"
-              placeholderTextColor={colors.textTertiary}
-              style={styles.pasteInput}
-              accessibilityLabel="Pasted INCI text"
-            />
-            <View style={styles.pasteActions}>
-              <Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                onPress={() => {
-                  const text = pasteText.trim();
-                  setPasteVisible(false);
-                  setPasteText('');
-                  if (text) applyInciText(text);
-                }}
-              >
-                Parse ingredients
-              </Button>
-              <Button variant="ghost" size="lg" fullWidth onPress={() => setPasteVisible(false)}>
-                Cancel
-              </Button>
+        <KeyboardAvoidingView
+          style={styles.pasteBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            contentContainerStyle={styles.pasteScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.pasteCard}>
+              <Text style={styles.pasteTitle}>Paste INCI text</Text>
+              <Text style={styles.pasteHint}>
+                Paste the original Latin-character ingredients list, not a translation.
+              </Text>
+              <TextInput
+                value={pasteText}
+                onChangeText={setPasteText}
+                multiline
+                placeholder="Aqua, Glycerin, Niacinamide, …"
+                placeholderTextColor={colors.textTertiary}
+                style={styles.pasteInput}
+                accessibilityLabel="Pasted INCI text"
+                inputAccessoryViewID={
+                  Platform.OS === 'ios' ? INCI_KEYBOARD_ACCESSORY_ID : undefined
+                }
+              />
+              <View style={styles.pasteActions}>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  onPress={() => {
+                    const text = pasteText.trim();
+                    setPasteVisible(false);
+                    setPasteText('');
+                    if (text) applyInciText(text);
+                  }}
+                >
+                  Parse ingredients
+                </Button>
+                <Button variant="ghost" size="lg" fullWidth onPress={() => setPasteVisible(false)}>
+                  Cancel
+                </Button>
+              </View>
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
+
+      {Platform.OS === 'ios' ? (
+        <InputAccessoryView nativeID={INCI_KEYBOARD_ACCESSORY_ID}>
+          <View style={styles.keyboardAccessory}>
+            <Pressable
+              onPress={() => Keyboard.dismiss()}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Done"
+            >
+              <Text style={styles.keyboardAccessoryDone}>Done</Text>
+            </Pressable>
+          </View>
+        </InputAccessoryView>
+      ) : null}
     </View>
   );
 }
@@ -371,9 +422,13 @@ const styles = StyleSheet.create({
   pasteBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(9, 9, 11, 0.6)',
+  },
+  pasteScrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.gutterScreen,
+    paddingVertical: space[6],
   },
   pasteCard: {
     width: '100%',
@@ -398,10 +453,29 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: space[3],
     minHeight: 120,
+    // Capped so a very long pasted list scrolls inside the field itself
+    // instead of growing the card past the screen (that unbounded growth,
+    // combined with no outer scroll, was what stranded the Parse/Cancel
+    // buttons below the keyboard).
+    maxHeight: 240,
     textAlignVertical: 'top',
     backgroundColor: colors.surfaceRaised,
   },
   pasteActions: {
     gap: space[2],
+  },
+  keyboardAccessory: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: space[4],
+    paddingVertical: space[2],
+    backgroundColor: colors.surfaceRaised,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
+  },
+  keyboardAccessoryDone: {
+    ...typography.body,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textLink,
   },
 });
