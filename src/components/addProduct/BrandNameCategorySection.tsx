@@ -162,8 +162,8 @@ export function BrandNameCategorySection({ draft, dispatch }: BrandNameCategoryS
       <ScanTile
         icon="camera"
         label="Scan front label"
-        caption="Point the camera at the front of the packaging"
         onPress={() => setCameraVisible(true)}
+        compact
       />
 
       <Text style={styles.divider}>or type manually</Text>

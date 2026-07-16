@@ -84,8 +84,8 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
       <ScanTile
         icon="file-text"
         label="Scan INCI list"
-        caption="The full ingredients list on the back of the packaging"
         onPress={() => setNoticeVisible(true)}
+        compact
       />
 
       <Text style={styles.divider}>or check known actives</Text>

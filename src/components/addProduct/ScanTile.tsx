@@ -9,22 +9,33 @@ export interface ScanTileProps {
   label: string;
   caption?: string;
   onPress: () => void;
+  /** Slim single-row layout: icon + label only, no caption, no icon
+   *  circle — for tiles that don't need the full explanatory block. */
+  compact?: boolean;
 }
 
 /** Dashed-border camera launch tile shared by the wizard sections. */
-export function ScanTile({ icon, label, caption, onPress }: ScanTileProps) {
+export function ScanTile({ icon, label, caption, onPress, compact = false }: ScanTileProps) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+      style={({ pressed }) => [
+        styles.tile,
+        compact && styles.tileCompact,
+        pressed && styles.tilePressed,
+      ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <View style={styles.iconWrap}>
-        <Feather name={icon} size={20} color={colors.textPrimary} />
-      </View>
+      {compact ? (
+        <Feather name={icon} size={16} color={colors.textPrimary} />
+      ) : (
+        <View style={styles.iconWrap}>
+          <Feather name={icon} size={20} color={colors.textPrimary} />
+        </View>
+      )}
       <Text style={styles.label}>{label}</Text>
-      {caption ? <Text style={styles.caption}>{caption}</Text> : null}
+      {!compact && caption ? <Text style={styles.caption}>{caption}</Text> : null}
     </Pressable>
   );
 }
@@ -43,6 +54,13 @@ const styles = StyleSheet.create({
   },
   tilePressed: {
     backgroundColor: colors.surfaceSunken,
+  },
+  tileCompact: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    paddingVertical: space[3],
+    gap: space[2],
   },
   iconWrap: {
     width: 40,
