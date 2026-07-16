@@ -23,7 +23,11 @@ const TESSERACT_HTML = `<!DOCTYPE html>
 <body>
 <script>
   var workerPromise = null;
-  var MAX_DIMENSION = 1600;
+  // Full-frame shots (no crop step) need more pixels per character than the
+  // old cropped-region flow: at 1600px a tube's label text starves Tesseract
+  // ("orange" -> "oran" on-device, 2026-07-16). 2400 keeps capital heights
+  // in the engine's comfortable range at arm's-length framing.
+  var MAX_DIMENSION = 2400;
 
   function postMsg(obj) {
     if (window.ReactNativeWebView) {
@@ -35,7 +39,12 @@ const TESSERACT_HTML = `<!DOCTYPE html>
     var s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
     s.onload = function () {
-      workerPromise = Tesseract.createWorker('eng', 1, { logger: function () {} });
+      // eng+pol+fra: the target markets' Latin scripts. English-only
+      // traineddata cannot see Polish/French diacritics at all — "tołpa"
+      // was unrecognizable on-device until pol was added. Cyrillic (rus)
+      // stays out for now: it needs market-based selection, not a blanket
+      // fourth model on every scan.
+      workerPromise = Tesseract.createWorker('eng+pol+fra', 1, { logger: function () {} });
       workerPromise
         .then(function () { postMsg({ type: 'WORKER_READY' }); })
         .catch(function (e) { postMsg({ type: 'OCR_ERROR', message: String(e) }); });
@@ -227,8 +236,24 @@ export const OcrEngineWebView = forwardRef<OcrEngineHandle, OcrEngineWebViewProp
         // hosts already route empty text to their "try again / manual entry"
         // error path, which is the right destination for it (spec §6.1).
         if (msg.lines && msg.lines.length > 0) {
-          onResult(filterOcrNoise(msg.lines));
+          const filtered = filterOcrNoise(msg.lines);
+          if (__DEV__) {
+            // QA visibility into what the engine saw vs what the filter kept:
+            // every word with its confidence and pixel height.
+            const dump = msg.lines
+              .map((line) =>
+                line.words
+                  .map((w) => `${w.text}(${Math.round(w.confidence)},h${w.y1 - w.y0})`)
+                  .join(' '),
+              )
+              .join('\n');
+            console.warn(`[OCR] words(conf,height):\n${dump}\n[OCR] filtered:\n${filtered}`);
+          }
+          onResult(filtered);
         } else {
+          if (__DEV__) {
+            console.warn(`[OCR] no structured lines; raw text passthrough:\n${msg.text ?? ''}`);
+          }
           onResult(msg.text ?? '');
         }
         return;
