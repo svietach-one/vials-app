@@ -25,6 +25,15 @@ OcrScannerSheet quality aligned 0.5 → 0.85 (CameraCaptureModal already noted
 0.5 measurably hurt Tesseract).
 
 ## Log
+- 2026-07-16 device QA round 2 (same product, after f9e57f1): pol model
+  confirmed working (diacritic words read at conf 83–97), filter behaving.
+  Remaining misses are Tesseract's recognition ceiling on stylized fronts:
+  "tołpa" wordmark read as "Pa." at conf 94 (confidently wrong — unfixable
+  downstream), "orange"→"prange", "peel"→"el A". User decision: stay on
+  Tesseract/Expo Go with quick wins (0ecd940) — term-level fuzzy suggestions
+  (latinNameTerms pool, suggestLabelLineCorrection), single-letter token
+  cleanup in the noise filter, and chip selection highlight in
+  LabelLinePicker (user UX request). ML Kit switch consciously deferred.
 - 2026-07-16 device QA round 1 (tołpa dermo face orange peel): only "dermo" +
   "oran" recognized. Root causes: eng-only traineddata (ł invisible to the
   model) and 1600px downscale starving full-frame text of pixels. Fixed in
