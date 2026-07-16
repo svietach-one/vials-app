@@ -26,6 +26,7 @@ export interface CategoryPillRowProps {
 export function CategoryPillRow({ selected, autoDetected, onSelect }: CategoryPillRowProps) {
   return (
     <View style={styles.wrap}>
+      <Text style={styles.label}>Type</Text>
       {autoDetected ? <Text style={styles.caption}>auto-detected from label</Text> : null}
       <View style={styles.row}>
         {PRODUCT_TYPE_OPTIONS.map((type) => (
@@ -45,6 +46,10 @@ export function CategoryPillRow({ selected, autoDetected, onSelect }: CategoryPi
 const styles = StyleSheet.create({
   wrap: {
     gap: space[2],
+  },
+  label: {
+    ...typography.label,
+    color: colors.textPrimary,
   },
   caption: {
     ...typography.caption,
