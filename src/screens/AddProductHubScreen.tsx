@@ -32,14 +32,16 @@ export default function AddProductHubScreen({ navigation }: Props) {
   const [searching, setSearching] = useState(false);
   const productRepository = useProductRepository();
 
-  // Debounce
+  // Debounce — fires from the first character so the dropdown adapts live
+  // as the user types (short queries fall back to a substring match in
+  // ProductRepository.search, since trigram FTS needs 3+ chars per token).
   useEffect(() => {
-    if (searchText.trim().length < 3) {
+    if (searchText.trim().length < 1) {
       setSearchResults([]);
       setDebouncedQuery('');
       return;
     }
-    const t = setTimeout(() => setDebouncedQuery(searchText.trim()), 600);
+    const t = setTimeout(() => setDebouncedQuery(searchText.trim()), 200);
     return () => clearTimeout(t);
   }, [searchText]);
 
@@ -60,8 +62,16 @@ export default function AddProductHubScreen({ navigation }: Props) {
     return () => { cancelled = true; };
   }, [debouncedQuery, productRepository]);
 
-  const hasTypedEnough = searchText.trim().length >= 3;
-  const showNotFound = hasTypedEnough && !searching && searchResults.length === 0;
+  const hasTypedEnough = searchText.trim().length >= 1;
+  // Guard against showing "not found" for text the user hasn't finished
+  // typing yet: while a debounce is pending, debouncedQuery still holds the
+  // *previous* query, so searchResults/searching are stale relative to the
+  // live searchText until the two match again.
+  const showNotFound =
+    hasTypedEnough &&
+    !searching &&
+    searchResults.length === 0 &&
+    debouncedQuery === searchText.trim();
   const showObfAttribution = searchResults.some((p) => p.source === 'obf_import');
 
   // ── Render ────────────────────────────────────────────────────────────────
