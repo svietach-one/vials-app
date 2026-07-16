@@ -13,6 +13,12 @@ export interface LabelLinePickerProps {
   assignments: Record<number, LabelLineField>;
   /** Fired when the user picks Brand / Product name for a line. */
   onAssign: (index: number, field: LabelLineField) => void;
+  /** Dictionary spellings offered per line ("Did you mean …?"), keyed by line index. */
+  suggestions?: Record<number, string>;
+  /** User accepted the suggested spelling for a line. */
+  onAcceptSuggestion?: (index: number) => void;
+  /** User dismissed the suggestion for a line — keep the raw OCR text. */
+  onDismissSuggestion?: (index: number) => void;
 }
 
 /**
@@ -21,7 +27,14 @@ export interface LabelLinePickerProps {
  * stay in the pool (checked + dimmed) so they can be reassigned; never-tapped
  * lines simply stay unused — expected for tagline/subtitle lines.
  */
-export function LabelLinePicker({ lines, assignments, onAssign }: LabelLinePickerProps) {
+export function LabelLinePicker({
+  lines,
+  assignments,
+  onAssign,
+  suggestions = {},
+  onAcceptSuggestion,
+  onDismissSuggestion,
+}: LabelLinePickerProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   function handleAssign(index: number, field: LabelLineField) {
@@ -58,6 +71,33 @@ export function LabelLinePicker({ lines, assignments, onAssign }: LabelLinePicke
           );
         })}
       </View>
+
+      {Object.entries(suggestions).map(([key, suggestion]) => {
+        const index = Number(key);
+        return (
+          <View style={styles.suggestionRow} key={`suggestion-${key}`}>
+            <Text style={styles.suggestionText} numberOfLines={1}>
+              Did you mean “{suggestion}”?
+            </Text>
+            <Pressable
+              onPress={() => onAcceptSuggestion?.(index)}
+              style={styles.suggestionUseBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Use suggested brand ${suggestion}`}
+            >
+              <Text style={styles.suggestionUseLabel}>Use</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => onDismissSuggestion?.(index)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`Dismiss suggestion ${suggestion}`}
+            >
+              <Feather name="x" size={16} color={colors.textTertiary} />
+            </Pressable>
+          </View>
+        );
+      })}
 
       {openIndex !== null ? (
         <View style={styles.assignRow}>
@@ -132,6 +172,29 @@ const styles = StyleSheet.create({
   },
   assignRow: {
     gap: space[2],
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  suggestionText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
+  suggestionUseBtn: {
+    borderRadius: radius.pill,
+    paddingHorizontal: space[3],
+    paddingVertical: space[1],
+    backgroundColor: palette.bottleGreenTint,
+    borderWidth: 1,
+    borderColor: palette.bottleGreenLine,
+  },
+  suggestionUseLabel: {
+    ...typography.caption,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
   },
   assignPrompt: {
     ...typography.caption,
