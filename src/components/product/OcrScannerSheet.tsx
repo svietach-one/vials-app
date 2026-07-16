@@ -24,6 +24,9 @@ export interface OcrScannerSheetProps {
 }
 
 const SCAN_TIMEOUT_MS = 10_000;
+/** High JPEG quality: 0.5 compression on small INCI print measurably hurt
+ *  Tesseract (same constant as CameraCaptureModal's OCR flow). */
+const PHOTO_QUALITY = 0.85;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -105,9 +108,8 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      quality: 0.5,
+      quality: PHOTO_QUALITY,
       base64: true,
-      allowsEditing: true,
     });
     if (result.canceled) {
       onClose();
@@ -128,9 +130,8 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.5,
+      quality: PHOTO_QUALITY,
       base64: true,
-      allowsEditing: true,
     });
     if (result.canceled) {
       onClose();
