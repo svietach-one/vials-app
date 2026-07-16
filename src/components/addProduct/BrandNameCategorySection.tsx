@@ -6,7 +6,7 @@ import { CameraCaptureModal } from '@/components/camera/CameraCaptureModal';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, space, typography } from '@/constants/tokens';
 import type { AddProductDraft } from '@/types';
-import { suggestBrandCorrection } from '@/utils/productForm/brandCorrection';
+import { suggestLabelLineCorrection } from '@/utils/productForm/brandCorrection';
 import { detectCategory } from '@/utils/productForm/categoryDetector';
 import type { FormAction } from '@/utils/productForm/formReducer';
 import { splitLabelLines } from '@/utils/productForm/ocrNormalizer';
@@ -55,7 +55,7 @@ export function BrandNameCategorySection({ draft, dispatch }: BrandNameCategoryS
 
     const nextSuggestions: Record<number, string> = {};
     lines.forEach((line, index) => {
-      const suggestion = suggestBrandCorrection(line);
+      const suggestion = suggestLabelLineCorrection(line);
       if (suggestion !== null) nextSuggestions[index] = suggestion;
     });
 

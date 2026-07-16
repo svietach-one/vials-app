@@ -25,6 +25,11 @@ OcrScannerSheet quality aligned 0.5 → 0.85 (CameraCaptureModal already noted
 0.5 measurably hurt Tesseract).
 
 ## Log
+- 2026-07-16 device QA round 1 (tołpa dermo face orange peel): only "dermo" +
+  "oran" recognized. Root causes: eng-only traineddata (ł invisible to the
+  model) and 1600px downscale starving full-frame text of pixels. Fixed in
+  f9e57f1: worker loads eng+pol+fra, cap raised to 2400px, __DEV__ Metro log
+  added (per-word confidence+height and filtered output) for QA visibility.
 - 2026-07-16 (engineer/Claude): tesseract.js v5 removed flat `data.words`/
   `data.lines` — the existing FE-11 `words` payload was likely always empty.
   recognize() now requests `{ text: true, blocks: true }` and word data is

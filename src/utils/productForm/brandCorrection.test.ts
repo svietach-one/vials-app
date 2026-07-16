@@ -1,4 +1,9 @@
-import { detectScript, suggestBrandCorrection } from './brandCorrection';
+import {
+  detectScript,
+  suggestBrandCorrection,
+  suggestLabelLineCorrection,
+  suggestTermCorrection,
+} from './brandCorrection';
 
 describe('detectScript', () => {
   it('classifies a plain Latin line as latin', () => {
@@ -86,5 +91,41 @@ describe('suggestBrandCorrection', () => {
     // Russian form "Витэкс". Folded for comparison only — the suggestion is
     // still offered, not silently treated as identical.
     expect(suggestBrandCorrection('Вітэкс')).toBe('Витэкс');
+  });
+});
+
+describe('suggestTermCorrection', () => {
+  it('suggests the dictionary spelling for a misread name term', () => {
+    // Device QA case: stylized display font read "orange" as "prange".
+    expect(suggestTermCorrection('prange')).toBe('Orange');
+  });
+
+  it('returns null when the word already spells a term (case aside)', () => {
+    expect(suggestTermCorrection('Orange')).toBeNull();
+    expect(suggestTermCorrection('ORANGE')).toBeNull();
+  });
+
+  it('refuses to correct words too short for stable trigram similarity', () => {
+    expect(suggestTermCorrection('el')).toBeNull();
+    expect(suggestTermCorrection('oran')).toBeNull();
+  });
+
+  it('never corrects Cyrillic words against the Latin term pool', () => {
+    expect(suggestTermCorrection('Апельсин')).toBeNull();
+  });
+});
+
+describe('suggestLabelLineCorrection', () => {
+  it('prefers a brand suggestion for the whole line over term corrections', () => {
+    expect(suggestLabelLineCorrection('BIODERMO')).toBe('Bioderma');
+  });
+
+  it('rebuilds the line with word-level term corrections when no brand matches', () => {
+    expect(suggestLabelLineCorrection('4 prange')).toBe('4 Orange');
+  });
+
+  it('returns null when neither a brand nor any word term clears the threshold', () => {
+    expect(suggestLabelLineCorrection('Xyzzq Wtrfl')).toBeNull();
+    expect(suggestLabelLineCorrection('dermo face')).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ type BrandDictionarySource = {
   latinBrands: string[];
   cyrillicBrands: string[];
   latinCommonTerms: Record<'en' | 'fr' | 'pl', string[]>;
+  latinNameTerms: string[];
 };
 
 /** Trims entries and drops blanks + case-insensitive duplicates (the seed
@@ -51,3 +52,11 @@ export const LATIN_COMMON_TERMS: Record<'en' | 'fr' | 'pl', string[]> = {
   fr: dedupe(source.latinCommonTerms.fr),
   pl: dedupe(source.latinCommonTerms.pl),
 };
+
+/**
+ * Single words plausible inside product NAMES (fruits, botanicals, actives,
+ * descriptors — spec section 5). Used only for word-level fuzzy "Did you
+ * mean" suggestions on OCR label lines ("prange" → "Orange"); never for
+ * category detection.
+ */
+export const LATIN_NAME_TERMS: string[] = dedupe(source.latinNameTerms);

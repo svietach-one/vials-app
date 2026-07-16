@@ -46,6 +46,18 @@ const MIN_WORDS_FOR_HEIGHT_FILTER = 4;
  *  certification-mark misreads (spec §6.1), not text worth keeping. */
 const HAS_LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
 
+/** Any digit — single-character tokens survive only when they are digits
+ *  ("4" in a product name, PAO/SPF fragments); a lone letter is virtually
+ *  always a shredded-word fragment from a stylized font (device QA: "t",
+ *  "J", "N" debris around the tołpa logo). */
+const HAS_DIGIT = /\p{N}/u;
+
+function isKeepableToken(text: string): boolean {
+  const trimmed = text.trim();
+  if (!HAS_LETTER_OR_DIGIT.test(trimmed)) return false;
+  return trimmed.length > 1 || HAS_DIGIT.test(trimmed);
+}
+
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
@@ -63,8 +75,7 @@ function median(values: number[]): number {
 export function filterOcrNoise(lines: OcrLineData[]): string {
   const confidentLines = lines.map((line) =>
     line.words.filter(
-      (word) =>
-        word.confidence >= WORD_CONFIDENCE_FLOOR && HAS_LETTER_OR_DIGIT.test(word.text),
+      (word) => word.confidence >= WORD_CONFIDENCE_FLOOR && isKeepableToken(word.text),
     ),
   );
 

@@ -4,6 +4,7 @@ import {
   CYRILLIC_BRAND_DICTIONARY,
   LATIN_BRAND_DICTIONARY,
   LATIN_COMMON_TERMS,
+  LATIN_NAME_TERMS,
 } from './brandDictionary';
 
 export type BrandScript = 'latin' | 'cyrillic';
@@ -75,17 +76,43 @@ const DICTIONARIES: Record<BrandScript, string[]> = {
   cyrillic: CYRILLIC_BRAND_DICTIONARY,
 };
 
-/** Marketing/category words ("Booster", "Krem") that plausibly stand alone on
- *  a label line and must never be "corrected" into a generic-word brand. */
+/** Marketing/category/name words ("Booster", "Krem", "Orange") that plausibly
+ *  stand alone on a label line and must never be "corrected" into a
+ *  generic-word brand. */
 let commonTermSet: Set<string> | null = null;
 
 function isCommonTerm(normalizedLine: string): boolean {
   if (commonTermSet === null) {
     commonTermSet = new Set(
-      Object.values(LATIN_COMMON_TERMS).flatMap((terms) => terms.map(normalize)),
+      [...Object.values(LATIN_COMMON_TERMS).flat(), ...LATIN_NAME_TERMS].map(normalize),
     );
   }
   return commonTermSet.has(normalizedLine);
+}
+
+/**
+ * Word-level term pool for product-name correction: single-word entries from
+ * the category terms + name terms, with enough trigrams for stable Jaccard
+ * (same floor as the brand pools). Built lazily like the brand pools.
+ */
+let termPool: PoolEntry[] | null = null;
+
+function getTermPool(): PoolEntry[] {
+  if (termPool === null) {
+    const seen = new Set<string>();
+    const singleWords = [...Object.values(LATIN_COMMON_TERMS).flat(), ...LATIN_NAME_TERMS]
+      .filter((term) => !term.includes(' '))
+      .filter((term) => {
+        const key = normalize(term);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    termPool = singleWords
+      .map((term) => ({ brand: term, trigrams: toTrigrams(term) }))
+      .filter((entry) => entry.trigrams.size >= MIN_ENTRY_TRIGRAMS);
+  }
+  return termPool;
 }
 
 function normalize(text: string): string {
@@ -126,4 +153,62 @@ export function suggestBrandCorrection(
     }
   }
   return best?.brand ?? null;
+}
+
+/**
+ * Fuzzy-matches ONE word against the single-word term pool ("prange" →
+ * "Orange"). Latin-only: the term pool has no Cyrillic entries, and a
+ * Cyrillic word must never cross-match it. Words already spelling a term
+ * (case aside) return null — nothing to correct.
+ */
+export function suggestTermCorrection(
+  word: string,
+  threshold: number = BRAND_SUGGESTION_THRESHOLD,
+): string | null {
+  if (detectScript(word) !== 'latin') return null;
+
+  const wordTrigrams = toTrigrams(word);
+  // Short words degenerate under Jaccard the same way short dictionary
+  // entries do — refuse to fuzzy-correct them rather than guess.
+  if (wordTrigrams.size < MIN_ENTRY_TRIGRAMS) return null;
+  if (isCommonTerm(normalize(word))) return null;
+
+  let best: { term: string; score: number } | null = null;
+  for (const entry of getTermPool()) {
+    const score = trigramJaccard(wordTrigrams, entry.trigrams);
+    if (score >= threshold && (best === null || score > best.score)) {
+      best = { term: entry.brand, score };
+    }
+  }
+  return best?.term ?? null;
+}
+
+/**
+ * Line-level "Did you mean …?" for OCR label chips. Brand correction runs
+ * first and wins outright (spec §6.1: a term match must never suppress or
+ * outrank a brand match); only when the whole line matches no brand does the
+ * word-by-word term pass run, rebuilding the line with corrected words
+ * ("4 prange" → "4 Orange"). Same contract as suggestBrandCorrection:
+ * suggestion only, never an automatic overwrite.
+ */
+export function suggestLabelLineCorrection(
+  line: string,
+  threshold: number = BRAND_SUGGESTION_THRESHOLD,
+): string | null {
+  const brand = suggestBrandCorrection(line, threshold);
+  if (brand !== null) return brand;
+
+  let changed = false;
+  const corrected = line
+    .split(/\s+/)
+    .filter((token) => token.length > 0)
+    .map((token) => {
+      const fix = suggestTermCorrection(token, threshold);
+      if (fix !== null) {
+        changed = true;
+        return fix;
+      }
+      return token;
+    });
+  return changed ? corrected.join(' ') : null;
 }

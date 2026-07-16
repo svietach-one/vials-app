@@ -74,6 +74,21 @@ describe('filterOcrNoise', () => {
     expect(filterOcrNoise(lines)).toBe('Ziaja krem\n50ml');
   });
 
+  it('drops single-letter tokens (shredded stylized-font debris)', () => {
+    const lines = [
+      makeLine(makeWord('t', { confidence: 69 }), makeWord('Peel')),
+      makeLine(makeWord('J'), makeWord('a')),
+    ];
+
+    expect(filterOcrNoise(lines)).toBe('Peel');
+  });
+
+  it('keeps single-digit tokens (product-name numerals, PAO fragments)', () => {
+    const lines = [makeLine(makeWord('4'), makeWord('Orange'))];
+
+    expect(filterOcrNoise(lines)).toBe('4 Orange');
+  });
+
   it('removes lines whose every word was dropped', () => {
     const lines = [
       makeLine(makeWord('|||', { confidence: 20 })),
