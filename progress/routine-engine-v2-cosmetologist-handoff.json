@@ -1,9 +1,9 @@
 {
   "taskSlug": "routine-engine-v2-cosmetologist",
-  "status": "PHASE_1_COMPLETE",
-  "phase": "1 of 9 complete; Phase 2 blocked on open question §4.2",
-  "lastAgent": "self-review (inline) — ACCEPT",
-  "nextAgent": "human review of Phase 1, then Phase 2 (needs §4.2 decision first)",
+  "status": "PHASE_2_COMPLETE",
+  "phase": "2 of 9 complete; Phase 3 next (pregnancy bullet stays excluded per open §4.3)",
+  "lastAgent": "self-review (inline) — Phase 2 ACCEPT",
+  "nextAgent": "Phase 3 (goal model): SkinGoal type + profile fields, goals block in actives.json, Step 0 in context, glycerin_class + trace-amount attribution (joint consultant item), spf_required_goal trigger",
   "updatedAt": "2026-07-17",
   "branch": "engine-improvements",
   "artifacts": {
@@ -15,8 +15,8 @@
   },
   "baseline": {
     "command": "npx jest src/utils/routineEngine",
-    "result": "18 suites / 309 tests green (was 284 pre-Phase-1; +25 new)",
-    "measuredAt": "2026-07-17",
+    "result": "full jest src tests -> 1100 passed / 3 failed (the 3 known pre-existing, see progress/known-test-failures.md)",
+    "measuredAt": "2026-07-17 (post Phase 2)",
     "fullRun": "npx jest src tests -> 1089 passed / 3 failed; the 3 are PRE-EXISTING (verified by stashing Phase 1 and re-running clean HEAD, which fails identically): tests/catalog/catalog-screen (AsyncStorage native module null), tests/catalog/product-detail (palette.cobaltTint undefined), tests/shelf-filtering/PaoChip.",
     "note": "Phase 2+ must not reduce this. Changed expectations must be justified in the progress log per architecture-review.md §6."
   },
@@ -34,6 +34,8 @@
     ]
   },
   "handoffNotes": [
+    "PHASE 2 COMPLETE (commit d96c5b6; Phase 1 = dfa61f6). §4.2 RESOLVED: pm_preferred dropped, AHA/BHA hard pm + PHA both, locked by rulesetIntegrity \"PM-only eligibility lock\". §4.4 RESOLVED: enum decoupled from pair-rule IDs (ruleId = optional payload only). Base mandates block now exists in actives.json (RulesetMandate type); collectRequireMandates has FOUR sources — clinical, seasonal, phototype, base. Phase 3 spf_required_goal should be a goal-conditioned entry alongside spf_photosensitizing, NOT a new mechanism.",
+    "Period-safety property suite: tests/routine-engine/period-safety.test.ts. Any future phase touching allowedPeriods aggregation, relocation, or dailyView must keep it green — it is the §4.2 ruling in executable form.",
     "PHASE 1 IS COMPLETE AND SELF-REVIEWED (ACCEPT), uncommitted on engine-improvements. Shipped: irritancy recalibration + irritancyByPotency on retinoid; resolveIrritancy/isStrongActive in rulesetTypes.ts as the single mild/strong boundary; peptide_signal + peptide_neuro with a conservative unknown-peptide fallback; conflict matrix consolidated onto actives.json pairRules (INGREDIENT_CONFLICT_RULES deleted, rule_vitc_niacinamide retired, 2 rules added); rinseOff on ProductFacts; ruleset version -> 2026-07-17.",
     "PHASE 1 DEVIATION CARRIED INTO PHASE 3: glycerin_class was NOT added. Glycerin/glycols are in most formulations, so attributing by bare INCI presence tagged nearly every product and would flatten Phase 3 goal scoring (every product would hit the dryness concern). It has no Phase 1 consumer. Phase 3 adds it WITH the goals block and must pick a real attribution rule — INCI position (lists are concentration-ordered) or productType, not bare presence. This is a clinical-consultant data question, same review as the goals values.",
     "PHASE 1 DEVIATION ALREADY APPLIED (was scheduled for Phase 4): pha lost its stacking block AND left aha/bha sharedCapWith. The Phase 1 invariant (stacking iff irritancy>=3) fails on pha at irritancy 1. Both edits are inseparable: leaving pha in the shared group makes the cap admission-order dependent (PHA-first blocks a later AHA; AHA-first does not) — a determinism defect. AHA + PHA in one PM is now legal, as report §7.2 predicted; exfoliant exposure is still capped by phototype_pih_exfoliant_cap and summer_uv_exfoliant_limit.",
