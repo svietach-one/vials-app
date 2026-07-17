@@ -48,9 +48,6 @@
       "allowedPeriods": [
         "pm"
       ],
-      "stacking": {
-        "maxPerPeriod": 1
-      },
       "cycleClass": "retinoid",
       "concerns": [
         "wrinkles",
@@ -94,12 +91,6 @@
       "allowedPeriods": [
         "pm"
       ],
-      "stacking": {
-        "maxPerPeriod": 1,
-        "sharedCapWith": [
-          "bha"
-        ]
-      },
       "cycleClass": "exfoliant",
       "concerns": [
         "wrinkles",
@@ -151,12 +142,6 @@
       "allowedPeriods": [
         "pm"
       ],
-      "stacking": {
-        "maxPerPeriod": 1,
-        "sharedCapWith": [
-          "aha"
-        ]
-      },
       "cycleClass": "exfoliant",
       "concerns": [
         "acne",
@@ -218,9 +203,6 @@
         "wrinkles"
       ],
       "preferredPeriod": "am",
-      "stacking": {
-        "maxPerPeriod": 1
-      },
       "attribution": {
         "downgradeToLowAfterPosition": 8
       }
@@ -304,9 +286,6 @@
         "am",
         "pm"
       ],
-      "stacking": {
-        "maxPerPeriod": 1
-      },
       "concerns": [
         "acne"
       ],

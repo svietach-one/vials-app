@@ -329,3 +329,119 @@ on every hydrate) — correctness now; the schema bump 2→3 stays with Phase 8.
 §4.3 (pregnancy) — open, excluded from this phase's scope and acceptance.
 Consultant review list (blocks VALUES, not structure): goals rankings,
 glycerin position gate, trace threshold + downgrade-vs-drop.
+
+---
+
+# Phase 4 — Skeleton Build-Up + Cumulative Active Exposure (Core)
+
+Spec: docs/specs/routine-engine-v2.1/phase-04-skeleton-buildup.md + report §7
+Date: 2026-07-17
+
+## 1. Architecture Overview
+
+The admission machinery (ladder, day-splits, frequency caps, slot
+alternatives) is battle-tested — the defect is WHO gets into the pool. So the
+rewrite is a new **selection stage** in front of it, not a gut of resolve.ts:
+
+```
+gates → skeleton.ts (NEW — pipeline step 4.5 "selection")
+          per-period selected-candidate id sets
+          reserve[] (not_needed_for_goals | duplicate_function | cumulative_active_cap)
+          info decisions (rinse-off carriers), placeholder needs (neutral moisturizer)
+          treatment frequency caps (reclassified/exfoliant)
+      → resolvePeriods (existing; pool now intersected with the selection,
+          caps merged strictest-wins; ladder/relocation/alternatives unchanged)
+      → applyMandates (+ skeleton placeholders merged)
+```
+
+`findCapViolations` is rewritten from per-class stacking to the cumulative
+rule — it serves validate (user-saved routines) and stays as defense-in-depth
+in admission. Per-class `stacking` blocks leave actives.json entirely.
+
+## 2. API Contracts
+
+### `skeleton.ts` (new) — `selectSkeleton(input): SkeletonSelection`
+- In: eligible products, facts, context (goals + treatmentClassRanking).
+- Out: `{ periodCandidates: { am: Set<id>, pm: Set<id> }, reserve: ReserveItem[],
+  decisions: DecisionLogEntry[], placeholders: PlaceholderSlot[],
+  treatmentCaps: Map<id, AdaptationLimit> }`.
+- Selection per period: structural slots (cleanser|makeup_remover;
+  moisturizer|cream|lotion; spf AM) admit ALL type-matching mild candidates —
+  the existing same-slot cap picks the winner and keeps the swap-UX
+  alternatives; treatment slot walks `treatmentClassRanking` per period
+  (products grouped by `preferredPeriodFor`), 0-or-1 winner.
+- Strong carrier := `facts.properties.irritancy >= 3 && !facts.rinseOff`.
+  Strong carriers are treatment candidates regardless of format
+  (reclassification); at most one selected per period.
+
+### `resolve.ts`
+- `ResolveInput` += optional `selection?: { periodCandidates; treatmentCaps }`
+  — absent means raw admission (unit tests of the ladder machinery);
+  generate ALWAYS passes it.
+- `findCapViolations`: strong-carrier vs strong-carrier with overlapping days
+  ⇒ violation `{ ruleId: 'cumulative_active_cap', severity: 'avoid',
+  resolutions: ['separate_days','freeze_lower_priority'] }`. Day-split-first
+  keeps the classic retinoid-5-nights/AHA-Tue-Sat pattern valid for
+  user-saved routines (validate path) — the cap forbids same-day stacking,
+  not day-separated coexistence.
+- `scoreCandidate(product, facts, period, concerns, prioritize, ranking = [])`
+  → `boost*100000 + goalRank*1000 + tolerability*200 + concernHits*10 +
+  potency*2`. Bands are disjoint (goalRank ≤ ~12 ⇒ ≤12000; tolerability
+  0|100|200 — reserved 0 until Phase 5; concernHits ≤ 90; potency ≤ 8).
+  Relative order of concernHits vs potency is unchanged from V2, so
+  goal-less inputs rank identically.
+
+### `generate.ts` — `RoutinePlan.reserve: { productId, reasonCode }[]` (REQUIRED).
+
+## 3. Implementation Tasks
+
+- **P4-1** skeleton.ts + reason-code precedence (duplicate_function →
+  cumulative_active_cap → not_needed_for_goals) — new file.
+- **P4-2** resolve.ts: selection intersection in buildPools, cumulative
+  findCapViolations, scoreCandidate rebanding + ranking param.
+- **P4-3** actives.json stacking removal + rulesetIntegrity restatement
+  ("no class declares stacking; strong ⇔ cumulative-cap subject").
+- **P4-4** slotting.ts: SKELETON_SLOTS view; isTreatment tightened to the
+  strong boundary (mild actives may render both periods per the directive).
+- **P4-5** generate.ts orchestration + planTypes ('info' + 'reserve' actions,
+  required reserve) + planApply draft-summary reserve line + fixture fallout.
+- **P4-6** Tests: skeleton unit suite; resolve expectation updates justified
+  per-case; directive acceptance cases; determinism.
+
+## 4. Assumptions
+
+- **"Optional second treatment" = the other period's treatment.** One
+  treatment per period, assigned via preferred period; never two per period.
+  Alternative: two treatments in one period. Reason: the acceptance itself
+  forbids two strong actives in one PM, and per-period ranking walks satisfy
+  every stated case (aging: retinol PM + vitC AM).
+- **Cross-format same-class products both admit when the second fills a
+  structural slot** (peptide serum + peptide cream). The directive's mild
+  rule OVERRIDES the older phase-04 acceptance item "hyaluronic serum + cream
+  → one admitted, one duplicate_function" — class-dedup applies ONLY to
+  treatment-candidate selection. Phase file amended; deviation logged.
+- **duplicateSlot.ts is NOT rekeyed to functionalRole.** Functional dedup is
+  realized at selection (same-class treatment losers → duplicate_function
+  before admission); the slot-alternative mechanism keeps serving the swap
+  UX unchanged. Alternative: rekey the same-slot cap. Reason: rekeying
+  breaks the swap flow's slot semantics for zero additional coverage.
+- **Reclassified strong carriers cap at ≤ 4 days/week; exfoliating strong
+  carriers at ≤ 2 days/week (48h rest via the existing Tue/Sat spread), both
+  as strictest-wins merges with adaptation/seasonal/phototype caps.** Report
+  §7 assumption 8.3's "never daily" made concrete; values are draft,
+  consultant list. A non-reclassified serum-format retinoid keeps V2
+  behavior (adaptation caps only).
+- **retinoid + vitamin_c_pure needs no pair rule** (the original spec table
+  had one; Phase 1 dropped it): both are strong carriers, so the cumulative
+  cap structurally forbids same-day co-scheduling — stricter than the pair
+  rule would have been.
+- **conflicts_with_selected is reserved but unused in Phase 4**: ladder
+  freezes keep landing in `frozen[]` with their ruleId (Phase 7 splits
+  reasonCode/ruleId and revisits).
+- **Tolerability term is wired at weight 200 but fed 0 until Phase 5**
+  supplies the usage-anchored phaseIndex value.
+
+## 5. Open Questions
+
+None new. Consultant list grows by the two frequency-cap draft values
+(4/wk reclassified, 2/wk exfoliant).

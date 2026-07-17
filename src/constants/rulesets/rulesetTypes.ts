@@ -117,6 +117,13 @@ export interface ActiveClassMatcher {
   potency?: Potency;
 }
 
+/**
+ * REMOVED in V2.1 phase-04: per-class stacking caps are subsumed by the
+ * cumulative active exposure rule (report §7) — a class is subject to the
+ * cumulative cap iff {@link isStrongActive}; no class declares its own cap.
+ * The type stays only so a stray `stacking` key in the JSON fails the
+ * integrity suite rather than silently passing the loader cast.
+ */
 export interface ActiveClassStacking {
   maxPerPeriod: number;
   sharedCapWith?: ActiveIngredientKey[];

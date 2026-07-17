@@ -45,11 +45,17 @@ beforeEach(() => resetFixtureCounters());
 
 // ─── Story 6: adaptation micro-dosing (engine-level, generatePlan) ───────────
 
+// phase-04: a retinoid is admitted only when a goal ranks it — acne/aging do.
+// These Story 6 tests measure the adaptation CAP on an admitted retinoid, so
+// they pass an acne goal; a maintenance profile would reserve it (untested here).
+const ACNE = { fitzpatrick: null, concerns: [], primaryGoal: 'acne' as const, secondaryGoal: null };
+
 describe('Story 6 AC: adaptation phase caps flow through generatePlan end-to-end', () => {
   it('schedules a <=4-application adapting retinoid at 2 days/week, Tue/Sat spread (>=72h apart)', () => {
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const plan = generatePlan(
       makeEngineInput([retinoid], {
+        profile: ACNE,
         tracking: { cycleType: 'dynamic', applicationStats: [{ productId: retinoid.id, count: 2, lastAppliedDate: '2026-07-01' }] },
       }),
     );
@@ -62,6 +68,7 @@ describe('Story 6 AC: adaptation phase caps flow through generatePlan end-to-end
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const plan = generatePlan(
       makeEngineInput([retinoid], {
+        profile: ACNE,
         tracking: { cycleType: 'dynamic', applicationStats: [{ productId: retinoid.id, count: 5, lastAppliedDate: '2026-07-01' }] },
       }),
     );
@@ -73,6 +80,7 @@ describe('Story 6 AC: adaptation phase caps flow through generatePlan end-to-end
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const plan = generatePlan(
       makeEngineInput([retinoid], {
+        profile: ACNE,
         tracking: { cycleType: 'dynamic', applicationStats: [{ productId: retinoid.id, count: 9, lastAppliedDate: '2026-07-01' }] },
       }),
     );
@@ -87,11 +95,11 @@ describe('Story 6 AC: adaptation phase caps flow through generatePlan end-to-end
     const week3Product = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-06-12' }); // 22 days -> 3 weeks
     const week5Product = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-05-29' }); // 36 days -> 5 weeks
 
-    const phase1Days = generatePlan(makeEngineInput([week1Product]))
+    const phase1Days = generatePlan(makeEngineInput([week1Product], { profile: ACNE }))
       .periods.evening.find((s) => s.productId === week1Product.id)?.scheduledDays;
-    const phase2Days = generatePlan(makeEngineInput([week3Product]))
+    const phase2Days = generatePlan(makeEngineInput([week3Product], { profile: ACNE }))
       .periods.evening.find((s) => s.productId === week3Product.id)?.scheduledDays;
-    const phase3Days = generatePlan(makeEngineInput([week5Product]))
+    const phase3Days = generatePlan(makeEngineInput([week5Product], { profile: ACNE }))
       .periods.evening.find((s) => s.productId === week5Product.id)?.scheduledDays;
 
     expect(phase1Days).toHaveLength(2); // phase 1 cap
@@ -101,7 +109,7 @@ describe('Story 6 AC: adaptation phase caps flow through generatePlan end-to-end
 
   it('starts a product owned long before this feature shipped directly in phase 3 (grandfathered, no retroactive throttling)', () => {
     const veteran = makeProduct({ activeTags: ['retinoid'], addedAt: '2020-01-01' });
-    const plan = generatePlan(makeEngineInput([veteran]));
+    const plan = generatePlan(makeEngineInput([veteran], { profile: ACNE }));
     const step = plan.periods.evening.find((s) => s.productId === veteran.id);
     expect(step?.scheduledDays).toEqual([]);
   });

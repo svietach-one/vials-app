@@ -336,3 +336,90 @@ This file tracks the whole package; each phase appends to the Log.
   Consultant review list (values, not structure): goals rankings;
   glycerin requireWithinPosition=5; trace downgradeToLowAfterPosition=8 and
   the downgrade-vs-drop policy.
+
+- 2026-07-17: **PHASE 4 IMPLEMENTED — the core rewrite.** Greedy admission
+  replaced by goal-driven skeleton build-up; per-class stacking replaced by the
+  cumulative active exposure rule (report §7).
+  - New `src/utils/routineEngine/skeleton.ts` (pipeline step 4.5 "selection"):
+    decides WHO enters each period's admission pass. Structural slots
+    (cleanser/makeup_remover, moisturizer/cream/lotion, spf) admit all
+    type-matching candidates (the existing same-slot cap picks the winner +
+    keeps swap alternatives); treatment slot = 0-or-1 per period by the Step-0
+    `treatmentClassRanking` walk. Strong carrier := irritancy>=3 && !rinseOff;
+    strong carriers are treatment candidates in ANY format (reclassification);
+    at most one selected per period. Emits reserve[] with precise reason codes
+    (duplicate_function / cumulative_active_cap / not_needed_for_goals),
+    treatment freq caps (exfoliant 2/wk, reclassified 4/wk — draft, consultant
+    list), rinse-off info notes, and neutral-moisturizer placeholders.
+  - resolve.ts: buildPools intersects with the selection; findCapViolations
+    rewritten from per-class stacking to the cumulative rule (one strong
+    leave-on carrier per period per DAY — day-overlap scoped so the classic
+    day-separated pattern stays legal for validate); scoreCandidate rebanded to
+    boost*100000 + goalRank*1000 + tolerability*200 + concernHits*10 +
+    potency*2 (concern-over-potency order preserved; tolerability fed 0 until
+    Phase 5); treatment caps merge strictest-wins with adaptation caps.
+  - actives.json: all 5 stacking blocks removed; rulesetIntegrity restated
+    ("no per-class stacking; cumulative rule owns strong actives").
+  - slotting.ts: SKELETON_SLOTS + structuralSlotFor; isTreatment tightened to
+    the strong boundary (mild actives render both periods per the directive).
+  - generate.ts: RoutinePlan.reserve (required); skeleton wired before resolve;
+    skeleton placeholders merged with mandate placeholders; Step-0 + skeleton
+    decisions prepended. planApply narrates the reserve in the draft summary.
+
+  Verified: tsc clean; full `jest --testPathIgnorePatterns=worktrees` →
+  1157 passed / 3 known pre-existing failed (progress/known-test-failures.md,
+  unchanged) / 2 todo.
+
+- 2026-07-17: **Phase 4 DEVIATION** (documented per architecture-review.md §6):
+  the phase-04 acceptance item "two hyaluronic products of different
+  productType (serum + cream) → one admitted, one duplicate_function" is
+  SUPERSEDED by the cumulative-exposure directive (design Assumption 2). Mild
+  same-class dedup applies ONLY to treatment-candidate selection, so a mild
+  product filling a *structural* slot is not a duplicate — the directive's own
+  "peptide serum + peptide cream → both admitted" case requires this. The
+  phase-04 acceptance file was amended to match; skeleton.test.ts asserts the
+  corrected behavior.
+
+- 2026-07-17: **Phase 4 test expectation changes**, all from the intended
+  greedy→skeleton shift and justified in-test:
+  - slotting: isTreatment(niacinamide) true→false (boundary tightened to >=3).
+  - resolve: stacking_cap_aha ruleId → cumulative_active_cap; scoring 130→16
+    (rebanding, relative order preserved).
+  - entryPoints + qa Story suites (generate/phototype/seasonal/custom/cycling):
+    tests that push a single active THROUGH generation now pass a goal ranking
+    that active — a maintenance profile reserves it (the whole point of
+    phase-04). Tests targeting post-generation logic (substitute) hand-build
+    the plan instead.
+  - phototype Story 7 rewritten: skeleton selection prevents co-layering two
+    strong actives in generation, so pair escalation is now a VALIDATE-only
+    concern; two strong actives same-day is a cumulative_active_cap avoid
+    regardless of phototype; vitC_pure + copper_peptides is the pair that
+    isolates the phototype escalation (copper irritancy 2 = not a strong
+    carrier, so the cap stays silent).
+  - realistic-shelf generate test rewritten to assert minimalism + reserve
+    instead of full greedy admission.
+
+- 2026-07-17: **PHASE 4 SELF-REVIEW PASS — verdict ACCEPT.**
+
+  | # | Check | Verdict | Evidence |
+  |---|---|---|---|
+  | 1 | No parallel taxonomy | PASS | skeleton is logic, not a data taxonomy; actives.json unchanged as the source of truth. |
+  | 2 | Single conflict matrix | PASS | pairRules untouched; cumulative cap lives in findCapViolations, not a new table. |
+  | 3 | isStrongActive invariant | PASS | restated: no class declares stacking; integrity suite asserts it + both-sides-populated. |
+  | 4 | Cumulative cap + rinseOff enforced as specified | PASS | 6 directive cases in skeleton.test.ts; rinseOff exemption + info note covered. |
+  | 5 | Migrations idempotent | N/A | no migration this phase; schema still 2. |
+  | 6 | Every AC → passing test | PASS | 11/11 mapped and individually re-run (AC table in log). |
+  | 7 | tsc clean; no Math.random / unsorted iteration | PASS | tsc clean; 50-seed byte-identical determinism test green; SKELETON_SLOTS iteration is a fixed 3-key const. |
+  | 8 | Layer separation | PASS | skeleton.ts pure (no React/store/fetch); generate orchestrates. |
+  | 9 | Function length | WARNING (accepted) | selectSkeleton refactored 117→66 lines; remaining length is a clear linear 4-phase orchestrator, allowed as WARNING "if clean". classifyEntries + neutralMoisturizerPlaceholders extracted. |
+
+  Deviation (acceptance item correction) documented above. No FAIL items; the
+  one WARNING (66-line orchestrator) is accepted with rationale.
+
+  Carried to later phases: Phase 5 feeds tolerability (currently 0 at
+  weight 200) from the usage-anchored phaseIndex. Phase 7 splits
+  reasonCode/ruleId (ladder freezes still land in frozen[] with ruleId) and
+  closes the enum over the new reason codes (reserve/info/goal_exclude +
+  cumulative_active_cap + not_needed_for_goals + duplicate_function +
+  moisturizer_recommended + rinse_off_active_note). Consultant list grows by
+  the two treatment-cap draft values (2/wk exfoliant, 4/wk reclassified).

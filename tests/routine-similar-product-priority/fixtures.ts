@@ -278,6 +278,7 @@ export function makePlanWithAlternative(
       evening: [],
     },
     frozen: [],
+    reserve: [],
     placeholders: [],
     decisions: [],
     slotAlternatives: [makeSlotAlternative()],

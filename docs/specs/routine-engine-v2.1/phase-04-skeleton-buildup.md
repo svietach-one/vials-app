@@ -173,11 +173,15 @@ on it always being present.
       in `reserve` with `not_needed_for_goals`
 - [ ] Same shelf, goal `aging` → PM treatment is retinol; vitamin C is either
       AM treatment or reserve — never both strong actives in one PM
-- [ ] Two hyaluronic serums of the *same* productType → one admitted, one
-      `duplicate_function`
-- [ ] Two hyaluronic products of *different* productType (serum + cream) → one
-      admitted, one `duplicate_function` (fails today — the current cap is
-      slot-keyed)
+- [ ] Two hyaluronic serums of the *same* productType, goal `dehydration` →
+      one admitted as the treatment, one `duplicate_function`
+- [ ] Two hyaluronic products of *different* productType (serum + cream), goal
+      `dehydration` → **both admitted** (serum = treatment, cream = the
+      moisturizer structural slot). **Corrected 2026-07-17** (design Assumption
+      2): the cumulative-exposure directive makes mild-class dedup apply ONLY
+      to treatment-candidate selection, so a mild same-class product filling a
+      *structural* slot is not a duplicate. This supersedes the original
+      "one admitted, one duplicate_function" item, which predated the directive.
 - [ ] Goal `maintenance` + 5 serums → treatment slot empty
 
 ### Cumulative active exposure (4.2 — directive test cases)

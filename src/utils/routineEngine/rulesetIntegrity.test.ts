@@ -210,34 +210,24 @@ describe('actives.json ruleset integrity', () => {
   });
 });
 
-describe('actives.json — strong-active invariant (spec phase-01 §1.2)', () => {
-  it('declares a stacking cap for exactly the strong actives (irritancy >= 3)', () => {
-    // The invariant that makes isStrongActive structural: a cap exists because
-    // a class is irritating, never because someone remembered to add one. No
-    // exemption list — if this fails, fix the irritancy value or the block.
-    for (const [key, cls] of Object.entries(PROPS_BY_CLASS)) {
-      expect({ key, hasStacking: STACKING_BY_CLASS[key] !== undefined }).toEqual({
-        key,
-        hasStacking: cls.irritancy >= 3,
-      });
+describe('actives.json — strong-active invariant (phase-01 §1.2, restated by phase-04)', () => {
+  it('declares no per-class stacking caps — the cumulative rule owns strong actives', () => {
+    // phase-04 (report §7 assumption 8.1): per-class stacking is subsumed by
+    // the cumulative exposure cap, which applies to exactly the classes where
+    // isStrongActive (irritancy >= 3) holds — derived, never declared. A
+    // stray stacking block reintroduces a second cap vocabulary; delete it.
+    for (const [key, stacking] of Object.entries(STACKING_BY_CLASS)) {
+      expect({ key, hasStacking: stacking !== undefined }).toEqual({ key, hasStacking: false });
     }
   });
 
-  it('never shares a stacking cap with a mild class', () => {
-    // A mild class in a strong class's sharedCapWith group would make the cap
-    // admission-order dependent (report §7 assumption 8.2): the mild product
-    // has no stacking block of its own to check, so it would block a later
-    // strong partner while a strong-first ordering would not block it.
-    for (const [key, stacking] of Object.entries(STACKING_BY_CLASS)) {
-      for (const partner of stacking?.sharedCapWith ?? []) {
-        expect({ key, partner, irritancy: PROPS_BY_CLASS[partner].irritancy }).toEqual({
-          key,
-          partner,
-          irritancy: expect.any(Number),
-        });
-        expect(PROPS_BY_CLASS[partner].irritancy).toBeGreaterThanOrEqual(3);
-      }
-    }
+  it('keeps the strong boundary meaningful — both sides populated', () => {
+    // The cumulative cap counts irritancy >= 3 carriers; the boundary is only
+    // an invariant while classes actually sit on both sides of it.
+    const strong = Object.values(PROPS_BY_CLASS).filter((p) => p.irritancy >= 3);
+    const mild = Object.values(PROPS_BY_CLASS).filter((p) => p.irritancy < 3);
+    expect(strong.length).toBeGreaterThan(0);
+    expect(mild.length).toBeGreaterThan(0);
   });
 
   it('resolves every irritancyByPotency entry to a valid level', () => {

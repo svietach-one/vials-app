@@ -87,6 +87,7 @@ describe('Story 2 AC: applyRoutinePlan commits the right scope into routinesStor
         ],
       },
       frozen: [],
+      reserve: [],
       placeholders: [],
       decisions: [],
     };
@@ -173,6 +174,7 @@ describe('Story 2 AC: a partial commit that reintroduces a pinned, pair-frozen p
         { productId: aha.id, productType: 'serum', scheduledDays: [], slotIndex: 5, score: 0, addedAt: '2026-01-01' },
       ] },
       frozen: [{ productId: retinoid.id, reasonCode: 'rule_retinol_aha', ruleId: 'rule_retinol_aha' }],
+      reserve: [],
       placeholders: [],
       decisions: [],
     };

@@ -55,6 +55,15 @@ function makeInput(products: Product[], overrides: Partial<EngineInput> = {}): E
   };
 }
 
+/**
+ * phase-04: generatePlan builds minimal goal-driven routines — a goal-less
+ * (maintenance) profile reserves every active. Tests that exercise actives
+ * THROUGH generation pass a goal matching their fixture; tests that target
+ * post-generation logic (substitution) hand-build the plan instead.
+ */
+const AGING = { fitzpatrick: null, concerns: [], primaryGoal: 'aging' as const };
+const ACNE = { fitzpatrick: null, concerns: [], primaryGoal: 'acne' as const };
+
 const PEEL: UserProcedureLog = {
   id: 'proc-1',
   procedureKey: 'chemical_peel_deep',
@@ -75,7 +84,7 @@ describe('generatePlan', () => {
     const cleanser = makeProduct({ productType: 'cleanser' });
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
-    const plan = generatePlan(makeInput([cleanser, retinoid, vitC]));
+    const plan = generatePlan(makeInput([cleanser, retinoid, vitC], { profile: AGING }));
 
     expect(plan.rulesetVersion).toBe('2026-07-17');
     expect(plan.generatedFor).toBe('2026-07-04');
@@ -112,7 +121,7 @@ describe('generatePlan', () => {
   it('caps a freshly added retinoid at 2 nights/week via adaptation (virtual count)', () => {
     // Added 3 days ago → virtual count 0 → phase 1 → maxDaysPerWeek 2
     const fresh = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-07-01' });
-    const plan = generatePlan(makeInput([fresh]));
+    const plan = generatePlan(makeInput([fresh], { profile: AGING }));
 
     const step = plan.periods.evening.find((s) => s.productId === fresh.id);
     expect(step?.scheduledDays).toEqual([2, 6]);
@@ -127,6 +136,7 @@ describe('generatePlan', () => {
     const fresh = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-07-01' });
     const plan = generatePlan(
       makeInput([fresh], {
+        profile: AGING,
         tracking: {
           cycleType: 'dynamic',
           applicationStats: [{ productId: fresh.id, count: 9, lastAppliedDate: '2026-07-03' }],
@@ -248,11 +258,13 @@ describe('validateRoutines', () => {
   });
 
   it('diffs the proposed plan against the saved state (added and moved)', () => {
-    // Saved: vitC in the evening. Proposed: vitC moves to am; cleanser appears in both.
+    // Saved: vitC in the evening. Proposed: vitC moves to am; cleanser appears
+    // in both. The aging goal makes vitC the proposed AM treatment (phase-04:
+    // a maintenance profile would reserve it → 'removed', not 'moved').
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
     const cleanser = makeProduct({ productType: 'cleanser' });
     const routines = [makeRoutine('evening', [makeStep(vitC)])];
-    const result = validateRoutines(routines, makeInput([vitC, cleanser]));
+    const result = validateRoutines(routines, makeInput([vitC, cleanser], { profile: AGING }));
 
     expect(result.diff).toEqual(
       expect.arrayContaining([
@@ -278,7 +290,8 @@ describe('findSubstitute', () => {
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const niacinamide = makeProduct({ activeTags: ['niacinamide'], usageTime: 'evening' });
     const input = makeInput([retinoid, niacinamide]);
-    const plan = generatePlan(makeInput([retinoid])); // plan holds only the retinoid
+    // acne goal: the retinoid is the PM treatment (maintenance would reserve it)
+    const plan = generatePlan(makeInput([retinoid], { profile: ACNE }));
 
     const result = findSubstitute(plan, 'evening', retinoid.id, input);
     expect(result?.productId).toBe(niacinamide.id);
@@ -296,8 +309,25 @@ describe('findSubstitute', () => {
     const ceramide = makeProduct({ activeTags: ['ceramides'] });
     const aha = makeProduct({ activeTags: ['aha'] });
     const panthenol = makeProduct({ activeTags: ['panthenol'], usageTime: 'evening' });
-    const planInput = makeInput([retinoid, ceramide]);
-    const plan = generatePlan(planInput);
+    // Hand-built plan: no single goal generates retinoid + ceramide together
+    // under phase-04 minimalism (ceramides rank only in goals whose
+    // barrier_repair modifier excludes retinoids). findSubstitute operates on
+    // any plan — this test targets substitution, not generation.
+    const plan: ReturnType<typeof generatePlan> = {
+      rulesetVersion: 'test',
+      generatedFor: '2026-07-04',
+      periods: {
+        morning: [],
+        evening: [
+          { productId: retinoid.id, productType: 'toner', scheduledDays: [], slotIndex: 3, score: 0, addedAt: retinoid.addedAt },
+          { productId: ceramide.id, productType: 'serum', scheduledDays: [], slotIndex: 6, score: 0, addedAt: ceramide.addedAt },
+        ],
+      },
+      frozen: [],
+      reserve: [],
+      placeholders: [],
+      decisions: [],
+    };
 
     const result = findSubstitute(
       plan,
@@ -311,7 +341,9 @@ describe('findSubstitute', () => {
   it('enforces the layering slot — a toner is never offered for a serum step', () => {
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const toner = makeProduct({ productType: 'toner', usageTime: 'evening' });
-    const plan = generatePlan(makeInput([retinoid]));
+    // acne goal so the retinoid is actually in the plan — a maintenance plan
+    // would be empty and this assertion would pass vacuously (phase-04).
+    const plan = generatePlan(makeInput([retinoid], { profile: ACNE }));
 
     const result = findSubstitute(plan, 'evening', retinoid.id, makeInput([retinoid, toner]));
     expect(result).toBeNull();

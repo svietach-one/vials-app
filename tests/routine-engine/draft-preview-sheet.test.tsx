@@ -93,6 +93,7 @@ function makePlan(overrides: Partial<RoutinePlan> = {}): RoutinePlan {
       ],
     },
     frozen: [{ productId: RETINOID.id, reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-18' }],
+    reserve: [],
     placeholders: [],
     decisions: [],
     ...overrides,

@@ -129,6 +129,7 @@ describe('buildDraftSummaryLines', () => {
       generatedFor: '2026-07-05',
       periods: { morning: [], evening: [] },
       frozen: [],
+      reserve: [],
       placeholders: [],
       decisions: [],
       ...overrides,
@@ -149,6 +150,7 @@ describe('buildDraftSummaryLines', () => {
   it('summarizes paused products with the short unfreeze date', () => {
     const plan = makePlan({
       frozen: [{ productId: 'aha', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-17' }],
+      reserve: [],
     });
     const lines = buildDraftSummaryLines(plan, [], products);
     expect(lines).toContain('1 product paused until Jul 17');
@@ -157,6 +159,7 @@ describe('buildDraftSummaryLines', () => {
   it('narrates pair-rule freezes (no expiry) instead of letting products vanish silently', () => {
     const plan = makePlan({
       frozen: [{ productId: 'aha', reasonCode: 'rule_retinol_aha', ruleId: 'rule_retinol_aha' }],
+      reserve: [],
     });
     const lines = buildDraftSummaryLines(plan, [], products);
     expect(lines).toContain('Glycolic Toner set aside to avoid a conflict');
@@ -178,6 +181,7 @@ describe('buildDraftSummaryLines', () => {
         { action: 'day_split', productId: 'ret' },
       ],
       frozen: [{ productId: 'vitc', reasonCode: 'x', until: '2026-07-20' }],
+      reserve: [],
     });
     const diff: PlanDiffEntry[] = [
       { productId: 'vitc', kind: 'moved', from: 'evening', to: 'morning' },
@@ -212,6 +216,7 @@ function makeBasePlan(overrides: Partial<RoutinePlan> = {}): RoutinePlan {
       evening: [],
     },
     frozen: [],
+    reserve: [],
     placeholders: [],
     decisions: [],
     slotAlternatives: [makeSlotAlternative()],

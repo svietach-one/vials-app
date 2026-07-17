@@ -204,7 +204,7 @@ describe('resolvePeriods — stacking caps', () => {
     expect(stepFor(result, 'pm', aha1.id)?.scheduledDays).toEqual([0, 1, 3, 4, 5]);
     expect(result.decisions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ action: 'day_split', ruleId: 'stacking_cap_aha' }),
+        expect.objectContaining({ action: 'day_split', ruleId: 'cumulative_active_cap' }),
       ]),
     );
   });
@@ -290,10 +290,10 @@ describe('resolvePeriods — scoring', () => {
     const other = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-06-01' });
     const result = resolve([matching, other], { concerns: ['acne'] });
 
-    // benzoyl matches 'acne' → 100 + potency 30; retinoid matches 'acne' too.
-    // Both match — verify the score component is visible on the steps instead.
-    expect(stepFor(result, 'am', matching.id)?.score).toBe(130);
-    expect(stepFor(result, 'pm', other.id)?.score).toBe(130);
+    // phase-04 rebanded the score: concernHits*10 + potency*2 (1*10 + 3*2 = 16).
+    // Relative concern-over-potency order is unchanged from V2.
+    expect(stepFor(result, 'am', matching.id)?.score).toBe(16);
+    expect(stepFor(result, 'pm', other.id)?.score).toBe(16);
   });
 });
 

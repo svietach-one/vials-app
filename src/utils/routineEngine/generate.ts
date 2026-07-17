@@ -15,10 +15,12 @@ import type {
   FrozenItem,
   PlaceholderSlot,
   PlannedStep,
+  ReserveItem,
   SlotAlternative,
 } from '@/utils/routineEngine/planTypes';
 import { buildShelfFacts } from '@/utils/routineEngine/productFacts';
 import { resolvePeriods } from '@/utils/routineEngine/resolve';
+import { selectSkeleton } from '@/utils/routineEngine/skeleton';
 import { getSkincareDateString } from '@/utils/timeHelpers';
 
 /**
@@ -56,6 +58,13 @@ export interface RoutinePlan {
   periods: { morning: PlannedStep[]; evening: PlannedStep[] };
   /** Dimmed rows: clinical freezes (with expiry), PAO-expired, unplaceable. */
   frozen: FrozenItem[];
+  /**
+   * Healthy shelf products the skeleton deliberately left out (phase-04),
+   * each with a reason code — "in reserve", not paused. Required (empty when
+   * everything scheduled) so the Phase 9 explainability invariant can count
+   * every product exactly once.
+   */
+  reserve: ReserveItem[];
   placeholders: PlaceholderSlot[];
   decisions: DecisionLogEntry[];
   /**
@@ -82,6 +91,7 @@ export function generatePlan(input: EngineInput): RoutinePlan {
   });
 
   const gates = applyEligibilityGates(input.products, facts, context);
+  const skeleton = selectSkeleton({ products: gates.eligible, facts, context });
   const resolved = resolvePeriods({
     products: gates.eligible,
     facts,
@@ -94,6 +104,10 @@ export function generatePlan(input: EngineInput): RoutinePlan {
       input.tracking?.cycleType ?? 'fixed',
       now,
     ),
+    selection: {
+      periodCandidates: skeleton.periodCandidates,
+      treatmentCaps: skeleton.treatmentCaps,
+    },
   });
   const mandates = applyMandates(resolved.periods, facts, context);
 
@@ -115,12 +129,16 @@ export function generatePlan(input: EngineInput): RoutinePlan {
     generatedFor: getSkincareDateString(now),
     periods: { morning: resolved.periods.am, evening: resolved.periods.pm },
     frozen: [...gateFrozen, ...resolved.frozen],
-    placeholders: mandates.placeholders,
+    reserve: skeleton.reserve,
+    // Skeleton placeholders (neutral moisturizer) merge with mandate
+    // placeholders (SPF); different periods/types never collide.
+    placeholders: [...skeleton.placeholders, ...mandates.placeholders],
     // Step-0 goal decisions lead: they explain the ranking every later
-    // admit/freeze decision was made against.
+    // selection/admit/freeze decision was made against.
     decisions: [
       ...context.goalDecisions,
       ...gateDecisions,
+      ...skeleton.decisions,
       ...resolved.decisions,
       ...mandates.decisions,
     ],

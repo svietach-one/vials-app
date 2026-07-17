@@ -97,6 +97,7 @@ jest.mock('@/domain/routinePlanActions', () => ({
       generatedFor: '2026-01-01',
       periods: { morning: [], evening: [] },
       frozen: [],
+      reserve: [],
       placeholders: [],
       decisions: [],
     },
