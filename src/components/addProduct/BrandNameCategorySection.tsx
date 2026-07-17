@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { CameraCaptureModal } from '@/components/camera/CameraCaptureModal';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, space, typography } from '@/constants/tokens';
 import type { AddProductDraft } from '@/types';
-import { suggestBrandCorrection } from '@/utils/productForm/brandCorrection';
+import { suggestLabelLineCorrection } from '@/utils/productForm/brandCorrection';
 import { detectCategory } from '@/utils/productForm/categoryDetector';
 import type { FormAction } from '@/utils/productForm/formReducer';
 import { splitLabelLines } from '@/utils/productForm/ocrNormalizer';
@@ -42,6 +41,34 @@ export function BrandNameCategorySection({ draft, dispatch }: BrandNameCategoryS
   // the raw OCR text stays until the user taps Use (spec caveat 3).
   const [suggestions, setSuggestions] = useState<Record<number, string>>({});
 
+  // Clearing a field by hand (not via reassignment) must release any chip
+  // still marked assigned to it — otherwise handleAssignLine's "already
+  // assigned to this field" guard blocks re-adding the same chip to a field
+  // the user just emptied out.
+  useEffect(() => {
+    if (draft.brand.trim().length > 0) return;
+    setAssignments((prev) => {
+      if (!Object.values(prev).includes('brand')) return prev;
+      const next: Record<number, LabelLineField> = {};
+      for (const [key, field] of Object.entries(prev)) {
+        if (field !== 'brand') next[Number(key)] = field;
+      }
+      return next;
+    });
+  }, [draft.brand]);
+
+  useEffect(() => {
+    if (draft.name.trim().length > 0) return;
+    setAssignments((prev) => {
+      if (!Object.values(prev).includes('name')) return prev;
+      const next: Record<number, LabelLineField> = {};
+      for (const [key, field] of Object.entries(prev)) {
+        if (field !== 'name') next[Number(key)] = field;
+      }
+      return next;
+    });
+  }, [draft.name]);
+
   function handleLabelCapture(rawText: string) {
     // Category detection always runs on the full text; the reducer-level
     // "manual choice wins" rule is preserved by guarding the source here.
@@ -55,7 +82,7 @@ export function BrandNameCategorySection({ draft, dispatch }: BrandNameCategoryS
 
     const nextSuggestions: Record<number, string> = {};
     lines.forEach((line, index) => {
-      const suggestion = suggestBrandCorrection(line);
+      const suggestion = suggestLabelLineCorrection(line);
       if (suggestion !== null) nextSuggestions[index] = suggestion;
     });
 
@@ -151,19 +178,13 @@ export function BrandNameCategorySection({ draft, dispatch }: BrandNameCategoryS
     setAssignments((prev) => ({ ...prev, [index]: field }));
   }
 
-  function handleSwap() {
-    const { brand, name } = draft;
-    dispatch({ type: 'SET_BRAND', value: name, source: 'typed' });
-    dispatch({ type: 'SET_NAME', value: brand, source: 'typed' });
-  }
-
   return (
     <View style={styles.wrap}>
       <ScanTile
         icon="camera"
         label="Scan front label"
-        caption="Point the camera at the front of the packaging"
         onPress={() => setCameraVisible(true)}
+        compact
       />
 
       <Text style={styles.divider}>or type manually</Text>
@@ -186,16 +207,6 @@ export function BrandNameCategorySection({ draft, dispatch }: BrandNameCategoryS
         }
         onCommitTyped={(text) => dispatch({ type: 'SET_BRAND', value: text, source: 'typed' })}
       />
-
-      <Pressable
-        onPress={handleSwap}
-        style={styles.swapBtn}
-        accessibilityRole="button"
-        accessibilityLabel="Swap brand and product name"
-      >
-        <Feather name="repeat" size={14} color={colors.textSecondary} />
-        <Text style={styles.swapLabel}>Swap</Text>
-      </Pressable>
 
       <Input
         label="Product name"
@@ -238,18 +249,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-  },
-  swapBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-end',
-    gap: space[1],
-    paddingHorizontal: space[2],
-    paddingVertical: space[1],
-  },
-  swapLabel: {
-    ...typography.caption,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textSecondary,
   },
 });

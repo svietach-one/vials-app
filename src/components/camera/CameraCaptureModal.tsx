@@ -42,12 +42,13 @@ export interface CameraCaptureModalProps {
  *
  * - `barcode` — live in-app decoder modal (real-time scanning suits a fixed
  *   rectangular frame), plus a manual digit-entry fallback.
- * - `label` / `inci` — the system camera via expo-image-picker with
- *   `allowsEditing`, exactly like the pre-70df13b OcrScannerSheet: the user
- *   crops the shot to the text themselves (packaging text runs vertical,
- *   curved, wrapped — no fixed in-app frame fits it), then the photo goes
- *   to the shared Tesseract engine. Deliberately NO programmatic crop
- *   computation here.
+ * - `label` / `inci` — the system camera via expo-image-picker, full frame,
+ *   NO crop step: iOS's `allowsEditing` crop box is a fixed square that
+ *   packaging (tall bottles, wide INCI blocks) fits badly, so the user just
+ *   fills the frame with the label instead. Background noise in the full
+ *   frame is handled downstream — the engine downscales the photo and drops
+ *   low-confidence/undersized words (ocrNoiseFilter.ts) before any text
+ *   reaches the form.
  *
  * Data leaves ONLY through `onCapture` — this component never touches the
  * form reducer.
@@ -314,9 +315,6 @@ function OcrPhotoFlow({ mode, visible, onClose, onCapture }: CameraCaptureModalP
     const result = await ImagePicker.launchCameraAsync({
       quality: PHOTO_QUALITY,
       base64: true,
-      // The system crop UI is the whole point: the user trims the shot to
-      // the text region themselves — no in-code crop-rect math.
-      allowsEditing: true,
     });
     if (result.canceled) {
       onClose();
@@ -339,7 +337,6 @@ function OcrPhotoFlow({ mode, visible, onClose, onCapture }: CameraCaptureModalP
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: PHOTO_QUALITY,
       base64: true,
-      allowsEditing: true,
     });
     if (result.canceled) {
       onClose();

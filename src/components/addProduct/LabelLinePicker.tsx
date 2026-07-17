@@ -49,24 +49,44 @@ export function LabelLinePicker({
       <View style={styles.pool}>
         {lines.map((line, index) => {
           const assigned = assignments[index];
+          const open = openIndex === index;
           return (
             <Pressable
               key={`${index}-${line}`}
-              onPress={() => setOpenIndex(openIndex === index ? null : index)}
-              style={[styles.chip, assigned !== undefined && styles.chipAssigned]}
+              onPress={() => setOpenIndex(open ? null : index)}
+              style={[
+                styles.chip,
+                assigned !== undefined && styles.chipAssigned,
+                // Open state wins visually: the tapped chip stays highlighted
+                // while its Brand / Product name choice is showing below.
+                open && styles.chipOpen,
+              ]}
               accessibilityRole="button"
               accessibilityLabel={`Detected line: ${line}`}
-              accessibilityState={{ selected: assigned !== undefined }}
+              accessibilityState={{ selected: assigned !== undefined, expanded: open }}
             >
               {assigned !== undefined ? (
-                <Feather name="check" size={14} color={colors.textSecondary} />
+                <Feather
+                  name="check"
+                  size={14}
+                  color={open ? palette.bottleGreen : colors.textSecondary}
+                />
               ) : null}
               <Text
-                style={[styles.chipText, assigned !== undefined && styles.chipTextAssigned]}
+                style={[
+                  styles.chipText,
+                  assigned !== undefined && styles.chipTextAssigned,
+                  open && styles.chipTextOpen,
+                ]}
                 numberOfLines={1}
               >
                 {line}
               </Text>
+              {assigned !== undefined ? (
+                <Text style={styles.chipFieldTag}>
+                  {assigned === 'brand' ? 'Brand' : 'Name'}
+                </Text>
+              ) : null}
             </Pressable>
           );
         })}
@@ -162,6 +182,11 @@ const styles = StyleSheet.create({
     opacity: 0.55,
     borderColor: colors.borderDivider,
   },
+  chipOpen: {
+    borderColor: palette.bottleGreen,
+    backgroundColor: palette.bottleGreenTint,
+    opacity: 1,
+  },
   chipText: {
     ...typography.bodySmall,
     color: colors.textPrimary,
@@ -169,6 +194,17 @@ const styles = StyleSheet.create({
   },
   chipTextAssigned: {
     color: colors.textSecondary,
+  },
+  chipTextOpen: {
+    fontFamily: 'DMSans-Medium',
+    color: palette.bottleGreen,
+  },
+  chipFieldTag: {
+    ...typography.caption,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   assignRow: {
     gap: space[2],

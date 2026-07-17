@@ -83,6 +83,7 @@ export function BarcodeSection({ draft, dispatch }: BarcodeSectionProps) {
             icon="maximize"
             label={draft.barcode !== null ? 'Scan again' : 'Scan barcode'}
             onPress={() => setCameraVisible(true)}
+            compact
           />
 
           <Button
