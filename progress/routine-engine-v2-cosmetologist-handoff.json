@@ -1,9 +1,9 @@
 {
   "taskSlug": "routine-engine-v2-cosmetologist",
-  "status": "PHASE_3_COMPLETE",
-  "phase": "3 of 9 complete; Phase 4 (skeleton build-up — the core rewrite) next",
-  "lastAgent": "self-review (inline) — Phase 3 ACCEPT",
-  "nextAgent": "Phase 4: skeleton build-up replaces greedy admission; cumulative active exposure enforcement (cap + format reclassification + rinse-off exemption); functional dedup; reserve list; scoring gains goalRank + tolerability terms",
+  "status": "PHASE_4_COMPLETE",
+  "phase": "4 of 9 complete — the core rewrite. Phase 5 (adaptation usage-anchor) next",
+  "lastAgent": "self-review (inline) — Phase 4 ACCEPT",
+  "nextAgent": "Phase 5: usage anchor (firstScheduledDate via save path, not the pure engine) + phase regression after breaks + tolerability wired into scoreCandidate (currently 0 at weight 200); reverses a documented adaptation.ts decision — must update the JSDoc + log",
   "updatedAt": "2026-07-17",
   "branch": "engine-improvements",
   "artifacts": {
@@ -15,8 +15,8 @@
   },
   "baseline": {
     "command": "npx jest src/utils/routineEngine",
-    "result": "full jest src tests -> 1145 passed / 3 known pre-existing failed (progress/known-test-failures.md)",
-    "measuredAt": "2026-07-17 (post Phase 3, commit 1406475)",
+    "result": "full jest --testPathIgnorePatterns=worktrees -> 1157 passed / 3 known pre-existing failed / 2 todo",
+    "measuredAt": "2026-07-17 (post Phase 4, commit c0afcb4)",
     "fullRun": "npx jest src tests -> 1089 passed / 3 failed; the 3 are PRE-EXISTING (verified by stashing Phase 1 and re-running clean HEAD, which fails identically): tests/catalog/catalog-screen (AsyncStorage native module null), tests/catalog/product-detail (palette.cobaltTint undefined), tests/shelf-filtering/PaoChip.",
     "note": "Phase 2+ must not reduce this. Changed expectations must be justified in the progress log per architecture-review.md §6."
   },
@@ -34,6 +34,11 @@
     ]
   },
   "handoffNotes": [
+    "PHASE 4 COMPLETE (commit c0afcb4) — the core rewrite. Skeleton build-up (src/utils/routineEngine/skeleton.ts) replaced greedy admission: selectSkeleton runs BEFORE resolvePeriods and hands it periodCandidates + treatmentCaps. resolve.ts still owns the ladder/relocation/slot-alternatives unchanged; buildPools just intersects with the selection. A goal-less (maintenance) profile now RESERVES every active — any test pushing an active through generatePlan must pass a matching goal.",
+    "CUMULATIVE CAP is live: findCapViolations (resolve.ts) = one strong leave-on carrier (irritancy>=3 && !rinseOff) per period per DAY; per-class stacking is GONE from actives.json. Two strong actives same-day is now cumulative_active_cap (avoid) in BOTH generation (skeleton reserves the loser) and validate (user-saved routines). Pair escalation between two strong carriers is redundant — the cap already forbids them; escalation only still matters for a strong+mild caution pair (e.g. vitC_pure + copper_peptides).",
+    "SCORING for Phase 5: scoreCandidate has a tolerability term at weight 200 currently fed 0. Phase 5 feeds it phaseIndex-derived 0|100|200 (0-based phaseIndex/2*200 → 0|100|200). goalRank*1000 dominates it, tolerability breaks ties among same-rank candidates — the intended \"adapted product outranks a new one of the same class\".",
+    "Phase 5 CONSTRAINT (unchanged): generatePlan is pure and never writes. firstScheduledDate must be recorded on the save path (src/domain/routinePlanActions.ts) and threaded back via TrackingInput. Phase 5 also REVERSES the documented \"no retroactive throttling\" decision in adaptation.ts:31-35 — update that JSDoc and log the reversal or tech-lead auto-blocks.",
+    "Reason codes introduced in Phase 4 (Phase 7 enum must cover): reserve, info, goal_exclude (actions); cumulative_active_cap, not_needed_for_goals, duplicate_function, moisturizer_recommended, rinse_off_active_note (reason codes). Treatment cap codes: exfoliant_treatment_cap, reclassified_treatment_cap. reasonCode still doubles as ruleId in ladder freezes — Phase 7 splits them.",
     "PHASE 3 COMPLETE (commit 1406475). Step 0 exists: RoutineContext carries goals + treatmentClassRanking + goalDecisions; generatePlan prepends Step-0 decisions. SCORING IS UNTOUCHED — Phase 4 wires the ranking into scoreCandidate (goalRank*1000 term) and the skeleton fill. EngineInput.profile goal fields are optional (absent = maintenance) so all fixtures compile.",
     "Attribution machinery for Phase 4+: ProductFacts classes now resolve through position-gated parsing — glycerin_class needs position <= 5; aha/bha/vitamin_c_pure past position 8 carry potency low (trace). Wizard tags are never gated. parseActiveIngredientDetails.position is the single source of position data.",
     "Phase 8 note: §8.4 goal derivation is ALREADY LIVE via migrateProfile (idempotent, every hydrate). Phase 8 executes only the schema bump 2->3 + one-time re-persist; do not re-implement the derivation.",
