@@ -38,7 +38,7 @@ const CATEGORY_KEYS: Record<ActiveBadgeCategory, ActiveIngredientKey[]> = {
     'cica',
     'panthenol',
   ],
-  hydrator: ['ceramides', 'hyaluronic_acid'],
+  hydrator: ['ceramides', 'hyaluronic_acid', 'glycerin_class'],
   other: ['spf_filters', 'spf_chemical'],
 };
 

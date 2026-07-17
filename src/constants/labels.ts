@@ -1,4 +1,4 @@
-import type { ActiveIngredientKey, FunctionalBenefit, ProductType } from '@/types';
+import type { ActiveIngredientKey, FunctionalBenefit, ProductType, SkinGoal } from '@/types';
 
 export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
   cleanser: 'Cleanser',
@@ -77,12 +77,24 @@ export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   spf_filters: 'UV Filters (SPF)',
   ceramides: 'Ceramides',
   hyaluronic_acid: 'Hyaluronic Acid',
+  glycerin_class: 'Glycerin & Humectants',
   panthenol: 'Panthenol',
   cica: 'Centella (Cica)',
   // Legacy (pre-ruleset persisted tags)
   retinol: 'Retinol',
   vitamin_c: 'Vitamin C',
   spf_chemical: 'SPF (Chemical)',
+};
+
+/** Care-goal display names (V2.1 Step 0 goal selector + confirmation banner). */
+export const GOAL_LABELS: Record<SkinGoal, string> = {
+  acne: 'Clear acne',
+  pigmentation: 'Fade pigmentation',
+  aging: 'Anti-aging',
+  dehydration: 'Deep hydration',
+  barrier_repair: 'Repair barrier',
+  oil_control: 'Control oil',
+  maintenance: 'Maintenance',
 };
 
 export const FUNCTIONAL_BENEFIT_LABELS: Record<FunctionalBenefit, string> = {
@@ -104,7 +116,7 @@ export const FUNCTIONAL_BENEFIT_LABELS: Record<FunctionalBenefit, string> = {
  * excluded — SPF is protection, not a treatment benefit.
  */
 export const FUNCTIONAL_BENEFIT_INGREDIENTS: Record<FunctionalBenefit, ActiveIngredientKey[]> = {
-  hydration: ['hyaluronic_acid', 'panthenol', 'ceramides'],
+  hydration: ['hyaluronic_acid', 'glycerin_class', 'panthenol', 'ceramides'],
   exfoliation: ['aha', 'bha', 'pha', 'retinoid', 'retinol'],
   soothing: ['cica', 'panthenol', 'azelaic_acid', 'niacinamide'],
   anti_acne: ['benzoyl_peroxide', 'azelaic_acid', 'bha'],

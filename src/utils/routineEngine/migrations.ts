@@ -3,6 +3,8 @@ import type {
   FitzpatrickType,
   Product,
   Routine,
+  SkinConcern,
+  SkinGoal,
   SkinPhototype,
   UserProfile,
 } from '@/types';
@@ -62,17 +64,47 @@ export function deriveGroupedPhototype(
  * `fitzpatrick` derived from the grouped `phototype`. The grouped field is left
  * untouched (transitional shape); profileStore setters keep the two in sync.
  */
+/**
+ * Concern → goal heuristic for pre-goal profiles (V2.1 phase-03 §3.1).
+ * First match wins in this order; empty concerns default to maintenance.
+ */
+const CONCERN_GOAL_ORDER: [SkinConcern[], SkinGoal][] = [
+  [['acne', 'pores'], 'acne'],
+  [['hyperpigmentation', 'dark_spots'], 'pigmentation'],
+  [['wrinkles'], 'aging'],
+  [['dryness'], 'dehydration'],
+  [['sensitivity', 'redness', 'eczema'], 'barrier_repair'],
+];
+
+export function deriveGoalFromConcerns(concerns: SkinConcern[]): SkinGoal {
+  for (const [group, goal] of CONCERN_GOAL_ORDER) {
+    if (concerns.some((c) => group.includes(c))) return goal;
+  }
+  return 'maintenance';
+}
+
 export function migrateProfile(profile: UserProfile): UserProfile {
   const fitzpatrick = deriveFitzpatrick(profile.phototype);
   const cityPresent = profile.city !== undefined;
   const fitzpatrickCurrent = profile.fitzpatrick === fitzpatrick;
+  // Pre-goal persisted profiles lack the field entirely; a present value —
+  // including a user-confirmed 'maintenance' — is never re-derived.
+  const goalsPresent = profile.primaryGoal !== undefined;
 
-  if (cityPresent && fitzpatrickCurrent) return profile;
+  if (cityPresent && fitzpatrickCurrent && goalsPresent) return profile;
 
+  const primaryGoal = goalsPresent ? profile.primaryGoal : deriveGoalFromConcerns(profile.concerns);
   return {
     ...profile,
     city: cityPresent ? profile.city : null,
     fitzpatrick,
+    primaryGoal,
+    secondaryGoal: goalsPresent ? profile.secondaryGoal : null,
+    // Confirmation is only owed for a real guess — an empty-concerns default
+    // of maintenance is not one (tech design Phase 3, Assumption 1).
+    goalNeedsConfirmation: goalsPresent
+      ? profile.goalNeedsConfirmation
+      : profile.concerns.length > 0,
   };
 }
 

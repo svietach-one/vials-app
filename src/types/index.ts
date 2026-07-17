@@ -23,6 +23,7 @@ export type ActiveIngredientKey =
   | 'spf_filters'
   | 'ceramides'
   | 'hyaluronic_acid'
+  | 'glycerin_class'
   | 'panthenol'
   | 'cica'
   // Legacy (pre-ruleset persisted tags, normalized on read)
@@ -135,6 +136,21 @@ export type SkinConcern =
   | 'pores'
   | 'dark_spots';
 
+/**
+ * The user's care goal — what the routine is built FOR (V2.1 pipeline
+ * Step 0). Distinct from {@link SkinConcern}: concerns are symptoms the user
+ * reports; a goal is the single treatment direction the engine optimizes.
+ * 'maintenance' means no problem to solve — the treatment slot stays empty.
+ */
+export type SkinGoal =
+  | 'acne'
+  | 'pigmentation'
+  | 'aging'
+  | 'dehydration'
+  | 'barrier_repair'
+  | 'oil_control'
+  | 'maintenance';
+
 export interface UserProfile {
   id: string;
   gender: 'female' | 'male' | null;
@@ -154,6 +170,15 @@ export interface UserProfile {
   /** Selected city for weather-driven season masks; null until the user picks one. */
   city: CityLocation | null;
   concerns: SkinConcern[];
+  /**
+   * Primary care goal driving treatment selection (V2.1 Step 0). Defaults to
+   * 'maintenance'; heuristically derived from concerns for pre-goal profiles.
+   */
+  primaryGoal: SkinGoal;
+  /** Optional second goal; at most 2 goals total. */
+  secondaryGoal: SkinGoal | null;
+  /** True when goals were derived rather than user-chosen — one-time confirm prompt. */
+  goalNeedsConfirmation: boolean;
   spfSensitivity: boolean;
   onboardingCompleted: boolean;
   /** Per-procedure duration overrides set when the user confirms actual fading. */

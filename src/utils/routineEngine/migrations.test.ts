@@ -352,3 +352,52 @@ describe('migrateRoutines', () => {
     expect(twice).toBe(once);
   });
 });
+
+describe('migrateProfile — goal derivation (phase-03 §3.1)', () => {
+  it('derives aging + needsConfirmation from a wrinkles concern', () => {
+    const result = migrateProfile(makeLegacyProfile({ concerns: ['wrinkles'] }));
+    expect(result.primaryGoal).toBe('aging');
+    expect(result.secondaryGoal).toBeNull();
+    expect(result.goalNeedsConfirmation).toBe(true);
+  });
+
+  it('defaults empty concerns to maintenance WITHOUT a confirmation prompt', () => {
+    // A default is not a guess — nothing to confirm (tech design Assumption 1)
+    const result = migrateProfile(makeLegacyProfile({ concerns: [] }));
+    expect(result.primaryGoal).toBe('maintenance');
+    expect(result.goalNeedsConfirmation).toBe(false);
+  });
+
+  it('applies first-match-wins ordering across concern groups', () => {
+    // acne group outranks pigmentation and aging even when all are present
+    const result = migrateProfile(
+      makeLegacyProfile({ concerns: ['wrinkles', 'dark_spots', 'pores'] }),
+    );
+    expect(result.primaryGoal).toBe('acne');
+  });
+
+  it('maps sensitivity-family concerns to barrier_repair', () => {
+    const result = migrateProfile(makeLegacyProfile({ concerns: ['eczema'] }));
+    expect(result.primaryGoal).toBe('barrier_repair');
+  });
+
+  it('never re-derives a present goal — including user-confirmed maintenance', () => {
+    const confirmed = migrateProfile(
+      makeLegacyProfile({
+        concerns: ['wrinkles'],
+        primaryGoal: 'maintenance',
+        secondaryGoal: null,
+        goalNeedsConfirmation: false,
+      }),
+    );
+    expect(confirmed.primaryGoal).toBe('maintenance');
+    expect(confirmed.goalNeedsConfirmation).toBe(false);
+  });
+
+  it('is idempotent — a second run returns the same reference', () => {
+    const once = migrateProfile(makeLegacyProfile({ concerns: ['dryness'] }));
+    const twice = migrateProfile(once);
+    expect(twice).toBe(once);
+    expect(once.primaryGoal).toBe('dehydration');
+  });
+});

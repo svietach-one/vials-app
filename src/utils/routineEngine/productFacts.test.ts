@@ -42,7 +42,7 @@ describe('buildProductFacts — class attribution', () => {
     const facts = buildProductFacts(
       makeProduct({
         activeTags: ['niacinamide'],
-        fullIngredientText: 'Aqua, Niacinamide, Glycolic Acid, Glycerin',
+        fullIngredientText: 'Aqua, Niacinamide, Glycolic Acid, Squalane',
       }),
       NOW,
     );
@@ -86,7 +86,7 @@ describe('buildProductFacts — potency', () => {
     const facts = buildProductFacts(
       makeProduct({
         activeTags: ['retinoid'],
-        fullIngredientText: 'Aqua, Retinyl Palmitate, Glycerin',
+        fullIngredientText: 'Aqua, Retinyl Palmitate, Squalane',
       }),
       NOW,
     );
@@ -115,7 +115,7 @@ describe('buildProductFacts — potency', () => {
 describe('buildProductFacts — INCI false positives (research §1.6)', () => {
   it('does not attribute retinoid from a "retinol-free" claim', () => {
     const facts = buildProductFacts(
-      makeProduct({ fullIngredientText: 'Aqua, Glycerin (retinol-free formula)' }),
+      makeProduct({ fullIngredientText: 'Aqua, Squalane (retinol-free formula)' }),
       NOW,
     );
     expect(classKeys(facts)).not.toContain('retinoid');
@@ -123,7 +123,7 @@ describe('buildProductFacts — INCI false positives (research §1.6)', () => {
 
   it('does not attribute AHA from sodium lactate', () => {
     const facts = buildProductFacts(
-      makeProduct({ fullIngredientText: 'Aqua, Sodium Lactate, Glycerin' }),
+      makeProduct({ fullIngredientText: 'Aqua, Sodium Lactate, Squalane' }),
       NOW,
     );
     expect(classKeys(facts)).not.toContain('aha');
@@ -258,7 +258,7 @@ describe('buildProductFacts — peptide subclasses (spec phase-01 §1.3)', () =>
     // The whole point of the subclass split: a signal peptide must be visible
     // to goal matching without inheriting copper peptides' acid/vitC conflicts.
     const facts = buildProductFacts(
-      makeProduct({ fullIngredientText: 'Aqua, Palmitoyl Pentapeptide-4, Glycerin' }),
+      makeProduct({ fullIngredientText: 'Aqua, Palmitoyl Pentapeptide-4, Squalane' }),
       NOW,
     );
     expect(classKeys(facts)).toEqual(['peptide_signal']);
@@ -266,7 +266,7 @@ describe('buildProductFacts — peptide subclasses (spec phase-01 §1.3)', () =>
 
   it('attributes the Matrixyl trade name to peptide_signal', () => {
     const facts = buildProductFacts(
-      makeProduct({ fullIngredientText: 'Aqua, Matrixyl 3000, Glycerin' }),
+      makeProduct({ fullIngredientText: 'Aqua, Matrixyl 3000, Squalane' }),
       NOW,
     );
     expect(classKeys(facts)).toEqual(['peptide_signal']);
@@ -274,7 +274,7 @@ describe('buildProductFacts — peptide subclasses (spec phase-01 §1.3)', () =>
 
   it('attributes Argireline to peptide_neuro', () => {
     const facts = buildProductFacts(
-      makeProduct({ fullIngredientText: 'Aqua, Acetyl Hexapeptide-8, Glycerin' }),
+      makeProduct({ fullIngredientText: 'Aqua, Acetyl Hexapeptide-8, Squalane' }),
       NOW,
     );
     expect(classKeys(facts)).toEqual(['peptide_neuro']);
@@ -282,7 +282,7 @@ describe('buildProductFacts — peptide subclasses (spec phase-01 §1.3)', () =>
 
   it('keeps GHK-Cu on copper_peptides — the fallback must not shadow it', () => {
     const facts = buildProductFacts(
-      makeProduct({ fullIngredientText: 'Aqua, Copper Tripeptide-1, Glycerin' }),
+      makeProduct({ fullIngredientText: 'Aqua, Copper Tripeptide-1, Squalane' }),
       NOW,
     );
     expect(classKeys(facts)).toEqual(['copper_peptides']);
@@ -291,7 +291,7 @@ describe('buildProductFacts — peptide subclasses (spec phase-01 §1.3)', () =>
   it('falls back to peptide_signal for an unrecognised peptide', () => {
     // Conservative default: no conflicts, but still visible to goal matching.
     const facts = buildProductFacts(
-      makeProduct({ fullIngredientText: 'Aqua, Tripeptide-29, Glycerin' }),
+      makeProduct({ fullIngredientText: 'Aqua, Tripeptide-29, Squalane' }),
       NOW,
     );
     expect(classKeys(facts)).toEqual(['peptide_signal']);

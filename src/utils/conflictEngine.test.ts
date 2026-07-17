@@ -88,7 +88,7 @@ describe('ConflictEngine.detectConflicts', () => {
     // conflict" passed vacuously. It must now be a recognised peptide_signal
     // product AND still be conflict-free.
     const matrixyl = makeProduct({
-      fullIngredientText: 'Aqua, Palmitoyl Pentapeptide-4, Glycerin',
+      fullIngredientText: 'Aqua, Palmitoyl Pentapeptide-4, Squalane',
     });
     const vitC = makeProduct({ fullIngredientText: 'Aqua, Ascorbic Acid' });
     const steps = [makeStep(matrixyl.id), makeStep(vitC.id)];
@@ -264,7 +264,7 @@ describe('ConflictEngine.detectConflicts', () => {
   it('should detect conflicts derived from INCI fullIngredientText when no explicit activeIngredients are set', () => {
     const productA = makeProduct({
       activeIngredients: [],
-      fullIngredientText: 'Water, Glycerin, Retinol, Fragrance',
+      fullIngredientText: 'Water, Squalane, Retinol, Fragrance',
     });
     const productB = makeProduct({
       activeIngredients: [],

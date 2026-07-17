@@ -121,6 +121,9 @@
             "afterApplication": 8
           }
         ]
+      },
+      "attribution": {
+        "downgradeToLowAfterPosition": 8
       }
     },
     "bha": {
@@ -158,7 +161,10 @@
       "concerns": [
         "acne",
         "pores"
-      ]
+      ],
+      "attribution": {
+        "downgradeToLowAfterPosition": 8
+      }
     },
     "pha": {
       "displayName": "PHA Acids",
@@ -214,6 +220,9 @@
       "preferredPeriod": "am",
       "stacking": {
         "maxPerPeriod": 1
+      },
+      "attribution": {
+        "downgradeToLowAfterPosition": 8
       }
     },
     "vitamin_c_derivative": {
@@ -604,6 +613,42 @@
       "concerns": [
         "wrinkles"
       ]
+    },
+    "glycerin_class": {
+      "displayName": "Glycerin & Humectants",
+      "matchers": [
+        {
+          "pattern": "\\bglycerin\\b"
+        },
+        {
+          "pattern": "\\bglycerol\\b"
+        },
+        {
+          "pattern": "\\b(butylene|propylene|pentylene)\\s+glycol\\b"
+        },
+        {
+          "pattern": "\\bbetaine\\b"
+        },
+        {
+          "pattern": "\\burea\\b"
+        }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 0,
+        "barrierRepair": false
+      },
+      "allowedPeriods": [
+        "am",
+        "pm"
+      ],
+      "concerns": [
+        "dryness"
+      ],
+      "attribution": {
+        "requireWithinPosition": 5
+      }
     }
   },
   "pairRules": [
@@ -805,6 +850,68 @@
       "severity": "avoid",
       "nonSkippable": false,
       "reasonCode": "spf_required_photosensitizing"
+    },
+    {
+      "id": "spf_goal_pigmentation",
+      "if": {
+        "goalIn": [
+          "pigmentation"
+        ]
+      },
+      "then": {
+        "action": "require",
+        "targets": {
+          "productTypes": [
+            "spf"
+          ]
+        },
+        "period": "am"
+      },
+      "severity": "caution",
+      "nonSkippable": false,
+      "reasonCode": "spf_required_goal"
     }
-  ]
+  ],
+  "goals": {
+    "acne": [
+      "retinoid",
+      "bha",
+      "benzoyl_peroxide",
+      "azelaic_acid",
+      "niacinamide"
+    ],
+    "pigmentation": [
+      "vitamin_c_pure",
+      "vitamin_c_derivative",
+      "azelaic_acid",
+      "retinoid",
+      "aha",
+      "niacinamide"
+    ],
+    "aging": [
+      "retinoid",
+      "peptide_signal",
+      "copper_peptides",
+      "vitamin_c_pure",
+      "vitamin_c_derivative",
+      "peptide_neuro"
+    ],
+    "dehydration": [
+      "hyaluronic_acid",
+      "glycerin_class",
+      "ceramides"
+    ],
+    "barrier_repair": [
+      "ceramides",
+      "cica",
+      "panthenol",
+      "niacinamide"
+    ],
+    "oil_control": [
+      "niacinamide",
+      "bha",
+      "azelaic_acid"
+    ],
+    "maintenance": []
+  }
 }

@@ -334,3 +334,44 @@ describe('actives.json — base mandates block (spec phase-02 §2.1)', () => {
     }
   });
 });
+
+describe('actives.json — goals block (spec phase-03 §3.2)', () => {
+  const GOALS = (activesRuleset as unknown as { goals: Record<string, string[]> }).goals;
+  const ALL_GOALS = ['acne', 'pigmentation', 'aging', 'dehydration', 'barrier_repair', 'oil_control', 'maintenance'];
+
+  it('declares every SkinGoal exactly once', () => {
+    expect(Object.keys(GOALS).sort()).toEqual([...ALL_GOALS].sort());
+  });
+
+  it('references only existing classes, each at most once per goal', () => {
+    for (const [goal, classes] of Object.entries(GOALS)) {
+      for (const key of classes) {
+        expect({ goal, key, exists: CLASS_KEYS.includes(key) }).toEqual({ goal, key, exists: true });
+      }
+      expect(new Set(classes).size).toBe(classes.length);
+    }
+  });
+
+  it('keeps the maintenance treatment list deliberately empty', () => {
+    expect(GOALS.maintenance).toEqual([]);
+  });
+
+  it('gates glycerin_class attribution by position — never bare presence', () => {
+    // The Phase 1 deferral condition: without this gate the class attributes
+    // to nearly every formula and flattens goal scoring.
+    const glycerin = (activesRuleset as unknown as {
+      classes: Record<string, { attribution?: { requireWithinPosition?: number } }>;
+    }).classes.glycerin_class;
+    expect(glycerin.attribution?.requireWithinPosition).toBeGreaterThan(0);
+  });
+
+  it('declares the trace-amount downgrade on the leave-on strong acids', () => {
+    const classes = (activesRuleset as unknown as {
+      classes: Record<string, { attribution?: { downgradeToLowAfterPosition?: number } }>;
+    }).classes;
+    for (const key of ['aha', 'bha', 'vitamin_c_pure']) {
+      expect({ key, gated: classes[key].attribution?.downgradeToLowAfterPosition !== undefined })
+        .toEqual({ key, gated: true });
+    }
+  });
+});

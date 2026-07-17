@@ -304,3 +304,53 @@ describe('base mandates — spf_photosensitizing (spec phase-02 §2.1)', () => {
     expect(result.placeholders[0].severity).toBe('avoid');
   });
 });
+
+describe('goal-conditioned mandates — spf_required_goal (phase-03 §3.3)', () => {
+  const goalContext = (primary: 'pigmentation' | 'maintenance', secondary: 'pigmentation' | null = null) =>
+    buildRoutineContext({
+      procedures: [],
+      profile: { fitzpatrick: null, primaryGoal: primary, secondaryGoal: secondary },
+      seasonMask: { season: 'winter', source: 'calendar' },
+      now: NOW,
+    });
+
+  it('collects the goal SPF mandate for a pigmentation primary goal', () => {
+    const mandates = collectRequireMandates(goalContext('pigmentation'));
+    const goal = mandates.find((m) => m.reasonCode === 'spf_required_goal');
+    expect(goal).toBeDefined();
+    expect(goal?.period).toBe('am');
+    expect(goal?.severity).toBe('caution');
+    // No planContainsProperty — the goal alone is the condition
+    expect(goal?.planContainsProperty).toBeUndefined();
+  });
+
+  it('collects it when pigmentation is the secondary goal', () => {
+    const mandates = collectRequireMandates(goalContext('maintenance', 'pigmentation'));
+    expect(mandates.some((m) => m.reasonCode === 'spf_required_goal')).toBe(true);
+  });
+
+  it('does not collect it for a maintenance profile', () => {
+    const mandates = collectRequireMandates(goalContext('maintenance'));
+    expect(mandates.some((m) => m.reasonCode === 'spf_required_goal')).toBe(false);
+  });
+
+  it('renders an AM SPF placeholder for a pigmentation goal with no SPF and no actives', () => {
+    // The trigger phase-02 deferred: no photosensitizer anywhere, winter,
+    // baseline phototype — the goal alone mandates SPF.
+    const hydrator = makeProduct({ activeTags: ['hyaluronic_acid'] });
+    const facts = buildShelfFacts([hydrator], NOW);
+    const result = applyMandates(
+      { am: [makeStep(hydrator)], pm: [] },
+      facts,
+      goalContext('pigmentation'),
+    );
+    expect(result.placeholders).toEqual([
+      expect.objectContaining({
+        period: 'am',
+        productTypes: ['spf'],
+        reasonCode: 'spf_required_goal',
+        severity: 'caution',
+      }),
+    ]);
+  });
+});

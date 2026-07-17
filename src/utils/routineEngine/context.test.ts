@@ -5,6 +5,7 @@ import {
   buildRoutineContext,
   matchesComparator,
   resolveActiveProcedureRules,
+  resolveGoalContext,
 } from '@/utils/routineEngine/context';
 import { getSkincareDateString } from '@/utils/timeHelpers';
 
@@ -246,5 +247,89 @@ describe('buildRoutineContext', () => {
     expect(context.seasonMask).toBe(SEASON_MASK);
     expect(context.procedureRules.length).toBeGreaterThan(0);
     expect(context.effectiveRuleset.limits.length).toBeGreaterThan(0);
+  });
+});
+
+describe('resolveGoalContext — Step 0 (phase-03)', () => {
+  it('resolves an absent goal pair to maintenance with an empty ranking', () => {
+    const result = resolveGoalContext({ fitzpatrick: null });
+    expect(result.goals).toEqual({ primary: 'maintenance', secondary: null });
+    expect(result.treatmentClassRanking).toEqual([]);
+    expect(result.decisions).toEqual([]);
+  });
+
+  it('ranks the primary goal classes in ruleset order', () => {
+    const result = resolveGoalContext({ fitzpatrick: null, primaryGoal: 'acne' });
+    expect(result.treatmentClassRanking).toEqual([
+      'retinoid', 'bha', 'benzoyl_peroxide', 'azelaic_acid', 'niacinamide',
+    ]);
+  });
+
+  it('appends secondary goal classes after the primary, deduped', () => {
+    const result = resolveGoalContext({
+      fitzpatrick: null,
+      primaryGoal: 'acne',
+      secondaryGoal: 'oil_control',
+    });
+    // oil_control = [niacinamide, bha, azelaic_acid] — all already ranked by acne
+    expect(result.treatmentClassRanking).toEqual([
+      'retinoid', 'bha', 'benzoyl_peroxide', 'azelaic_acid', 'niacinamide',
+    ]);
+  });
+
+  it('drops irritancy >= 3 classes when barrier_repair is either goal', () => {
+    const result = resolveGoalContext({
+      fitzpatrick: null,
+      primaryGoal: 'aging',
+      secondaryGoal: 'barrier_repair',
+    });
+    // aging leads with retinoid (3) and vitamin_c_pure (3) — both excluded
+    expect(result.treatmentClassRanking).not.toContain('retinoid');
+    expect(result.treatmentClassRanking).not.toContain('vitamin_c_pure');
+    // ...while mild bioactives survive
+    expect(result.treatmentClassRanking).toContain('peptide_signal');
+    expect(result.treatmentClassRanking).toContain('vitamin_c_derivative');
+    expect(result.decisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'goal_exclude',
+          reasonCode: 'barrier_repair_excludes_irritants',
+          detail: 'retinoid',
+        }),
+      ]),
+    );
+  });
+
+  it('promotes azelaic acid and niacinamide above aha for high-melanin pigmentation', () => {
+    const result = resolveGoalContext({ fitzpatrick: 5, primaryGoal: 'pigmentation' });
+    const r = result.treatmentClassRanking;
+    expect(r.indexOf('azelaic_acid')).toBeLessThan(r.indexOf('aha'));
+    expect(r.indexOf('niacinamide')).toBeLessThan(r.indexOf('aha'));
+    // relative order of the promoted pair is preserved (azelaic first in the ruleset)
+    expect(r.indexOf('azelaic_acid')).toBeLessThan(r.indexOf('niacinamide'));
+  });
+
+  it('does not reorder pigmentation for fitzpatrick 3 (baseline)', () => {
+    const result = resolveGoalContext({ fitzpatrick: 3, primaryGoal: 'pigmentation' });
+    expect(result.treatmentClassRanking).toEqual([
+      'vitamin_c_pure', 'vitamin_c_derivative', 'azelaic_acid', 'retinoid', 'aha', 'niacinamide',
+    ]);
+  });
+
+  it('is deterministic — identical profile yields an identical ranking', () => {
+    const a = resolveGoalContext({ fitzpatrick: 6, primaryGoal: 'pigmentation', secondaryGoal: 'aging' });
+    const b = resolveGoalContext({ fitzpatrick: 6, primaryGoal: 'pigmentation', secondaryGoal: 'aging' });
+    expect(a).toEqual(b);
+  });
+
+  it('threads goals and ranking into buildRoutineContext', () => {
+    const context = buildRoutineContext({
+      procedures: [],
+      profile: { fitzpatrick: null, primaryGoal: 'dehydration', secondaryGoal: null },
+      seasonMask: { season: 'spring', source: 'calendar' },
+      now: new Date('2026-07-04T12:00:00Z'),
+    });
+    expect(context.goals).toEqual({ primary: 'dehydration', secondary: null });
+    expect(context.treatmentClassRanking).toEqual(['hyaluronic_acid', 'glycerin_class', 'ceramides']);
   });
 });

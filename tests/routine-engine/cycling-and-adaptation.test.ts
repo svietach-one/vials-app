@@ -134,7 +134,8 @@ describe('Story 5 AC: cross-store domain actions (performDailyCheckIn / cycleSta
     useProfileStore.setState({
       profile: {
         id: 'profile-1', gender: null, age: null, skinType: null, phototype: null,
-        fitzpatrick: null, city: null, concerns: [], spfSensitivity: false,
+        fitzpatrick: null, city: null, concerns: [], primaryGoal: 'maintenance',
+        secondaryGoal: null, goalNeedsConfirmation: false, spfSensitivity: false,
         onboardingCompleted: true, individualDurationMonths: {},
       },
       hydrated: true,

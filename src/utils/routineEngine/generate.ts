@@ -38,7 +38,9 @@ export interface TrackingInput {
 export interface EngineInput {
   products: Product[];
   procedures: UserProcedureLog[];
-  profile: Pick<UserProfile, 'fitzpatrick' | 'concerns'>;
+  /** Goal fields optional (absent ⇒ maintenance) so pre-goal callers/fixtures keep compiling. */
+  profile: Pick<UserProfile, 'fitzpatrick' | 'concerns'> &
+    Partial<Pick<UserProfile, 'primaryGoal' | 'secondaryGoal'>>;
   seasonMask: SeasonMask;
   /** Absent = fixed mode with no counters (virtual counts drive adaptation). */
   tracking?: TrackingInput;
@@ -70,7 +72,11 @@ export function generatePlan(input: EngineInput): RoutinePlan {
   const facts = buildShelfFacts(input.products, now);
   const context = buildRoutineContext({
     procedures: input.procedures,
-    profile: { fitzpatrick: input.profile.fitzpatrick },
+    profile: {
+      fitzpatrick: input.profile.fitzpatrick,
+      primaryGoal: input.profile.primaryGoal,
+      secondaryGoal: input.profile.secondaryGoal,
+    },
     seasonMask: input.seasonMask,
     now,
   });
@@ -110,7 +116,14 @@ export function generatePlan(input: EngineInput): RoutinePlan {
     periods: { morning: resolved.periods.am, evening: resolved.periods.pm },
     frozen: [...gateFrozen, ...resolved.frozen],
     placeholders: mandates.placeholders,
-    decisions: [...gateDecisions, ...resolved.decisions, ...mandates.decisions],
+    // Step-0 goal decisions lead: they explain the ranking every later
+    // admit/freeze decision was made against.
+    decisions: [
+      ...context.goalDecisions,
+      ...gateDecisions,
+      ...resolved.decisions,
+      ...mandates.decisions,
+    ],
     slotAlternatives: resolved.slotAlternatives,
   };
 }

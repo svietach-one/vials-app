@@ -212,3 +212,120 @@ per-period placeholder merge (strictest severity wins, already shipped).
 ## 5. Open Questions
 
 None. §4.2 resolved (dropped); the goal-driven SPF trigger is Phase 3 by design.
+
+---
+
+# Phase 3 — Goal Model (Pipeline Step 0)
+
+Spec: docs/specs/routine-engine-v2.1/phase-03-goal-model.md
+Date: 2026-07-17. §4.3 (pregnancy) remains open — that bullet is excluded.
+
+## 1. Architecture Overview
+
+Step 0 resolves goals BEFORE facts and threads the result through
+`RoutineContext`; nothing downstream changes its scoring yet (Phase 4
+consumes `treatmentClassRanking` — this phase only produces it, so existing
+plans are byte-identical for a maintenance profile).
+
+```
+profile.{primaryGoal,secondaryGoal}      actives.json
+        │                                 ├─ goals block (ranked classes/goal)
+        ▼                                 ├─ glycerin_class (re-added, gated)
+resolveGoalContext()  ── Step 0 ──►       └─ mandates + spf_required_goal
+  { goals, treatmentClassRanking,
+    decisions }                          ingredientParser
+        │                                 └─ INCI position per class →
+        ▼                                    attribution gate / trace downgrade
+RoutineContext.{goals, treatmentClassRanking}
+        │
+        ├─► collectRequireMandates — goalIn condition on base mandates
+        └─► generatePlan — goal decisions prepended to plan.decisions
+```
+
+Migration note: goal derivation lands in `migrateProfile` (runs idempotently
+on every hydrate) — correctness now; the schema bump 2→3 stays with Phase 8.
+
+## 2. API Contracts
+
+### Types (src/types/index.ts)
+- `SkinGoal = 'acne' | 'pigmentation' | 'aging' | 'dehydration' | 'barrier_repair' | 'oil_control' | 'maintenance'`
+- `UserProfile` += `primaryGoal: SkinGoal; secondaryGoal: SkinGoal | null; goalNeedsConfirmation: boolean` (flat fields).
+
+### `resolveGoalContext(profile, fitzpatrick)` (context.ts, new)
+- Returns `{ goals: { primary, secondary }, treatmentClassRanking: ActiveIngredientKey[], decisions: DecisionLogEntry[] }`.
+- Ranking = goals[primary] ++ goals[secondary] (dedup, order-preserving), then modifiers:
+  barrier_repair as ANY goal → drop classes with flat `irritancy >= 3`
+  (logged `barrier_repair_excludes_irritants`, new action `goal_exclude`);
+  Fitzpatrick 4–6 + pigmentation goal → move azelaic_acid + niacinamide ahead of aha.
+- `RoutineContext` += `goals`, `treatmentClassRanking`; `RoutineContextInput.profile`
+  widens with OPTIONAL `primaryGoal?/secondaryGoal?` (absent ⇒ maintenance) so
+  every existing caller keeps compiling.
+
+### `EngineInput.profile` (generate.ts)
+- `Pick<UserProfile,'fitzpatrick'|'concerns'> & Partial<Pick<UserProfile,'primaryGoal'|'secondaryGoal'>>`.
+
+### Ruleset schema (rulesetTypes.ts)
+- `ActivesRuleset` += `goals: Record<SkinGoal, ActiveIngredientKey[]>`.
+- `ActiveClass` += `attribution?: { requireWithinPosition?: number; downgradeToLowAfterPosition?: number }`.
+- `RulesetMandate.if` += `goalIn?: SkinGoal[]` (matches primary OR secondary).
+
+### Parser (ingredientParser.ts)
+- `ParsedActiveDetail` += `position?: number` — 1-based comma-token index of the
+  earliest matcher hit. Attribution gates applied IN the parser so every
+  consumer (facts, conflict engine, badges via getProductActiveKeys) agrees:
+  `requireWithinPosition` unmet ⇒ class not attributed;
+  `downgradeToLowAfterPosition` exceeded ⇒ evidenced potency forced 'low'.
+- Gates act on parse-sourced attribution only — wizard tags are user-asserted.
+
+## 3. Implementation Tasks
+
+- **P3-1** Types + profile defaults + goal derivation in `migrateProfile` —
+  files: types/index.ts, store/profileStore.ts, routineEngine/migrations.ts.
+- **P3-2** `goals` block + `spf_goal_pigmentation` mandate + glycerin_class
+  (gated) + trace-downgrade declarations — files: rulesets/actives.json,
+  rulesetTypes.ts, constants/labels.ts (GOAL_LABELS + glycerin re-entries),
+  utils/activeBadges.ts, types (ActiveIngredientKey += glycerin_class).
+- **P3-3** Position-aware parser + gates — files: utils/ingredientParser.ts.
+- **P3-4** Step 0 + context threading + goalIn mandate condition + decisions
+  into the plan — files: routineEngine/context.ts, mandates.ts, generate.ts,
+  planTypes.ts (`goal_exclude` action).
+- **P3-5 (qa-lead, before UI code)** component tests — files:
+  tests/routine-engine/goal-selector.test.tsx, goal-confirm-banner.test.tsx.
+- **P3-6** UI: GoalSelector (max 2; first = primary) in SkinProfileSetupScreen
+  + SkinProfileEditModal; one-time confirmation banner on RoutinesScreen —
+  files: components/profile/GoalSelector.tsx, the two hosts, RoutinesScreen.
+- **P3-7** Unit + integrity tests — files: context.test.ts, mandates.test.ts,
+  ingredientParser.test.ts, productFacts.test.ts, rulesetIntegrity.test.ts,
+  migrations.test.ts.
+
+## 4. Assumptions
+
+- **`goalNeedsConfirmation` is set only when derived from non-empty concerns.**
+  Alternative: always set on migration. Reason: an empty-concerns profile gets
+  the default, not a guess — there is nothing to confirm; the AC only asserts
+  the prompt for the concerns-derived case.
+- **`spf_required_goal` severity is `caution`, and `goalIn` matches primary or
+  secondary.** Alternative: `avoid` / primary-only. Reason: the photosensitizer
+  mandate guards a chemical vulnerability (avoid); the goal mandate guards
+  treatment efficacy — advisory. Either goal slot expresses the user's intent.
+- **Attribution gates live in the parser, not productFacts.** Alternative:
+  gate in buildProductFacts only. Reason: getProductActiveKeys feeds the
+  conflict engine and badges directly; gating in one place keeps every
+  consumer consistent (same argument as Phase 1's matchPairRule).
+- **Draft gate values — consultant review item (with the goals values):**
+  glycerin_class `requireWithinPosition: 5`; aha/bha/vitamin_c_pure
+  `downgradeToLowAfterPosition: 8`. Freeform INCI with no commas yields one
+  token ⇒ position 1 ⇒ no gating (conservative: attributes fully).
+- **Trace strong actives downgrade to 'low', never drop.** Alternative: drop
+  the class. Reason: do-no-harm — a trace acid stays visible to safety checks
+  (pair rules, eligibility) at reduced severity via the existing potency
+  exceptions; dropping would hide it from them entirely.
+- **`goal_exclude` DecisionAction added now.** Alternative: reuse 'limit'.
+  Reason: Phase 7 closes the enum; overloading 'limit' would conflate a
+  frequency cap with a ranking exclusion in the log.
+
+## 5. Open Questions
+
+§4.3 (pregnancy) — open, excluded from this phase's scope and acceptance.
+Consultant review list (blocks VALUES, not structure): goals rankings,
+glycerin position gate, trace threshold + downgrade-vs-drop.

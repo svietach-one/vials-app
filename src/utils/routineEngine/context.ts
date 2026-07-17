@@ -9,12 +9,15 @@ import {
   type SeasonMask,
 } from '@/constants/rulesets/rulesetTypes';
 import type {
+  ActiveIngredientKey,
   FitzpatrickType,
   ProcedureLogKey,
+  SkinGoal,
   UserProcedureLog,
   UserProfile,
 } from '@/types';
 import { getProcedureDisplayName } from '@/utils/procedureLifespanHelpers';
+import type { DecisionLogEntry } from '@/utils/routineEngine/planTypes';
 import { getRehabDays } from '@/utils/routineEngine/rehabFilter';
 import { getElapsedDays, getSkincareDateString } from '@/utils/timeHelpers';
 
@@ -245,11 +248,100 @@ function mergeProcedureRules(rules: ActiveProcedureRule[]): ActiveProcedureRule[
   return [...byTarget.values()];
 }
 
+// ─── Step 0 — Goals ─────────────────────────────────────────────────────────
+
+/** The user's resolved goal pair (Step 0). Absent profile fields ⇒ maintenance. */
+export interface GoalContext {
+  primary: SkinGoal;
+  secondary: SkinGoal | null;
+}
+
+export interface ResolvedGoals {
+  goals: GoalContext;
+  /**
+   * Ordered treatment candidates: goals[primary] ++ goals[secondary], deduped,
+   * modifiers applied. Phase 4's skeleton build-up selects the 0-or-1
+   * treatment per period from this ranking; empty (maintenance) means the
+   * treatment slot deliberately stays empty.
+   */
+  treatmentClassRanking: ActiveIngredientKey[];
+  /** Step-0 exclusions, prepended into plan.decisions by generatePlan. */
+  decisions: DecisionLogEntry[];
+}
+
+/** Moves the listed keys (keeping their relative order) directly ahead of `before`. */
+function promoteAhead(
+  ranking: ActiveIngredientKey[],
+  keys: ActiveIngredientKey[],
+  before: ActiveIngredientKey,
+): ActiveIngredientKey[] {
+  const anchor = ranking.indexOf(before);
+  if (anchor === -1) return ranking;
+  const promoted = ranking.filter((k) => keys.includes(k) && ranking.indexOf(k) > anchor);
+  if (promoted.length === 0) return ranking;
+  const rest = ranking.filter((k) => !promoted.includes(k));
+  const at = rest.indexOf(before);
+  return [...rest.slice(0, at), ...promoted, ...rest.slice(at)];
+}
+
+/**
+ * Pipeline Step 0 — resolves the goal pair into an ordered treatment-class
+ * ranking (V2.1 phase-03). Runs BEFORE facts; downstream stages read the
+ * result from RoutineContext. Pure and deterministic: array order comes from
+ * the ruleset's `goals` block, modifiers are stable transforms.
+ *
+ * Modifiers:
+ * - barrier_repair as EITHER goal drops classes with flat irritancy >= 3
+ *   (repair the barrier first; logged `barrier_repair_excludes_irritants`).
+ * - Fitzpatrick 4–6 with a pigmentation goal promotes azelaic_acid and
+ *   niacinamide ahead of aha (PIH risk from irritation).
+ */
+export function resolveGoalContext(
+  profile: Pick<UserProfile, 'fitzpatrick'> &
+    Partial<Pick<UserProfile, 'primaryGoal' | 'secondaryGoal'>>,
+): ResolvedGoals {
+  const primary = profile.primaryGoal ?? 'maintenance';
+  const secondary = profile.secondaryGoal ?? null;
+  const decisions: DecisionLogEntry[] = [];
+
+  const merged: ActiveIngredientKey[] = [];
+  for (const goal of [primary, secondary]) {
+    if (!goal) continue;
+    for (const key of ACTIVES_RULESET.goals[goal] ?? []) {
+      if (!merged.includes(key)) merged.push(key);
+    }
+  }
+
+  let ranking = merged;
+  if (primary === 'barrier_repair' || secondary === 'barrier_repair') {
+    const dropped = ranking.filter(
+      (key) => (ACTIVES_RULESET.classes[key]?.properties.irritancy ?? 0) >= 3,
+    );
+    for (const key of dropped) {
+      decisions.push({
+        action: 'goal_exclude',
+        reasonCode: 'barrier_repair_excludes_irritants',
+        detail: key,
+      });
+    }
+    ranking = ranking.filter((key) => !dropped.includes(key));
+  }
+
+  const highMelanin = profile.fitzpatrick !== null && (profile.fitzpatrick ?? 0) >= 4;
+  if (highMelanin && (primary === 'pigmentation' || secondary === 'pigmentation')) {
+    ranking = promoteAhead(ranking, ['azelaic_acid', 'niacinamide'], 'aha');
+  }
+
+  return { goals: { primary, secondary }, treatmentClassRanking: ranking, decisions };
+}
+
 // ─── Context assembly ───────────────────────────────────────────────────────
 
 export interface RoutineContextInput {
   procedures: UserProcedureLog[];
-  profile: Pick<UserProfile, 'fitzpatrick'>;
+  /** Goal fields optional so pre-goal callers keep compiling; absent ⇒ maintenance. */
+  profile: Pick<UserProfile, 'fitzpatrick'> &
+    Partial<Pick<UserProfile, 'primaryGoal' | 'secondaryGoal'>>;
   seasonMask: SeasonMask;
   now?: Date;
 }
@@ -261,6 +353,11 @@ export interface RoutineContext {
   seasonMask: SeasonMask;
   procedureRules: ActiveProcedureRule[];
   effectiveRuleset: EffectiveRuleset;
+  /** Step-0 goal resolution (V2.1 phase-03). */
+  goals: GoalContext;
+  treatmentClassRanking: ActiveIngredientKey[];
+  /** Step-0 decisions, surfaced into the plan by generatePlan. */
+  goalDecisions: DecisionLogEntry[];
 }
 
 /**
@@ -269,11 +366,15 @@ export interface RoutineContext {
  */
 export function buildRoutineContext(input: RoutineContextInput): RoutineContext {
   const now = input.now ?? new Date();
+  const resolved = resolveGoalContext(input.profile);
   return {
     date: getSkincareDateString(now),
     fitzpatrick: input.profile.fitzpatrick,
     seasonMask: input.seasonMask,
     procedureRules: resolveActiveProcedureRules(input.procedures, now),
     effectiveRuleset: buildEffectiveRuleset(input.profile.fitzpatrick),
+    goals: resolved.goals,
+    treatmentClassRanking: resolved.treatmentClassRanking,
+    goalDecisions: resolved.decisions,
   };
 }

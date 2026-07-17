@@ -111,9 +111,19 @@ export function collectRequireMandates(context: RoutineContext): RequireMandate[
   // Base mandates (actives.json `mandates`): always in force, independent of
   // phototype, season, and clinical state — e.g. SPF whenever the plan carries
   // a photosensitizer, for every user (spec phase-02 §2.1). Read directly from
-  // the ruleset like the seasonal source above.
+  // the ruleset like the seasonal source above. A `goalIn` condition matches
+  // the user's primary OR secondary goal (phase-03 §3.3) and is resolved here
+  // — unlike planContainsProperty it does not depend on the admitted plan.
   const base: RequireMandate[] = (ACTIVES_RULESET.mandates ?? [])
     .filter((mandate) => mandate.then.action === 'require' && mandate.then.targets)
+    .filter((mandate) => {
+      const goalIn = mandate.if?.goalIn;
+      if (!goalIn) return true;
+      return (
+        goalIn.includes(context.goals.primary) ||
+        (context.goals.secondary !== null && goalIn.includes(context.goals.secondary))
+      );
+    })
     .map((mandate) => ({
       period: mandate.then.period ?? 'am',
       targets: mandate.then.targets as RuleTargets,

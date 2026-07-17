@@ -69,7 +69,10 @@ export type DecisionAction =
   | 'keep_with_note'
   | 'limit'
   | 'stacking_cap'
-  | 'placeholder';
+  | 'placeholder'
+  /** Step-0 ranking exclusion (e.g. barrier_repair drops irritants) — a class
+   * removed from treatmentClassRanking, not a product frozen or capped. */
+  | 'goal_exclude';
 
 /** One explainable engine decision (research §1.8: invisible ≠ unaccountable). */
 export interface DecisionLogEntry {

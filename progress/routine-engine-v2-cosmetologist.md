@@ -264,3 +264,75 @@ This file tracks the whole package; each phase appends to the Log.
 
   One deviation (property-test placement), documented in the tech design and
   this log. No FAIL items; no re-run required.
+
+- 2026-07-17: **PHASE 3 IMPLEMENTED.** Goal model as pipeline Step 0.
+  - Types/profile: `SkinGoal` (7 members) + flat `primaryGoal`/`secondaryGoal`/
+    `goalNeedsConfirmation` on UserProfile; defaults in profileStore.
+  - Derivation: `deriveGoalFromConcerns` + goal fields in `migrateProfile`
+    (idempotent, every hydrate; existing profiles get goals NOW — the schema
+    bump 2→3 stays with Phase 8, per the fold-the-bump rule).
+    `goalNeedsConfirmation` set only when derived from non-empty concerns
+    (a default is not a guess — design Assumption 1).
+  - Data: `goals` block in actives.json (draft rankings, consultant item);
+    `spf_goal_pigmentation` mandate with the new `goalIn` condition (caution,
+    matches primary OR secondary — design Assumption 2); glycerin_class
+    RE-ADDED with `attribution.requireWithinPosition: 5`; trace-amount
+    `downgradeToLowAfterPosition: 8` on aha/bha/vitamin_c_pure — the joint
+    "INCI position ≈ concentration" heuristic from the user ruling, all three
+    values on the consultant review list.
+  - Parser: `parseActiveIngredientDetails` is position-aware
+    (`ParsedActiveDetail.position`, 1-based comma-token index); gates applied
+    IN the parser so facts, ConflictEngine, and badges agree. Freeform
+    no-comma text → position 1 → no gating (conservative). Trace strong
+    actives are downgraded to 'low', never dropped (visible to safety checks).
+  - Engine: `resolveGoalContext` (Step 0) → `RoutineContext.{goals,
+    treatmentClassRanking, goalDecisions}`; barrier_repair modifier drops
+    flat-irritancy ≥ 3 classes with new `goal_exclude` DecisionAction +
+    `barrier_repair_excludes_irritants`; Fitzpatrick 4–6 pigmentation promotes
+    azelaic/niacinamide above aha; generatePlan prepends Step-0 decisions.
+    Scoring untouched — Phase 4 consumes the ranking; maintenance plans are
+    byte-identical to pre-phase-3 plans.
+  - UI (qa-lead tests written first): `GoalSelector` (max 2, first = primary,
+    third tap no-op, deselect-primary promotes secondary) in
+    SkinProfileSetupScreen + SkinProfileEditModal (saving the editor clears
+    goalNeedsConfirmation — the user chose); `GoalConfirmBanner` on
+    RoutinesScreen while the flag is set; Confirm clears it, Change routes to
+    the Profile tab. Stateful-mock integration test proves the once-only loop.
+
+  Test expectation changes, justified: fixtures across 3 suites used
+  ", Glycerin" as an INERT filler — no longer inert with the gated class, and
+  at position ≤ 3 in short synthetic lists the gate correctly fires; replaced
+  with ", Squalane" (unmapped) so those tests keep measuring their real
+  subject. One realistic-formula test (activeIngredientMatcher) now expects
+  glycerin_class at position 2 — correct new behavior, documented in-test.
+  mandates.test.ts collectRequireMandates membership assertions unchanged
+  (goalIn mandates are filtered out for non-pigmentation contexts).
+
+  Verified: tsc clean; jest src tests → 1160 passed / 3 known pre-existing
+  failed (list unchanged, progress/known-test-failures.md); engine suites +
+  new goal suites green.
+
+- 2026-07-17: **PHASE 3 SELF-REVIEW PASS — verdict ACCEPT.**
+
+  | # | Check | Verdict | Evidence |
+  |---|---|---|---|
+  | 1 | No parallel taxonomy | PASS | goals block + attribution config live in actives.json; GOAL_TREATMENT_MAP never created as a TS file; GOAL_LABELS is display-only. |
+  | 2 | Single conflict matrix | PASS | untouched. |
+  | 3 | isStrongActive invariant | PASS | untouched; integrity suite green (33 tests). |
+  | 4 | Cumulative cap + rinseOff | N/A | Phase 4 scope. |
+  | 5 | Migrations idempotent | PASS | goal derivation added to migrateProfile keeps the same-reference contract; "second run returns the same reference" test added and green. No schema bump (Phase 8's). |
+  | 6 | Every AC → passing test | PASS | 13/13 mapped and individually re-run (AC table in log). |
+  | 7 | tsc clean; no Math.random / unsorted iteration | PASS | the one Object.entries hit in context.ts is pre-existing phototype code and a conjunction (.every) — order-independent. |
+  | 8 | Layer separation | PASS | Step 0 pure in context.ts; UI components read labels/tokens only; store writes via updateProfile. |
+  | 9 | qa-lead before engineer (protocol) | PASS | goal-selector + goal-confirm-banner contract tests written before the components existed. |
+  | 10 | §4.3 exclusion honored | PASS | nothing pregnancy-related in the diff; pregnancyBlocked property not added. |
+
+  Deviations: none beyond documented design assumptions (goalNeedsConfirmation
+  only for real guesses; caution severity + primary-or-secondary goalIn;
+  gates in the parser; draft gate values 5/8; trace downgrades never drop).
+  Note for Phase 8: §8.4's derivation half is already live via migrateProfile —
+  Phase 8 executes only the schema bump + re-persist.
+
+  Consultant review list (values, not structure): goals rankings;
+  glycerin requireWithinPosition=5; trace downgradeToLowAfterPosition=8 and
+  the downgrade-vs-drop policy.

@@ -17,6 +17,7 @@ import type {
   ConflictSeverity,
   ProductType,
   SkinConcern,
+  SkinGoal,
 } from '@/types';
 
 // ─── Shared vocabulary ──────────────────────────────────────────────────────
@@ -139,12 +140,30 @@ export interface AdaptationConfig {
   phases: AdaptationPhase[];
 }
 
+/**
+ * INCI-position attribution gates (V2.1 phase-03; draft values are a
+ * clinical-consultant review item). Position is the 1-based comma-token index
+ * of the earliest matcher hit; INCI lists are concentration-ordered above 1%,
+ * so position approximates concentration. Gates act on parse-sourced
+ * attribution only — wizard-confirmed tags are user-asserted and never gated.
+ */
+export interface AttributionConfig {
+  /** Attribute the class only when it first appears at or before this position
+   * (near-universal bases like glycerin would otherwise tag every product). */
+  requireWithinPosition?: number;
+  /** First appearance after this position downgrades evidenced potency to
+   * 'low' — a trace acid stays visible to safety checks at reduced severity,
+   * never dropped (do-no-harm). */
+  downgradeToLowAfterPosition?: number;
+}
+
 export interface ActiveClass {
   displayName: string;
   matchers: ActiveClassMatcher[];
   negativePatterns?: string[];
   properties: ActiveProperties;
   allowedPeriods: Period[];
+  attribution?: AttributionConfig;
   stacking?: ActiveClassStacking;
   cycleClass?: string;
   /** Micro-dosing escalation for irritating actives (research §2.6). */
@@ -225,7 +244,8 @@ export interface PhototypeModifier {
  */
 export interface RulesetMandate {
   id: string;
-  if?: { planContainsProperty?: string };
+  /** Conditions AND together; `goalIn` matches the primary OR secondary goal. */
+  if?: { planContainsProperty?: string; goalIn?: SkinGoal[] };
   then: { action: RuleAction; targets?: RuleTargets; period?: Period };
   severity?: ConflictSeverity;
   nonSkippable?: boolean;
@@ -240,6 +260,8 @@ export interface ActivesRuleset {
   phototypeModifiers?: PhototypeModifier[];
   /** Unconditional require-mandates (pipeline step 6), folded with the clinical/seasonal/phototype sources. */
   mandates?: RulesetMandate[];
+  /** Which classes SOLVE each goal; priority = array order (V2.1 Step 0). Draft values pending clinical review. */
+  goals: Record<SkinGoal, ActiveIngredientKey[]>;
 }
 
 // ─── Season mask (engine input) ─────────────────────────────────────────────
