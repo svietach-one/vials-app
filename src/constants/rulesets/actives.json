@@ -786,5 +786,25 @@
         }
       ]
     }
+  ],
+  "mandates": [
+    {
+      "id": "spf_photosensitizing",
+      "if": {
+        "planContainsProperty": "photosensitizing"
+      },
+      "then": {
+        "action": "require",
+        "targets": {
+          "productTypes": [
+            "spf"
+          ]
+        },
+        "period": "am"
+      },
+      "severity": "avoid",
+      "nonSkippable": false,
+      "reasonCode": "spf_required_photosensitizing"
+    }
   ]
 }

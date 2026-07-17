@@ -46,14 +46,16 @@ Headline corrections:
 
 1. ~~**§4.1** — pure vitamin C stacking cap.~~ **RESOLVED 2026-07-17:** moves to
    irritancy 3, cap intended; superseded by the cumulative rule (§7).
-2. **§4.2** *(blocks Phase 2)* — `pm_preferred` for AHA/BHA *loosens* a shipped
-   safety rule (they are PM-only today). Recommend dropping.
+2. ~~**§4.2** — `pm_preferred` for AHA/BHA.~~ **RESOLVED 2026-07-17:** dropped.
+   AHA/BHA stay hard PM; PHA stays `both` as the morning-safe exfoliant path.
+   A planned SPF step is not verifiable protection on skin, and "no acid in
+   AM, ever" is property-testable without conditional states.
 3. **§4.3** *(blocks Phase 3)* — Pregnancy/lactation is a new subsystem, not a
    flag. Recommend splitting into its own feature.
-4. **§4.4** *(blocks Phase 7)* — The closed `DecisionReasonCode` enum must
-   absorb 22 existing JSON codes and a runtime-synthesized `stacking_cap_*`
-   family, and `reasonCode` currently doubles as `ruleId` (pair-rule IDs leak
-   into it). Confirm approach.
+4. ~~**§4.4** — the closed `DecisionReasonCode` enum.~~ **RESOLVED 2026-07-17:**
+   approach confirmed; the enum stays decoupled from pair-rule IDs (reason
+   codes are decision categories, rule IDs are data; `ruleId` is an optional
+   payload field, never an enum value).
 
 ## Cumulative active exposure rule
 

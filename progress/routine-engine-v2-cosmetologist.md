@@ -187,3 +187,80 @@ This file tracks the whole package; each phase appends to the Log.
   - Phase 4's assumption 8.1 (cumulative cap subsumes per-class `stacking`)
     still stands; `vitamin_c_pure`'s new stacking block is the short-lived
     churn that entry predicted, and `pha`'s removal is already done.
+
+- 2026-07-17: **Phase 1 ACCEPTED by user; all four deviations approved as
+  logged.** Committed as dfa61f6 on engine-improvements. The 3 pre-existing
+  test failures filed as progress/known-test-failures.md with the clean-HEAD
+  repro, so later phases diff against a known list instead of re-diagnosing.
+
+- 2026-07-17: **User rulings on remaining open questions:**
+  - §4.2 RESOLVED — `pm_preferred` dropped. AHA/BHA stay hard `pm`; PHA stays
+    `both` as the morning-safe exfoliant path. Rationale (binding): a planned
+    SPF step is not verifiable protection on skin, so it cannot gate a safety
+    exception; and "no acid in AM, ever" is property-testable without
+    conditional states. Phase 2 file updated: no eligibility-table change,
+    property test widened to retinoid + aha + bha.
+  - glycerin_class deferral APPROVED; Phase 3 must solve its attribution
+    jointly with trace-amount attribution for strong actives (acid cream with
+    glycolic at the INCI tail) — same "position ≈ concentration" heuristic,
+    same clinical-consultant review as the goals values. Phase 3 file updated
+    with the three-item consultant list.
+  - §4.4 RESOLVED — DecisionReasonCode enum stays decoupled from pair-rule
+    IDs: reason codes are decision categories, rule IDs are data. ruleId may
+    ride along as an optional payload field, never as the enum value.
+    Phase 7 unblocked.
+  Remaining open: §4.3 (pregnancy subsystem) — blocks only Phase 3's
+  pregnancy bullet, already excluded from that phase's acceptance.
+
+- 2026-07-17: **PHASE 2 IMPLEMENTED.** Scope shrank per the §4.2 ruling to:
+  (2.1) base `mandates` block in actives.json — one entry,
+  `spf_photosensitizing` (unconditional: SPF required in AM whenever the plan
+  contains a photosensitizer, any phototype, any season), typed as
+  `RulesetMandate` in rulesetTypes.ts (SeasonRule shape minus `seasons`),
+  folded as a 4th source in `collectRequireMandates` (mandates.ts) — reads
+  ACTIVES_RULESET directly, consistent with the seasonal source;
+  `applyMandates` untouched, the new source flows through the existing
+  per-period merge. (2.2) period-safety property suite
+  tests/routine-engine/period-safety.test.ts: 100 seeded shelves × seasons ×
+  fitzpatrick assert no retinoid/AHA/BHA ever reaches AM; adversarial variant
+  (PM-only products user-pinned to morning must freeze as no_allowed_period,
+  never be "rescued" into AM); daily-view variant (the rendered day, not just
+  the plan). (2.3) no eligibility-table change — ruling locked by an integrity
+  test asserting aha/bha/retinoid `["pm"]`, pha `["am","pm"]`.
+
+  Placement deviation (documented in tech design Assumption 1): the property
+  test lives in tests/routine-engine/, not src/utils/routineEngine/ as the
+  phase file suggested — the seeded PRNG + randomShelf machinery lives in
+  tests/routine-engine/fixtures.ts and testing.md's fixture-sharing rule says
+  don't duplicate it.
+
+  Test expectation changes, all from the intended widening: mandates.test.ts's
+  two collectRequireMandates exact-array assertions became
+  membership + count-excluding-base (the base mandate is now in every
+  collection by design); the concurrent-merge case now sees 3 placeholder
+  decisions (summer + phototype + base), still 1 merged placeholder;
+  entryPoints "day-separated pair" and phototype.test.ts "baseline no
+  escalation" fixtures gained an AM SPF step — both carried a photosensitizer
+  with no SPF, so the new mandate correctly fired an avoid finding unrelated
+  to what those tests measure; completing the fixture keeps their strict
+  assertions meaningful instead of weakening them.
+
+  Verified: tsc clean; jest src tests → 1100 passed / 3 failed — exactly the
+  3 known pre-existing failures (progress/known-test-failures.md), not grown.
+
+- 2026-07-17: **PHASE 2 SELF-REVIEW PASS — verdict ACCEPT.**
+
+  | # | Check | Verdict | Evidence |
+  |---|---|---|---|
+  | 1 | No parallel taxonomy | PASS | mandates block + type live in actives.json / rulesetTypes.ts; no new constants file. |
+  | 2 | Single conflict matrix | PASS | untouched this phase. |
+  | 3 | isStrongActive invariant | PASS | untouched; integrity suite still green (28 tests). |
+  | 4 | Cumulative cap + rinseOff | N/A | Phase 4 scope; no Phase 2 surface. |
+  | 5 | Migrations idempotent | N/A | no migration in this phase; schema still 2. |
+  | 6 | Every AC → passing test | PASS | 10/10 mapped and individually re-run (log above). |
+  | 7 | tsc clean; no Math.random / unsorted iteration | PASS | tsc clean; period-safety uses fixtures.makeRng (mulberry32); no Object.keys/entries iteration added. |
+  | 8 | §4.2 ruling honored: no eligibility change | PASS | `git diff actives.json` contains no allowedPeriods hunk; integrity lock added. |
+  | 9 | applyMandates untouched (design constraint) | PASS | diff shows only the collectRequireMandates fold. |
+
+  One deviation (property-test placement), documented in the tech design and
+  this log. No FAIL items; no re-run required.

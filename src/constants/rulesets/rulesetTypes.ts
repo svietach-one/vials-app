@@ -218,12 +218,28 @@ export interface PhototypeModifier {
   effects: PhototypeEffect[];
 }
 
+/**
+ * A base mandate: always in force, independent of phototype, season, or
+ * clinical state. Deliberately the SeasonRule shape minus `seasons`, so a rule
+ * can migrate between the two blocks by adding or removing one field.
+ */
+export interface RulesetMandate {
+  id: string;
+  if?: { planContainsProperty?: string };
+  then: { action: RuleAction; targets?: RuleTargets; period?: Period };
+  severity?: ConflictSeverity;
+  nonSkippable?: boolean;
+  reasonCode: string;
+}
+
 export interface ActivesRuleset {
   version: string;
   legacyKeyMap: Record<string, ActiveIngredientKey>;
   classes: Record<string, ActiveClass>;
   pairRules: PairRule[];
   phototypeModifiers?: PhototypeModifier[];
+  /** Unconditional require-mandates (pipeline step 6), folded with the clinical/seasonal/phototype sources. */
+  mandates?: RulesetMandate[];
 }
 
 // ─── Season mask (engine input) ─────────────────────────────────────────────

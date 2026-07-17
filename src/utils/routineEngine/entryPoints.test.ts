@@ -171,13 +171,18 @@ describe('validateRoutines', () => {
   it('does not flag day-separated steps of a conflicting pair', () => {
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const aha = makeProduct({ activeTags: ['aha'] });
+    // AM SPF satisfies the (phase-02) unconditional photosensitizer mandate,
+    // keeping this fixture a complete routine so the zero-findings assertion
+    // stays strict and the test keeps measuring day separation alone.
+    const spf = makeProduct({ productType: 'spf', usageTime: 'morning' });
     const routines = [
+      makeRoutine('morning', [makeStep(spf)]),
       makeRoutine('evening', [
         makeStep(retinoid, { scheduledDays: [0, 1, 3, 4, 5] }),
         makeStep(aha, { scheduledDays: [2, 6] }),
       ]),
     ];
-    const result = validateRoutines(routines, makeInput([retinoid, aha]));
+    const result = validateRoutines(routines, makeInput([retinoid, aha, spf]));
     expect(result.findings).toHaveLength(0);
     expect(result.hasBlockingFindings).toBe(false);
   });

@@ -285,3 +285,52 @@ describe('actives.json — asserted compatible pairs (spec phase-01 §1.4)', () 
     expect(hit?.severity).toBe('caution');
   });
 });
+
+describe('actives.json — PM-only eligibility lock (§4.2 ruling, 2026-07-17)', () => {
+  it('keeps retinoid, aha, and bha hard PM-only, and pha morning-safe', () => {
+    // Ruling: pm_preferred was rejected. A planned SPF step is not verifiable
+    // sun protection on skin, so it cannot gate a safety exception; "no acid
+    // in AM, ever" stays unconditional and property-testable. Do not loosen
+    // these without a new product ruling.
+    const periods = activesRuleset.classes as Record<string, { allowedPeriods: string[] }>;
+    expect(periods.retinoid.allowedPeriods).toEqual(['pm']);
+    expect(periods.aha.allowedPeriods).toEqual(['pm']);
+    expect(periods.bha.allowedPeriods).toEqual(['pm']);
+    expect(periods.pha.allowedPeriods).toEqual(['am', 'pm']);
+  });
+});
+
+describe('actives.json — base mandates block (spec phase-02 §2.1)', () => {
+  interface RawMandate {
+    id: string;
+    if?: { planContainsProperty?: string };
+    then: { action: string; targets?: { productTypes?: string[] }; period?: string };
+    severity?: string;
+    nonSkippable?: boolean;
+    reasonCode: string;
+  }
+  const MANDATES = ((activesRuleset as { mandates?: RawMandate[] }).mandates ?? []);
+
+  it('declares the unconditional SPF mandate with the decided shape', () => {
+    const spf = MANDATES.find((m) => m.id === 'spf_photosensitizing');
+    expect(spf).toEqual({
+      id: 'spf_photosensitizing',
+      if: { planContainsProperty: 'photosensitizing' },
+      then: { action: 'require', targets: { productTypes: ['spf'] }, period: 'am' },
+      severity: 'avoid',
+      nonSkippable: false,
+      reasonCode: 'spf_required_photosensitizing',
+    });
+  });
+
+  it('gives every mandate a unique id, a known vocabulary, and a snake_case reason code', () => {
+    const ids = MANDATES.map((m) => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const m of MANDATES) {
+      expect(['freeze', 'require', 'prioritize', 'limit']).toContain(m.then.action);
+      if (m.severity !== undefined) expect(['avoid', 'caution']).toContain(m.severity);
+      if (m.then.period !== undefined) expect(['am', 'pm']).toContain(m.then.period);
+      expect(m.reasonCode).toMatch(/^[a-z0-9]+(_[a-z0-9]+)*$/);
+    }
+  });
+});

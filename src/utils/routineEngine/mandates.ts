@@ -1,4 +1,5 @@
 import {
+  ACTIVES_RULESET,
   SEASONS_RULESET,
   type Period,
   type RuleTargets,
@@ -107,7 +108,22 @@ export function collectRequireMandates(context: RoutineContext): RequireMandate[
       planContainsProperty: mandate.condition?.planContainsProperty,
     }));
 
-  return [...clinical, ...seasonal, ...phototype];
+  // Base mandates (actives.json `mandates`): always in force, independent of
+  // phototype, season, and clinical state — e.g. SPF whenever the plan carries
+  // a photosensitizer, for every user (spec phase-02 §2.1). Read directly from
+  // the ruleset like the seasonal source above.
+  const base: RequireMandate[] = (ACTIVES_RULESET.mandates ?? [])
+    .filter((mandate) => mandate.then.action === 'require' && mandate.then.targets)
+    .map((mandate) => ({
+      period: mandate.then.period ?? 'am',
+      targets: mandate.then.targets as RuleTargets,
+      reasonCode: mandate.reasonCode,
+      nonSkippable: mandate.nonSkippable ?? false,
+      severity: mandate.severity ?? ('caution' as const),
+      planContainsProperty: mandate.if?.planContainsProperty,
+    }));
+
+  return [...clinical, ...seasonal, ...phototype, ...base];
 }
 
 export interface MandateResult {

@@ -64,10 +64,16 @@ describe('Story 7 AC: phototype 4-6 escalates a caution-level, both-irritant pai
   it('does not escalate the same pair for phototype 3 (baseline) — stays a caution finding', () => {
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
     const bha = makeProduct({ activeTags: ['bha'] });
-    const routines = [makeRoutine('morning', [makeRoutineStep(vitC), makeRoutineStep(bha)])];
+    // AM SPF satisfies the (phase-02) unconditional photosensitizer mandate —
+    // BHA is photosensitizing, and without SPF the mandate's avoid finding
+    // would trip hasBlockingFindings for a reason unrelated to escalation.
+    const spf = makeProduct({ productType: 'spf', usageTime: 'morning' });
+    const routines = [
+      makeRoutine('morning', [makeRoutineStep(vitC), makeRoutineStep(bha), makeRoutineStep(spf)]),
+    ];
     const result = validateRoutines(
       routines,
-      makeEngineInput([vitC, bha], { profile: { fitzpatrick: 3, concerns: [] } }),
+      makeEngineInput([vitC, bha, spf], { profile: { fitzpatrick: 3, concerns: [] } }),
     );
     expect(result.findings).toEqual(
       expect.arrayContaining([expect.objectContaining({ severity: 'caution', ruleId: 'rule_vitc_pure_acids' })]),

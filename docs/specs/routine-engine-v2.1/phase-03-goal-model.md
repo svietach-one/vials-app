@@ -102,6 +102,22 @@ in Phase 1.
 > dermatological practice. Per PRD §6 they need the clinical consultant's
 > sign-off. Structure now, values later — no refactor either way.
 
+**`glycerin_class` lands here, not Phase 1** (Phase 1 deviation 1, approved
+2026-07-17): attributing it by bare INCI presence tagged nearly every product
+and would flatten this phase's goal ranking. Phase 3 must pick a real
+attribution rule — and per the user's ruling, solve it **jointly with
+trace-amount attribution for strong actives** (e.g. an "acid cream" with
+glycolic at the tail of its INCI list currently attributes full-strength AHA).
+Both are the same heuristic — INCI position ≈ concentration, since lists are
+concentration-ordered above 1% — and the same clinical question.
+
+**Consultant review list for this phase** (one review, three items):
+1. `goals` block values (class rankings per goal);
+2. `glycerin_class` attribution rule (position/productType gate);
+3. trace-amount threshold for strong-active attribution (position gate or
+   marker-word heuristic), and whether it downgrades potency or drops the
+   class entirely.
+
 ### 3.3 Modifiers
 
 Applied to the ranking before selection:

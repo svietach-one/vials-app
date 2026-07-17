@@ -75,24 +75,27 @@ the routine.
 ### 2.2 Lock period eligibility with a property test
 
 No production change. Add a seeded property test (Phase 9 suite 3) over
-randomized shelves asserting **no generated plan ever places a retinoid in AM**,
-through any cascade: direct admission, Path A relocation, or PM→AM retry
-(`resolve.ts:580`).
+randomized shelves asserting **no generated plan ever places a retinoid, AHA,
+or BHA in AM** — the PM-only class families under the 2.3 ruling — through any
+cascade: direct admission, Path A relocation, or PM→AM retry (`resolve.ts:580`).
 
-### 2.3 Do NOT implement `pm_preferred`
+### 2.3 `pm_preferred` — RESOLVED: not implemented (user ruling, 2026-07-17)
 
-> **[OPEN — see DISCREPANCY-REPORT §4.2]** The original phase proposed
-> `aha`/`bha` = `pm_preferred`, permitting AM placement when the AM routine
-> contains SPF. Today both are `allowedPeriods: ["pm"]` — AM is never allowed.
-> The proposal **loosens** a shipped safety constraint, against shared
-> principles #3 (do-no-harm > efficacy) and #7 (V2 mandates remain in force).
->
-> Held pending your decision. If rejected (recommended), this task and the
-> `pm_preferred` acceptance criterion are deleted and the phase carries no
-> eligibility-table change at all. If accepted, it requires a new conditional
-> eligibility mechanism — `allowedPeriods` is static and cannot express
-> "AM iff the period contains SPF" — which is a materially larger change than
-> the original phase implies.
+The original phase proposed `aha`/`bha` = `pm_preferred`, permitting AM
+placement when the AM routine contains SPF. **Dropped.** AHA/BHA stay hard
+`["pm"]`; PHA stays `["am","pm"]` as the morning-safe exfoliant path. This
+phase carries **no eligibility-table change at all**.
+
+Rationale (binding on future design work):
+
+1. An SPF step in the *plan* is not verifiable sun protection on *skin* — a
+   planned step cannot gate a safety exception (do-no-harm).
+2. The unconditional invariant "no acid in AM, ever" is property-testable
+   without conditional states; `pm_preferred` would trade it for
+   plan-dependent eligibility that `allowedPeriods` cannot express.
+
+Consequence for 2.2: the property test asserts the acid invariant alongside
+the retinoid one — same test, two PM-only class families.
 
 ## Files
 
@@ -117,5 +120,7 @@ through any cascade: direct admission, Path A relocation, or PM→AM retry
 - [ ] Retinoid (PM) conflicting with AHA → resolution is day separation, never
       relocation to AM
 - [ ] Property test: over N seeded randomized shelves, zero plans contain a
-      retinoid in AM
+      retinoid, AHA, or BHA in AM
+- [ ] `allowedPeriods` for aha/bha/retinoid unchanged from shipped values
+      (the 2.3 ruling: no eligibility-table change in this phase)
 - [ ] `npx tsc --noEmit` clean

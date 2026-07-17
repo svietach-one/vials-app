@@ -101,22 +101,31 @@ describe('collectPrioritizeTargets', () => {
 });
 
 describe('collectRequireMandates', () => {
+  // Since phase-02 (2026-07-17) every collection also contains the base
+  // spf_photosensitizing mandate — it is unconditional by design, so these
+  // assert membership rather than the exact array.
   it('collects the clinical SPF mandate during peel rehab', () => {
     const mandates = collectRequireMandates(makeContext({ procedures: [PEEL] }));
-    expect(mandates).toEqual([
-      expect.objectContaining({ period: 'am', reasonCode: 'peel_spf_mandatory', nonSkippable: false }),
-    ]);
+    expect(mandates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ period: 'am', reasonCode: 'peel_spf_mandatory', nonSkippable: false }),
+      ]),
+    );
+    expect(mandates.filter((m) => m.reasonCode !== 'spf_required_photosensitizing')).toHaveLength(1);
   });
 
   it('collects the phototype 1–2 mandate as non-skippable with its condition', () => {
     const mandates = collectRequireMandates(makeContext({ fitzpatrick: 2 }));
-    expect(mandates).toEqual([
-      expect.objectContaining({
-        nonSkippable: true,
-        planContainsProperty: 'photosensitizing',
-        reasonCode: 'phototype_uv_sensitivity_spf',
-      }),
-    ]);
+    expect(mandates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          nonSkippable: true,
+          planContainsProperty: 'photosensitizing',
+          reasonCode: 'phototype_uv_sensitivity_spf',
+        }),
+      ]),
+    );
+    expect(mandates.filter((m) => m.reasonCode !== 'spf_required_photosensitizing')).toHaveLength(1);
   });
 });
 
@@ -184,6 +193,114 @@ describe('applyMandates', () => {
     );
     expect(result.placeholders).toHaveLength(1);
     expect(result.placeholders[0].nonSkippable).toBe(true);
-    expect(result.decisions.filter((d) => d.action === 'placeholder')).toHaveLength(2);
+    // 3 since phase-02: summer + phototype + the base spf_photosensitizing
+    // mandate all fire and log individually; the placeholder still merges to 1.
+    expect(result.decisions.filter((d) => d.action === 'placeholder')).toHaveLength(3);
+  });
+});
+
+describe('base mandates — spf_photosensitizing (spec phase-02 §2.1)', () => {
+  it('collects the base SPF mandate for every context, with its condition', () => {
+    // The whole point of the widening: no phototype, no season, no procedure —
+    // winter + phototype 4 was the gap that motivated the rule.
+    const mandates = collectRequireMandates(makeContext({ season: 'winter', fitzpatrick: 4 }));
+    const base = mandates.find((m) => m.reasonCode === 'spf_required_photosensitizing');
+
+    expect(base).toBeDefined();
+    expect(base?.period).toBe('am');
+    expect(base?.severity).toBe('avoid');
+    expect(base?.nonSkippable).toBe(false);
+    expect(base?.planContainsProperty).toBe('photosensitizing');
+  });
+
+  it('adds an AM SPF placeholder for a phototype-4 user with a retinoid in winter', () => {
+    // Fails before this phase: the SPF mandate was gated behind phototype 1–2
+    // or summer, so this exact user got no placeholder.
+    const retinoid = makeProduct({ activeTags: ['retinoid'], usageTime: 'evening' });
+    const facts = buildShelfFacts([retinoid], NOW);
+    const result = applyMandates(
+      { am: [], pm: [makeStep(retinoid)] },
+      facts,
+      makeContext({ season: 'winter', fitzpatrick: 4 }),
+    );
+
+    expect(result.placeholders).toEqual([
+      expect.objectContaining({
+        period: 'am',
+        productTypes: ['spf'],
+        reasonCode: 'spf_required_photosensitizing',
+        severity: 'avoid',
+        nonSkippable: false,
+      }),
+    ]);
+  });
+
+  it('adds no placeholder for a phototype-5 user with no photosensitizing actives', () => {
+    // Mandate no, recommendation maybe — a shelf of hydrators triggers nothing.
+    const hydrator = makeProduct({ activeTags: ['hyaluronic_acid'] });
+    const facts = buildShelfFacts([hydrator], NOW);
+    const result = applyMandates(
+      { am: [makeStep(hydrator)], pm: [] },
+      facts,
+      makeContext({ season: 'winter', fitzpatrick: 5 }),
+    );
+
+    expect(result.placeholders).toEqual([]);
+  });
+
+  it('is satisfied by an SPF step already in AM — no placeholder', () => {
+    const retinoid = makeProduct({ activeTags: ['retinoid'], usageTime: 'evening' });
+    const spf = makeProduct({ id: 'p2', productType: 'spf', usageTime: 'morning' });
+    const facts = buildShelfFacts([retinoid, spf], NOW);
+    const result = applyMandates(
+      { am: [makeStep(spf)], pm: [makeStep(retinoid)] },
+      facts,
+      makeContext({ season: 'winter', fitzpatrick: 4 }),
+    );
+
+    expect(result.placeholders).toEqual([]);
+  });
+
+  it('merges with the phototype 1–2 mandate into one AM placeholder, nonSkippable winning', () => {
+    // No regression from the widening: the phototype user keeps their original
+    // reasonCode (first mandate in fold order names the merged slot) and the
+    // strictest flags survive the merge.
+    const retinoid = makeProduct({ activeTags: ['retinoid'], usageTime: 'evening' });
+    const facts = buildShelfFacts([retinoid], NOW);
+    const result = applyMandates(
+      { am: [], pm: [makeStep(retinoid)] },
+      facts,
+      makeContext({ season: 'winter', fitzpatrick: 2 }),
+    );
+
+    expect(result.placeholders).toHaveLength(1);
+    expect(result.placeholders[0]).toEqual(
+      expect.objectContaining({
+        period: 'am',
+        reasonCode: 'phototype_uv_sensitivity_spf',
+        nonSkippable: true,
+        severity: 'avoid',
+      }),
+    );
+    // Both mandates still individually logged their placeholder decision.
+    expect(
+      result.decisions.filter((d) => d.action === 'placeholder').map((d) => d.reasonCode),
+    ).toEqual(
+      expect.arrayContaining(['phototype_uv_sensitivity_spf', 'spf_required_photosensitizing']),
+    );
+  });
+
+  it('merges with the summer mandate without duplicating the AM slot', () => {
+    const retinoid = makeProduct({ activeTags: ['retinoid'], usageTime: 'evening' });
+    const facts = buildShelfFacts([retinoid], NOW);
+    const result = applyMandates(
+      { am: [], pm: [makeStep(retinoid)] },
+      facts,
+      makeContext({ season: 'summer', fitzpatrick: 3 }),
+    );
+
+    expect(result.placeholders).toHaveLength(1);
+    expect(result.placeholders[0].period).toBe('am');
+    expect(result.placeholders[0].severity).toBe('avoid');
   });
 });

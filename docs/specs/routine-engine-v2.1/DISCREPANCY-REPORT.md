@@ -84,7 +84,19 @@ reclassified as a treatment candidate in any leave-on format (Phase 4).
 
 See §7 for the full cumulative rule and the sub-questions it raises.
 
-### 4.2 `pm_preferred` for AHA/BHA **loosens** a safety constraint
+### 4.2 `pm_preferred` for AHA/BHA **loosens** a safety constraint — RESOLVED 2026-07-17
+
+**Resolved (user):** dropped. AHA/BHA stay hard `["pm"]`; PHA stays
+`["am","pm"]` as the morning-safe exfoliant path. Two reasons, both binding on
+future design work:
+
+1. An SPF step in the *plan* is not verifiable sun protection on *skin* — a
+   planned step cannot gate a safety exception (do-no-harm principle).
+2. The unconditional invariant "no acid in AM, ever" is property-testable
+   without conditional states; `pm_preferred` would trade that for a
+   plan-dependent eligibility no static table can express.
+
+Original finding kept below for the record.
 
 The package proposes `aha`/`bha` = `pm_preferred` ("AM allowed only if the
 routine contains SPF"). Today both are `allowedPeriods: ["pm"]` — **AM is
@@ -104,7 +116,18 @@ decision about asking that question at all. This is its own feature, not a
 sub-bullet of Phase 3. Recommend splitting it out; kept in Phase 3 as
 `[OPEN]`-marked and excluded from the phase's acceptance until you decide.
 
-### 4.4 A closed `DecisionReasonCode` enum must absorb dynamic codes
+### 4.4 A closed `DecisionReasonCode` enum must absorb dynamic codes — RESOLVED 2026-07-17
+
+**Resolved (user):** the proposed approach is confirmed, with one sharpening —
+the enum stays **decoupled from pair-rule IDs**. Reason codes are decision
+*categories*; rule IDs are *data* and may change freely (Phase 1 already
+deleted `rule_vitc_niacinamide` and added two). A log entry may carry `ruleId`
+as an optional payload field, never as the enum value. Phase 7 implements:
+`reasonCode` on each `pairRules` entry, `resolve.ts:410` emits it and keeps
+`ruleId` as provenance, template-literal member for `stacking_cap_*`, integrity
+test for JSON ↔ enum agreement.
+
+Original finding kept below for the record.
 
 Phase 7 wants a closed union with `satisfies Record<DecisionReasonCode, string>`.
 Three obstacles:

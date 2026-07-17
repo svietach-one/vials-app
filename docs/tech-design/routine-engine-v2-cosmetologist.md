@@ -141,3 +141,74 @@ PM-only rule — Phase 2), **§4.3** (pregnancy is a subsystem, not a flag —
 Phase 3), **§4.4** (`reasonCode`/`ruleId` conflation blocks the closed enum —
 Phase 7). Report §7.2 (AHA + PHA becomes legal) lands in Phase 4 and is
 recorded as an accepted assumption, not a question.
+
+---
+
+# Phase 2 — Widened SPF Mandate + Period-Safety Property Test
+
+Spec: docs/specs/routine-engine-v2.1/phase-02-period-eligibility-spf.md
+Date: 2026-07-17 (post §4.2 ruling: pm_preferred dropped, no eligibility-table change)
+
+## 1. Architecture Overview
+
+Two small changes, one data + one test:
+
+```
+actives.json                       ← new top-level `mandates` block (1 entry:
+  │                                  spf_photosensitizing, unconditional)
+  ├─→ rulesetTypes.ts              ← RulesetMandate type; ActivesRuleset.mandates?
+  └─→ mandates.ts                  ← collectRequireMandates folds the 4th source
+      collectRequireMandates()       (clinical + seasonal + phototype + base)
+
+tests/routine-engine/period-safety.test.ts  ← new §9-suite-3 property test
+```
+
+`applyMandates` itself is untouched — the new source flows through the same
+`RequireMandate` shape, the same `planContainsProperty` gate, and the same
+per-period placeholder merge (strictest severity wins, already shipped).
+
+## 2. API Contracts
+
+### `RulesetMandate` (rulesetTypes.ts, new)
+- `{ id, if?: { planContainsProperty? }, then: { action, targets?, period? },
+  severity?, nonSkippable?, reasonCode }` — deliberately the SeasonRule shape
+  minus `seasons`, so a future rule can migrate between the two blocks by
+  adding/removing one field.
+- `ActivesRuleset.mandates?: RulesetMandate[]` (optional: absent = []).
+
+### `collectRequireMandates` (mandates.ts)
+- Signature unchanged. Adds a fourth folded source read directly from
+  `ACTIVES_RULESET.mandates` — consistent with the seasonal source, which
+  already reads `SEASONS_RULESET` directly rather than via context.
+
+## 3. Implementation Tasks
+
+- **P2-1** `mandates` block + types — files: `src/constants/rulesets/actives.json`,
+  `src/constants/rulesets/rulesetTypes.ts`.
+- **P2-2** Fold base mandates — files: `src/utils/routineEngine/mandates.ts`.
+- **P2-3** Unit tests: fold + merge + no-actives negative — files:
+  `src/utils/routineEngine/mandates.test.ts`,
+  `src/utils/routineEngine/rulesetIntegrity.test.ts` (structural checks for the
+  new block).
+- **P2-4** Period-safety property test — files:
+  `tests/routine-engine/period-safety.test.ts` (new).
+
+## 4. Assumptions
+
+- **The property test lives in `tests/routine-engine/`, not
+  `src/utils/routineEngine/`.** The phase file suggested entryPoints.test.ts or
+  a co-located periodSafety.test.ts.
+  Alternative: co-locate in src/utils and duplicate a shelf generator.
+  Reason: the seeded PRNG + randomShelf machinery already lives in
+  tests/routine-engine/fixtures.ts and powers the other §9 property suites;
+  duplicating it violates the fixture-sharing rule in testing.md.
+- **`severity: 'avoid'` on spf_photosensitizing, `nonSkippable: false`.**
+  Alternative: caution.
+  Reason: the phase spec declares it; matches summer_spf_mandate's own
+  declaration, so the merge never has to reconcile the two.
+- **actives.json `version` stays 2026-07-17.** Same release train as Phase 1,
+  same day; two bumps would imply two revalidation prompts for one change set.
+
+## 5. Open Questions
+
+None. §4.2 resolved (dropped); the goal-driven SPF trigger is Phase 3 by design.
