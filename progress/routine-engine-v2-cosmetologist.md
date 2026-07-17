@@ -308,7 +308,7 @@ This file tracks the whole package; each phase appends to the Log.
   mandates.test.ts collectRequireMandates membership assertions unchanged
   (goalIn mandates are filtered out for non-pigmentation contexts).
 
-  Verified: tsc clean; jest src tests → 1160 passed / 3 known pre-existing
+  Verified: tsc clean; jest src tests → 1145 passed / 3 known pre-existing
   failed (list unchanged, progress/known-test-failures.md); engine suites +
   new goal suites green.
 

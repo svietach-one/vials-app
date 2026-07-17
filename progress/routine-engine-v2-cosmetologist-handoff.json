@@ -15,7 +15,7 @@
   },
   "baseline": {
     "command": "npx jest src/utils/routineEngine",
-    "result": "full jest src tests -> 1160 passed / 3 known pre-existing failed (progress/known-test-failures.md)",
+    "result": "full jest src tests -> 1145 passed / 3 known pre-existing failed (progress/known-test-failures.md)",
     "measuredAt": "2026-07-17 (post Phase 3, commit 1406475)",
     "fullRun": "npx jest src tests -> 1089 passed / 3 failed; the 3 are PRE-EXISTING (verified by stashing Phase 1 and re-running clean HEAD, which fails identically): tests/catalog/catalog-screen (AsyncStorage native module null), tests/catalog/product-detail (palette.cobaltTint undefined), tests/shelf-filtering/PaoChip.",
     "note": "Phase 2+ must not reduce this. Changed expectations must be justified in the progress log per architecture-review.md §6."
