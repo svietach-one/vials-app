@@ -1,9 +1,9 @@
 {
   "taskSlug": "routine-engine-v2-cosmetologist",
-  "status": "PHASE_2_COMPLETE",
-  "phase": "2 of 9 complete; Phase 3 next (pregnancy bullet stays excluded per open §4.3)",
-  "lastAgent": "self-review (inline) — Phase 2 ACCEPT",
-  "nextAgent": "Phase 3 (goal model): SkinGoal type + profile fields, goals block in actives.json, Step 0 in context, glycerin_class + trace-amount attribution (joint consultant item), spf_required_goal trigger",
+  "status": "PHASE_3_COMPLETE",
+  "phase": "3 of 9 complete; Phase 4 (skeleton build-up — the core rewrite) next",
+  "lastAgent": "self-review (inline) — Phase 3 ACCEPT",
+  "nextAgent": "Phase 4: skeleton build-up replaces greedy admission; cumulative active exposure enforcement (cap + format reclassification + rinse-off exemption); functional dedup; reserve list; scoring gains goalRank + tolerability terms",
   "updatedAt": "2026-07-17",
   "branch": "engine-improvements",
   "artifacts": {
@@ -15,8 +15,8 @@
   },
   "baseline": {
     "command": "npx jest src/utils/routineEngine",
-    "result": "full jest src tests -> 1100 passed / 3 failed (the 3 known pre-existing, see progress/known-test-failures.md)",
-    "measuredAt": "2026-07-17 (post Phase 2)",
+    "result": "full jest src tests -> 1160 passed / 3 known pre-existing failed (progress/known-test-failures.md)",
+    "measuredAt": "2026-07-17 (post Phase 3, commit 1406475)",
     "fullRun": "npx jest src tests -> 1089 passed / 3 failed; the 3 are PRE-EXISTING (verified by stashing Phase 1 and re-running clean HEAD, which fails identically): tests/catalog/catalog-screen (AsyncStorage native module null), tests/catalog/product-detail (palette.cobaltTint undefined), tests/shelf-filtering/PaoChip.",
     "note": "Phase 2+ must not reduce this. Changed expectations must be justified in the progress log per architecture-review.md §6."
   },
@@ -34,6 +34,10 @@
     ]
   },
   "handoffNotes": [
+    "PHASE 3 COMPLETE (commit 1406475). Step 0 exists: RoutineContext carries goals + treatmentClassRanking + goalDecisions; generatePlan prepends Step-0 decisions. SCORING IS UNTOUCHED — Phase 4 wires the ranking into scoreCandidate (goalRank*1000 term) and the skeleton fill. EngineInput.profile goal fields are optional (absent = maintenance) so all fixtures compile.",
+    "Attribution machinery for Phase 4+: ProductFacts classes now resolve through position-gated parsing — glycerin_class needs position <= 5; aha/bha/vitamin_c_pure past position 8 carry potency low (trace). Wizard tags are never gated. parseActiveIngredientDetails.position is the single source of position data.",
+    "Phase 8 note: §8.4 goal derivation is ALREADY LIVE via migrateProfile (idempotent, every hydrate). Phase 8 executes only the schema bump 2->3 + one-time re-persist; do not re-implement the derivation.",
+    "Consultant review list (3 items, values not structure): goals rankings in actives.json; glycerin requireWithinPosition=5; trace downgradeToLowAfterPosition=8 + downgrade-vs-drop policy.",
     "PHASE 2 COMPLETE (commit d96c5b6; Phase 1 = dfa61f6). §4.2 RESOLVED: pm_preferred dropped, AHA/BHA hard pm + PHA both, locked by rulesetIntegrity \"PM-only eligibility lock\". §4.4 RESOLVED: enum decoupled from pair-rule IDs (ruleId = optional payload only). Base mandates block now exists in actives.json (RulesetMandate type); collectRequireMandates has FOUR sources — clinical, seasonal, phototype, base. Phase 3 spf_required_goal should be a goal-conditioned entry alongside spf_photosensitizing, NOT a new mechanism.",
     "Period-safety property suite: tests/routine-engine/period-safety.test.ts. Any future phase touching allowedPeriods aggregation, relocation, or dailyView must keep it green — it is the §4.2 ruling in executable form.",
     "PHASE 1 IS COMPLETE AND SELF-REVIEWED (ACCEPT), uncommitted on engine-improvements. Shipped: irritancy recalibration + irritancyByPotency on retinoid; resolveIrritancy/isStrongActive in rulesetTypes.ts as the single mild/strong boundary; peptide_signal + peptide_neuro with a conservative unknown-peptide fallback; conflict matrix consolidated onto actives.json pairRules (INGREDIENT_CONFLICT_RULES deleted, rule_vitc_niacinamide retired, 2 rules added); rinseOff on ProductFacts; ruleset version -> 2026-07-17.",
