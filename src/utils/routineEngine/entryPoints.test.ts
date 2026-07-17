@@ -77,7 +77,7 @@ describe('generatePlan', () => {
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
     const plan = generatePlan(makeInput([cleanser, retinoid, vitC]));
 
-    expect(plan.rulesetVersion).toBe('2026-07-04');
+    expect(plan.rulesetVersion).toBe('2026-07-17');
     expect(plan.generatedFor).toBe('2026-07-04');
     expect(plan.periods.morning.map((s) => s.productId)).toEqual([cleanser.id, vitC.id]);
     expect(plan.periods.evening.map((s) => s.productId)).toEqual([cleanser.id, retinoid.id]);
@@ -182,13 +182,28 @@ describe('validateRoutines', () => {
     expect(result.hasBlockingFindings).toBe(false);
   });
 
-  it('reports caution (non-blocking) for the vitamin C + niacinamide pair', () => {
+  it('reports caution (non-blocking) for the vitamin C + copper peptides pair', () => {
+    // Was vitamin C + niacinamide until 2026-07-17, when that pair became
+    // compatible (spec phase-01 §1.4). vitC pure + copper peptides is the
+    // replacement caution pair: acidic vitC oxidises the copper complex.
+    const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
+    const copper = makeProduct({ activeTags: ['copper_peptides'] });
+    const routines = [makeRoutine('morning', [makeStep(vitC), makeStep(copper)])];
+    const result = validateRoutines(routines, makeInput([vitC, copper]));
+
+    expect(result.findings[0].severity).toBe('caution');
+    expect(result.hasBlockingFindings).toBe(false);
+  });
+
+  it('reports no finding for the vitamin C + niacinamide pair', () => {
+    // Regression lock: the low-pH myth is retired, in the engine's validate
+    // path as well as ConflictEngine's. See conflictEngine.test.ts.
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
     const niacinamide = makeProduct({ activeTags: ['niacinamide'] });
     const routines = [makeRoutine('morning', [makeStep(vitC), makeStep(niacinamide)])];
     const result = validateRoutines(routines, makeInput([vitC, niacinamide]));
 
-    expect(result.findings[0].severity).toBe('caution');
+    expect(result.findings).toHaveLength(0);
     expect(result.hasBlockingFindings).toBe(false);
   });
 

@@ -72,6 +72,8 @@ export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   benzoyl_peroxide: 'Benzoyl Peroxide',
   azelaic_acid: 'Azelaic Acid',
   copper_peptides: 'Copper Peptides',
+  peptide_signal: 'Signal Peptides',
+  peptide_neuro: 'Neuro Peptides',
   spf_filters: 'UV Filters (SPF)',
   ceramides: 'Ceramides',
   hyaluronic_acid: 'Hyaluronic Acid',
@@ -106,6 +108,13 @@ export const FUNCTIONAL_BENEFIT_INGREDIENTS: Record<FunctionalBenefit, ActiveIng
   exfoliation: ['aha', 'bha', 'pha', 'retinoid', 'retinol'],
   soothing: ['cica', 'panthenol', 'azelaic_acid', 'niacinamide'],
   anti_acne: ['benzoyl_peroxide', 'azelaic_acid', 'bha'],
-  barrier_repair: ['ceramides', 'cica', 'copper_peptides', 'panthenol'],
+  barrier_repair: [
+    'ceramides',
+    'cica',
+    'copper_peptides',
+    'peptide_signal',
+    'peptide_neuro',
+    'panthenol',
+  ],
   brightening: ['vitamin_c_pure', 'vitamin_c_derivative', 'vitamin_c', 'niacinamide', 'azelaic_acid'],
 };

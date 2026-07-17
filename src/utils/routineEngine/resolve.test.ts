@@ -105,16 +105,28 @@ describe('resolvePeriods — pair conflicts and the ladder', () => {
   });
 
   it('keeps a caution pair with a note when the loser cannot change period', () => {
-    // Both locked to am: vitC (preferred am) + niacinamide (usageTime morning)
+    // Both locked to am: vitC pure (preferred am) + a copper peptide toner
+    // pinned to morning. rule_vitc_pure_copper_peptides is caution and offers
+    // separate_periods first; with the peptide unable to move, the ladder falls
+    // through to keep_with_note.
+    // (This used vitC + niacinamide until 2026-07-17, when that pair became
+    // compatible — see spec phase-01 §1.4.)
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
-    const niacinamide = makeProduct({ activeTags: ['niacinamide'], usageTime: 'morning' });
-    const result = resolve([vitC, niacinamide]);
+    const copper = makeProduct({
+      activeTags: ['copper_peptides'],
+      usageTime: 'morning',
+      productType: 'toner',
+    });
+    const result = resolve([vitC, copper]);
 
     expect(stepFor(result, 'am', vitC.id)).toBeDefined();
-    expect(stepFor(result, 'am', niacinamide.id)).toBeDefined();
+    expect(stepFor(result, 'am', copper.id)).toBeDefined();
     expect(result.decisions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ action: 'keep_with_note', ruleId: 'rule_vitc_niacinamide' }),
+        expect.objectContaining({
+          action: 'keep_with_note',
+          ruleId: 'rule_vitc_pure_copper_peptides',
+        }),
       ]),
     );
   });
@@ -197,13 +209,42 @@ describe('resolvePeriods — stacking caps', () => {
     );
   });
 
-  it('applies the shared cap across acid classes (AHA + PHA in one period)', () => {
+  it('shares the cap between AHA and BHA (both strong actives)', () => {
     const aha = makeProduct({ activeTags: ['aha'], addedAt: '2026-06-01' });
-    const pha = makeProduct({ activeTags: ['pha'], addedAt: '2026-01-01' }); // treatment → default pm
+    const bha = makeProduct({ activeTags: ['bha'], addedAt: '2026-01-01' });
+    const result = resolve([aha, bha]);
+
+    // bha collides with aha via sharedCapWith and lands on split days
+    expect(stepFor(result, 'pm', bha.id)?.scheduledDays).toEqual([2, 6]);
+  });
+
+  it('does not cap PHA against AHA — PHA is mild, so it carries no cumulative restriction', () => {
+    // Behavior change 2026-07-17 (spec phase-01 §1.2, report §7 assumption 8.2):
+    // stacking is declared iff irritancy >= 3. PHA is irritancy 1, so it left
+    // both its own stacking block and aha/bha's sharedCapWith group.
+    // Distinct productTypes (toner vs serum) keep the same-slot cap out of the
+    // way, so this asserts the stacking cap alone.
+    const aha = makeProduct({ activeTags: ['aha'], productType: 'serum' });
+    const pha = makeProduct({ activeTags: ['pha'], productType: 'toner' });
     const result = resolve([aha, pha]);
 
-    // pha collides with aha via sharedCapWith and lands on split days
-    expect(stepFor(result, 'pm', pha.id)?.scheduledDays).toEqual([2, 6]);
+    // Both run every day; neither is day-split or frozen by a cap.
+    expect(stepFor(result, 'pm', aha.id)?.scheduledDays).toEqual([]);
+    expect(stepFor(result, 'pm', pha.id)?.scheduledDays).toEqual([]);
+    expect(result.frozen).toEqual([]);
+  });
+
+  it('does not cap PHA against AHA regardless of admission order', () => {
+    // Order-independence is exactly what removing pha from sharedCapWith buys:
+    // leaving it in the group would let a PHA admitted first block a later AHA,
+    // while AHA-first would not block PHA (pha has no stacking to check).
+    const pha = makeProduct({ activeTags: ['pha'], productType: 'toner', addedAt: '2026-06-01' });
+    const aha = makeProduct({ activeTags: ['aha'], productType: 'serum', addedAt: '2026-01-01' });
+    const result = resolve([pha, aha]);
+
+    expect(stepFor(result, 'pm', pha.id)?.scheduledDays).toEqual([]);
+    expect(stepFor(result, 'pm', aha.id)?.scheduledDays).toEqual([]);
+    expect(result.frozen).toEqual([]);
   });
 });
 

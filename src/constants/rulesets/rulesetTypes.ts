@@ -40,17 +40,61 @@ export type ResolutionStrategy =
   | 'freeze_lower_priority'
   | 'keep_with_note';
 
+/**
+ * Irritation tier, 0–5. The scale is the engine's mild/strong boundary — see
+ * {@link isStrongActive} — so a class's value is a safety decision, not a label.
+ *
+ * | Level | Meaning | Classes |
+ * |---|---|---|
+ * | 0 | Inert / restorative | ceramides, panthenol, hyaluronic_acid, spf_filters |
+ * | 1 | Mild actives | niacinamide, peptide_signal, peptide_neuro, vitamin_c_derivative, pha |
+ * | 2 | Moderate | azelaic_acid, copper_peptides |
+ * | 3 | Strong | aha, bha, vitamin_c_pure, retinoid @ low/medium potency |
+ * | 4 | Very strong | benzoyl_peroxide, retinoid @ high/rx potency |
+ * | 5 | Reserved for prescription-only classes (unused in v2.1) | — |
+ *
+ * Levels 3+ are "strong actives": they are the only classes the cumulative
+ * exposure cap counts, and the only ones subject to break regression.
+ */
+export type IrritancyLevel = 0 | 1 | 2 | 3 | 4 | 5;
+
 /** Aggregatable class/product boolean-ish properties rules can target. */
 export interface ActiveProperties {
   photosensitizing?: boolean;
   exfoliating?: boolean;
-  /** 0–3 irritation tier. */
+  /** Flat irritation tier; see {@link IrritancyLevel}. Overridden per-potency
+   * by {@link ActiveProperties.irritancyByPotency} where declared. */
   irritancy?: number;
+  /**
+   * Per-potency irritancy override — a retinol and a tretinoin are not equally
+   * irritating, and the flat tier cannot say so. Falls back to `irritancy` for
+   * any potency not listed, and for products whose potency is unknown.
+   */
+  irritancyByPotency?: Partial<Record<Potency, number>>;
   barrierRepair?: boolean;
   lowPh?: boolean;
   spf?: boolean;
   /** Application-style flag (facial-massage balms) — used by procedure freezes. */
   massageRequired?: boolean;
+}
+
+/** Irritancy at a given potency: the per-potency override, else the flat tier, else 0. */
+export function resolveIrritancy(props: ActiveProperties, potency?: Potency): number {
+  const byPotency = potency ? props.irritancyByPotency?.[potency] : undefined;
+  return byPotency ?? props.irritancy ?? 0;
+}
+
+/**
+ * The single definition of the mild/strong boundary (spec phase-01 §1.2).
+ * Strong actives are the only classes that declare a stacking cap, count
+ * toward cumulative exposure, and regress after a break. Mild ones (peptides,
+ * niacinamide, vitamin C derivatives, hydrators) are bioactive but not
+ * irritating — the cap limits irritants, not bioactivity.
+ *
+ * Derived, never stored: there is no exemption list to drift out of sync.
+ */
+export function isStrongActive(props: ActiveProperties, potency?: Potency): boolean {
+  return resolveIrritancy(props, potency) >= 3;
 }
 
 /**

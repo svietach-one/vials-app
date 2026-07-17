@@ -28,6 +28,29 @@ const CLASSES = activesRuleset.classes as Record<
 const PAIR_RULES = activesRuleset.pairRules as PairRule[];
 const LEGACY_KEY_MAP = activesRuleset.legacyKeyMap as Record<string, string>;
 
+interface ClassProps {
+  irritancy: number;
+  irritancyByPotency?: Record<string, number>;
+}
+interface ClassStacking {
+  maxPerPeriod: number;
+  sharedCapWith?: string[];
+}
+
+const PROPS_BY_CLASS = Object.fromEntries(
+  Object.entries(
+    activesRuleset.classes as Record<string, { properties: ClassProps }>,
+  ).map(([key, cls]) => [key, cls.properties]),
+) as Record<string, ClassProps>;
+
+const STACKING_BY_CLASS = Object.fromEntries(
+  Object.entries(
+    activesRuleset.classes as Record<string, { stacking?: ClassStacking }>,
+  ).map(([key, cls]) => [key, cls.stacking]),
+) as Record<string, ClassStacking | undefined>;
+
+const POTENCIES = ['low', 'medium', 'high', 'rx'];
+
 const CLASS_KEYS = Object.keys(CLASSES);
 const VALID_SCOPES = ['same_period', 'same_day', 'anywhere'];
 const VALID_SEVERITIES = ['avoid', 'caution'];
@@ -184,5 +207,81 @@ describe('actives.json ruleset integrity', () => {
     expect(sideKeys(vitc?.a ?? '')).toContain('vitamin_c_pure');
     expect(sideKeys(vitc?.b ?? [])).toEqual(expect.arrayContaining(['aha', 'bha']));
     expect(vitc?.exceptions?.[0]?.whenPotencyAtMost?.b).toBe('low');
+  });
+});
+
+describe('actives.json — strong-active invariant (spec phase-01 §1.2)', () => {
+  it('declares a stacking cap for exactly the strong actives (irritancy >= 3)', () => {
+    // The invariant that makes isStrongActive structural: a cap exists because
+    // a class is irritating, never because someone remembered to add one. No
+    // exemption list — if this fails, fix the irritancy value or the block.
+    for (const [key, cls] of Object.entries(PROPS_BY_CLASS)) {
+      expect({ key, hasStacking: STACKING_BY_CLASS[key] !== undefined }).toEqual({
+        key,
+        hasStacking: cls.irritancy >= 3,
+      });
+    }
+  });
+
+  it('never shares a stacking cap with a mild class', () => {
+    // A mild class in a strong class's sharedCapWith group would make the cap
+    // admission-order dependent (report §7 assumption 8.2): the mild product
+    // has no stacking block of its own to check, so it would block a later
+    // strong partner while a strong-first ordering would not block it.
+    for (const [key, stacking] of Object.entries(STACKING_BY_CLASS)) {
+      for (const partner of stacking?.sharedCapWith ?? []) {
+        expect({ key, partner, irritancy: PROPS_BY_CLASS[partner].irritancy }).toEqual({
+          key,
+          partner,
+          irritancy: expect.any(Number),
+        });
+        expect(PROPS_BY_CLASS[partner].irritancy).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
+  it('resolves every irritancyByPotency entry to a valid level', () => {
+    for (const [key, props] of Object.entries(PROPS_BY_CLASS)) {
+      for (const [potency, level] of Object.entries(props.irritancyByPotency ?? {})) {
+        expect({ key, potency, valid: POTENCIES.includes(potency) }).toEqual({
+          key,
+          potency,
+          valid: true,
+        });
+        expect(level).toBeGreaterThanOrEqual(0);
+        expect(level).toBeLessThanOrEqual(5);
+      }
+    }
+  });
+});
+
+describe('actives.json — asserted compatible pairs (spec phase-01 §1.4)', () => {
+  // pairRules has no positive-assertion syntax: a compatible pair is simply an
+  // absent one. These lock the absences that are decisions rather than
+  // oversights, so a future edit cannot quietly reintroduce a myth.
+  const COMPATIBLE: [string, string][] = [
+    ['vitamin_c_pure', 'niacinamide'], // the low-pH myth — retired 2026-07-17
+    ['retinoid', 'niacinamide'],
+    ['retinoid', 'peptide_signal'],
+    ['retinoid', 'peptide_neuro'],
+    ['vitamin_c_pure', 'peptide_signal'],
+    ['azelaic_acid', 'retinoid'],
+    ['azelaic_acid', 'vitamin_c_pure'],
+    ['vitamin_c_derivative', 'niacinamide'],
+    ['vitamin_c_derivative', 'aha'],
+  ];
+
+  it.each(COMPATIBLE)('treats %s + %s as compatible', (a, b) => {
+    const hit = PAIR_RULES.find(
+      (r) =>
+        (sideKeys(r.a).includes(a) && sideKeys(r.b).includes(b)) ||
+        (sideKeys(r.a).includes(b) && sideKeys(r.b).includes(a)),
+    );
+    expect(hit).toBeUndefined();
+  });
+
+  it('still conflicts vitamin C derivative with benzoyl peroxide — the one exception', () => {
+    const hit = PAIR_RULES.find((r) => r.id === 'rule_vitc_derivative_bpo');
+    expect(hit?.severity).toBe('caution');
   });
 });

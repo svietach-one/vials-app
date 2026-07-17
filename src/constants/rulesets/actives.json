@@ -1,5 +1,5 @@
 {
-  "version": "2026-07-04",
+  "version": "2026-07-17",
   "legacyKeyMap": {
     "retinol": "retinoid",
     "vitamin_c": "vitamin_c_pure",
@@ -37,7 +37,13 @@
         "photosensitizing": true,
         "exfoliating": false,
         "irritancy": 3,
-        "barrierRepair": false
+        "barrierRepair": false,
+        "irritancyByPotency": {
+          "low": 3,
+          "medium": 3,
+          "high": 4,
+          "rx": 4
+        }
       },
       "allowedPeriods": [
         "pm"
@@ -91,8 +97,7 @@
       "stacking": {
         "maxPerPeriod": 1,
         "sharedCapWith": [
-          "bha",
-          "pha"
+          "bha"
         ]
       },
       "cycleClass": "exfoliant",
@@ -137,7 +142,7 @@
       "properties": {
         "photosensitizing": true,
         "exfoliating": true,
-        "irritancy": 2,
+        "irritancy": 3,
         "barrierRepair": false
       },
       "allowedPeriods": [
@@ -146,8 +151,7 @@
       "stacking": {
         "maxPerPeriod": 1,
         "sharedCapWith": [
-          "aha",
-          "pha"
+          "aha"
         ]
       },
       "cycleClass": "exfoliant",
@@ -174,13 +178,6 @@
         "am",
         "pm"
       ],
-      "stacking": {
-        "maxPerPeriod": 1,
-        "sharedCapWith": [
-          "aha",
-          "bha"
-        ]
-      },
       "cycleClass": "exfoliant",
       "concerns": [
         "pores",
@@ -201,7 +198,7 @@
       "properties": {
         "photosensitizing": false,
         "exfoliating": false,
-        "irritancy": 2,
+        "irritancy": 3,
         "barrierRepair": false,
         "lowPh": true
       },
@@ -214,7 +211,10 @@
         "dark_spots",
         "wrinkles"
       ],
-      "preferredPeriod": "am"
+      "preferredPeriod": "am",
+      "stacking": {
+        "maxPerPeriod": 1
+      }
     },
     "vitamin_c_derivative": {
       "displayName": "Vitamin C Derivatives",
@@ -288,7 +288,7 @@
       "properties": {
         "photosensitizing": true,
         "exfoliating": false,
-        "irritancy": 3,
+        "irritancy": 4,
         "barrierRepair": false
       },
       "allowedPeriods": [
@@ -334,7 +334,7 @@
       "properties": {
         "photosensitizing": false,
         "exfoliating": false,
-        "irritancy": 1,
+        "irritancy": 2,
         "barrierRepair": false
       },
       "allowedPeriods": [
@@ -367,7 +367,7 @@
       "properties": {
         "photosensitizing": false,
         "exfoliating": false,
-        "irritancy": 1,
+        "irritancy": 2,
         "barrierRepair": true
       },
       "allowedPeriods": [
@@ -509,6 +509,101 @@
         "sensitivity",
         "eczema"
       ]
+    },
+    "peptide_signal": {
+      "displayName": "Signal Peptides",
+      "matchers": [
+        {
+          "pattern": "\\bpalmitoyl\\s+(tri|tetra|penta|hexa)peptide-\\d+\\b",
+          "potency": "medium"
+        },
+        {
+          "pattern": "\\bmyristoyl\\s+pentapeptide-17\\b",
+          "potency": "medium"
+        },
+        {
+          "pattern": "\\bhexapeptide-9\\b",
+          "potency": "medium"
+        },
+        {
+          "pattern": "\\boligopeptide-1\\b",
+          "potency": "medium"
+        },
+        {
+          "pattern": "\\bmatrixyl\\b",
+          "potency": "medium"
+        },
+        {
+          "pattern": "\\b[a-z-]*peptide[a-z-]*(-\\d+)?\\b",
+          "potency": "low"
+        }
+      ],
+      "negativePatterns": [
+        "\\bcopper\\s+(tri)?peptide",
+        "\\bghk-cu\\b",
+        "\\bcopper\\s+palmitoyl\\b",
+        "\\bacetyl\\s+hexapeptide-8\\b",
+        "\\bargireline\\b",
+        "\\bpentapeptide-18\\b",
+        "\\bleuphasyl\\b",
+        "\\bsyn-ake\\b",
+        "\\bdipeptide\\s+diaminobutyroyl\\s+benzylamide\\s+diacetate\\b"
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 1,
+        "barrierRepair": true
+      },
+      "allowedPeriods": [
+        "am",
+        "pm"
+      ],
+      "concerns": [
+        "wrinkles"
+      ]
+    },
+    "peptide_neuro": {
+      "displayName": "Neuro Peptides",
+      "matchers": [
+        {
+          "pattern": "\\bacetyl\\s+hexapeptide-8\\b",
+          "potency": "medium"
+        },
+        {
+          "pattern": "\\bargireline\\b",
+          "potency": "medium"
+        },
+        {
+          "pattern": "\\bpentapeptide-18\\b",
+          "potency": "medium"
+        },
+        {
+          "pattern": "\\bleuphasyl\\b",
+          "potency": "medium"
+        },
+        {
+          "pattern": "\\bdipeptide\\s+diaminobutyroyl\\s+benzylamide\\s+diacetate\\b",
+          "potency": "medium"
+        },
+        {
+          "pattern": "\\bsyn-ake\\b",
+          "potency": "medium"
+        }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": false,
+        "irritancy": 1,
+        "barrierRepair": true
+      },
+      "allowedPeriods": [
+        "am",
+        "pm"
+      ],
+      "concerns": [
+        "wrinkles"
+      ]
     }
   },
   "pairRules": [
@@ -553,19 +648,6 @@
       ],
       "explanation": "Salicylic Acid (BHA) strips lipids, while retinoids alter deep cell behavior. Layering them compromises the moisture barrier, triggering breakout flare-ups and dermatitis.",
       "suggestion": "Use BHA in your morning cleanser step (wash-off) and your retinoid strictly at night."
-    },
-    {
-      "id": "rule_vitc_niacinamide",
-      "a": "vitamin_c_pure",
-      "b": "niacinamide",
-      "scope": "same_period",
-      "severity": "caution",
-      "resolutions": [
-        "separate_periods",
-        "keep_with_note"
-      ],
-      "explanation": "Pure Vitamin C (Ascorbic Acid) requires a low pH to work. Niacinamide raises skin pH, which can neutralize Vitamin C efficiency and cause temporary facial flushing.",
-      "suggestion": "Apply Vitamin C first in the morning, wait 10 minutes to absorb, or move Niacinamide to your evening routine."
     },
     {
       "id": "rule_benzoyl_retinol",
@@ -620,6 +702,32 @@
       ],
       "explanation": "Layering multiple low-pH acids dramatically increases the risk of skin irritation and barrier disruption.",
       "suggestion": "Keep pure Vitamin C in the morning and exfoliating acids in the evening."
+    },
+    {
+      "id": "rule_vitc_pure_copper_peptides",
+      "a": "vitamin_c_pure",
+      "b": "copper_peptides",
+      "scope": "same_period",
+      "severity": "caution",
+      "resolutions": [
+        "separate_periods",
+        "keep_with_note"
+      ],
+      "explanation": "Pure Vitamin C is acidic and oxidises the copper ion in copper peptides, breaking down the peptide complex and neutralising both ingredients.",
+      "suggestion": "Use copper peptides in the morning and pure Vitamin C in the evening, or alternate them on different days."
+    },
+    {
+      "id": "rule_vitc_derivative_bpo",
+      "a": "vitamin_c_derivative",
+      "b": "benzoyl_peroxide",
+      "scope": "same_period",
+      "severity": "caution",
+      "resolutions": [
+        "separate_periods",
+        "keep_with_note"
+      ],
+      "explanation": "Benzoyl Peroxide is a strong oxidiser and degrades Vitamin C derivatives on contact, leaving both less effective.",
+      "suggestion": "Apply Benzoyl Peroxide in the morning and your Vitamin C derivative at night, or use them on alternate days."
     }
   ],
   "phototypeModifiers": [

@@ -18,6 +18,8 @@ export type ActiveIngredientKey =
   | 'benzoyl_peroxide'
   | 'azelaic_acid'
   | 'copper_peptides'
+  | 'peptide_signal'
+  | 'peptide_neuro'
   | 'spf_filters'
   | 'ceramides'
   | 'hyaluronic_acid'

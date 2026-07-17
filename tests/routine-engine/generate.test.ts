@@ -68,7 +68,7 @@ describe('Story 1 AC: generate builds a complete, conflict-free AM/PM draft from
       moisturizer.id,
     ]);
     expect(plan.frozen).toHaveLength(0);
-    expect(plan.rulesetVersion).toBe('2026-07-04');
+    expect(plan.rulesetVersion).toBe('2026-07-17');
   });
 
   it('never places a retinoid and an AHA product in the same period on the same day', () => {

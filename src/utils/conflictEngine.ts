@@ -1,7 +1,5 @@
-import {
-  INGREDIENT_CONFLICT_RULES,
-  PROCEDURE_COLLISION_RULES,
-} from '@/constants/conflictRulesDb';
+import { PROCEDURE_COLLISION_RULES } from '@/constants/conflictRulesDb';
+import { ACTIVES_RULESET, type PairRule } from '@/constants/rulesets/rulesetTypes';
 import {
   ActiveIngredientKey,
   ClinicalConflictResult,
@@ -12,35 +10,69 @@ import {
   Product,
   RoutineStep,
   SkinPhototype,
-  TargetEventKey,
 } from '@/types';
 import { getProductActiveKeys } from '@/utils/ingredientParser';
 import { getCurrentSeason } from '@/utils/timeHelpers';
 
 export type { ClinicalConflictResult };
 
-function ruleMatchesKeys(
-  rule: ConflictRule,
-  keyA: TargetEventKey,
-  keyB: TargetEventKey,
-): boolean {
-  return (
-    (rule.itemA === keyA && rule.itemB === keyB) ||
-    (rule.itemA === keyB && rule.itemB === keyA)
-  );
+/** A pair-rule side is a single class key or a shared group of them. */
+function sideKeys(side: PairRule['a']): ActiveIngredientKey[] {
+  return Array.isArray(side) ? side : [side];
+}
+
+/**
+ * Projects a matched pair rule onto the flat ConflictRule shape this engine's
+ * callers (catalog, product detail) already render, naming the two classes that
+ * actually matched rather than the rule's whole group.
+ *
+ * `scope` and potency `exceptions` are deliberately not applied here: this is
+ * the app-facing "do these two products clash at all" view. Scheduling-aware
+ * resolution — periods, day splits, potency downgrades — is the routine
+ * engine's job (resolve.ts), which reads the same pairRules.
+ */
+function toConflictRule(
+  rule: PairRule,
+  itemA: ActiveIngredientKey,
+  itemB: ActiveIngredientKey,
+): ConflictRule {
+  return {
+    id: rule.id,
+    itemA,
+    itemB,
+    severity: rule.severity,
+    explanation: rule.explanation,
+    suggestion: rule.suggestion,
+  };
+}
+
+/**
+ * The one place a pair of active classes is matched against the pairRules
+ * table. Returns the first rule covering the pair in either direction, or null
+ * when they are compatible (an absent pair is a compatible pair). Deterministic:
+ * rules are tried in declaration order.
+ */
+export function matchPairRule(
+  keyA: ActiveIngredientKey,
+  keyB: ActiveIngredientKey,
+): ConflictRule | null {
+  for (const rule of ACTIVES_RULESET.pairRules) {
+    const a = sideKeys(rule.a);
+    const b = sideKeys(rule.b);
+    if (a.includes(keyA) && b.includes(keyB)) return toConflictRule(rule, keyA, keyB);
+    if (a.includes(keyB) && b.includes(keyA)) return toConflictRule(rule, keyB, keyA);
+  }
+  return null;
 }
 
 function findIngredientConflict(
   keysA: ActiveIngredientKey[],
   keysB: ActiveIngredientKey[],
 ): ConflictRule | null {
-  for (const rule of INGREDIENT_CONFLICT_RULES) {
-    for (const keyA of keysA) {
-      for (const keyB of keysB) {
-        if (ruleMatchesKeys(rule, keyA, keyB)) {
-          return rule;
-        }
-      }
+  for (const keyA of keysA) {
+    for (const keyB of keysB) {
+      const rule = matchPairRule(keyA, keyB);
+      if (rule) return rule;
     }
   }
   return null;

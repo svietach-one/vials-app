@@ -77,15 +77,16 @@ describe('buildEffectiveRuleset', () => {
   });
 
   it('escalates a caution pair to avoid for high-melanin types when both sides are irritant', () => {
-    // vitamin_c_pure (irr 2) × [aha 3, bha 2] — both sides meet irritancy >= 2
+    // vitamin_c_pure (irr 3) × [aha 3, bha 3] — both sides meet irritancy >= 2
     const result = buildEffectiveRuleset(6);
     expect(findRule(result.pairRules, 'rule_vitc_pure_acids')?.severity).toBe('avoid');
   });
 
   it('does not escalate a caution pair when one side is below the irritancy threshold', () => {
-    // vitamin_c_pure (irr 2) × niacinamide (irr 1) — niacinamide fails >= 2
+    // vitamin_c_derivative (irr 1) × benzoyl_peroxide (irr 4) — the derivative
+    // fails >= 2, so the pair stays caution even for phototype 6.
     const result = buildEffectiveRuleset(6);
-    expect(findRule(result.pairRules, 'rule_vitc_niacinamide')?.severity).toBe('caution');
+    expect(findRule(result.pairRules, 'rule_vitc_derivative_bpo')?.severity).toBe('caution');
   });
 
   it('adds the exfoliant frequency cap for high-melanin types', () => {

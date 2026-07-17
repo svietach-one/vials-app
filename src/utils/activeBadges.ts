@@ -30,7 +30,14 @@ const CATEGORY_KEYS: Record<ActiveBadgeCategory, ActiveIngredientKey[]> = {
     'vitamin_c_derivative',
     'vitamin_c',
   ],
-  soothing: ['niacinamide', 'copper_peptides', 'cica', 'panthenol'],
+  soothing: [
+    'niacinamide',
+    'copper_peptides',
+    'peptide_signal',
+    'peptide_neuro',
+    'cica',
+    'panthenol',
+  ],
   hydrator: ['ceramides', 'hyaluronic_acid'],
   other: ['spf_filters', 'spf_chemical'],
 };
