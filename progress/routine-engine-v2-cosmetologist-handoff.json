@@ -1,9 +1,9 @@
 {
   "taskSlug": "routine-engine-v2-cosmetologist",
-  "status": "PHASE_5_COMPLETE",
-  "phase": "5 of 9 complete. Phase 6 (dynamic cycling from shelf composition) next",
-  "lastAgent": "self-review (inline) — Phase 5 ACCEPT",
-  "nextAgent": "Phase 6: resolve cycle phases from shelf composition (no retinoid on shelf -> retinoid night becomes recovery); mode precedence preserving manual scheduledDays; seasonMask determinism pin (already pure — just the test). Independent of Phase 5.",
+  "status": "PHASE_6_COMPLETE",
+  "phase": "6 of 9 complete. Phase 7 (explainability + override) next",
+  "lastAgent": "self-review (inline) — Phase 6 ACCEPT",
+  "nextAgent": "Phase 7: DecisionReasonCode closed enum (decoupled from pair-rule IDs per §4.4 ruling — add reasonCode to pairRules, split resolve.ts:410) + code->text dictionary in decisionReasons.ts; reserve/frozen card UI; override flow (userOverride, hash-keyed, cannot bypass retinoid-in-AM); serialize decisions with the plan.",
   "updatedAt": "2026-07-17",
   "branch": "engine-improvements",
   "artifacts": {
@@ -15,8 +15,8 @@
   },
   "baseline": {
     "command": "npx jest src/utils/routineEngine",
-    "result": "full jest --testPathIgnorePatterns=worktrees -> 1173 passed / 3 known pre-existing failed / 2 todo",
-    "measuredAt": "2026-07-18 (post Phase 5, commit b617da3)",
+    "result": "full jest --testPathIgnorePatterns=worktrees -> 1191 passed / 3 known pre-existing failed / 2 todo",
+    "measuredAt": "2026-07-18 (post Phase 6, commit eae8ba6)",
     "fullRun": "npx jest src tests -> 1089 passed / 3 failed; the 3 are PRE-EXISTING (verified by stashing Phase 1 and re-running clean HEAD, which fails identically): tests/catalog/catalog-screen (AsyncStorage native module null), tests/catalog/product-detail (palette.cobaltTint undefined), tests/shelf-filtering/PaoChip.",
     "note": "Phase 2+ must not reduce this. Changed expectations must be justified in the progress log per architecture-review.md §6."
   },
@@ -34,6 +34,9 @@
     ]
   },
   "handoffNotes": [
+    "PHASE 6 COMPLETE (commit eae8ba6). Dynamic cycle phase resolves against shelf composition: resolveCyclePhase(state, available:Set<string>) in cycleState.ts degrades exf/retinoid night to recovery when the class is absent, WITHOUT touching cyclePhaseIndex (checkInCycle untouched). availableCycleClasses (dailyView) counts only eligible+non-frozen products. getDynamicCycleStatus feeds the Today card. NEW reason code: dynamic_unavailable_no_actives (Phase 7 enum must include it).",
+    "PHASE 6 STALE PREMISES (both verified false, no machinery built): §6.2 dynamic never discards scheduledDays (render-gating; round-trip test proves it). §6.4 seasonMask already pure (source-invariance pin added). Same pattern as earlier stale premises — verify before implementing.",
+    "REASON CODES accumulated for Phase 7 enum (from phases 3-6): goal_exclude, barrier_repair_excludes_irritants, spf_required_goal (P3); reserve/info actions + not_needed_for_goals, duplicate_function, cumulative_active_cap, moisturizer_recommended, rinse_off_active_note, exfoliant_treatment_cap, reclassified_treatment_cap (P4); dynamic_unavailable_no_actives (P6). PLUS the 22 pre-existing JSON codes + code-level (product_hidden, pao_expired, no_allowed_period, relocation_rejected). reasonCode STILL doubles as ruleId in ladder freezes (resolve.ts:410) — Phase 7 must split them (§4.4 ruling: enum stays decoupled from pair-rule IDs; add reasonCode to pairRules).",
     "PHASE 5 COMPLETE (commit b617da3). Adaptation anchored on firstScheduledDate (trackingStore.firstScheduledDates, written on SAVE via applyRoutinePlan — engine stays pure). REVERSED the V2 \"no retroactive throttling\" decision: never-scheduled product -> phase 1 (JSDoc updated + logged). Phase regression (applyAdaptationRegression) throttles irritancy>=3 products after 14/28-day breaks. Tolerability term now LIVE in scoreCandidate (was 0 in Phase 4): phaseIndex/2 * 200, adapted beats new for a contested treatment slot.",
     "INTEGRATION FIX shipped in Phase 5: buildEngineInputFromStores (routinePlanActions) now threads primaryGoal/secondaryGoal + firstScheduledDates. Before this the LIVE app generated maintenance plans regardless of the users goal — a latent Phase 3 gap that Phase 4 made visible. If you touch that function, keep the goals threaded.",
     "ProductApplicationStats gained firstAppliedDate (null for pre-phase-5 stats). Any fixture building a stats object must include it. TrackingInput.firstScheduledDates is optional (defaults {}).",
