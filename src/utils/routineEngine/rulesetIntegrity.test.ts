@@ -442,3 +442,58 @@ describe('decision reason codes — engine-emitted literals are enum members (ph
     }
   });
 });
+
+describe('engine determinism guard (phase-09 merge criterion)', () => {
+  const fs = require('fs');
+  const path = require('path');
+
+  // The determinism property tests (tests/routine-engine/determinism-and-safety)
+  // prove same-input → byte-identical output empirically. This guard closes the
+  // other half statically: the engine must contain no non-deterministic source.
+  // The project has no lint-rule infra for this, so it lives as a test the
+  // engineer sees on every `npm test` run (spec phase-09 merge criteria).
+  function engineSourceFiles(): string[] {
+    const dir = path.join(__dirname);
+    return fs
+      .readdirSync(dir)
+      .filter((f: string) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
+      .map((f: string) => path.join(dir, f));
+  }
+
+  it('contains no Math.random anywhere in engine source', () => {
+    for (const file of engineSourceFiles()) {
+      const src = fs.readFileSync(file, 'utf8');
+      expect({ file: path.basename(file), usesMathRandom: /Math\.random/.test(src) }).toEqual({
+        file: path.basename(file),
+        usesMathRandom: false,
+      });
+    }
+  });
+
+  it('reads "now" only from an injected parameter, never an ambient clock in a decision path', () => {
+    // The one permitted ambient-clock read is generate.ts's `input.now ?? new
+    // Date()` fallback, which immediately binds a single `now` threaded through
+    // every downstream module — nothing else may call Date.now() or bare new
+    // Date() to branch on. Guard the modules below generate.ts: they must
+    // receive `now`, never mint one. (testing.md: inject the date.)
+    for (const file of engineSourceFiles()) {
+      const base = path.basename(file);
+      if (base === 'generate.ts') continue; // the single injection boundary
+      const src = fs.readFileSync(file, 'utf8');
+      expect({ file: base, callsDateNow: /Date\.now\s*\(/.test(src) }).toEqual({
+        file: base,
+        callsDateNow: false,
+      });
+    }
+  });
+
+  // Object-iteration convention (unsorted-iteration half of the merge
+  // criterion): the engine iterates objects only over fixed const maps whose key
+  // set is authored, not data-derived (e.g. SKELETON_SLOTS, phototype
+  // conjunctions), so insertion order is stable and iteration is deterministic.
+  // A data-derived object keyed on productId/class *would* leak nondeterminism;
+  // no such iteration exists today. This is enforced by convention + the
+  // empirical shuffle-invariance test in determinism-and-safety, not a static
+  // string match (which cannot distinguish the two cases without false
+  // positives on the fixed-map iterations).
+});

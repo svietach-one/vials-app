@@ -1,4 +1,4 @@
-Status: PHASE_1_COMPLETE (self-review ACCEPT) — awaiting human review
+Status: PHASE_9_COMPLETE (self-review ACCEPT) — V2.1 PACKAGE COMPLETE, awaiting human review
 Tech Design: docs/tech-design/routine-engine-v2-cosmetologist.md
 Code: engine-improvements (uncommitted)
 
@@ -666,3 +666,61 @@ This file tracks the whole package; each phase appends to the Log.
   No deviations beyond the design assumptions (phototype flag = phototype !==
   null; peptide re-attribution only when INCI contradicts the tag). No FAIL
   items. Phase 9 (updated §9 test contract) is the last phase.
+
+- 2026-07-18: **PHASE 9 — updated §9 test contract (the FINAL phase).**
+  Test-only phase; no production code touched. Verified all 8 required §9
+  suites already live and green (period-safety, determinism-and-safety,
+  mandates + seasonal-masks SPF, adaptation + cycling-and-adaptation,
+  skeleton minimalism/goal/dedup, generate phase-04 acceptance). Added the two
+  gaps the contract still lacked:
+
+  1. **Explainability invariant as a 100-seed property test** —
+     `tests/routine-engine/explainability-invariant.test.ts`. Generalizes the
+     single hand-built `generate.test.ts` "accounts for every shelf product"
+     case to seeded random shelves (mulberry32, no Math.random). Coverage +
+     terminal-bucket disjointness.
+  2. **Engine determinism guard** — new describe block in
+     `src/utils/routineEngine/rulesetIntegrity.test.ts` (reusing the file's
+     existing `fs.readdirSync` engine-source scan): asserts no `Math.random`
+     and no non-injected `Date.now()` in any engine source module. The
+     unsorted-object-iteration half is enforced by convention + the empirical
+     shuffle-invariance test (documented in the block), not a static match that
+     would false-positive on fixed-const-map iteration.
+
+  **DOCUMENTED PREMISE CORRECTION (architecture-review.md §6 — logged so it is
+  not an undocumented deviation):** the spec §9.7 formula
+  `|shelf| = |routine| + |frozen| + |reserve|` is INCOMPLETE. The discrepancy
+  report already added `frozen`; this phase surfaced a *second* omitted bucket
+  the same way — `slotAlternatives`. A product that loses a STRUCTURAL slot to a
+  better-ranked same-function sibling (Story 2 routine-similar-product-priority)
+  is recorded only as a nested slot alternative, not in reserve. The real
+  invariant therefore has FOUR accountability buckets
+  (scheduled | frozen | reserve | slotAlternatives-loser). `slotAlternatives`
+  is a COVERAGE bucket only — it legitimately overlaps `scheduled` (an AM slot
+  loser can win the PM slot), so only the three terminal buckets are asserted
+  pairwise disjoint. This is a test-contract correction, NOT an engine behavior
+  change: the engine was already accounting for every product; the spec's
+  formula under-counted the buckets. No production code changed.
+
+  Verified: `tsc --noEmit` clean across src/ AND tests/ (exit 0); full
+  `jest --testPathIgnorePatterns=worktrees` → **1221 passed** (+3 vs the 1218
+  baseline: 1 explainability + 2 determinism-guard tests), 2 todo, 3 known
+  pre-existing failed (tests/catalog ×2, tests/shelf-filtering PaoChip — same
+  set as progress/known-test-failures.md, not grown). 99 passed suites.
+
+- 2026-07-18: **PHASE 9 SELF-REVIEW PASS — verdict ACCEPT.**
+
+  | # | Check | Verdict | Evidence |
+  |---|---|---|---|
+  | 1 | Fidelity — both §9 gaps built | PASS | explainability-invariant.test.ts + determinism guard block; 8 required suites verified green. |
+  | 2 | Layer separation | PASS | tests only; zero production files changed (`git diff --stat`: 1 modified test + 1 new test). |
+  | 3 | Duplication | PASS | reuses fixtures.ts helpers + the file's own fs/readdir scan; no new types/tokens. |
+  | 4 | Type-safety gate | PASS | tsc --noEmit exit 0. |
+  | 5 | Tech debt | PASS | no TODO/console.log/debugger/vitest; no fn > 50 lines. |
+  | 6 | Product constraints | N/A | no UI surface; English-only comments. |
+  | 7 | Documented-decision reversal (§6) | PASS | the slotAlternatives 4th-bucket correction is logged above; it is a test-contract fix, not a behavior reversal. |
+
+  No FAIL items. This is the last phase — the V2.1 "Censor to Cosmetologist"
+  package is COMPLETE (phases 1–9). Remaining product-level open items are
+  deferred, not part of this package: §4.3 pregnancy/lactation (its own feature,
+  never in scope for 1–9).
