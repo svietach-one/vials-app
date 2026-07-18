@@ -30,31 +30,59 @@ export interface AdaptationLimit {
 /**
  * Deterministic virtual count assuming the capped schedule was followed:
  * 2 applications/week for weeks 1–2, 4/week after — so phase 1 covers
- * ≈ weeks 1–2, phase 2 ≈ weeks 3–4, phase 3 from week 5. A product owned
- * long before tracking shipped lands directly in phase 3 (no retroactive
- * throttling).
+ * ≈ weeks 1–2, phase 2 ≈ weeks 3–4, phase 3 from week 5.
+ *
+ * V2.1 phase-05 usage anchor: the clock starts at the product's FIRST
+ * SCHEDULED date, not its shelf-add date. A product added long ago but never
+ * scheduled has no anchor and starts at phase 1 — a bathroom-shelf backfill no
+ * longer reads as months of prior use. (This intentionally reverses the V2
+ * "no retroactive throttling / lands directly in phase 3" behavior — see
+ * progress/routine-engine-v2-cosmetologist.md, 2026-07-17.)
  */
-export function virtualApplicationCount(addedAt: string, now: Date = new Date()): number {
-  const weeks = Math.floor(Math.max(0, getElapsedDays(addedAt, now)) / 7);
+export function virtualApplicationCount(
+  firstScheduledDate: string | null | undefined,
+  now: Date = new Date(),
+): number {
+  if (!firstScheduledDate) return 0; // never scheduled → phase 1
+  const weeks = Math.floor(Math.max(0, getElapsedDays(firstScheduledDate, now)) / 7);
   return weeks <= 2 ? weeks * 2 : 4 + (weeks - 2) * 4;
 }
 
 /**
- * The application count the adaptation table runs on. Dynamic mode uses the
- * tracked counter; a product with no stats yet (pre-tracking shelf) and all
- * of fixed mode fall back to the virtual count.
+ * The application count the adaptation table runs on. Tracked check-ins win in
+ * BOTH cycle modes (phase-05 §5.4 — a fixed-mode user who checks in has real
+ * data); otherwise the virtual count anchors on the product's first scheduled
+ * date. `firstScheduledDates` maps productId → skincare date (trackingStore).
  */
 export function applicationCountFor(
   product: Product,
   stats: ProductApplicationStats[],
   cycleType: RoutineCycleType,
   now: Date = new Date(),
+  firstScheduledDates: Record<string, string> = {},
 ): number {
-  if (cycleType === 'dynamic') {
-    const entry = stats.find((s) => s.productId === product.id);
-    if (entry) return entry.count;
-  }
-  return virtualApplicationCount(product.addedAt, now);
+  const entry = stats.find((s) => s.productId === product.id);
+  if (entry) return entry.count;
+  return virtualApplicationCount(firstScheduledDates[product.id], now);
+}
+
+/**
+ * Phase regression after a break (phase-05 §5.2), for irritating actives only
+ * (the caller gates on irritancy >= 3). Break measured from the last counted
+ * application: > 28 days resets to phase 1; > 14 days drops one phase. Computed
+ * from `(lastAppliedDate, now)` — never persisted, so the engine stays pure and
+ * deterministic under an injected `now`.
+ */
+export function applyAdaptationRegression(
+  phaseIndex: 0 | 1 | 2,
+  lastAppliedDate: string | null | undefined,
+  now: Date = new Date(),
+): 0 | 1 | 2 {
+  if (!lastAppliedDate) return phaseIndex; // no application → nothing to regress from
+  const daysSince = getElapsedDays(lastAppliedDate, now);
+  if (daysSince > 28) return 0;
+  if (daysSince > 14) return Math.max(0, phaseIndex - 1) as 0 | 1 | 2;
+  return phaseIndex;
 }
 
 /** Resolves the phase a count falls into (phases are ordered in the ruleset). */
@@ -84,20 +112,29 @@ export function getAdaptationStatus(
   stats: ProductApplicationStats[],
   cycleType: RoutineCycleType,
   now: Date = new Date(),
+  firstScheduledDates: Record<string, string> = {},
 ): AdaptationStatus | null {
   let status: AdaptationStatus | null = null;
+  const lastApplied = stats.find((s) => s.productId === product.id)?.lastAppliedDate ?? null;
+  // Regression only throttles strong actives (phase-05 §5.2 gates on irritancy >= 3).
+  const regresses = facts.properties.irritancy >= 3;
 
   for (const { key } of facts.classes) {
     const config = ACTIVES_RULESET.classes[key]?.adaptation;
     if (!config) continue;
 
-    const count = applicationCountFor(product, stats, cycleType, now);
-    const phaseIndex = phaseIndexFor(config, count);
+    const count = applicationCountFor(product, stats, cycleType, now, firstScheduledDates);
+    const rawPhaseIndex = phaseIndexFor(config, count);
+    const phaseIndex = regresses
+      ? applyAdaptationRegression(rawPhaseIndex, lastApplied, now)
+      : rawPhaseIndex;
     const cap = config.phases[phaseIndex].maxDaysPerWeek;
     const candidate: AdaptationStatus = {
       phaseIndex,
       maxDaysPerWeek: cap,
-      week: weekFor(phaseIndex, count),
+      // The week callout follows the resolved phase; a regressed product reads
+      // as early in its (restarted) adaptation, which is the honest signal.
+      week: weekFor(phaseIndex, phaseIndex === rawPhaseIndex ? count : 0),
       reasonCode: `adaptation_phase_${phaseIndex + 1}`,
     };
 
@@ -123,12 +160,13 @@ export function collectAdaptationLimits(
   stats: ProductApplicationStats[],
   cycleType: RoutineCycleType,
   now: Date = new Date(),
+  firstScheduledDates: Record<string, string> = {},
 ): Map<string, AdaptationLimit> {
   const limits = new Map<string, AdaptationLimit>();
   for (const product of products) {
     const f = facts.get(product.id);
     if (!f) continue;
-    const status = getAdaptationStatus(product, f, stats, cycleType, now);
+    const status = getAdaptationStatus(product, f, stats, cycleType, now, firstScheduledDates);
     if (status?.maxDaysPerWeek !== undefined) {
       limits.set(product.id, {
         maxDaysPerWeek: status.maxDaysPerWeek,
@@ -137,4 +175,27 @@ export function collectAdaptationLimits(
     }
   }
   return limits;
+}
+
+/**
+ * Per-product tolerability for admission scoring (phase-05 §5.3): phaseIndex/2
+ * → 0 | 0.5 | 1.0, so an adapted product outranks a new one of the same class.
+ * Products with no adapting class are omitted (treated as 0 by the scorer).
+ */
+export function collectTolerability(
+  products: Product[],
+  facts: Map<string, ProductFacts>,
+  stats: ProductApplicationStats[],
+  cycleType: RoutineCycleType,
+  now: Date = new Date(),
+  firstScheduledDates: Record<string, string> = {},
+): Map<string, number> {
+  const tolerability = new Map<string, number>();
+  for (const product of products) {
+    const f = facts.get(product.id);
+    if (!f) continue;
+    const status = getAdaptationStatus(product, f, stats, cycleType, now, firstScheduledDates);
+    if (status) tolerability.set(product.id, status.phaseIndex / 2);
+  }
+  return tolerability;
 }

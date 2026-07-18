@@ -54,6 +54,8 @@ export interface ResolveInput {
   concerns: SkinConcern[];
   /** Per-product adaptation caps (adaptation.ts); absent = no adapting products. */
   adaptationLimits?: Map<string, AdaptationLimit>;
+  /** Per-product tolerability 0|0.5|1.0 (phase-05); absent = all 0 (V2 scoring). */
+  tolerability?: Map<string, number>;
   /**
    * Skeleton selection (phase-04): per-period candidate id sets + treatment
    * frequency caps. generate ALWAYS passes it; absent means raw admission
@@ -139,6 +141,7 @@ export function scoreCandidate(
   concerns: SkinConcern[],
   prioritize: PrioritizeTarget[],
   treatmentClassRanking: readonly string[] = [],
+  tolerability = 0,
 ): number {
   const classConcerns = new Set<SkinConcern>();
   for (const { key } of facts.classes) {
@@ -164,9 +167,12 @@ export function scoreCandidate(
     if (index !== -1) goalRank = Math.max(goalRank, treatmentClassRanking.length - index);
   }
 
-  const tolerability = 0; // Phase 5 wires phaseIndex-derived 0|100|200
-
-  return (boosted ? 100000 : 0) + goalRank * 1000 + tolerability + concernHits * 10 + potency * 2;
+  // tolerability is 0 | 0.5 | 1.0 (phase-05 §5.3); *200 gives the reserved
+  // 0 | 100 | 200 band, so an adapted product outranks a new one of the same
+  // class without crossing the goalRank band.
+  return (
+    (boosted ? 100000 : 0) + goalRank * 1000 + tolerability * 200 + concernHits * 10 + potency * 2
+  );
 }
 
 function compareCandidates(a: Candidate, b: Candidate): number {
@@ -520,12 +526,13 @@ function buildPools(input: ResolveInput, prioritize: PrioritizeTarget[]): Record
     if (input.selection) {
       targets = targets.filter((p) => input.selection?.periodCandidates[p].has(product.id));
     }
+    const tol = input.tolerability?.get(product.id) ?? 0;
     for (const period of targets) {
       pools[period].push({
         product,
         facts,
         relocated: false,
-        score: scoreCandidate(product, facts, period, input.concerns, prioritize, ranking),
+        score: scoreCandidate(product, facts, period, input.concerns, prioritize, ranking, tol),
       });
     }
   }
@@ -675,6 +682,7 @@ export function resolvePeriods(input: ResolveInput): ResolveResult {
         input.concerns,
         prioritize,
         input.context.treatmentClassRanking,
+        input.tolerability?.get(candidate.product.id) ?? 0,
       ),
     });
   });

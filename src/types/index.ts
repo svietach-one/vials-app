@@ -376,6 +376,12 @@ export interface ProductApplicationStats {
   count: number;
   /** Skincare date of the last counted application. */
   lastAppliedDate: string;
+  /**
+   * Skincare date of the FIRST counted application (V2.1 phase-05 usage
+   * anchor). Null for pre-phase-5 stats; the virtual count then anchors on the
+   * product's first scheduled date instead of its shelf-add date.
+   */
+  firstAppliedDate: string | null;
 }
 
 export interface AppSettings {

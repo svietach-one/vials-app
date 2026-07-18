@@ -9,6 +9,7 @@ import { generateId } from '@/utils/generateId';
 import { generatePlan, type EngineInput, type RoutinePlan } from '@/utils/routineEngine/generate';
 import { buildStepsFromPlan } from '@/utils/routineEngine/planApply';
 import { validateRoutines, type ValidationResult } from '@/utils/routineEngine/validate';
+import { getSkincareDateString } from '@/utils/timeHelpers';
 
 /**
  * Draft Preview save path (research §3): the ONLY write path from a generated
@@ -29,11 +30,16 @@ export function buildEngineInputFromStores(now: Date = new Date()): EngineInput 
     profile: {
       fitzpatrick: profile?.fitzpatrick ?? null,
       concerns: profile?.concerns ?? [],
+      // Goals drive Step-0 treatment selection (phase-03/04). Without these the
+      // engine would treat every user as maintenance and reserve all actives.
+      primaryGoal: profile?.primaryGoal ?? 'maintenance',
+      secondaryGoal: profile?.secondaryGoal ?? null,
     },
     seasonMask: getActiveSeasonMask(now),
     tracking: {
       cycleType: useSettingsStore.getState().routineCycleType,
       applicationStats: tracking.applicationStats,
+      firstScheduledDates: tracking.firstScheduledDates,
     },
     now,
   };
@@ -56,16 +62,29 @@ export function validateCurrentRoutines(now: Date = new Date()): ValidationResul
  * Optimize strip (never a modal). Pinned and hidden steps survive per
  * buildStepsFromPlan.
  */
-export function applyRoutinePlan(plan: RoutinePlan, scope: PlanCommitScope): void {
+export function applyRoutinePlan(
+  plan: RoutinePlan,
+  scope: PlanCommitScope,
+  now: Date = new Date(),
+): void {
   const { routines, updateRoutine } = useRoutinesStore.getState();
+  const committedProductIds: string[] = [];
 
   for (const routine of routines) {
     const period = routine.timeOfDay === 'morning' ? 'am' : 'pm';
     if (scope !== 'both' && scope !== period) continue;
 
     const planned = period === 'am' ? plan.periods.morning : plan.periods.evening;
+    committedProductIds.push(...planned.map((s) => s.productId));
     updateRoutine(routine.id, {
       steps: buildStepsFromPlan(planned, routine.steps, plan.frozen, generateId),
     });
   }
+
+  // Usage anchor (phase-05): a product's first appearance in a SAVED plan
+  // starts its adaptation clock. Idempotent — an existing anchor is never
+  // moved, so re-saving never resets a product's phase.
+  useTrackingStore
+    .getState()
+    .recordFirstScheduled(committedProductIds, getSkincareDateString(now));
 }

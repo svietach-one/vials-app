@@ -6,7 +6,7 @@ import type {
   UserProcedureLog,
   UserProfile,
 } from '@/types';
-import { collectAdaptationLimits } from '@/utils/routineEngine/adaptation';
+import { collectAdaptationLimits, collectTolerability } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { applyEligibilityGates } from '@/utils/routineEngine/eligibility';
 import { applyMandates } from '@/utils/routineEngine/mandates';
@@ -34,6 +34,12 @@ import { getSkincareDateString } from '@/utils/timeHelpers';
 export interface TrackingInput {
   cycleType: RoutineCycleType;
   applicationStats: ProductApplicationStats[];
+  /**
+   * productId → skincare date the product first appeared in a saved plan
+   * (phase-05 usage anchor). Absent map / missing entry ⇒ the product's
+   * virtual adaptation count starts at phase 1.
+   */
+  firstScheduledDates?: Record<string, string>;
 }
 
 /** Everything the engine needs for one run — no store access, injected `now`. */
@@ -92,18 +98,16 @@ export function generatePlan(input: EngineInput): RoutinePlan {
 
   const gates = applyEligibilityGates(input.products, facts, context);
   const skeleton = selectSkeleton({ products: gates.eligible, facts, context });
+  const stats = input.tracking?.applicationStats ?? [];
+  const cycleType = input.tracking?.cycleType ?? 'fixed';
+  const firstScheduledDates = input.tracking?.firstScheduledDates ?? {};
   const resolved = resolvePeriods({
     products: gates.eligible,
     facts,
     context,
     concerns: input.profile.concerns,
-    adaptationLimits: collectAdaptationLimits(
-      gates.eligible,
-      facts,
-      input.tracking?.applicationStats ?? [],
-      input.tracking?.cycleType ?? 'fixed',
-      now,
-    ),
+    adaptationLimits: collectAdaptationLimits(gates.eligible, facts, stats, cycleType, now, firstScheduledDates),
+    tolerability: collectTolerability(gates.eligible, facts, stats, cycleType, now, firstScheduledDates),
     selection: {
       periodCandidates: skeleton.periodCandidates,
       treatmentCaps: skeleton.treatmentCaps,

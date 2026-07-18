@@ -19,6 +19,7 @@ import { generatePlan } from '@/utils/routineEngine/generate';
 import { validateRoutines } from '@/utils/routineEngine/validate';
 import { applyRoutinePlan } from '@/domain/routinePlanActions';
 import { useRoutinesStore } from '@/store/routinesStore';
+import { useTrackingStore } from '@/store/trackingStore';
 import type { RoutinePlan } from '@/utils/routineEngine/generate';
 import {
   makeEngineInput,
@@ -134,6 +135,29 @@ describe('Story 2 AC: applyRoutinePlan commits the right scope into routinesStor
     // discarding is simply not calling applyRoutinePlan at all.
     generatePlan(makeEngineInput([product]));
     expect(useRoutinesStore.getState().routines).toBe(before); // same reference, no write occurred
+  });
+
+  it('records the usage anchor for newly-scheduled products on save (phase-05)', () => {
+    useTrackingStore.setState({ firstScheduledDates: {} });
+    const now = new Date('2026-07-04T12:00:00Z');
+
+    applyRoutinePlan(makeTestPlan(), 'both', now);
+
+    // Both scheduled products get anchored on the save date; reserve/frozen do not.
+    expect(useTrackingStore.getState().firstScheduledDates).toEqual({
+      [amOnlyProduct.id]: '2026-07-04',
+      [pmOnlyProduct.id]: '2026-07-04',
+    });
+  });
+
+  it('never moves an existing anchor on a later save (idempotent adaptation clock)', () => {
+    useTrackingStore.setState({ firstScheduledDates: { [amOnlyProduct.id]: '2026-06-01' } });
+
+    applyRoutinePlan(makeTestPlan(), 'both', new Date('2026-07-04T12:00:00Z'));
+
+    // The pre-existing anchor stays; only the newly-scheduled PM product is added.
+    expect(useTrackingStore.getState().firstScheduledDates[amOnlyProduct.id]).toBe('2026-06-01');
+    expect(useTrackingStore.getState().firstScheduledDates[pmOnlyProduct.id]).toBe('2026-07-04');
   });
 });
 

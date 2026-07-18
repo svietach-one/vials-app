@@ -56,7 +56,7 @@ describe('Story 6 AC: adaptation phase caps flow through generatePlan end-to-end
     const plan = generatePlan(
       makeEngineInput([retinoid], {
         profile: ACNE,
-        tracking: { cycleType: 'dynamic', applicationStats: [{ productId: retinoid.id, count: 2, lastAppliedDate: '2026-07-01' }] },
+        tracking: { cycleType: 'dynamic', applicationStats: [{ productId: retinoid.id, count: 2, lastAppliedDate: '2026-07-01', firstAppliedDate: null }] },
       }),
     );
     const step = plan.periods.evening.find((s) => s.productId === retinoid.id);
@@ -69,7 +69,7 @@ describe('Story 6 AC: adaptation phase caps flow through generatePlan end-to-end
     const plan = generatePlan(
       makeEngineInput([retinoid], {
         profile: ACNE,
-        tracking: { cycleType: 'dynamic', applicationStats: [{ productId: retinoid.id, count: 5, lastAppliedDate: '2026-07-01' }] },
+        tracking: { cycleType: 'dynamic', applicationStats: [{ productId: retinoid.id, count: 5, lastAppliedDate: '2026-07-01', firstAppliedDate: null }] },
       }),
     );
     const step = plan.periods.evening.find((s) => s.productId === retinoid.id);
@@ -81,7 +81,7 @@ describe('Story 6 AC: adaptation phase caps flow through generatePlan end-to-end
     const plan = generatePlan(
       makeEngineInput([retinoid], {
         profile: ACNE,
-        tracking: { cycleType: 'dynamic', applicationStats: [{ productId: retinoid.id, count: 9, lastAppliedDate: '2026-07-01' }] },
+        tracking: { cycleType: 'dynamic', applicationStats: [{ productId: retinoid.id, count: 9, lastAppliedDate: '2026-07-01', firstAppliedDate: null }] },
       }),
     );
     const step = plan.periods.evening.find((s) => s.productId === retinoid.id);
@@ -89,29 +89,65 @@ describe('Story 6 AC: adaptation phase caps flow through generatePlan end-to-end
     expect(step?.scheduledDays).toEqual([]);
   });
 
-  it('derives a virtual application count from addedAt in fixed (non-tracking) mode: weeks 1-2 -> phase 1, weeks 3-4 -> phase 2, week 5+ -> phase 3', () => {
-    // NOW = 2026-07-04. No `tracking` field on the input => fixed mode, virtual counts.
-    const week1Product = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-06-26' }); // 8 days -> 1 week
-    const week3Product = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-06-12' }); // 22 days -> 3 weeks
-    const week5Product = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-05-29' }); // 36 days -> 5 weeks
+  it('derives a virtual count from the first-scheduled anchor (phase-05): weeks 1-2 -> phase 1, weeks 3-4 -> phase 2, week 5+ -> phase 3', () => {
+    // NOW = 2026-07-04. phase-05: the adaptation clock runs from the product's
+    // first SCHEDULED date (threaded via firstScheduledDates), not addedAt.
+    const week1 = makeProduct({ activeTags: ['retinoid'] });
+    const week3 = makeProduct({ activeTags: ['retinoid'] });
+    const week5 = makeProduct({ activeTags: ['retinoid'] });
+    const track = (id: string, anchor: string) => ({
+      cycleType: 'fixed' as const,
+      applicationStats: [],
+      firstScheduledDates: { [id]: anchor },
+    });
 
-    const phase1Days = generatePlan(makeEngineInput([week1Product], { profile: ACNE }))
-      .periods.evening.find((s) => s.productId === week1Product.id)?.scheduledDays;
-    const phase2Days = generatePlan(makeEngineInput([week3Product], { profile: ACNE }))
-      .periods.evening.find((s) => s.productId === week3Product.id)?.scheduledDays;
-    const phase3Days = generatePlan(makeEngineInput([week5Product], { profile: ACNE }))
-      .periods.evening.find((s) => s.productId === week5Product.id)?.scheduledDays;
+    const phase1Days = generatePlan(
+      makeEngineInput([week1], { profile: ACNE, tracking: track(week1.id, '2026-06-26') }),
+    ).periods.evening.find((s) => s.productId === week1.id)?.scheduledDays;
+    const phase2Days = generatePlan(
+      makeEngineInput([week3], { profile: ACNE, tracking: track(week3.id, '2026-06-12') }),
+    ).periods.evening.find((s) => s.productId === week3.id)?.scheduledDays;
+    const phase3Days = generatePlan(
+      makeEngineInput([week5], { profile: ACNE, tracking: track(week5.id, '2026-05-29') }),
+    ).periods.evening.find((s) => s.productId === week5.id)?.scheduledDays;
 
     expect(phase1Days).toHaveLength(2); // phase 1 cap
     expect(phase2Days).toHaveLength(4); // phase 2 cap
     expect(phase3Days).toEqual([]); // phase 3 -> unlimited
   });
 
-  it('starts a product owned long before this feature shipped directly in phase 3 (grandfathered, no retroactive throttling)', () => {
+  it('starts a long-owned but never-scheduled product at phase 1 (phase-05 reversal of grandfathering)', () => {
+    // Reverses the V2 "no retroactive throttling" behavior: a product added
+    // years ago but never scheduled has no usage anchor → phase 1, capped.
     const veteran = makeProduct({ activeTags: ['retinoid'], addedAt: '2020-01-01' });
     const plan = generatePlan(makeEngineInput([veteran], { profile: ACNE }));
     const step = plan.periods.evening.find((s) => s.productId === veteran.id);
-    expect(step?.scheduledDays).toEqual([]);
+    expect(step?.scheduledDays).toEqual([2, 6]); // phase 1 cap, not unlimited
+  });
+
+  it('selects the adapted retinoid over an equal-potency new one for the PM treatment (phase-05 tolerability)', () => {
+    // Two same-class, same-potency retinoids compete for the one aging PM
+    // treatment slot. The tolerability term breaks the tie toward the adapted
+    // one (phase 3, no cap) over the new one (phase 1) — the "adapted product
+    // outranks a new one of the same class" acceptance case.
+    const adapted = makeProduct({ id: 'adapted', activeTags: ['retinoid'] });
+    const fresh = makeProduct({ id: 'fresh', activeTags: ['retinoid'] });
+    const plan = generatePlan(
+      makeEngineInput([adapted, fresh], {
+        profile: { fitzpatrick: null, concerns: [], primaryGoal: 'aging', secondaryGoal: null },
+        tracking: {
+          cycleType: 'dynamic',
+          applicationStats: [
+            { productId: 'adapted', count: 10, lastAppliedDate: '2026-07-03', firstAppliedDate: '2026-05-01' },
+          ],
+          firstScheduledDates: {},
+        },
+      }),
+    );
+
+    // The adapted one is the treatment; the new one is the same-slot alternative.
+    expect(plan.periods.evening.some((s) => s.productId === 'adapted')).toBe(true);
+    expect(plan.periods.evening.some((s) => s.productId === 'fresh')).toBe(false);
   });
 });
 

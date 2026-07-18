@@ -423,3 +423,74 @@ This file tracks the whole package; each phase appends to the Log.
   cumulative_active_cap + not_needed_for_goals + duplicate_function +
   moisturizer_recommended + rinse_off_active_note). Consultant list grows by
   the two treatment-cap draft values (2/wk exfoliant, 4/wk reclassified).
+
+- 2026-07-18: **PHASE 5 IMPLEMENTED — adaptation usage anchor + phase regression.**
+  - **DOCUMENTED-DECISION REVERSAL (architecture-review.md §6):** adaptation.ts
+    previously stated as deliberate design "A product owned long before tracking
+    shipped lands directly in phase 3 (no retroactive throttling)." Phase 5
+    reverses it: the adaptation clock now anchors on the product's FIRST
+    SCHEDULED date, not its shelf-add date, so a never-scheduled product sits at
+    phase 1. The JSDoc was rewritten to document the reversal (it no longer
+    asserts the old behavior). This is intentional per the phase-05 spec, not a
+    bug fix.
+  - Usage anchor: ProductApplicationStats gains firstAppliedDate;
+    trackingStore persists firstScheduledDates (productId → skincare date) +
+    recordFirstScheduled (idempotent — never moves an existing anchor);
+    applyRoutinePlan records it for newly-scheduled products on SAVE (the engine
+    stays write-free). virtualApplicationCount now takes firstScheduledDate
+    (absent → 0 → phase 1).
+  - Phase regression (applyAdaptationRegression, pure): irritancy>=3 products,
+    break > 28d → phase 1, break > 14d → phase −1 (floor 0), measured from
+    lastAppliedDate; computed never persisted so determinism holds.
+  - §5.4: applicationCountFor now consults tracked stats in BOTH cycle modes
+    (was dynamic-only) — a fixed-mode user who checks in has real data.
+  - Tolerability: collectTolerability → phaseIndex/2 (0|0.5|1.0); scoreCandidate
+    multiplies by the *200 band reserved in Phase 4; buildPools + the PM
+    relocation rescore pass it, so an adapted product outranks a new same-class
+    one for a contested treatment slot.
+  - **Phase 3 integration gap fixed here:** buildEngineInputFromStores never
+    threaded primaryGoal/secondaryGoal, so the LIVE app was generating
+    maintenance plans regardless of the user's goal (and Phase 4 made
+    maintenance reserve everything). Now threaded, plus firstScheduledDates.
+
+  Verified: tsc clean; full jest --testPathIgnorePatterns=worktrees →
+  1173 passed / 3 known pre-existing failed / 2 todo.
+
+- 2026-07-18: **Phase 5 test expectation changes**, all from the intended
+  reversal + §5.4, justified in-test:
+  - adaptation.test: virtualApplicationCount tests re-anchored on
+    firstScheduledDate; applicationCountFor "fixed mode ignores stats" flipped
+    to "uses stats in both modes"; "long-owned adapted → phase 3 via addedAt"
+    → now needs an OLD ANCHOR; added the reversal case (never-scheduled → phase
+    1 capped).
+  - cycling Story 6: "derives virtual count from addedAt" → from the
+    first-scheduled anchor (via TrackingInput); "grandfathered phase 3" test
+    became "never-scheduled → phase 1" (the reversal); added "adapted beats
+    new" tolerability case.
+  - determinism-and-safety: the avoid-pair safety loop now varies a random
+    goal (maintenance reserves all actives → nothing to check), and a
+    deterministic retinoid-cleanser + AHA-serum anchor guarantees a non-vacuous
+    pairsChecked > 0. New fixtures.randomGoal helper.
+
+- 2026-07-18: **PHASE 5 SELF-REVIEW PASS — verdict ACCEPT.**
+
+  | # | Check | Verdict | Evidence |
+  |---|---|---|---|
+  | 1 | No parallel taxonomy | PASS | adaptation logic + trackingStore field; no new taxonomy. |
+  | 2 | Single conflict matrix | PASS | untouched. |
+  | 3 | isStrongActive invariant | PASS | untouched; regression gates on irritancy>=3 via the same boundary. |
+  | 4 | Cumulative cap + rinseOff | N/A | Phase 4 scope; untouched. |
+  | 5 | Migrations idempotent | N/A | no migration; firstAppliedDate is additive (null for old stats), firstScheduledDates defaults {} on hydrate. Schema still 2. |
+  | 6 | Every AC → passing test | PASS | 10/10 mapped and individually re-run (AC table in log). |
+  | 7 | tsc clean; no Math.random / unsorted iteration | PASS | tsc clean; regression computed from injected now; determinism suite green. |
+  | 8 | Layer separation | PASS | engine stays write-free (no store imports); the anchor write lives in domain/applyRoutinePlan + trackingStore. |
+  | 9 | Documented-decision reversal logged | PASS | JSDoc rewritten + logged above per §6 (would otherwise auto-block). |
+  | 10 | Function length | PASS | new functions 10/16/40 lines; getAdaptationStatus grew to 40 (regression branch), still under 50. |
+
+  No deviations beyond the design assumptions (break from lastAppliedDate only;
+  regression on phaseIndex not count; anchor for scheduled-not-reserved;
+  tolerability in admission scoring only). No FAIL items.
+
+  Carried to Phase 7: reason code adaptation_phase_N already existed; no new
+  codes this phase. Phase 6 (dynamic cycling) is next; the anchor/regression
+  are independent of it.

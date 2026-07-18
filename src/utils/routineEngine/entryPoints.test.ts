@@ -139,7 +139,7 @@ describe('generatePlan', () => {
         profile: AGING,
         tracking: {
           cycleType: 'dynamic',
-          applicationStats: [{ productId: fresh.id, count: 9, lastAppliedDate: '2026-07-03' }],
+          applicationStats: [{ productId: fresh.id, count: 9, lastAppliedDate: '2026-07-03', firstAppliedDate: null }],
         },
       }),
     );

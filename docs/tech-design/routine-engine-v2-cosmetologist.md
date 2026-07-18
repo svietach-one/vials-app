@@ -445,3 +445,98 @@ in admission. Per-class `stacking` blocks leave actives.json entirely.
 
 None new. Consultant list grows by the two frequency-cap draft values
 (4/wk reclassified, 2/wk exfoliant).
+
+---
+
+# Phase 5 — Adaptation: Usage Anchor + Phase Regression
+
+Spec: docs/specs/routine-engine-v2.1/phase-05-adaptation.md
+Date: 2026-07-17. Reverses a documented adaptation.ts decision (see §4).
+
+## 1. Architecture Overview
+
+Adaptation gains two pure inputs and one output. The engine stays write-free;
+the anchor is persisted on the SAVE path, not during generation.
+
+```
+routinePlanActions.applyRoutinePlan (save)
+  └─ records firstScheduledDate for newly-scheduled products → trackingStore
+generatePlan (pure)
+  └─ TrackingInput.firstScheduledDates ──► collectAdaptationLimits
+       adaptation.ts:
+         applicationCountFor  ← counts from firstScheduledDate (not addedAt);
+                                 tracked stats used in BOTH modes (5.4);
+                                 regression applied via lastAppliedDate (5.2)
+         getAdaptationStatus  → phaseIndex (+ existing caps)
+  └─ resolvePeriods → tolerabilityByProduct (phaseIndex/2 * 200) → scoreCandidate
+```
+
+Also fixes a Phase 3 integration gap: `buildEngineInputFromStores` never
+threaded `primaryGoal`/`secondaryGoal`, so the live app has been generating
+maintenance plans regardless of the user's goal. Corrected here (one-line).
+
+## 2. API Contracts
+
+### `ProductApplicationStats` (types)
+- += `firstAppliedDate: string | null` — set by the product's first check-in.
+
+### `TrackingInput` (generate.ts)
+- += `firstScheduledDates: Record<string, string>` (productId → skincare date).
+
+### `applicationCountFor(product, stats, cycleType, now, firstScheduledDates?)`
+- Tracked stats consulted in **both** modes (5.4): a stats entry → its `count`,
+  then regression by `lastAppliedDate`.
+- No stats → virtual count from `firstScheduledDates[id]` (5.1), NOT `addedAt`;
+  absent anchor → 0 → Phase 1. This is the reversal.
+
+### `applyAdaptationRegression(count, phaseIndex, lastAppliedDate, now)` (new, pure)
+- irritancy>=3 products only (caller gates on facts).
+- break > 28d → phaseIndex 0; else break > 14d → max(0, phaseIndex-1); else unchanged.
+- Returns the regressed phaseIndex; computed never persisted (5.2).
+
+### `scoreCandidate(..., treatmentClassRanking, tolerability = 0)`
+- New trailing param. `tolerability = phaseIndex/2` scaled by the *200 band
+  already reserved in Phase 4. buildPools passes it per candidate;
+  substitute/duplicateSlot pass the default 0 (documented).
+
+### `trackingStore`
+- Persist `firstScheduledDates: Record<string,string>` +
+  `recordFirstScheduled(ids: string[], date)` (idempotent — never overwrites an
+  existing anchor).
+
+## 3. Implementation Tasks
+
+- **P5-1** types + trackingStore persistence + recordFirstScheduled.
+- **P5-2** adaptation.ts: virtualApplicationCount(firstScheduledDate),
+  applicationCountFor rework (both-mode stats + anchor), applyAdaptationRegression,
+  getAdaptationStatus returns regressed phaseIndex; **JSDoc reversal**.
+- **P5-3** generate.ts TrackingInput.firstScheduledDates threaded to
+  collectAdaptationLimits; resolve.ts tolerabilityByProduct → scoreCandidate.
+- **P5-4** routinePlanActions: record first-scheduled on save; thread goals
+  (Phase 3 gap fix).
+- **P5-5** tests: adaptation unit (anchor, regression, tolerability), generate
+  integration (never-applied→P1, break→reset, adapted-beats-new), purity.
+
+## 4. Assumptions
+
+- **Break is measured only from `lastAppliedDate` (tracked stats).** The spec's
+  "without check-ins, via the last scheduled day in the plan" fallback is
+  omitted: never-applied products already resolve to Phase 1 via the anchor, so
+  there is no phase to regress from. Alternative: persist last-scheduled per
+  product. Reason: no acceptance case needs it, and persisting per-day
+  scheduling to drive regression is a large surface for zero tested benefit.
+- **Regression uses the phaseIndex, not the count.** Decrementing a raw virtual
+  count is ambiguous across the non-linear phase table; the phase ladder is the
+  unit the spec names ("phase −1", "reset to Phase 1"). Alternative: back-solve
+  a count. Reason: direct and unambiguous.
+- **firstScheduledDate is recorded for products entering a period on save,**
+  not for reserve/frozen. Reason: "first appearance in a generated plan" means
+  actually scheduled; a reserved product was never put into a routine.
+- **tolerability feeds admission scoring only** (buildPools). substitute and
+  duplicateSlot keep tolerability 0 — they answer "best swap / dedup winner",
+  where goal rank + potency already decide; adding adaptation state there is
+  out of the acceptance and risks reordering existing swap behavior.
+
+## 5. Open Questions
+
+None. Consultant list unchanged.
