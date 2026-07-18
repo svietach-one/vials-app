@@ -180,3 +180,74 @@ describe('Story 2 AC: each commit action invokes onCommit with the correct scope
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+describe('phase-07: reserve rows show the reason and an override action', () => {
+  it('renders each reserved product with its human reason text', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        // VITC not in the morning period here, so it appears only in reserve.
+        plan={makePlan({
+          periods: { morning: [], evening: [] },
+          reserve: [{ productId: VITC.id, reasonCode: 'not_needed_for_goals' }],
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('In reserve')).toBeTruthy();
+    expect(screen.getByText('Vitamin C Serum')).toBeTruthy();
+    // The dictionary text, not the raw code.
+    expect(screen.getByText(/don’t call for this product/)).toBeTruthy();
+  });
+
+  it('shows a frozen pair-rule product with its reason text (not a rule id)', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({
+          frozen: [{ productId: RETINOID.id, reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha' }],
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Retinoids and exfoliating acids/)).toBeTruthy();
+    expect(screen.queryByText(/rule_retinol_aha/)).toBeNull();
+  });
+
+  it('fires onOverride with the product id when "Add anyway" is tapped', () => {
+    const onOverride = jest.fn();
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({ reserve: [{ productId: VITC.id, reasonCode: 'cumulative_active_cap' }] })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+        onOverride={onOverride}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText('Add Vitamin C Serum anyway'));
+    expect(onOverride).toHaveBeenCalledWith(VITC.id);
+  });
+
+  it('omits the override action when onOverride is not provided', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({ reserve: [{ productId: VITC.id, reasonCode: 'not_needed_for_goals' }] })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText('Add Vitamin C Serum anyway')).toBeNull();
+  });
+});

@@ -628,3 +628,109 @@ Two premises from the original phase are STALE (verified, like earlier phases):
 ## 5. Open Questions
 
 None. Consultant list unchanged.
+
+---
+
+# Phase 7 — Explainability (DecisionLog → UX) + Override
+
+Spec: docs/specs/routine-engine-v2.1/phase-07-explainability.md
+Date: 2026-07-18. §4.4 ruling: enum stays decoupled from pair-rule IDs.
+
+## 1. Architecture Overview
+
+Two premises simplified since the spec was written:
+- **`stacking_cap_*` synthesis is GONE** (Phase 4 removed per-class stacking).
+  The enum is a plain closed string union — NO template-literal member.
+- The only conflation left is `resolve.ts:443` `reasonCode: primary.ruleId` on
+  a pair-rule freeze. Prerequisite fix: pair rules carry their own reasonCode.
+
+```
+actives.json pairRules += reasonCode
+  └─ Violation carries {ruleId, reasonCode}
+  └─ resolve emits reasonCode (the code), keeps ruleId (provenance)
+decisionReasons.ts (new): DecisionReasonCode union + REASON_TEXT
+  satisfies Record<DecisionReasonCode,string>   (orphan = compile error)
+  rulesetIntegrity: every JSON/emitted code ∈ enum; no rule_* in reasonCode
+EngineInput.userOverrides?: string[]  → selectSkeleton re-includes into eligible
+  periods only (retinoid-in-AM structurally impossible via allowedPeriods)
+routinesStore: { overrides, hash } ; buildEngineInput clears on hash mismatch
+DraftPreviewSheet: reason text on frozen + reserve rows + "add anyway" override
+```
+
+## 2. API Contracts
+
+### `decisionReasons.ts` (new)
+- `type DecisionReasonCode = <closed union of every JSON + engine-emitted code>`
+  (lower_snake_case; NO pair-rule `rule_*` ids; NO template-literal).
+- `export const REASON_TEXT = { … } satisfies Record<DecisionReasonCode, string>`.
+- `reasonText(code: string): string` — dictionary lookup, falls back to a
+  generic line for an unknown code (defensive; never throws).
+
+### `actives.json` pairRules
+- each entry += `reasonCode` (a DecisionReasonCode, e.g. `retinoid_acid_conflict`).
+
+### `resolve.ts`
+- `Violation += reasonCode`. `findPairViolations` sets `reasonCode: rule.reasonCode`;
+  `findCapViolations` sets `reasonCode: 'cumulative_active_cap'`.
+- The frozen item + keep_with_note/day_split decisions emit
+  `reasonCode: primary.reasonCode`, `ruleId: primary.ruleId`.
+
+### types (planTypes.ts)
+- `FrozenItem.reasonCode`, `ReserveItem.reasonCode`, `DecisionLogEntry.reasonCode`,
+  `PlaceholderSlot.reasonCode` → `DecisionReasonCode`. Expect suite fallout.
+- Drop the dead `'stacking_cap'` DecisionAction (nothing emits it since Phase 4).
+
+### `generate.ts`
+- `EngineInput.userOverrides?: string[]` threaded to `selectSkeleton`.
+
+### `selectSkeleton` (skeleton.ts)
+- A product in `userOverrides` that would be reserved is instead added to its
+  eligible periods' candidates with an `action: 'admit'` + `detail: 'override'`
+  decision; no reserve entry. Overrides only reach ELIGIBLE periods
+  (`periodsForProduct`), so retinoid-in-AM stays impossible. The admission pass
+  still applies pair/cap resolution — an override bypasses minimalism, not
+  same-day safety (do-no-harm, principle #3).
+
+### domain / store
+- `routinesStore += overrides: string[], overrideHash: string`,
+  `setOverrides(ids, hash)`, `clearOverrides()`.
+- `overrideHash = hash(sorted productIds ++ primaryGoal ++ secondaryGoal)` —
+  a pure helper in routinePlanActions.
+- `buildEngineInputFromStores`: include overrides only when the stored hash
+  equals the current-state hash; else drop them (invalidation on shelf/goal
+  change). generatePlan stays pure — it just receives `userOverrides`.
+
+## 3. Implementation Tasks
+
+- **P7-1** pairRules reasonCode + Violation split + resolve emit.
+- **P7-2** decisionReasons.ts enum + REASON_TEXT + reasonText.
+- **P7-3** tighten types; drop dead 'stacking_cap'.
+- **P7-4** integrity tests (JSON⊆enum, emitted-literal⊆enum, no rule_* in
+  reasonCode, rename-invariance).
+- **P7-5** override: EngineInput + selectSkeleton + hash + store + buildEngineInput.
+- **P7-6** UI: DraftPreviewSheet reason text on frozen/reserve + override action;
+  component test. Serialization check (reserve survives round-trip).
+
+## 4. Assumptions
+
+- **Override bypasses minimalism, not same-day safety.** A forced-in strong
+  active still day-splits/relocates via the ladder rather than co-scheduling an
+  avoid pair. Alternative: full "I accept the risk" co-schedule. Reason:
+  do-no-harm (#3); the acceptance only needs "brought back + survives regen",
+  which the eligible-period re-inclusion satisfies. Documented as the
+  conservative reading.
+- **retinoid-in-AM is enforced structurally, not by a special override check.**
+  `periodsForProduct` returns pm-only for retinoid, so an override can never
+  place it in AM. A test asserts it; no bespoke guard needed.
+- **The enum contains only codes the engine or a ruleset can emit** (no
+  speculative `conflicts_with_selected` / `frozen_irritation` / `period_not_eligible`
+  / `frequency_capped` from the spec draft — nothing emits them). Keeps the
+  "no orphan enum member" acceptance true.
+- **`reasonText` never throws on an unknown code.** A future code missing from
+  the dictionary yields a generic line, not a crash — the integrity test is the
+  real guard; the runtime is defensive.
+- **`pregnancy_blocked` excluded** (Phase 3 §4.3 still open).
+
+## 5. Open Questions
+
+None. §4.3 (pregnancy, non-overridable) remains deferred.

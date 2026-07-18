@@ -549,3 +549,78 @@ This file tracks the whole package; each phase appends to the Log.
 
   Phase 7 note: DYNAMIC_UNAVAILABLE_REASON = 'dynamic_unavailable_no_actives' is
   a new reason code for the enum. Phase 7 (explainability) is next.
+
+- 2026-07-18: **PHASE 7 IMPLEMENTED — explainability (DecisionLog → UX) + override.**
+  - reasonCode/ruleId SPLIT (§4.4 ruling): each pairRule gains a `reasonCode`
+    (e.g. rule_retinol_aha → retinoid_acid_conflict); Violation/ViolationSummary
+    carry both; resolve.ts frozen item + day_split + keep_with_note emit
+    reasonCode (the code) and keep ruleId (provenance). validate.ts finding
+    reasonCode was also conflated (used ruleId) — fixed. No rule_* id ever
+    lands in a reasonCode now.
+  - decisionReasons.ts (new): closed DecisionReasonCode union (46 codes: 30
+    JSON + 16 engine) + REASON_TEXT `satisfies Record<DecisionReasonCode,string>`
+    (orphan = compile error) + defensive reasonText(). NO template-literal
+    member — Phase 4 removed stacking_cap_* synthesis, so the enum is a plain
+    closed union (simpler than the spec assumed). Dead 'stacking_cap'
+    DecisionAction dropped.
+  - Types tightened end-to-end: reasonCode fields on ruleset schema (PairRule,
+    ProcedureProductRule, SeasonRule, phototype effects, RulesetMandate) + engine
+    carriers (Violation, ViolationSummary, AdaptationStatus/Limit, DerivedLimit,
+    DerivedMandate, PrioritizeTarget, RequireMandate, EligibilityRejection,
+    ActiveProcedureRule) + plan types (FrozenItem, ReserveItem, PlaceholderSlot,
+    DecisionLogEntry) are DecisionReasonCode, not string.
+  - Integrity tests: every JSON reasonCode ∈ enum (forward); every engine-source
+    reasonCode literal ∈ enum (backward, via source grep); no rule_* in the enum
+    or any pairRule reasonCode; reason code stable under a pairRule id rename.
+  - Override (§7.3): EngineInput.userOverrides threaded to selectSkeleton, which
+    rescues a reserved product into its ELIGIBLE periods (retinoid-in-AM
+    structurally impossible via periodsForProduct — no bespoke guard). Admission
+    still resolves any conflict (override bypasses minimalism, not same-day
+    safety). Persistence + hash in trackingStore + routinePlanActions:
+    computeOverrideHash(sorted ids, goals); activeOverrides() drops the set on a
+    hash mismatch (shelf/goal change invalidates). generatePlan stays pure.
+  - UI: DraftPreviewSheet shows reason text on frozen rows (not rule ids) + a
+    new "In reserve" block with per-product reason + "Add anyway" override;
+    RoutinesScreen wires onOverride → addOverride + regenerate.
+
+  Verified: tsc clean; full jest --testPathIgnorePatterns=worktrees →
+  1207 passed / 3 known pre-existing failed / 2 todo.
+
+- 2026-07-18: **Phase 7 DEVIATIONS + notes** (documented per §6):
+  - Override persistence lives in **trackingStore**, not routinesStore as the
+    spec's file list said. trackingStore is the established home for
+    user→engine runtime inputs (firstScheduledDates is the exact same shape);
+    routinesStore holds the routines themselves. Rationale logged.
+  - Override is the **conservative reading** (design Assumption 1): it bypasses
+    skeleton minimalism (reserve), not the admission ladder's same-day safety —
+    a forced-in strong active still day-splits/relocates rather than
+    co-scheduling an avoid pair. The acceptance ("brought back + survives
+    regen") is satisfied by eligible-period re-inclusion.
+  - The enum contains ONLY codes the engine/rulesets emit — the spec's
+    speculative conflicts_with_selected / frozen_irritation / period_not_eligible
+    / frequency_capped are NOT added (nothing emits them; adding them breaks the
+    "no orphan enum member" acceptance). pregnancy_blocked excluded (§4.3 open).
+  - Test fixtures that used a pair-rule id as reasonCode (the old conflation)
+    updated to real codes: retinoid_acid_conflict (frozen), etc.
+
+- 2026-07-18: **PHASE 7 SELF-REVIEW PASS — verdict ACCEPT.**
+
+  | # | Check | Verdict | Evidence |
+  |---|---|---|---|
+  | 1 | No parallel taxonomy | PASS | decisionReasons is the single reason-code vocabulary; JSON codes enumerated, not duplicated. |
+  | 2 | Single conflict matrix | PASS | pairRules unchanged except +reasonCode; still the one matrix. |
+  | 3 | isStrongActive invariant | PASS | untouched. |
+  | 4 | Cumulative cap + rinseOff | N/A | untouched. |
+  | 5 | Migrations idempotent | N/A | no migration; new persisted fields default safely on hydrate. |
+  | 6 | Every AC → passing test | PASS | 11/11 mapped and individually re-run (AC table in log). |
+  | 7 | tsc clean; no Math.random / unsorted iteration | PASS | tsc clean; reason-code integrity both directions green. |
+  | 8 | Layer separation | PASS | engine takes userOverrides as input (no store access); persistence in trackingStore/domain. |
+  | 9 | §4.4 ruling honored: enum decoupled from rule ids | PASS | integrity test forbids rule_* in reasonCode + rename-invariance test. |
+  | 10 | Function length | PASS | new code within limits; selectSkeleton override pass is a small loop. |
+
+  Deviations documented above (trackingStore home; conservative override
+  reading; enum = emitted codes only). No FAIL items.
+
+  Phase 8 note: the schema bump 2→3 is Phase 8 (goal derivation already runs in
+  migrateProfile; peptide re-attribution + confirmation prompts remain). Phase 9
+  is the updated test contract.

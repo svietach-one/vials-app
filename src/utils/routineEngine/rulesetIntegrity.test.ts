@@ -365,3 +365,80 @@ describe('actives.json — goals block (spec phase-03 §3.2)', () => {
     }
   });
 });
+
+describe('decision reason codes — closed vocabulary (phase-07 §7.1)', () => {
+  const { REASON_TEXT } = require('@/constants/decisionReasons');
+  const ENUM_CODES = new Set(Object.keys(REASON_TEXT));
+
+  // Every reasonCode authored anywhere in the ruleset JSON.
+  function jsonReasonCodes(): Set<string> {
+    const codes = new Set<string>();
+    const walk = (o: unknown) => {
+      if (o && typeof o === 'object') {
+        for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+          if (k === 'reasonCode' && typeof v === 'string') codes.add(v);
+          else walk(v);
+        }
+      }
+    };
+    for (const r of [require('@/constants/rulesets/actives.json'),
+                     require('@/constants/rulesets/procedures.json'),
+                     require('@/constants/rulesets/seasons.json')]) walk(r);
+    return codes;
+  }
+
+  it('has dictionary text for every code (satisfies guarantees non-empty)', () => {
+    for (const [code, text] of Object.entries(REASON_TEXT)) {
+      expect(typeof text).toBe('string');
+      expect((text as string).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('includes every reasonCode authored in the ruleset JSON (forward, no orphan JSON code)', () => {
+    for (const code of jsonReasonCodes()) {
+      expect({ code, inEnum: ENUM_CODES.has(code) }).toEqual({ code, inEnum: true });
+    }
+  });
+
+  it('never uses a pair-rule id (rule_*) as a reason code — reason codes are decoupled from ruleIds', () => {
+    for (const code of ENUM_CODES) {
+      expect(code.startsWith('rule_')).toBe(false);
+    }
+    // And every pairRule carries a reasonCode that is a valid enum member.
+    for (const rule of PAIR_RULES as unknown as { id: string; reasonCode?: string }[]) {
+      expect(rule.reasonCode).toBeDefined();
+      expect(ENUM_CODES.has(rule.reasonCode as string)).toBe(true);
+      expect((rule.reasonCode as string).startsWith('rule_')).toBe(false);
+    }
+  });
+
+  it('is stable under a pairRule id rename — the reasonCode does not derive from the id', () => {
+    // Two rules (retinol+aha, retinol+bha) share one reason code despite
+    // distinct ids: proof the code is authored, not derived from the id.
+    const byId = (id: string) =>
+      (PAIR_RULES as unknown as { id: string; reasonCode: string }[]).find((r) => r.id === id);
+    expect(byId('rule_retinol_aha')?.reasonCode).toBe(byId('rule_retinol_bha')?.reasonCode);
+  });
+});
+
+describe('decision reason codes — engine-emitted literals are enum members (phase-07)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const { REASON_TEXT } = require('@/constants/decisionReasons');
+  const ENUM_CODES = new Set(Object.keys(REASON_TEXT));
+
+  it('every reasonCode string literal emitted by engine source is in the enum', () => {
+    const dir = path.join(__dirname);
+    const files = fs.readdirSync(dir).filter((f: string) => f.endsWith('.ts') && !f.endsWith('.test.ts'));
+    const found = new Set<string>();
+    for (const f of files) {
+      const src = fs.readFileSync(path.join(dir, f), 'utf8');
+      for (const m of src.matchAll(/reasonCode: '([a-z0-9_]+)'/g)) found.add(m[1]);
+    }
+    // adaptation_phase_N is synthesized via a template literal — assert its base.
+    found.add('adaptation_phase_1');
+    for (const code of found) {
+      expect({ code, inEnum: ENUM_CODES.has(code) }).toEqual({ code, inEnum: true });
+    }
+  });
+});

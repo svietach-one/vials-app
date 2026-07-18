@@ -1,3 +1,4 @@
+import type { DecisionReasonCode } from '@/constants/decisionReasons';
 import type { Period } from '@/constants/rulesets/rulesetTypes';
 import type { ConflictSeverity, ProductType } from '@/types';
 
@@ -25,7 +26,7 @@ export interface PlannedStep {
 /** A product excluded with an explainable cause (dimmed "Paused until" rows). */
 export interface FrozenItem {
   productId: string;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
   /** Pair rule that froze it, when applicable. */
   ruleId?: string;
   /** Skincare date the freeze expires (clinical freezes only). */
@@ -36,7 +37,7 @@ export interface FrozenItem {
 export interface PlaceholderSlot {
   period: Period;
   productTypes: ProductType[];
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
   /** Phototype 1–2 SPF mandates cannot be dismissed (research §2.4). */
   nonSkippable: boolean;
   /**
@@ -68,7 +69,6 @@ export type DecisionAction =
   | 'freeze'
   | 'keep_with_note'
   | 'limit'
-  | 'stacking_cap'
   | 'placeholder'
   /** Step-0 ranking exclusion (e.g. barrier_repair drops irritants) — a class
    * removed from treatmentClassRanking, not a product frozen or capped. */
@@ -85,7 +85,7 @@ export type DecisionAction =
 export interface ReserveItem {
   productId: string;
   /** not_needed_for_goals | duplicate_function | cumulative_active_cap | … */
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 /** One explainable engine decision (research §1.8: invisible ≠ unaccountable). */
@@ -94,6 +94,6 @@ export interface DecisionLogEntry {
   productId?: string;
   period?: Period;
   ruleId?: string;
-  reasonCode?: string;
+  reasonCode?: DecisionReasonCode;
   detail?: string;
 }

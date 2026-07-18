@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
@@ -10,6 +10,7 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/core/Button';
+import { reasonText } from '@/constants/decisionReasons';
 import { SlotAlternativeRow } from '@/components/routine/SlotAlternativeRow';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import type { PlanCommitScope } from '@/domain/routinePlanActions';
@@ -36,6 +37,12 @@ export interface DraftPreviewSheetProps {
    * callers/tests that predate this feature keep typechecking.
    */
   onSwapAlternative?: (winnerProductId: string, chosenProductId: string) => void;
+  /**
+   * Fired when the user taps "Add anyway" on a reserved product (phase-07
+   * override). The sheet never applies it — RoutinesScreen records the override
+   * and regenerates the draft. Optional so older callers keep typechecking.
+   */
+  onOverride?: (productId: string) => void;
 }
 
 const SNAP_POINTS = ['88%'];
@@ -54,6 +61,7 @@ export function DraftPreviewSheet({
   diff,
   onCommit,
   onSwapAlternative,
+  onOverride,
 }: DraftPreviewSheetProps) {
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheetModal>(null);
@@ -109,12 +117,13 @@ export function DraftPreviewSheet({
     );
 
   // Every frozen item gets a row — clinical pauses with their expiry date,
-  // pair-rule freezes with a conflict note (nothing vanishes silently, §1.8)
-  const pausedNames = plan.frozen.map((f) =>
-    f.until
+  // pair-rule freezes with the human reason text (nothing vanishes silently, §1.8)
+  const pausedRows = plan.frozen.map((f) => ({
+    key: f.productId,
+    text: f.until
       ? `${nameOf(f.productId)} — paused until ${f.until}`
-      : `${nameOf(f.productId)} — set aside to avoid a conflict`,
-  );
+      : `${nameOf(f.productId)} — ${reasonText(f.reasonCode)}`,
+  }));
 
   return (
     <BottomSheetModal
@@ -160,12 +169,36 @@ export function DraftPreviewSheet({
           onSwapAlternative={onSwapAlternative}
         />
 
-        {pausedNames.length > 0 ? (
+        {pausedRows.length > 0 ? (
           <View style={styles.pausedBlock}>
-            {pausedNames.map((line) => (
-              <Text key={line} style={styles.pausedText}>
-                {line}
+            {pausedRows.map((row) => (
+              <Text key={row.key} style={styles.pausedText}>
+                {row.text}
               </Text>
+            ))}
+          </View>
+        ) : null}
+
+        {plan.reserve.length > 0 ? (
+          <View style={styles.pausedBlock}>
+            <Text style={styles.reserveHeading}>In reserve</Text>
+            {plan.reserve.map((item) => (
+              <View key={item.productId} style={styles.reserveRow}>
+                <View style={styles.reserveTextWrap}>
+                  <Text style={styles.reserveName}>{nameOf(item.productId)}</Text>
+                  <Text style={styles.pausedText}>{reasonText(item.reasonCode)}</Text>
+                </View>
+                {onOverride ? (
+                  <Pressable
+                    onPress={() => onOverride(item.productId)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add ${nameOf(item.productId)} anyway`}
+                    style={styles.overrideBtn}
+                  >
+                    <Text style={styles.overrideBtnText}>Add anyway</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             ))}
           </View>
         ) : null}
@@ -356,6 +389,39 @@ const styles = StyleSheet.create({
   pausedText: {
     ...typography.bodySmall,
     color: colors.textSecondary,
+  },
+  reserveHeading: {
+    ...typography.label,
+    color: colors.textPrimary,
+    marginBottom: space[1],
+  },
+  reserveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[3],
+    paddingVertical: space[1],
+  },
+  reserveTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  reserveName: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
+  },
+  overrideBtn: {
+    paddingHorizontal: space[3],
+    paddingVertical: space[2] - 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  overrideBtnText: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
   },
   actions: {
     gap: space[2],

@@ -637,6 +637,7 @@
       "b": "aha",
       "scope": "same_period",
       "severity": "avoid",
+      "reasonCode": "retinoid_acid_conflict",
       "resolutions": [
         "separate_days",
         "freeze_lower_priority"
@@ -658,6 +659,7 @@
       "b": "bha",
       "scope": "same_period",
       "severity": "avoid",
+      "reasonCode": "retinoid_acid_conflict",
       "resolutions": [
         "separate_periods",
         "separate_days"
@@ -679,6 +681,7 @@
       "b": "retinoid",
       "scope": "same_period",
       "severity": "avoid",
+      "reasonCode": "benzoyl_retinoid_conflict",
       "resolutions": [
         "separate_periods",
         "separate_days"
@@ -696,6 +699,7 @@
       ],
       "scope": "same_period",
       "severity": "avoid",
+      "reasonCode": "copper_peptide_acid_conflict",
       "resolutions": [
         "separate_periods",
         "separate_days"
@@ -712,6 +716,7 @@
       ],
       "scope": "same_period",
       "severity": "caution",
+      "reasonCode": "vitamin_c_acid_conflict",
       "resolutions": [
         "separate_periods",
         "keep_with_note"
@@ -733,6 +738,7 @@
       "b": "copper_peptides",
       "scope": "same_period",
       "severity": "caution",
+      "reasonCode": "vitamin_c_copper_conflict",
       "resolutions": [
         "separate_periods",
         "keep_with_note"
@@ -746,6 +752,7 @@
       "b": "benzoyl_peroxide",
       "scope": "same_period",
       "severity": "caution",
+      "reasonCode": "vitamin_c_benzoyl_conflict",
       "resolutions": [
         "separate_periods",
         "keep_with_note"

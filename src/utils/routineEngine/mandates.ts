@@ -7,6 +7,7 @@ import {
   type SeasonRule,
 } from '@/constants/rulesets/rulesetTypes';
 import type { RoutineContext, DerivedLimit } from '@/utils/routineEngine/context';
+import type { DecisionReasonCode } from '@/constants/decisionReasons';
 import type {
   DecisionLogEntry,
   PlaceholderSlot,
@@ -42,7 +43,7 @@ export function collectLimits(context: RoutineContext): DerivedLimit[] {
 export interface PrioritizeTarget {
   targets: RuleTargets;
   period?: Period;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 /** All prioritize actions in force: clinical (rehab recovery) + seasonal. */
@@ -64,7 +65,7 @@ export function collectPrioritizeTargets(context: RoutineContext): PrioritizeTar
 export interface RequireMandate {
   period: Period;
   targets: RuleTargets;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
   nonSkippable: boolean;
   /** Finding severity when unmet, from the source rule's declaration. */
   severity: 'avoid' | 'caution';

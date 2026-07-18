@@ -52,6 +52,13 @@ export interface EngineInput {
   seasonMask: SeasonMask;
   /** Absent = fixed mode with no counters (virtual counts drive adaptation). */
   tracking?: TrackingInput;
+  /**
+   * Product ids the user forced back in past a skeleton reserve (phase-07
+   * "add anyway"). They re-enter their ELIGIBLE periods only — retinoid-in-AM
+   * stays structurally impossible. Admission still applies pair/cap resolution
+   * (override bypasses minimalism, not same-day safety). Absent = none.
+   */
+  userOverrides?: string[];
   now?: Date;
 }
 
@@ -97,7 +104,12 @@ export function generatePlan(input: EngineInput): RoutinePlan {
   });
 
   const gates = applyEligibilityGates(input.products, facts, context);
-  const skeleton = selectSkeleton({ products: gates.eligible, facts, context });
+  const skeleton = selectSkeleton({
+    products: gates.eligible,
+    facts,
+    context,
+    userOverrides: input.userOverrides,
+  });
   const stats = input.tracking?.applicationStats ?? [];
   const cycleType = input.tracking?.cycleType ?? 'fixed';
   const firstScheduledDates = input.tracking?.firstScheduledDates ?? {};

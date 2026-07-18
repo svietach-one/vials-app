@@ -1,5 +1,6 @@
 import { ACTIVES_RULESET, type AdaptationConfig } from '@/constants/rulesets/rulesetTypes';
 import type { Product, ProductApplicationStats, RoutineCycleType } from '@/types';
+import type { DecisionReasonCode } from '@/constants/decisionReasons';
 import type { ProductFacts } from '@/utils/routineEngine/productFacts';
 import { getElapsedDays } from '@/utils/timeHelpers';
 
@@ -18,13 +19,13 @@ export interface AdaptationStatus {
   maxDaysPerWeek?: number;
   /** 1–4 for the FE-9 "⏳ Adaptation Phase (Week X of 4)" callout; null in phase 3. */
   week: 1 | 2 | 3 | 4 | null;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 /** A per-product frequency cap the admission loop enforces. */
 export interface AdaptationLimit {
   maxDaysPerWeek: number;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 /**
@@ -135,7 +136,7 @@ export function getAdaptationStatus(
       // The week callout follows the resolved phase; a regressed product reads
       // as early in its (restarted) adaptation, which is the honest signal.
       week: weekFor(phaseIndex, phaseIndex === rawPhaseIndex ? count : 0),
-      reasonCode: `adaptation_phase_${phaseIndex + 1}`,
+      reasonCode: `adaptation_phase_${phaseIndex + 1}` as DecisionReasonCode,
     };
 
     const tighter =

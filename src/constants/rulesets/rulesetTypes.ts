@@ -19,6 +19,7 @@ import type {
   SkinConcern,
   SkinGoal,
 } from '@/types';
+import type { DecisionReasonCode } from '@/constants/decisionReasons';
 
 // ─── Shared vocabulary ──────────────────────────────────────────────────────
 
@@ -198,6 +199,12 @@ export interface PairRule {
   b: ActiveIngredientKey | ActiveIngredientKey[];
   scope: 'same_period' | 'same_day' | 'anywhere';
   severity: ConflictSeverity;
+  /**
+   * Decision-log reason code (V2.1 phase-07), decoupled from `id`: `id` is the
+   * rule's registry key (renameable provenance), `reasonCode` is a stable
+   * DecisionReasonCode surfaced to the user. Several rules may share one code.
+   */
+  reasonCode: DecisionReasonCode;
   resolutions: ResolutionStrategy[];
   exceptions?: PairRuleException[];
   explanation: string;
@@ -215,14 +222,14 @@ export interface PhototypeEscalateEffect {
   when: { bothProductsProperties: Record<string, boolean | string | number> };
   from: ConflictSeverity;
   to: ConflictSeverity;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 export interface PhototypeTightenLimitEffect {
   effect: 'tightenLimit';
   targets: RuleTargets;
   maxDaysPerWeek: number;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 export interface PhototypeAddMandateEffect {
@@ -230,7 +237,7 @@ export interface PhototypeAddMandateEffect {
   if?: { planContainsProperty?: string };
   then: { action: RuleAction; targets?: RuleTargets; period?: Period };
   nonSkippable?: boolean;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 export type PhototypeEffect =
@@ -256,7 +263,7 @@ export interface RulesetMandate {
   then: { action: RuleAction; targets?: RuleTargets; period?: Period };
   severity?: ConflictSeverity;
   nonSkippable?: boolean;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 export interface ActivesRuleset {
@@ -299,7 +306,7 @@ export interface ProcedureProductRule {
   targets: RuleTargets;
   /** Restricts a `require` mandate to one period. */
   period?: Period;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 export interface ProcedureRules {
@@ -332,7 +339,7 @@ export interface SeasonRule {
   if?: SeasonRuleCondition;
   then: SeasonRuleThen;
   severity?: ConflictSeverity;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 export interface ClimateConfig {

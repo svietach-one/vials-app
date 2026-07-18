@@ -81,7 +81,7 @@ describe('buildStepsFromPlan', () => {
   it('keeps a pinned step frozen by a pair rule (no expiry) — pins beat preferences', () => {
     const existing = [makeStep('pinned', { userPinned: true })];
     const frozen: FrozenItem[] = [
-      { productId: 'pinned', reasonCode: 'rule_retinol_aha', ruleId: 'rule_retinol_aha' },
+      { productId: 'pinned', reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha' },
     ];
     const steps = buildStepsFromPlan([], existing, frozen, makeIdFactory());
     expect(steps.map((s) => s.productId)).toEqual(['pinned']);
@@ -158,7 +158,7 @@ describe('buildDraftSummaryLines', () => {
 
   it('narrates pair-rule freezes (no expiry) instead of letting products vanish silently', () => {
     const plan = makePlan({
-      frozen: [{ productId: 'aha', reasonCode: 'rule_retinol_aha', ruleId: 'rule_retinol_aha' }],
+      frozen: [{ productId: 'aha', reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha' }],
       reserve: [],
     });
     const lines = buildDraftSummaryLines(plan, [], products);
@@ -180,7 +180,7 @@ describe('buildDraftSummaryLines', () => {
         { action: 'day_split', productId: 'aha' },
         { action: 'day_split', productId: 'ret' },
       ],
-      frozen: [{ productId: 'vitc', reasonCode: 'x', until: '2026-07-20' }],
+      frozen: [{ productId: 'vitc', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-20' }],
       reserve: [],
     });
     const diff: PlanDiffEntry[] = [

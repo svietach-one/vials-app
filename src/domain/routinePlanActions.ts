@@ -20,6 +20,38 @@ import { getSkincareDateString } from '@/utils/timeHelpers';
 /** Which routines a Draft Preview commit writes (research §3 commit scopes). */
 export type PlanCommitScope = 'both' | 'am' | 'pm';
 
+/**
+ * Deterministic key for override validity (V2.1 phase-07): an override applies
+ * only while the shelf composition and goals are unchanged. Sorted product ids
+ * make it order-independent; the goals bound the treatment ranking.
+ */
+export function computeOverrideHash(
+  productIds: string[],
+  primaryGoal: string,
+  secondaryGoal: string | null,
+): string {
+  return `${[...productIds].sort().join(',')}|${primaryGoal}|${secondaryGoal ?? ''}`;
+}
+
+/** Current shelf/goal override hash from the live stores. */
+export function currentOverrideHash(): string {
+  const profile = useProfileStore.getState().profile;
+  return computeOverrideHash(
+    useProductsStore.getState().products.map((p) => p.id),
+    profile?.primaryGoal ?? 'maintenance',
+    profile?.secondaryGoal ?? null,
+  );
+}
+
+/**
+ * The override ids still valid for the current shelf/goal — [] when the stored
+ * hash no longer matches (invalidation on a shelf or goal change).
+ */
+export function activeOverrides(): string[] {
+  const tracking = useTrackingStore.getState();
+  return tracking.overrideHash === currentOverrideHash() ? tracking.overrides : [];
+}
+
 /** Assembles the engine input from the hydrated stores. */
 export function buildEngineInputFromStores(now: Date = new Date()): EngineInput {
   const profile = useProfileStore.getState().profile;
@@ -41,6 +73,8 @@ export function buildEngineInputFromStores(now: Date = new Date()): EngineInput 
       applicationStats: tracking.applicationStats,
       firstScheduledDates: tracking.firstScheduledDates,
     },
+    // Only overrides still valid for the current shelf/goal reach the engine.
+    userOverrides: activeOverrides(),
     now,
   };
 }

@@ -35,6 +35,7 @@ import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import {
   applyRoutinePlan,
+  currentOverrideHash,
   validateCurrentRoutines,
   type PlanCommitScope,
 } from '@/domain/routinePlanActions';
@@ -156,6 +157,13 @@ export default function RoutinesScreen({ navigation }: Props) {
         ? { ...prev, proposedPlan: applySlotAlternativeSwap(prev.proposedPlan, winnerProductId, chosenProductId) }
         : prev,
     );
+  }, []);
+
+  // phase-07 override: record the "add anyway" and regenerate the draft so the
+  // forced-in product now appears in the plan.
+  const handleOverride = useCallback((productId: string) => {
+    useTrackingStore.getState().addOverride(productId, currentOverrideHash());
+    setDraft(validateCurrentRoutines());
   }, []);
 
   // Story 3 (routine-similar-product-priority): tapping a duplicate-slot
@@ -431,6 +439,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         diff={draft?.diff ?? []}
         onCommit={handleCommitDraft}
         onSwapAlternative={handleSwapAlternative}
+        onOverride={handleOverride}
       />
 
       <DuplicateSlotResolutionSheet

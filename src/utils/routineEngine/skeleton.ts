@@ -38,6 +38,9 @@ export interface SkeletonInput {
   products: Product[];
   facts: Map<string, ProductFacts>;
   context: RoutineContext;
+  /** Product ids the user forced back in (phase-07); reserved products in this
+   *  set re-enter their eligible periods instead of being reserved. */
+  userOverrides?: string[];
 }
 
 export interface SkeletonSelection {
@@ -255,10 +258,34 @@ export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
   for (const entry of rest) {
     reserve.push({ productId: entry.product.id, reasonCode: 'not_needed_for_goals' });
   }
+
+  // Override (phase-07): a reserved product the user forced back in re-enters
+  // its ELIGIBLE periods instead of reserving. periodsForProduct enforces
+  // period eligibility, so a retinoid override lands in PM only — never AM.
+  // The admission pass still resolves any resulting conflict, so an override
+  // bypasses minimalism, not same-day safety.
+  const overrides = new Set(input.userOverrides ?? []);
+  const finalReserve: ReserveItem[] = [];
+  const factsFor = new Map(entries.map((e) => [e.product.id, e.facts]));
   for (const item of reserve) {
+    const facts = factsFor.get(item.productId);
+    if (overrides.has(item.productId) && facts) {
+      const product = entries.find((e) => e.product.id === item.productId)?.product;
+      const periods = product ? periodsForProduct(product.productType, facts) : [];
+      for (const period of periods) periodCandidates[period].add(item.productId);
+      decisions.push({
+        action: 'admit',
+        productId: item.productId,
+        detail: 'user override',
+      });
+      continue;
+    }
+    finalReserve.push(item);
+  }
+  for (const item of finalReserve) {
     decisions.push({ action: 'reserve', productId: item.productId, reasonCode: item.reasonCode });
   }
 
   const placeholders = neutralMoisturizerPlaceholders(selectedTreatments, structural);
-  return { periodCandidates, reserve, decisions, placeholders, treatmentCaps };
+  return { periodCandidates, reserve: finalReserve, decisions, placeholders, treatmentCaps };
 }

@@ -17,6 +17,7 @@ import type {
   UserProfile,
 } from '@/types';
 import { getProcedureDisplayName } from '@/utils/procedureLifespanHelpers';
+import type { DecisionReasonCode } from '@/constants/decisionReasons';
 import type { DecisionLogEntry } from '@/utils/routineEngine/planTypes';
 import { getRehabDays } from '@/utils/routineEngine/rehabFilter';
 import { getElapsedDays, getSkincareDateString } from '@/utils/timeHelpers';
@@ -88,7 +89,7 @@ function sideMeetsProperty(
 export interface DerivedLimit {
   targets: RuleTargets;
   maxDaysPerWeek: number;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 /** A mandate derived from a phototype `addMandate` effect. */
@@ -99,7 +100,7 @@ export interface DerivedMandate {
   /** Guard: only applies when the plan contains this property. */
   condition?: { planContainsProperty?: string };
   nonSkippable: boolean;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 /**
@@ -176,7 +177,7 @@ export interface ActiveProcedureRule {
   action: RuleAction;
   targets: RuleTargets;
   period?: Period;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
   /** Resolved half-open window [fromDay, toDay) in skincare days from datePerformed. */
   fromDay: number;
   toDay: number;

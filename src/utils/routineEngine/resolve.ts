@@ -13,6 +13,7 @@ import {
   collectPrioritizeTargets,
   type PrioritizeTarget,
 } from '@/utils/routineEngine/mandates';
+import type { DecisionReasonCode } from '@/constants/decisionReasons';
 import type {
   DecisionLogEntry,
   FrozenItem,
@@ -91,7 +92,10 @@ export interface AdmittedEntry {
 
 interface Violation {
   partner: AdmittedEntry;
+  /** Rule registry id — provenance only (phase-07). */
   ruleId: string;
+  /** User-facing decision reason code (phase-07), distinct from ruleId. */
+  reasonCode: DecisionReasonCode;
   severity: 'avoid' | 'caution';
   resolutions: ResolutionStrategy[];
 }
@@ -252,7 +256,12 @@ function findPairViolations(
       const orientation = matchOrientation(rule, facts, partner.facts);
       if (!orientation) continue;
       if (rule.scope !== 'anywhere' && !daysOverlap(days, partner.step.scheduledDays)) continue;
-      out.push({ partner, ruleId: rule.id, ...applyExceptions(rule, orientation, facts, partner.facts) });
+      out.push({
+        partner,
+        ruleId: rule.id,
+        reasonCode: rule.reasonCode,
+        ...applyExceptions(rule, orientation, facts, partner.facts),
+      });
       break; // first matching rule per partner keeps causes single and stable
     }
   }
@@ -280,6 +289,7 @@ function findCapViolations(facts: ProductFacts, days: number[], admitted: Admitt
     .map((partner) => ({
       partner,
       ruleId: 'cumulative_active_cap',
+      reasonCode: 'cumulative_active_cap',
       severity: 'avoid' as const,
       resolutions: ['separate_days', 'freeze_lower_priority'] as ResolutionStrategy[],
     }));
@@ -288,6 +298,7 @@ function findCapViolations(facts: ProductFacts, days: number[], admitted: Admitt
 /** A violation reported to callers outside the admission loop (validate/substitute). */
 export interface ViolationSummary {
   ruleId: string;
+  reasonCode: DecisionReasonCode;
   severity: 'avoid' | 'caution';
 }
 
@@ -306,7 +317,7 @@ export function findViolationsAgainst(
   return [
     ...findPairViolations(facts, days, admitted, pairRules),
     ...findCapViolations(facts, days, admitted),
-  ].map((v) => ({ ruleId: v.ruleId, severity: v.severity }));
+  ].map((v) => ({ ruleId: v.ruleId, reasonCode: v.reasonCode, severity: v.severity }));
 }
 
 // ─── Resolution ladder ──────────────────────────────────────────────────────
@@ -411,6 +422,7 @@ function resolveByDaySplit(
       productId: split.shrink.partner.step.productId,
       period,
       ruleId: primary.ruleId,
+      reasonCode: primary.reasonCode,
       detail: 'shrunk to complement days',
     });
   }
@@ -419,6 +431,7 @@ function resolveByDaySplit(
     productId: candidate.product.id,
     period,
     ruleId: primary.ruleId,
+    reasonCode: primary.reasonCode,
   });
   return { kind: 'admitted', step: makeStep(candidate, split.xDays) };
 }
@@ -440,10 +453,16 @@ function walkResolutionLadder(
   const primary = violations.find((v) => v.severity === 'avoid') ?? violations[0];
   const frozen: AdmitOutcome = {
     kind: 'frozen',
-    item: { productId: product.id, reasonCode: primary.ruleId, ruleId: primary.ruleId },
+    item: { productId: product.id, reasonCode: primary.reasonCode, ruleId: primary.ruleId },
   };
   const keepWithNote = (): AdmitOutcome => {
-    decisions.push({ action: 'keep_with_note', productId: product.id, period, ruleId: primary.ruleId });
+    decisions.push({
+      action: 'keep_with_note',
+      productId: product.id,
+      period,
+      ruleId: primary.ruleId,
+      reasonCode: primary.reasonCode,
+    });
     return { kind: 'admitted', step: makeStep(candidate, days) };
   };
 
@@ -635,7 +654,7 @@ function retryRelocatedInAm(candidate: Candidate, run: ResolveRun): void {
     recordSlotLoser(run, 'am', retry.step);
     return;
   }
-  const item =
+  const item: FrozenItem =
     retry.kind === 'frozen'
       ? retry.item
       : { productId: candidate.product.id, reasonCode: 'relocation_rejected' };

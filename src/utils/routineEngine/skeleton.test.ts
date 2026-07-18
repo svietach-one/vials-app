@@ -26,7 +26,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
   };
 }
 
-function run(products: Product[], primaryGoal: SkinGoal = 'maintenance') {
+function run(products: Product[], primaryGoal: SkinGoal = 'maintenance', userOverrides?: string[]) {
   const facts = buildShelfFacts(products, NOW);
   const context = buildRoutineContext({
     procedures: [],
@@ -34,7 +34,7 @@ function run(products: Product[], primaryGoal: SkinGoal = 'maintenance') {
     seasonMask: { season: 'spring', source: 'calendar' },
     now: NOW,
   });
-  return selectSkeleton({ products, facts, context });
+  return selectSkeleton({ products, facts, context, userOverrides });
 }
 
 const reasonFor = (r: ReturnType<typeof run>, id: string) =>
@@ -176,5 +176,37 @@ describe('selectSkeleton — determinism', () => {
     expect(a.reserve).toEqual(b.reserve);
     expect([...a.periodCandidates.am]).toEqual([...b.periodCandidates.am]);
     expect([...a.periodCandidates.pm]).toEqual([...b.periodCandidates.pm]);
+  });
+});
+
+describe('selectSkeleton — user override (phase-07 §7.3)', () => {
+  it('rescues a reserved product into its eligible period instead of reserving it', () => {
+    const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] }); // reserved under maintenance
+    const withoutOverride = run([vitC], 'maintenance');
+    expect(reasonFor(withoutOverride, vitC.id)).toBe('not_needed_for_goals');
+
+    const withOverride = run([vitC], 'maintenance', [vitC.id]);
+    expect(withOverride.reserve.find((r) => r.productId === vitC.id)).toBeUndefined();
+    expect(isCandidate(withOverride, vitC.id)).toBe(true);
+    expect(withOverride.decisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: 'admit', productId: vitC.id, detail: 'user override' }),
+      ]),
+    );
+  });
+
+  it('places an overridden retinoid in PM only — never AM (structural period eligibility)', () => {
+    // A retinoid is pm-only by class, so an override cannot force it into AM.
+    const retinoid = makeProduct({ activeTags: ['retinoid'] });
+    const r = run([retinoid], 'maintenance', [retinoid.id]);
+    expect(r.periodCandidates.pm.has(retinoid.id)).toBe(true);
+    expect(r.periodCandidates.am.has(retinoid.id)).toBe(false);
+  });
+
+  it('ignores an override for a product that was already scheduled', () => {
+    const retinoid = makeProduct({ activeTags: ['retinoid'] }); // aging treatment already
+    const r = run([retinoid], 'aging', [retinoid.id]);
+    expect(r.reserve).toHaveLength(0);
+    expect(isCandidate(r, retinoid.id)).toBe(true);
   });
 });

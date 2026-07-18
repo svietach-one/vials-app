@@ -22,6 +22,14 @@ interface PersistedTracking {
    * never counts as prior use.
    */
   firstScheduledDates: Record<string, string>;
+  /**
+   * Product ids the user forced back into the routine (V2.1 phase-07 "add
+   * anyway"), plus the shelf/goal hash they were valid for. Threaded into the
+   * engine as input (generatePlan stays pure); dropped when the hash no longer
+   * matches, so a shelf or goal change invalidates the override.
+   */
+  overrides: string[];
+  overrideHash: string;
 }
 
 interface TrackingState extends PersistedTracking {
@@ -32,6 +40,10 @@ interface TrackingState extends PersistedTracking {
   setSeasonMaskCache: (seasonMaskCache: SeasonMaskCache | null) => void;
   /** Anchors newly-scheduled products at `date`; never overwrites an existing anchor. */
   recordFirstScheduled: (productIds: string[], date: string) => void;
+  /** Adds a product id to the override set, tagged with the current shelf/goal hash. */
+  addOverride: (productId: string, hash: string) => void;
+  /** Clears all overrides (e.g. on invalidation). */
+  clearOverrides: () => void;
   /** Discards cycle progress (mode switches); counters are kept — they never decrement. */
   resetCycleState: () => void;
 }
@@ -41,6 +53,8 @@ const DEFAULT_TRACKING: PersistedTracking = {
   applicationStats: [],
   seasonMaskCache: null,
   firstScheduledDates: {},
+  overrides: [],
+  overrideHash: '',
 };
 
 function persist(state: TrackingState): void {
@@ -49,6 +63,8 @@ function persist(state: TrackingState): void {
     applicationStats: state.applicationStats,
     seasonMaskCache: state.seasonMaskCache,
     firstScheduledDates: state.firstScheduledDates,
+    overrides: state.overrides,
+    overrideHash: state.overrideHash,
   });
 }
 
@@ -66,6 +82,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       applicationStats: stored.applicationStats ?? [],
       seasonMaskCache: stored.seasonMaskCache ?? null,
       firstScheduledDates: stored.firstScheduledDates ?? {},
+      overrides: stored.overrides ?? [],
+      overrideHash: stored.overrideHash ?? '',
       hydrated: true,
     });
   },
@@ -97,6 +115,22 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   setSeasonMaskCache: (seasonMaskCache) => {
     set({ seasonMaskCache });
+    persist(get());
+  },
+
+  addOverride: (productId, hash) => {
+    const current = get();
+    // A new hash invalidates the old set: overrides only apply to the shelf/goal
+    // they were made against.
+    const base = current.overrideHash === hash ? current.overrides : [];
+    if (base.includes(productId) && current.overrideHash === hash) return;
+    set({ overrides: [...new Set([...base, productId])], overrideHash: hash });
+    persist(get());
+  },
+
+  clearOverrides: () => {
+    if (get().overrides.length === 0) return;
+    set({ overrides: [], overrideHash: '' });
     persist(get());
   },
 

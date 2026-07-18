@@ -197,7 +197,7 @@ describe('Story 2 AC: a partial commit that reintroduces a pinned, pair-frozen p
       periods: { morning: [], evening: [
         { productId: aha.id, productType: 'serum', scheduledDays: [], slotIndex: 5, score: 0, addedAt: '2026-01-01' },
       ] },
-      frozen: [{ productId: retinoid.id, reasonCode: 'rule_retinol_aha', ruleId: 'rule_retinol_aha' }],
+      frozen: [{ productId: retinoid.id, reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha' }],
       reserve: [],
       placeholders: [],
       decisions: [],
@@ -216,5 +216,80 @@ describe('Story 2 AC: a partial commit that reintroduces a pinned, pair-frozen p
         expect.objectContaining({ severity: 'avoid', ruleId: 'rule_retinol_aha', pinned: true }),
       ]),
     );
+  });
+});
+
+describe('Story: user override survives regeneration and invalidates on shelf/goal change (phase-07)', () => {
+  const {
+    computeOverrideHash,
+    activeOverrides,
+    generateDraftPlan,
+  } = require('@/domain/routinePlanActions');
+  const { useProductsStore } = require('@/store/productsStore');
+  const { useProfileStore } = require('@/store/profileStore');
+
+  function seedProfile(primaryGoal = 'maintenance') {
+    useProfileStore.setState({
+      profile: {
+        id: 'u', gender: null, age: null, skinType: null, phototype: null, fitzpatrick: null,
+        city: null, concerns: [], primaryGoal, secondaryGoal: null, goalNeedsConfirmation: false,
+        spfSensitivity: false, onboardingCompleted: true, individualDurationMonths: {},
+      },
+      hydrated: true,
+    });
+  }
+
+  beforeEach(() => {
+    useTrackingStore.setState({ overrides: [], overrideHash: '' });
+    useRoutinesStore.setState({ routines: [], hydrated: true });
+  });
+
+  it('computes an order-independent hash of shelf ids + goals', () => {
+    expect(computeOverrideHash(['b', 'a'], 'aging', null)).toBe(
+      computeOverrideHash(['a', 'b'], 'aging', null),
+    );
+    expect(computeOverrideHash(['a'], 'aging', null)).not.toBe(
+      computeOverrideHash(['a'], 'acne', null),
+    );
+  });
+
+  it('keeps the override active while the shelf and goals are unchanged', () => {
+    const vitC = makeProduct({ id: 'vitc', activeTags: ['vitamin_c_pure'] });
+    useProductsStore.setState({ products: [vitC], hydrated: true });
+    seedProfile('maintenance');
+    const hash = computeOverrideHash(['vitc'], 'maintenance', null);
+    useTrackingStore.getState().addOverride('vitc', hash);
+
+    expect(activeOverrides()).toEqual(['vitc']);
+    // Regenerating the draft now includes the overridden product in the plan.
+    const plan = generateDraftPlan();
+    const scheduled = [...plan.periods.morning, ...plan.periods.evening].map((s: any) => s.productId);
+    expect(scheduled).toContain('vitc');
+    expect(plan.reserve.some((r: any) => r.productId === 'vitc')).toBe(false);
+  });
+
+  it('invalidates the override when the shelf changes', () => {
+    const vitC = makeProduct({ id: 'vitc', activeTags: ['vitamin_c_pure'] });
+    useProductsStore.setState({ products: [vitC], hydrated: true });
+    seedProfile('maintenance');
+    useTrackingStore.getState().addOverride('vitc', computeOverrideHash(['vitc'], 'maintenance', null));
+    expect(activeOverrides()).toEqual(['vitc']);
+
+    // Add another product → hash no longer matches → override drops.
+    useProductsStore.setState({
+      products: [vitC, makeProduct({ id: 'new', productType: 'cleanser' })],
+      hydrated: true,
+    });
+    expect(activeOverrides()).toEqual([]);
+  });
+
+  it('invalidates the override when the goal changes', () => {
+    const vitC = makeProduct({ id: 'vitc', activeTags: ['vitamin_c_pure'] });
+    useProductsStore.setState({ products: [vitC], hydrated: true });
+    seedProfile('maintenance');
+    useTrackingStore.getState().addOverride('vitc', computeOverrideHash(['vitc'], 'maintenance', null));
+
+    seedProfile('aging');
+    expect(activeOverrides()).toEqual([]);
   });
 });
