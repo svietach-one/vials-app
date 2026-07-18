@@ -1,9 +1,9 @@
 {
   "taskSlug": "routine-engine-v2-cosmetologist",
-  "status": "PHASE_7_COMPLETE",
-  "phase": "7 of 9 complete. Phase 8 (migrations: schema bump + peptide re-attribution + confirmation prompts) next",
-  "lastAgent": "self-review (inline) — Phase 7 ACCEPT",
-  "nextAgent": "Phase 8: schema bump 2->3 (goal derivation already in migrateProfile — do not re-implement); peptide re-attribution (copper_peptides tag w/o copper INCI marker -> peptide_signal); phototype + vitamin C confirmation prompts (data migration already shipped, only the one-time UI prompts remain); all migrations idempotent + same-reference.",
+  "status": "PHASE_8_COMPLETE",
+  "phase": "8 of 9 complete. Phase 9 (updated §9 test contract) is the FINAL phase",
+  "lastAgent": "self-review (inline) — Phase 8 ACCEPT",
+  "nextAgent": "Phase 9: the §9 quality contract — verify the required property/invariant suites all exist and pass (minimalism, goal-driven, period safety, SPF mandate, dedup, adaptation regression, explainability invariant |shelf|=|routine|+|frozen|+|reserve|, determinism), enforce no Math.random / no unsorted object iteration in the engine, and reconcile the roadmap/final state. Most suites already exist from phases 1-8 — Phase 9 is largely verification + gap-filling + the explainability invariant test.",
   "updatedAt": "2026-07-17",
   "branch": "engine-improvements",
   "artifacts": {
@@ -15,8 +15,8 @@
   },
   "baseline": {
     "command": "npx jest src/utils/routineEngine",
-    "result": "full jest --testPathIgnorePatterns=worktrees -> 1207 passed / 3 known pre-existing failed / 2 todo",
-    "measuredAt": "2026-07-18 (post Phase 7, commit 5d4c08a)",
+    "result": "full jest --testPathIgnorePatterns=worktrees -> 1218 passed / 3 known pre-existing failed / 2 todo",
+    "measuredAt": "2026-07-18 (post Phase 8, commit 66f4129)",
     "fullRun": "npx jest src tests -> 1089 passed / 3 failed; the 3 are PRE-EXISTING (verified by stashing Phase 1 and re-running clean HEAD, which fails identically): tests/catalog/catalog-screen (AsyncStorage native module null), tests/catalog/product-detail (palette.cobaltTint undefined), tests/shelf-filtering/PaoChip.",
     "note": "Phase 2+ must not reduce this. Changed expectations must be justified in the progress log per architecture-review.md §6."
   },
@@ -34,6 +34,8 @@
     ]
   },
   "handoffNotes": [
+    "PHASE 8 COMPLETE (commit 66f4129). Schema is now CURRENT_SCHEMA_VERSION=3 (ONE bump). New: peptide re-attribution (copper_peptides tag w/o copper INCI -> peptide_signal, in migrateProductActiveKeys), phototypeNeedsConfirmation flag + PhototypeConfirmBanner. Vitamin C prompt (8.2) and goal derivation (8.4) were ALREADY shipped — verified, not re-implemented. Idempotent + same-reference contract held.",
+    "PHASE 9 is the LAST phase and is mostly VERIFICATION. Required §9 suites and where they live: minimalism/goal-driven/dedup/cumulative (skeleton.test.ts + generate.test.ts phase-04 block); period safety (period-safety.test.ts); SPF mandate (mandates.test.ts + seasonal-masks.test.ts); adaptation regression (adaptation.test.ts + cycling-and-adaptation.test.ts); determinism + source-invariance (determinism-and-safety.test.ts). GAP to add: the explainability invariant |shelf| = |routine| + |frozen| + |reserve| as a property test, and a no-Math.random/no-unsorted-object-iteration guard over the engine (grep-based test).",
     "PHASE 7 COMPLETE (commit 5d4c08a). DecisionReasonCode is a CLOSED union in src/constants/decisionReasons.ts (46 codes, satisfies-guarded dictionary). NO template-literal member (Phase 4 killed stacking_cap_*). reasonCode is now DECOUPLED from ruleId everywhere: pairRules carry reasonCode, resolve/validate emit the code + keep ruleId. Integrity test forbids rule_* in any reasonCode (both directions). If you add a new engine reasonCode literal, it MUST be added to the enum or rulesetIntegrity fails.",
     "OVERRIDE flow: EngineInput.userOverrides (product ids) -> selectSkeleton rescues reserved products into eligible periods only (retinoid-in-AM impossible by construction). Persistence in trackingStore.overrides + overrideHash; routinePlanActions.computeOverrideHash / activeOverrides gate on shelf+goal hash. generatePlan stays pure. DEVIATION: override lives in trackingStore not routinesStore (same home as firstScheduledDates — user->engine runtime inputs).",
     "Phase 8 REMINDER: schema is still at CURRENT_SCHEMA_VERSION=2. Phase 8 bumps to 3. Goal derivation ALREADY runs in migrateProfile (phase-03) — Phase 8 only re-persists + bumps. Remaining Phase 8 work: peptide re-attribution migration, phototype 6-card confirmation prompt UI, vitamin C wizard prompt UI (vitaminCAutoMigrated flag exists). All idempotent + same-reference on second run (migrations.ts:16 contract).",
