@@ -1,9 +1,9 @@
 {
   "taskSlug": "routine-engine-v2-cosmetologist",
-  "status": "PHASE_6_COMPLETE",
-  "phase": "6 of 9 complete. Phase 7 (explainability + override) next",
-  "lastAgent": "self-review (inline) — Phase 6 ACCEPT",
-  "nextAgent": "Phase 7: DecisionReasonCode closed enum (decoupled from pair-rule IDs per §4.4 ruling — add reasonCode to pairRules, split resolve.ts:410) + code->text dictionary in decisionReasons.ts; reserve/frozen card UI; override flow (userOverride, hash-keyed, cannot bypass retinoid-in-AM); serialize decisions with the plan.",
+  "status": "PHASE_7_COMPLETE",
+  "phase": "7 of 9 complete. Phase 8 (migrations: schema bump + peptide re-attribution + confirmation prompts) next",
+  "lastAgent": "self-review (inline) — Phase 7 ACCEPT",
+  "nextAgent": "Phase 8: schema bump 2->3 (goal derivation already in migrateProfile — do not re-implement); peptide re-attribution (copper_peptides tag w/o copper INCI marker -> peptide_signal); phototype + vitamin C confirmation prompts (data migration already shipped, only the one-time UI prompts remain); all migrations idempotent + same-reference.",
   "updatedAt": "2026-07-17",
   "branch": "engine-improvements",
   "artifacts": {
@@ -15,8 +15,8 @@
   },
   "baseline": {
     "command": "npx jest src/utils/routineEngine",
-    "result": "full jest --testPathIgnorePatterns=worktrees -> 1191 passed / 3 known pre-existing failed / 2 todo",
-    "measuredAt": "2026-07-18 (post Phase 6, commit eae8ba6)",
+    "result": "full jest --testPathIgnorePatterns=worktrees -> 1207 passed / 3 known pre-existing failed / 2 todo",
+    "measuredAt": "2026-07-18 (post Phase 7, commit 5d4c08a)",
     "fullRun": "npx jest src tests -> 1089 passed / 3 failed; the 3 are PRE-EXISTING (verified by stashing Phase 1 and re-running clean HEAD, which fails identically): tests/catalog/catalog-screen (AsyncStorage native module null), tests/catalog/product-detail (palette.cobaltTint undefined), tests/shelf-filtering/PaoChip.",
     "note": "Phase 2+ must not reduce this. Changed expectations must be justified in the progress log per architecture-review.md §6."
   },
@@ -34,6 +34,9 @@
     ]
   },
   "handoffNotes": [
+    "PHASE 7 COMPLETE (commit 5d4c08a). DecisionReasonCode is a CLOSED union in src/constants/decisionReasons.ts (46 codes, satisfies-guarded dictionary). NO template-literal member (Phase 4 killed stacking_cap_*). reasonCode is now DECOUPLED from ruleId everywhere: pairRules carry reasonCode, resolve/validate emit the code + keep ruleId. Integrity test forbids rule_* in any reasonCode (both directions). If you add a new engine reasonCode literal, it MUST be added to the enum or rulesetIntegrity fails.",
+    "OVERRIDE flow: EngineInput.userOverrides (product ids) -> selectSkeleton rescues reserved products into eligible periods only (retinoid-in-AM impossible by construction). Persistence in trackingStore.overrides + overrideHash; routinePlanActions.computeOverrideHash / activeOverrides gate on shelf+goal hash. generatePlan stays pure. DEVIATION: override lives in trackingStore not routinesStore (same home as firstScheduledDates — user->engine runtime inputs).",
+    "Phase 8 REMINDER: schema is still at CURRENT_SCHEMA_VERSION=2. Phase 8 bumps to 3. Goal derivation ALREADY runs in migrateProfile (phase-03) — Phase 8 only re-persists + bumps. Remaining Phase 8 work: peptide re-attribution migration, phototype 6-card confirmation prompt UI, vitamin C wizard prompt UI (vitaminCAutoMigrated flag exists). All idempotent + same-reference on second run (migrations.ts:16 contract).",
     "PHASE 6 COMPLETE (commit eae8ba6). Dynamic cycle phase resolves against shelf composition: resolveCyclePhase(state, available:Set<string>) in cycleState.ts degrades exf/retinoid night to recovery when the class is absent, WITHOUT touching cyclePhaseIndex (checkInCycle untouched). availableCycleClasses (dailyView) counts only eligible+non-frozen products. getDynamicCycleStatus feeds the Today card. NEW reason code: dynamic_unavailable_no_actives (Phase 7 enum must include it).",
     "PHASE 6 STALE PREMISES (both verified false, no machinery built): §6.2 dynamic never discards scheduledDays (render-gating; round-trip test proves it). §6.4 seasonMask already pure (source-invariance pin added). Same pattern as earlier stale premises — verify before implementing.",
     "REASON CODES accumulated for Phase 7 enum (from phases 3-6): goal_exclude, barrier_repair_excludes_irritants, spf_required_goal (P3); reserve/info actions + not_needed_for_goals, duplicate_function, cumulative_active_cap, moisturizer_recommended, rinse_off_active_note, exfoliant_treatment_cap, reclassified_treatment_cap (P4); dynamic_unavailable_no_actives (P6). PLUS the 22 pre-existing JSON codes + code-level (product_hidden, pao_expired, no_allowed_period, relocation_rejected). reasonCode STILL doubles as ruleId in ladder freezes (resolve.ts:410) — Phase 7 must split them (§4.4 ruling: enum stays decoupled from pair-rule IDs; add reasonCode to pairRules).",
