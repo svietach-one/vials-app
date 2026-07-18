@@ -1,9 +1,9 @@
 {
   "taskSlug": "routine-engine-v2-cosmetologist",
-  "status": "PHASE_4_COMPLETE",
-  "phase": "4 of 9 complete — the core rewrite. Phase 5 (adaptation usage-anchor) next",
-  "lastAgent": "self-review (inline) — Phase 4 ACCEPT",
-  "nextAgent": "Phase 5: usage anchor (firstScheduledDate via save path, not the pure engine) + phase regression after breaks + tolerability wired into scoreCandidate (currently 0 at weight 200); reverses a documented adaptation.ts decision — must update the JSDoc + log",
+  "status": "PHASE_5_COMPLETE",
+  "phase": "5 of 9 complete. Phase 6 (dynamic cycling from shelf composition) next",
+  "lastAgent": "self-review (inline) — Phase 5 ACCEPT",
+  "nextAgent": "Phase 6: resolve cycle phases from shelf composition (no retinoid on shelf -> retinoid night becomes recovery); mode precedence preserving manual scheduledDays; seasonMask determinism pin (already pure — just the test). Independent of Phase 5.",
   "updatedAt": "2026-07-17",
   "branch": "engine-improvements",
   "artifacts": {
@@ -15,8 +15,8 @@
   },
   "baseline": {
     "command": "npx jest src/utils/routineEngine",
-    "result": "full jest --testPathIgnorePatterns=worktrees -> 1157 passed / 3 known pre-existing failed / 2 todo",
-    "measuredAt": "2026-07-17 (post Phase 4, commit c0afcb4)",
+    "result": "full jest --testPathIgnorePatterns=worktrees -> 1173 passed / 3 known pre-existing failed / 2 todo",
+    "measuredAt": "2026-07-18 (post Phase 5, commit b617da3)",
     "fullRun": "npx jest src tests -> 1089 passed / 3 failed; the 3 are PRE-EXISTING (verified by stashing Phase 1 and re-running clean HEAD, which fails identically): tests/catalog/catalog-screen (AsyncStorage native module null), tests/catalog/product-detail (palette.cobaltTint undefined), tests/shelf-filtering/PaoChip.",
     "note": "Phase 2+ must not reduce this. Changed expectations must be justified in the progress log per architecture-review.md §6."
   },
@@ -34,6 +34,9 @@
     ]
   },
   "handoffNotes": [
+    "PHASE 5 COMPLETE (commit b617da3). Adaptation anchored on firstScheduledDate (trackingStore.firstScheduledDates, written on SAVE via applyRoutinePlan — engine stays pure). REVERSED the V2 \"no retroactive throttling\" decision: never-scheduled product -> phase 1 (JSDoc updated + logged). Phase regression (applyAdaptationRegression) throttles irritancy>=3 products after 14/28-day breaks. Tolerability term now LIVE in scoreCandidate (was 0 in Phase 4): phaseIndex/2 * 200, adapted beats new for a contested treatment slot.",
+    "INTEGRATION FIX shipped in Phase 5: buildEngineInputFromStores (routinePlanActions) now threads primaryGoal/secondaryGoal + firstScheduledDates. Before this the LIVE app generated maintenance plans regardless of the users goal — a latent Phase 3 gap that Phase 4 made visible. If you touch that function, keep the goals threaded.",
+    "ProductApplicationStats gained firstAppliedDate (null for pre-phase-5 stats). Any fixture building a stats object must include it. TrackingInput.firstScheduledDates is optional (defaults {}).",
     "PHASE 4 COMPLETE (commit c0afcb4) — the core rewrite. Skeleton build-up (src/utils/routineEngine/skeleton.ts) replaced greedy admission: selectSkeleton runs BEFORE resolvePeriods and hands it periodCandidates + treatmentCaps. resolve.ts still owns the ladder/relocation/slot-alternatives unchanged; buildPools just intersects with the selection. A goal-less (maintenance) profile now RESERVES every active — any test pushing an active through generatePlan must pass a matching goal.",
     "CUMULATIVE CAP is live: findCapViolations (resolve.ts) = one strong leave-on carrier (irritancy>=3 && !rinseOff) per period per DAY; per-class stacking is GONE from actives.json. Two strong actives same-day is now cumulative_active_cap (avoid) in BOTH generation (skeleton reserves the loser) and validate (user-saved routines). Pair escalation between two strong carriers is redundant — the cap already forbids them; escalation only still matters for a strong+mild caution pair (e.g. vitC_pure + copper_peptides).",
     "SCORING for Phase 5: scoreCandidate has a tolerability term at weight 200 currently fed 0. Phase 5 feeds it phaseIndex-derived 0|100|200 (0-based phaseIndex/2*200 → 0|100|200). goalRank*1000 dominates it, tolerability breaks ties among same-rank candidates — the intended \"adapted product outranks a new one of the same class\".",
