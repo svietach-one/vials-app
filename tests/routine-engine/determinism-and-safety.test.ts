@@ -63,6 +63,31 @@ describe('Determinism (spec §9): identical inputs produce byte-identical plans'
     }
   });
 
+  it('is invariant to the seasonMask source — same season, weather vs calendar → identical plan (phase-06 §6.4)', () => {
+    // The engine consumes seasonMask as a resolved input and never branches on
+    // its `source` provenance field. A pinned season with either source must
+    // produce a byte-identical plan.
+    for (let seed = 0; seed < 40; seed += 1) {
+      const rng = makeRng(seed * 5 + 3);
+      const { products } = randomShelf(rng, 4 + Math.floor(rng() * 10));
+      const profile = {
+        fitzpatrick: randomFitzpatrick(rng),
+        concerns: randomConcerns(rng),
+        primaryGoal: randomGoal(rng),
+        secondaryGoal: null,
+      };
+      const season = SEASONS[Math.floor(rng() * SEASONS.length)];
+
+      const fromWeather = generatePlan(
+        makeEngineInput(products, { profile, seasonMask: makeSeasonMask(season, 'weather'), now: NOW }),
+      );
+      const fromCalendar = generatePlan(
+        makeEngineInput(products, { profile, seasonMask: makeSeasonMask(season, 'calendar'), now: NOW }),
+      );
+      expect(fromCalendar).toEqual(fromWeather);
+    }
+  });
+
   it('is insensitive to shelf ordering — shuffling the same products yields the same plan', () => {
     const rng = makeRng(42);
     const { products } = randomShelf(rng, 12);

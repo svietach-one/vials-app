@@ -540,3 +540,91 @@ maintenance plans regardless of the user's goal. Corrected here (one-line).
 ## 5. Open Questions
 
 None. Consultant list unchanged.
+
+---
+
+# Phase 6 — Dynamic Cycling from Shelf Composition
+
+Spec: docs/specs/routine-engine-v2.1/phase-06-dynamic-cycling.md
+Date: 2026-07-18
+
+## 1. Architecture Overview
+
+The cycle machine is blind to the shelf: a retinoid-free shelf still shows a
+retinoid night. Fix is a pure resolution layer over the existing index —
+`cyclePhaseIndex` keeps advancing mod 4 (checkInCycle untouched); only the
+rendered PHASE is substituted to recovery when its class is absent.
+
+```
+getDailyView / TodayScreen
+  └─ availableCycleClasses(products, facts, freezeRules, dow)  (eligible + present)
+  └─ resolveCyclePhase(state, available)  → CyclePhase (empty phase → recovery)
+  └─ isDynamicCyclingAvailable(available) → false → dynamic_unavailable_no_actives
+```
+
+Two premises from the original phase are STALE (verified, like earlier phases):
+- **6.2 scheduledDays discard.** Dynamic mode gates at RENDER (dailyView
+  `cycledOut`); it never mutates stored `scheduledDays`, and `switchCycleType`
+  only touches settings + cycleState. Manual days already survive a dynamic
+  round-trip by construction — no "preserved copy" mechanism is built. Added a
+  regression test proving it; enhanced the confirm-dialog copy to say so.
+- **6.4 seasonMask purity.** Already pure (report §1 #6). Test-only pins.
+
+## 2. API Contracts
+
+### `cycleState.ts` (pure additions)
+- `type CycleClass = 'exfoliant' | 'retinoid'` — the two cycle-gated classes.
+- `resolveCyclePhase(state: CycleState, available: ReadonlySet<string>): CyclePhase`
+  — `getCyclePhaseForTonight(state)`, then substitute to `recovery` when the
+  phase's class is not in `available`. Recovery nights are unchanged.
+- `isDynamicCyclingAvailable(available: ReadonlySet<string>): boolean` — true
+  iff `available` contains `exfoliant` or `retinoid`.
+- `DYNAMIC_UNAVAILABLE_REASON = 'dynamic_unavailable_no_actives'`.
+- `getCyclePhaseForTonight` unchanged (checkInCycle idempotency tests depend on it).
+
+### `dailyView.ts`
+- `availableCycleClasses(products, facts, freezeRules, dayOfWeek): Set<string>`
+  — cycle classes of products that are eligible (`facts.eligible`) AND not
+  clinically frozen tonight. "On shelf" = eligible, per spec.
+- `getDynamicCycleStatus(products, input): { phase: CyclePhase; available: boolean; reasonCode: string | null }`
+  — the resolved tonight phase + availability, for the Today phase card.
+- `getDailyView` internal `dynamicPhase` now uses `resolveCyclePhase` over the
+  computed available set (was raw `getCyclePhaseForTonight`).
+
+### UI
+- TodayScreen: phase card reads `getDynamicCycleStatus`; when `!available`,
+  render a "dynamic cycling paused — add an exfoliant or retinoid" notice
+  instead of the phase label.
+- ProfileScreen: confirm-dialog copy notes the manual weekly schedule is kept.
+
+## 3. Implementation Tasks
+
+- **P6-1** cycleState.ts: `resolveCyclePhase`, `isDynamicCyclingAvailable`,
+  reason constant.
+- **P6-2** dailyView.ts: `availableCycleClasses`, `getDynamicCycleStatus`,
+  wire `dynamicPhase` to `resolveCyclePhase`.
+- **P6-3** TodayScreen: unavailable notice + resolved phase; ProfileScreen copy.
+- **P6-4** tests: cycleState resolution unit; dailyView integration
+  (retinoid-free → recovery, PAO-frozen retinoid → recovery, restore on
+  re-add, index never resets); determinism pins (fixed seasonMask +
+  source-invariance); scheduledDays round-trip preservation.
+
+## 4. Assumptions
+
+- **`available` carries the render-time eligible set, not the raw catalog.** A
+  hidden/PAO-expired/clinically-frozen retinoid does not keep retinoid night
+  alive. Alternative: raw presence. Reason: the spec is explicit, and an
+  unusable product driving the cycle would show an empty night anyway.
+- **6.2 builds no storage machinery.** The premise is stale; adding a preserved
+  copy would duplicate state that render-time gating already keeps intact, and
+  risk divergence. A regression test guards the property instead.
+- **`resolveCyclePhase` takes a `Set<string>`, not `ProductFacts`.** Keeps
+  cycleState.ts free of eligibility/facts semantics (it owns the phase machine,
+  not the shelf). The caller derives the set where facts + freeze context live.
+- **Dynamic-unavailable is surfaced, not enforced.** The engine still resolves
+  every night to recovery; the UI advises switching to fixed. Reason: never
+  block the user; matches the OBF/AI "always a fallback" constraint.
+
+## 5. Open Questions
+
+None. Consultant list unchanged.

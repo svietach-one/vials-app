@@ -494,3 +494,58 @@ This file tracks the whole package; each phase appends to the Log.
   Carried to Phase 7: reason code adaptation_phase_N already existed; no new
   codes this phase. Phase 6 (dynamic cycling) is next; the anchor/regression
   are independent of it.
+
+- 2026-07-18: **PHASE 6 IMPLEMENTED — dynamic cycling from shelf composition.**
+  - cycleState.ts (pure additions): resolveCyclePhase(state, available) degrades
+    an exfoliation/retinoid night to recovery when its class is absent, WITHOUT
+    touching cyclePhaseIndex (checkInCycle untouched — the index keeps advancing
+    mod 4, so returning a product restores the full cycle);
+    isDynamicCyclingAvailable + DYNAMIC_UNAVAILABLE_REASON.
+    Takes a Set<string>, not ProductFacts, to keep cycleState free of
+    eligibility/facts semantics.
+  - dailyView.ts: availableCycleClasses computes cycle classes from products
+    that are ELIGIBLE (facts.eligible) AND not clinically frozen tonight — a
+    PAO-expired or frozen retinoid never keeps retinoid night alive.
+    getDynamicCycleStatus returns { phase, available, reasonCode } for the
+    Today card; getDailyView's internal dynamicPhase now uses resolveCyclePhase.
+  - UI: TodayScreen shows the resolved phase, or a "skin cycling paused — add an
+    exfoliant or retinoid" notice when unavailable (check-in still works —
+    advisory, not blocking). ProfileScreen confirm-dialog copy now states the
+    manual weekly schedule is preserved across a mode switch.
+
+  Verified: tsc clean; full jest --testPathIgnorePatterns=worktrees →
+  1191 passed / 3 known pre-existing failed / 2 todo.
+
+- 2026-07-18: **Phase 6 STALE PREMISES** (verified against real code, like
+  earlier phases; documented per architecture-review.md §6):
+  - §6.2 "enabling dynamic silently discards manual scheduledDays" — FALSE.
+    Dynamic mode gates at RENDER (dailyView cycledOut); switchCycleType only
+    touches settings + cycleState, never routines. Manual days survive a
+    round-trip by construction. Built NO "preserved copy" storage machinery
+    (would duplicate state render-gating already keeps intact); added a
+    round-trip regression test + enhanced the confirm-dialog copy instead.
+  - §6.4 seasonMask purity — already pure (report §1 #6). Test-only: a
+    source-invariance pin (same season, weather vs calendar → identical plan)
+    over 40 seeded shelves.
+
+- 2026-07-18: **PHASE 6 SELF-REVIEW PASS — verdict ACCEPT.**
+
+  | # | Check | Verdict | Evidence |
+  |---|---|---|---|
+  | 1 | No parallel taxonomy | PASS | resolution logic; cycleClass data already in actives.json. |
+  | 2 | Single conflict matrix | PASS | untouched. |
+  | 3 | isStrongActive invariant | PASS | untouched. |
+  | 4 | Cumulative cap + rinseOff | N/A | Phase 4 scope; untouched. |
+  | 5 | Migrations idempotent | N/A | no migration; no schema change. |
+  | 6 | Every AC → passing test | PASS | 9/9 (AC8 idempotency covered by the unchanged pause/idempotent suite, green). |
+  | 7 | tsc clean; no Math.random / unsorted iteration | PASS | tsc clean; resolveCyclePhase pure over a Set; determinism + source-invariance pins green. |
+  | 8 | Layer separation | PASS | cycleState takes a Set<string> (no facts/store); eligibility derivation lives in dailyView where facts+freeze context are. |
+  | 9 | Function length | PASS | new functions 2/8/15/28 lines, all under 50. |
+  | 10 | checkInCycle / pause-on-miss unchanged | PASS | additive only; idempotency + pause suites green and unmodified. |
+
+  Two stale premises documented (no machinery built for either). No deviations
+  beyond the design assumptions (available = eligible set; resolveCyclePhase
+  takes a Set; unavailable is surfaced not enforced). No FAIL items.
+
+  Phase 7 note: DYNAMIC_UNAVAILABLE_REASON = 'dynamic_unavailable_no_actives' is
+  a new reason code for the enum. Phase 7 (explainability) is next.

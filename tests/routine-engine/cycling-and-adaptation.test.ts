@@ -27,7 +27,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 
 import { generatePlan } from '@/utils/routineEngine/generate';
 import { getCyclePhaseForTonight, INITIAL_CYCLE_STATE } from '@/utils/routineEngine/cycleState';
-import { performDailyCheckIn } from '@/domain/trackingActions';
+import { performDailyCheckIn, switchCycleType } from '@/domain/trackingActions';
 import { useTrackingStore } from '@/store/trackingStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useProductsStore } from '@/store/productsStore';
@@ -240,5 +240,28 @@ describe('Story 5 AC: cross-store domain actions (performDailyCheckIn / cycleSta
     // Both products were added "today" (virtual count 0) -> first count is exactly 1.
     expect(statFor(productA.id)?.count).toBe(1);
     expect(statFor(productB.id)?.count).toBe(1);
+  });
+
+  it('preserves manual scheduledDays across a fixed -> dynamic -> fixed round-trip (phase-06 §6.2)', () => {
+    // Dynamic mode masks scheduledDays at render only — switchCycleType never
+    // mutates the stored routines, so the manual schedule returns exactly.
+    const manualDays = [1, 3, 5]; // Mon/Wed/Fri
+    useRoutinesStore.setState({
+      routines: [
+        {
+          id: 'r-pm',
+          name: 'Evening',
+          timeOfDay: 'evening',
+          steps: [{ id: 's-pm', productType: 'serum', productId: productB.id, hidden: false, scheduledDays: manualDays }],
+        },
+      ],
+      hydrated: true,
+    });
+
+    switchCycleType('dynamic');
+    switchCycleType('fixed');
+
+    const step = useRoutinesStore.getState().routines[0].steps[0];
+    expect(step.scheduledDays).toEqual(manualDays);
   });
 });

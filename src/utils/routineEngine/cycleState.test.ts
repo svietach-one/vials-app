@@ -1,10 +1,13 @@
 import type { CycleState } from '@/types';
 import {
   CYCLE_PHASES,
+  DYNAMIC_UNAVAILABLE_REASON,
   INITIAL_CYCLE_STATE,
   checkInCycle,
   getCyclePhaseForTonight,
   isCheckedInToday,
+  isDynamicCyclingAvailable,
+  resolveCyclePhase,
 } from '@/utils/routineEngine/cycleState';
 
 const NOON = new Date('2026-07-04T12:00:00');
@@ -79,5 +82,52 @@ describe('isCheckedInToday', () => {
     expect(isCheckedInToday(state, NOON)).toBe(true);
     expect(isCheckedInToday(state, new Date('2026-07-05T12:00:00'))).toBe(false);
     expect(isCheckedInToday(INITIAL_CYCLE_STATE, NOON)).toBe(false);
+  });
+});
+
+describe('resolveCyclePhase (phase-06 §6.1)', () => {
+  const both = new Set(['exfoliant', 'retinoid']);
+  const idx = (cyclePhaseIndex: 0 | 1 | 2 | 3): CycleState => ({ cyclePhaseIndex, lastAppliedDate: null });
+
+  it('returns the raw phase when its class is available', () => {
+    expect(resolveCyclePhase(idx(0), both)).toBe('exfoliation');
+    expect(resolveCyclePhase(idx(1), both)).toBe('retinoid');
+  });
+
+  it('degrades an exfoliation night to recovery when no exfoliant is available', () => {
+    expect(resolveCyclePhase(idx(0), new Set(['retinoid']))).toBe('recovery');
+  });
+
+  it('degrades a retinoid night to recovery when no retinoid is available', () => {
+    expect(resolveCyclePhase(idx(1), new Set(['exfoliant']))).toBe('recovery');
+  });
+
+  it('leaves recovery nights untouched regardless of the shelf', () => {
+    expect(resolveCyclePhase(idx(2), new Set())).toBe('recovery');
+    expect(resolveCyclePhase(idx(3), both)).toBe('recovery');
+  });
+
+  it('does not touch cyclePhaseIndex — the raw phase is preserved so returning a product restores the cycle', () => {
+    // Same state, empty shelf → recovery; refill the shelf → the full phase is back.
+    const state = idx(1);
+    expect(resolveCyclePhase(state, new Set())).toBe('recovery');
+    expect(resolveCyclePhase(state, both)).toBe('retinoid');
+    expect(state.cyclePhaseIndex).toBe(1); // never mutated
+  });
+});
+
+describe('isDynamicCyclingAvailable (phase-06 §6.1)', () => {
+  it('is true when an exfoliant or a retinoid is available', () => {
+    expect(isDynamicCyclingAvailable(new Set(['exfoliant']))).toBe(true);
+    expect(isDynamicCyclingAvailable(new Set(['retinoid']))).toBe(true);
+  });
+
+  it('is false when neither cycle class is available', () => {
+    expect(isDynamicCyclingAvailable(new Set())).toBe(false);
+    expect(isDynamicCyclingAvailable(new Set(['moisturizer']))).toBe(false);
+  });
+
+  it('exposes a stable reason code for the unavailable case', () => {
+    expect(DYNAMIC_UNAVAILABLE_REASON).toBe('dynamic_unavailable_no_actives');
   });
 });
