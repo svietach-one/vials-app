@@ -179,6 +179,13 @@ export interface UserProfile {
   secondaryGoal: SkinGoal | null;
   /** True when goals were derived rather than user-chosen — one-time confirm prompt. */
   goalNeedsConfirmation: boolean;
+  /**
+   * True when `fitzpatrick` was auto-derived from a grouped phototype during a
+   * migration rather than chosen on the 6-card selector (V2.1 phase-08) — a
+   * one-time "confirm your skin tone" prompt. The engine keeps using the
+   * conservatively-derived value until confirmed.
+   */
+  phototypeNeedsConfirmation: boolean;
   spfSensitivity: boolean;
   onboardingCompleted: boolean;
   /** Per-procedure duration overrides set when the user confirms actual fading. */

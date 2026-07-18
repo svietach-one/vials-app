@@ -734,3 +734,86 @@ DraftPreviewSheet: reason text on frozen + reserve rows + "add anyway" override
 ## 5. Open Questions
 
 None. §4.3 (pregnancy, non-overridable) remains deferred.
+
+---
+
+# Phase 8 — Migrations (schema v3): peptide re-attribution, confirmation flags
+
+Spec: docs/specs/routine-engine-v2.1/phase-08-migrations.md
+Date: 2026-07-18
+
+## 1. Architecture Overview
+
+Most of this phase already shipped. Verified against the code:
+- **8.2 vitamin C prompt — ALREADY DONE.** ProductDetailScreen renders the
+  `vitaminCAutoMigrated` infobox and re-tags to derivative + clears the flag on
+  tap. Only a component test is added.
+- **8.4 goal migration — ALREADY DONE** in migrateProfile (phase-03).
+- The migration runner (services/storage.ts) + idempotent-same-reference
+  contract already exist.
+
+New work: peptide re-attribution, `phototypeNeedsConfirmation` flag + a
+one-time confirm banner (parallel to Phase 3's GoalConfirmBanner), and the
+single schema bump 2 → 3.
+
+```
+migrateProfile  += phototypeNeedsConfirmation (set once when the field is absent
+                   and a phototype existed to derive fitzpatrick from)
+migrateProductActiveKeys += peptide re-attribution (copper_peptides tag whose
+                   INCI carries no copper marker → peptide_signal)
+CURRENT_SCHEMA_VERSION 2 → 3
+RoutinesScreen  += PhototypeConfirmBanner (Confirm clears flag / Adjust → Profile)
+```
+
+## 2. API Contracts
+
+### types (index.ts)
+- `UserProfile += phototypeNeedsConfirmation: boolean`.
+
+### `migrateProfile` (migrations.ts)
+- `phototypeNeedsConfirmation` absent (pre-v3) → set to `phototype !== null`
+  (a migrating user with a grouped phototype gets the one-time confirm; a
+  post-v3 profile keeps its stored value). Folded into the same
+  same-reference guard as city/fitzpatrick/goals.
+
+### `migrateProductActiveKeys` (migrations.ts)
+- After key normalization: if `activeTags` includes `copper_peptides` AND
+  `fullIngredientText` is non-empty AND `parseActiveIngredientsFromInci(text)`
+  does NOT yield `copper_peptides` → replace `copper_peptides` with
+  `peptide_signal` in `activeTags`. No INCI text → unchanged (user assertion).
+
+### `CURRENT_SCHEMA_VERSION` → 3.
+
+### UI
+- `PhototypeConfirmBanner` (new, parallel to GoalConfirmBanner): "Confirm your
+  skin tone" with Confirm (clears the flag) / Adjust (opens the profile editor).
+  Rendered on RoutinesScreen while `profile.phototypeNeedsConfirmation`.
+
+## 3. Implementation Tasks
+
+- **P8-1** types + profileStore default + onboarding/editor set false.
+- **P8-2** migrateProfile phototype flag; migrateProductActiveKeys peptide
+  re-attribution; bump to 3.
+- **P8-3** PhototypeConfirmBanner + RoutinesScreen wiring.
+- **P8-4** tests: migration unit (peptide cases, phototype flag, idempotency +
+  same-reference, version === 3), banner component test, vitamin C infobox
+  component test (verifies the shipped 8.2 path).
+
+## 4. Assumptions
+
+- **phototypeNeedsConfirmation = (phototype !== null) on migration.** Any
+  migrating profile with a grouped phototype had its fitzpatrick auto-derived
+  and never confirmed on the 6-card UI, so it is asked once. Alternative: track
+  a provenance bit. Reason: no such bit exists, the prompt is one-time and
+  cheap, and a fresh post-v3 profile sets the flag false explicitly.
+- **Peptide re-attribution only rewrites the `copper_peptides` TAG, and only
+  when INCI evidence contradicts it.** No INCI text = keep (do-no-harm; the
+  user asserted it). Unattributed/parsed peptides need no migration — the
+  Phase 1 matchers already classify them at read time.
+- **`vitamin_c` legacy tags in `activeTags` were already migrated in v2** — the
+  peptide step composes with that, running after normalization in the same
+  function so one product rewrite covers both.
+
+## 5. Open Questions
+
+None. §4.3 (pregnancy) remains out of scope.

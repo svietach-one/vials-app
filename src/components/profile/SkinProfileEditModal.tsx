@@ -111,6 +111,8 @@ export function SkinProfileEditModal({
       secondaryGoal,
       // Saving from the editor IS the user choosing — no confirmation owed
       goalNeedsConfirmation: false,
+      // Choosing on the 6-card selector IS confirming the skin tone.
+      phototypeNeedsConfirmation: false,
       spfSensitivity,
     });
   }

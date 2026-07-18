@@ -8,7 +8,7 @@ import type {
   SkinPhototype,
   UserProfile,
 } from '@/types';
-import { normalizeActiveKey } from '@/utils/ingredientParser';
+import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 
 /**
  * Persisted-data migrations bridging pre-ruleset storage to the V2 routine
@@ -21,7 +21,7 @@ import { normalizeActiveKey } from '@/utils/ingredientParser';
  */
 
 /** Current persisted schema version. Bumped whenever a migration is added. */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /** Version assumed for installs that predate the schemaVersion key. */
 export const BASELINE_SCHEMA_VERSION = 1;
@@ -90,8 +90,12 @@ export function migrateProfile(profile: UserProfile): UserProfile {
   // Pre-goal persisted profiles lack the field entirely; a present value —
   // including a user-confirmed 'maintenance' — is never re-derived.
   const goalsPresent = profile.primaryGoal !== undefined;
+  // Pre-v3 profiles lack the phototype-confirmation flag (V2.1 phase-08).
+  const phototypeConfirmationPresent = profile.phototypeNeedsConfirmation !== undefined;
 
-  if (cityPresent && fitzpatrickCurrent && goalsPresent) return profile;
+  if (cityPresent && fitzpatrickCurrent && goalsPresent && phototypeConfirmationPresent) {
+    return profile;
+  }
 
   const primaryGoal = goalsPresent ? profile.primaryGoal : deriveGoalFromConcerns(profile.concerns);
   return {
@@ -105,6 +109,11 @@ export function migrateProfile(profile: UserProfile): UserProfile {
     goalNeedsConfirmation: goalsPresent
       ? profile.goalNeedsConfirmation
       : profile.concerns.length > 0,
+    // A migrating profile whose fitzpatrick was auto-derived from a grouped
+    // phototype is asked to confirm it once; a post-v3 profile keeps its value.
+    phototypeNeedsConfirmation: phototypeConfirmationPresent
+      ? profile.phototypeNeedsConfirmation
+      : profile.phototype !== null,
   };
 }
 
@@ -140,6 +149,25 @@ function migrateTagList(tags: ActiveIngredientKey[]): {
  * marker the product-detail infobox reads. Returns the same reference when the
  * product is already canonical.
  */
+/**
+ * Peptide re-attribution (V2.1 phase-08 §8.3): a wizard-confirmed
+ * `copper_peptides` tag whose INCI carries no copper/GHK marker is a
+ * misclassification introduced by Phase 1's peptide subclasses — re-tag it to
+ * the conservative `peptide_signal`. No INCI text ⇒ keep the tag (the user
+ * asserted it, and absent evidence we don't silently downgrade). Returns the
+ * same reference when nothing changes.
+ */
+function reattributePeptides(
+  tags: ActiveIngredientKey[],
+  fullIngredientText: string | null,
+): ActiveIngredientKey[] {
+  if (!tags.includes('copper_peptides') || !fullIngredientText) return tags;
+  const parsed = parseActiveIngredientsFromInci(fullIngredientText);
+  if (parsed.includes('copper_peptides')) return tags; // INCI confirms copper — keep
+  const next = tags.map((t) => (t === 'copper_peptides' ? 'peptide_signal' : t));
+  return [...new Set(next)];
+}
+
 export function migrateProductActiveKeys(product: Product): Product {
   let vitaminCFired = false;
 
@@ -147,7 +175,7 @@ export function migrateProductActiveKeys(product: Product): Product {
   let nextTags = product.activeTags;
   if (product.activeTags) {
     const result = migrateTagList(product.activeTags);
-    nextTags = result.tags;
+    nextTags = reattributePeptides(result.tags, product.fullIngredientText);
     vitaminCFired = vitaminCFired || result.vitaminCFired;
   }
   const tagsChanged = nextTags !== product.activeTags;

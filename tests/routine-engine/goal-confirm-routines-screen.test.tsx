@@ -133,6 +133,7 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     primaryGoal: 'aging',
     secondaryGoal: null,
     goalNeedsConfirmation: true,
+    phototypeNeedsConfirmation: false,
     spfSensitivity: false,
     onboardingCompleted: true,
     individualDurationMonths: {},

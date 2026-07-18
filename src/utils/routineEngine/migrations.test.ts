@@ -55,8 +55,8 @@ function makeRoutine(steps: Routine['steps']): Routine {
 // ─── Schema version ───────────────────────────────────────────────────────────
 
 describe('CURRENT_SCHEMA_VERSION', () => {
-  it('is 2 for the routine-engine schema alignment pass', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(2);
+  it('is 3 after the V2.1 migration package (phase-08: goals + confirmation flags + peptides)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(3);
   });
 });
 
@@ -399,5 +399,75 @@ describe('migrateProfile — goal derivation (phase-03 §3.1)', () => {
     const twice = migrateProfile(once);
     expect(twice).toBe(once);
     expect(once.primaryGoal).toBe('dehydration');
+  });
+});
+
+describe('migrateProfile — phototype confirmation flag (phase-08 §8.1)', () => {
+  it('flags a migrating profile with a grouped phototype for confirmation', () => {
+    const result = migrateProfile(makeLegacyProfile({ phototype: 'type_3_4' }));
+    expect(result.fitzpatrick).toBe(4); // strict-member derivation
+    expect(result.phototypeNeedsConfirmation).toBe(true);
+  });
+
+  it('does not flag a migrating profile that had no phototype', () => {
+    const result = migrateProfile(makeLegacyProfile({ phototype: null }));
+    expect(result.phototypeNeedsConfirmation).toBe(false);
+  });
+
+  it('never re-flags a post-v3 profile — a present flag is preserved', () => {
+    const confirmed = migrateProfile(
+      makeLegacyProfile({ phototype: 'type_5_6', phototypeNeedsConfirmation: false }),
+    );
+    expect(confirmed.phototypeNeedsConfirmation).toBe(false);
+  });
+});
+
+describe('migrateProductActiveKeys — peptide re-attribution (phase-08 §8.3)', () => {
+  it('re-tags copper_peptides to peptide_signal when INCI has no copper marker', () => {
+    const result = migrateProductActiveKeys(
+      makeProduct({
+        activeTags: ['copper_peptides'],
+        fullIngredientText: 'Aqua, Palmitoyl Pentapeptide-4, Glycerin',
+      }),
+    );
+    expect(result.activeTags).toEqual(['peptide_signal']);
+  });
+
+  it('keeps copper_peptides when the INCI carries a copper marker', () => {
+    const product = makeProduct({
+      activeTags: ['copper_peptides'],
+      fullIngredientText: 'Aqua, Copper Tripeptide-1, Glycerin',
+    });
+    const result = migrateProductActiveKeys(product);
+    expect(result).toBe(product); // same reference — no change
+    expect(result.activeTags).toEqual(['copper_peptides']);
+  });
+
+  it('keeps copper_peptides when there is no INCI text (user assertion, no evidence)', () => {
+    const product = makeProduct({ activeTags: ['copper_peptides'], fullIngredientText: null });
+    const result = migrateProductActiveKeys(product);
+    expect(result).toBe(product);
+    expect(result.activeTags).toEqual(['copper_peptides']);
+  });
+
+  it('does not duplicate peptide_signal when the tag list already carries it', () => {
+    const result = migrateProductActiveKeys(
+      makeProduct({
+        activeTags: ['copper_peptides', 'peptide_signal'],
+        fullIngredientText: 'Aqua, Palmitoyl Pentapeptide-4',
+      }),
+    );
+    expect(result.activeTags).toEqual(['peptide_signal']);
+  });
+
+  it('is idempotent — a second run over the re-tagged product is a no-op', () => {
+    const once = migrateProductActiveKeys(
+      makeProduct({
+        activeTags: ['copper_peptides'],
+        fullIngredientText: 'Aqua, Palmitoyl Pentapeptide-4',
+      }),
+    );
+    const twice = migrateProductActiveKeys(once);
+    expect(twice).toBe(once); // same reference — nothing left to migrate
   });
 });

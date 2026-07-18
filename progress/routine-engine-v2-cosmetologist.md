@@ -624,3 +624,45 @@ This file tracks the whole package; each phase appends to the Log.
   Phase 8 note: the schema bump 2→3 is Phase 8 (goal derivation already runs in
   migrateProfile; peptide re-attribution + confirmation prompts remain). Phase 9
   is the updated test contract.
+
+- 2026-07-18: **PHASE 8 IMPLEMENTED — migrations (schema v3).** Most of this
+  phase already shipped; verified against code before touching it:
+  - 8.2 vitamin C prompt ALREADY DONE (ProductDetailScreen infobox re-tags to
+    derivative + clears vitaminCAutoMigrated); covered by
+    product-detail-vitc-infobox.test.tsx. No new work.
+  - 8.4 goal migration ALREADY DONE in migrateProfile (phase-03). Composes at
+    hydrate (migrations-hydrate.test.ts green).
+  - New: 8.3 peptide re-attribution (reattributePeptides in
+    migrateProductActiveKeys) — a copper_peptides TAG whose INCI carries no
+    copper/GHK marker re-tags to peptide_signal; no INCI text ⇒ keep (user
+    assertion, do-no-harm); dedupes if peptide_signal already present.
+  - 8.1 phototypeNeedsConfirmation flag + migrateProfile sets it once for a
+    migrating profile with a grouped phototype (fitzpatrick auto-derived);
+    PhototypeConfirmBanner (parallel to GoalConfirmBanner) on RoutinesScreen;
+    onboarding/editor clear it on a real 6-card choice.
+  - 8.5 CURRENT_SCHEMA_VERSION 2 → 3 (ONE bump for the whole package; the goal
+    derivation that phase-03 added did not bump).
+
+  Verified: tsc clean; full jest --testPathIgnorePatterns=worktrees →
+  1218 passed / 3 known pre-existing failed / 2 todo. Idempotency +
+  same-reference contract preserved (migrations.ts:16): peptide re-attribution
+  and the phototype flag both return the same reference on a second run.
+
+- 2026-07-18: **PHASE 8 SELF-REVIEW PASS — verdict ACCEPT.**
+
+  | # | Check | Verdict | Evidence |
+  |---|---|---|---|
+  | 1 | No parallel taxonomy | PASS | re-attribution reuses parseActiveIngredientsFromInci + the existing tag list; no new taxonomy. |
+  | 2 | Single conflict matrix | PASS | untouched. |
+  | 3 | isStrongActive invariant | PASS | untouched. |
+  | 4 | Cumulative cap + rinseOff | N/A | untouched. |
+  | 5 | Migrations idempotent + same-reference | PASS | new peptide + phototype paths both return the same reference on re-run; contract tests green. |
+  | 6 | Every AC → passing test | PASS | 10/10 mapped and individually re-run (AC table in log). |
+  | 7 | tsc clean; no Math.random / unsorted iteration | PASS | tsc clean; migrations pure. |
+  | 8 | Layer separation | PASS | migrations pure (no store/React); the confirm banner is a dumb presenter; store writes via updateProfile. |
+  | 9 | One schema bump only | PASS | CURRENT_SCHEMA_VERSION single definition = 3; phase-03 goal derivation did not bump. |
+  | 10 | Existing migrations suite green | PASS | migrations.test.ts 44 tests pass (version assertion updated 2→3). |
+
+  No deviations beyond the design assumptions (phototype flag = phototype !==
+  null; peptide re-attribution only when INCI contradicts the tag). No FAIL
+  items. Phase 9 (updated §9 test contract) is the last phase.

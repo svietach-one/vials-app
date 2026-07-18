@@ -124,6 +124,7 @@ export function makeFullProfile(overrides: Partial<UserProfile> = {}): UserProfi
     primaryGoal: 'maintenance',
     secondaryGoal: null,
     goalNeedsConfirmation: false,
+    phototypeNeedsConfirmation: false,
     spfSensitivity: false,
     onboardingCompleted: true,
     individualDurationMonths: {},

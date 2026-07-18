@@ -34,6 +34,7 @@ const DEFAULT_PROFILE: UserProfile = {
   primaryGoal: 'maintenance',
   secondaryGoal: null,
   goalNeedsConfirmation: false,
+  phototypeNeedsConfirmation: false,
   spfSensitivity: false,
   onboardingCompleted: false,
   individualDurationMonths: {},

@@ -78,6 +78,8 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
       // Chosen (or deliberately left at maintenance) during onboarding —
       // never prompt this user to confirm a derived goal.
       goalNeedsConfirmation: false,
+      // Choosing on the 6-card selector IS confirming the skin tone.
+      phototypeNeedsConfirmation: false,
     };
   }
 

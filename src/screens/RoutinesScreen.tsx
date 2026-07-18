@@ -26,6 +26,7 @@ import { RehabWidget } from '@/components/routine/RehabWidget';
 import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
 import { GoalConfirmBanner } from '@/components/routine/GoalConfirmBanner';
+import { PhototypeConfirmBanner } from '@/components/routine/PhototypeConfirmBanner';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
@@ -329,6 +330,13 @@ export default function RoutinesScreen({ navigation }: Props) {
           <GoalConfirmBanner
             goalLabel={GOAL_LABELS[profile.primaryGoal]}
             onConfirm={() => updateProfile({ goalNeedsConfirmation: false })}
+            onAdjust={() => navigation.navigate('Profile' as never)}
+          />
+        )}
+        {profile?.phototypeNeedsConfirmation === true && (
+          <PhototypeConfirmBanner
+            fitzpatrick={profile.fitzpatrick}
+            onConfirm={() => updateProfile({ phototypeNeedsConfirmation: false })}
             onAdjust={() => navigation.navigate('Profile' as never)}
           />
         )}

@@ -179,7 +179,7 @@ describe('Story 5 AC: cross-store domain actions (performDailyCheckIn / cycleSta
       profile: {
         id: 'profile-1', gender: null, age: null, skinType: null, phototype: null,
         fitzpatrick: null, city: null, concerns: [], primaryGoal: 'maintenance',
-        secondaryGoal: null, goalNeedsConfirmation: false, spfSensitivity: false,
+        secondaryGoal: null, goalNeedsConfirmation: false, phototypeNeedsConfirmation: false, spfSensitivity: false,
         onboardingCompleted: true, individualDurationMonths: {},
       },
       hydrated: true,
