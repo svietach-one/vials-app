@@ -1,3 +1,4 @@
+import { COMMUNITY_CONTRIBUTION_ENABLED } from '@/constants/featureFlags';
 import type { AddProductDraft, SuggestPayload } from '@/types';
 import { buildSuggestPayload } from '@/utils/productForm/saveProduct';
 
@@ -33,5 +34,9 @@ export async function suggestProduct(payload: SuggestPayload): Promise<void> {
  * to the user — per db-tech-design.md §5.3).
  */
 export async function suggestProductInBackground(draft: AddProductDraft): Promise<void> {
+  // Hard stop while community contribution is disabled: the endpoint this
+  // targets does not exist (PRD §4.3), so firing it would only ever produce a
+  // swallowed failure behind UI that claimed success. See featureFlags.ts.
+  if (!COMMUNITY_CONTRIBUTION_ENABLED) return;
   await suggestProduct(buildSuggestPayload(draft));
 }

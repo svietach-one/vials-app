@@ -1,5 +1,26 @@
 # Product Images — Progress Log
 
+## Delivered scope (as of 2026-07-19)
+
+**Shipped and complete: on-device product photos.** Capture (camera or gallery),
+document-directory storage, thumbnails on the Today checklist and the shelf,
+tinted placeholders, photo attach in the product form, and reuse of the OCR
+label shot. Fully offline, no backend dependency. Tasks 01–03.
+
+**Not shipped: server sync of photos (task 04).** Deferred — contributed photos
+have no destination. Not "blocked, in progress"; the delivered scope above is a
+complete unit of value on its own, and community contribution is a separate
+roadmap decision (`ROADMAP-vials-api-contribution.md`).
+
+| Task | Status |
+|---|---|
+| 01 — image foundation | ✅ shipped |
+| 02 — thumbnail + cards + form attach | ✅ shipped |
+| 03 — routine screen restructure | ✅ shipped |
+| 04 — photo server sync | ⛔ deferred, no backend (BLOCKERS.md) |
+| 05 — routine calendar view | in progress |
+
+
 ## Baseline (before task 01, 2026-07-19)
 
 - Branch: `feature-add-image`.
@@ -345,3 +366,40 @@ Turso"), and investigation confirmed the problem is deeper than a wrong vendor.
 - **`TICKET-docs-pre-turso-architecture.md`** — the stale-docs cleanup that
   caused this detour (raised as a separate ticket, deliberately not bundled
   into this commit).
+
+### Follow-up applied — false-success UX removed (2026-07-19)
+
+Investigating BLOCKER-2 surfaced something worse than a missing feature: the app
+was **telling users a contribution had been saved when nothing left the device.**
+`BarcodeSection` rendered "Community contribution saved" with a green success
+check, a "You've helped verify N products" counter, and framing copy promising
+"other users can add it in one tap" — all for a `POST` to an endpoint that does
+not exist and whose failure was swallowed by design.
+
+Fixed independently of the roadmap decision:
+
+- New `src/constants/featureFlags.ts` → `COMMUNITY_CONTRIBUTION_ENABLED = false`,
+  documenting why it is off and what must be true to flip it.
+- `suggestProductInBackground` returns early while gated — no request attempted,
+  no failure swallowed behind UI that already implied success.
+- Contribution claims gated: success label falls back to the truthful "Barcode
+  saved"; the counter is hidden; framing copy describes the real (local)
+  benefit. **Barcode scanning itself stays fully enabled** — the code is stored
+  on the product record and used for local lookup; only the *community* claims
+  are gated.
+- The counter no longer increments at either call site.
+- Tests: 2 rewritten to assert the gated reality, plus a new service test
+  proving no request escapes — including a tripwire asserting the flag is off,
+  so re-enabling it without an endpoint fails loudly.
+
+### US-3 deferred explicitly (not silently dropped)
+
+- `docs/PRD_Spec.md` §6 — moderation-queue open item **retired as moot** (cannot
+  staff review for a non-existent service), with a pointer to the roadmap doc.
+- `docs/USER_STORIES.md` US-22 — the two crowdsourcing ACs marked
+  **⛔ BLOCKED — no backend**, with a deferral note explaining that no
+  client-side design can satisfy them.
+- `ROADMAP-vials-api-contribution.md` — roadmap-level proposal that contribution
+  transport (Option A), API-tier access control replacing RLS, moderation
+  workflow, and staffing be decided **as one piece of work** if the API is ever
+  greenlit, so this isn't re-derived from scratch.

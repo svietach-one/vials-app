@@ -19,6 +19,7 @@ import { SectionAccordion } from '@/components/addProduct/SectionAccordion';
 import { UsageDetailsSection } from '@/components/addProduct/UsageDetailsSection';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { COMMUNITY_CONTRIBUTION_ENABLED } from '@/constants/featureFlags';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, space, typography } from '@/constants/tokens';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
@@ -142,7 +143,9 @@ export default function AddProductScreen({ navigation }: Props) {
     addProduct(product);
     // An INCI submission counts as a community contribution (like a barcode
     // scan, which BarcodeSection already counted at scan time).
-    if (draft.inciRaw !== null) incrementCommunityContribution();
+    if (COMMUNITY_CONTRIBUTION_ENABLED && draft.inciRaw !== null) {
+      incrementCommunityContribution();
+    }
 
     // 2. Leave the screen and confirm immediately — nothing below is awaited.
     navigation.goBack();

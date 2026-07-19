@@ -227,8 +227,30 @@ This document defines the complete functional requirements and behavior specific
 * The server processes the OCR string using fuzzy trigram search (`pg_trgm`), returning the top 20 most relevant matches, even if the text contains typos.
 * If `GET /api/v1/products/search` or `/lookup` returns an empty array, the app presents a *"Product Not Found. Add Manually"* button.
 * Clicking it transitions the user to `ProductForm`, which is pre-filled with whatever text the OCR camera managed to extract (e.g., the recognized brand and name), minimizing typing friction.
-* Saving the manual form adds the product to the user's shelf instantly (local-first), while queuing a background request to the global database.
-* When saved manually, the newly created item instantly appears in the local `catalogStore` with `source: 'manual'`, while a copy is dispatched to the server via `POST /api/v1/products/suggest` with `status: 'pending'` for admin review.
+* Saving the manual form adds the product to the user's shelf instantly (local-first), while queuing a background request to the global database. — ⛔ **BLOCKED — no backend** (2026-07-19). The local-first save is built and works; the background request has no destination.
+* When saved manually, the newly created item instantly appears in the local `catalogStore` with `source: 'manual'`, while a copy is dispatched to the server via `POST /api/v1/products/suggest` with `status: 'pending'` for admin review. — ⛔ **BLOCKED — no backend** (2026-07-19). The local save is built; there is no server to dispatch to.
+
+> **Deferral note (2026-07-19) — crowdsourcing ACs are blocked, not dropped.**
+> The two acceptance criteria above cannot be satisfied: there is no Vials API
+> (`docs/PRD_Spec.md` sync note: "there is no such API"; §4.3: the suggest
+> pipeline is "not built"). This is a backend/roadmap gap, not a client
+> scoping problem — no client-side design can satisfy them.
+>
+> Consequences already applied:
+> - Community-contribution UI is **gated off** behind
+>   `COMMUNITY_CONTRIBUTION_ENABLED` (`src/constants/featureFlags.ts`).
+>   Previously the barcode step displayed "Community contribution saved" with
+>   a success check, and a "You've helped verify N products" counter, for a
+>   request that never left the device — a false-success UX.
+> - `suggestProductInBackground` returns early while gated, so no request is
+>   attempted and no failure is swallowed behind UI that implied success.
+> - Barcode scanning itself remains fully enabled — the code is stored on the
+>   local product record and used for local lookup. Only the *community*
+>   claims are gated.
+>
+> These ACs return when the API is greenlit. See
+> `docs/tasks/product-images/ROADMAP-vials-api-contribution.md` and
+> `docs/tasks/product-images/BLOCKERS.md` (BLOCKER-2).
 
 > **Implementation note (2026-07-07):** Barcode and text search are built,
 > but on a different architecture than described above — there is no Vials
