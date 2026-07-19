@@ -107,38 +107,81 @@ endpoint exists.
 
 ---
 
-## BLOCKER-2 — The Vials API may not exist; US-3 has no destination
+## BLOCKER-2 — There is no Vials API; US-3 has no destination at all
 
-**Raised:** 2026-07-19.
-**Status:** OPEN — needs an answer from whoever owns the backend roadmap.
+**Raised:** 2026-07-19. **Confirmed** the same day against the PRD.
+**Status:** OPEN — needs a product decision, not a backend ETA.
 **Severity:** product-level gap, wider than the product-images series.
 
 Every candidate design in BLOCKER-1 assumes a Vials API that can receive an
-upload. That assumption is unverified:
+upload. **That API does not exist, and the PRD says so explicitly.**
 
-- `EXPO_PUBLIC_VIALS_API_URL` **is absent from `.env.example`**, which otherwise
-  documents every env var the app reads (Anthropic key, both `TURSO_*` vars,
-  `CORPUS_MODE`).
+### Primary evidence — the PRD's own audit
+
+`docs/PRD_Spec.md`, sync note (2026-07-07):
+
+> Corrected the "proprietary Vials API / self-hosted PostgreSQL" description —
+> **there is no such API.** Product data source is **only the Vials corpus**: a
+> Turso/libSQL replica pulled onto the device and queried entirely locally.
+
+§4.3 restates it:
+
+> **There is no Vials REST API and no PostgreSQL backend in the request path**;
+> reads never leave the device.
+
+And on the contribution pipeline specifically:
+
+> Background submission of manually-added products back to a shared/community
+> database (`POST /api/v1/products/suggest`, `pending` review) is **not built**
+> — the corpus schema reserves a `'community'` source value for this, but the
+> submission pipeline doesn't exist yet.
+
+### Corroborating signals
+
+- `EXPO_PUBLIC_VIALS_API_URL` is **absent from `.env.example`**, which otherwise
+  documents every env var the app reads.
 - `src/services/vialsApi/products.ts` treats an unset base URL as normal and
-  returns silently — so a missing backend is invisible at runtime by design.
-- `suggestProduct` is the only endpoint the client calls, and nothing verifies
-  it is deployed.
-- `docs/database/db-product-spec.md` records that US-3 (community contribution)
-  is **"schema-only (`'community'` source value) … not wired into a screen
-  yet."**
+  returns silently — a missing backend is invisible at runtime **by design**.
+- `src/services/vialsApi/client.ts` (the base fetch client
+  `IMPLEMENTATION_PLAN.md` §Phase 0 calls for) **was never created**; only
+  `products.ts` exists.
+- `docs/database/db-product-spec.md`: US-3 is "schema-only … not wired into a
+  screen yet."
 
-**Why this matters beyond task 04:** if no contribution endpoint is scheduled,
-then community photo contribution has no destination *regardless of which
-client-side design is chosen*. That makes US-3's acceptance criteria
-unsatisfiable — a product-roadmap gap, not a client scoping problem. Building
-more client machinery would leave the app ready for an endpoint that may never
+### The contradiction to resolve
+
+The docs simultaneously assert both of these:
+
+- **PRD §4.3 / sync note:** there is no Vials API and the submission pipeline
+  does not exist.
+- **PRD §6 Open Items:** *"Confirm the Vials API moderation queue workflow
+  (admin review of `pending` crowdsourced suggestions) is defined and staffed
+  before launch."*
+
+An open item presumes the thing it gates will exist. Meanwhile the codebase
+already ships a client (`suggestProduct`) that POSTs to it and silently no-ops.
+So the app carries dead outbound machinery for a service the PRD says was never
+built.
+
+### Consequence
+
+Community photo contribution has **no destination regardless of which
+client-side design is chosen**. US-3's acceptance criteria are currently
+unsatisfiable — this is a product-roadmap gap, not a task-04 scoping problem.
+Any further client work here would build against a service that may never
 arrive.
 
-**Ask:** confirm whether the Vials API — or at minimum a photo/contribution
-upload endpoint — is on the backend roadmap, and by when. If it is not, US-3
-should be explicitly deferred and the local-photo feature (tasks 01–03,
-already shipped and fully functional offline) documented as the whole of the
-delivered scope.
+### Ask — for whoever owns the product/backend roadmap
+
+1. Is a Vials API (or any contribution endpoint) actually planned, and when?
+2. If **yes** — BLOCKER-1's design choice (API-owned upload vs presigned PUT)
+   should be made at the same time, since photo upload and product suggestion
+   are the same pipeline.
+3. If **no** — US-3 and photo contribution should be **explicitly deferred**,
+   PRD §6's moderation-queue open item retired or reworded, and the existing
+   `suggestProduct` client either removed or documented as dormant. Tasks 01–03
+   (local photos, fully functional offline) then stand as the complete
+   delivered scope, which is a coherent product on its own.
 
 ---
 
