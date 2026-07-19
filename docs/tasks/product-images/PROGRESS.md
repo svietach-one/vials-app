@@ -18,7 +18,7 @@ roadmap decision (`ROADMAP-vials-api-contribution.md`).
 | 02 — thumbnail + cards + form attach | ✅ shipped |
 | 03 — routine screen restructure | ✅ shipped |
 | 04 — photo server sync | ⛔ deferred, no backend (BLOCKERS.md) |
-| 05 — routine calendar view | in progress |
+| 05 — routine calendar view | ✅ shipped |
 
 
 ## Baseline (before task 01, 2026-07-19)
@@ -403,3 +403,88 @@ Fixed independently of the roadmap decision:
   transport (Option A), API-tier access control replacing RLS, moderation
   workflow, and staffing be decided **as one piece of work** if the API is ever
   greenlit, so this isn't re-derived from scratch.
+
+---
+
+## Task 05 — Routine Calendar View (month matrix) ✅
+
+### Investigation findings (step 1)
+
+- **Toggle:** built in task 03 (`PlannerBlock` `viewMode` / `onViewModeChange`) —
+  it did not previously exist. Task 05 renders into it.
+- **Schedule logic was duplicated four ways**, all private/inline:
+  `RoutinesScreen.isStepForDay`, `routineStatus.isScheduledForDay`,
+  `dailyView.isScheduledOn`, and (would-have-been) the calendar. Per the task's
+  "do not re-implement schedule interpretation", extracted one canonical
+  `isScheduledOnDay` (`src/utils/routineSchedule.ts`) and refactored all three
+  existing call sites onto it. 930 routine/util tests confirmed the refactor is
+  behaviour-neutral before any calendar code was written.
+
+### Frozen-column mechanics — chosen approach
+
+Neither of the task's two suggested options. Both assume two vertical scrollers
+kept in step via `onScroll` → `scrollTo`, which jitters.
+
+**Instead: one vertical ScrollView contains the whole grid, and only the day
+columns sit inside a horizontal ScrollView.** Vertical scrolling moves the
+frozen column and the cells together because they are literally the same scroll
+container; horizontal scrolling moves only the days. **There is no
+synchronisation code, so there is nothing to drift.** Documented in the
+component header.
+
+### Shipped
+
+- **`src/utils/calendarMatrix.ts`** (pure): `buildCalendarMatrix(routines,
+  products, monthDate)` → rows of per-day `{am, pm}`, plus `getDaysInMonth`.
+  Exclusions mirror the list view exactly (hidden steps, dangling productIds,
+  `product.isHidden`). Weekdays resolved once per month, not per cell;
+  same-period overlapping steps OR-accumulate.
+- **`CalendarCell`** — pure + `React.memo`. Diagonal halves via the CSS
+  triangle border technique (cheapest crisp option, no SVG). Both halves
+  **Cobalt** — AM/PM distinguished by position only, never colour. A fully
+  unscheduled cell renders as a plain bordered square with no diagonal.
+- **`RoutineCalendarView`** — month label, frozen 148px identity column
+  (44px `ProductThumbnail` + brand/name, single-line ellipsis), day header with
+  weekday over date, monochrome today badge, auto-scroll so today lands ~2
+  columns in on mount, DS empty state with an add CTA.
+- **`RoutinesScreen`** — renders the calendar when `viewMode === 'calendar'`,
+  keeping the sub-header so the user can toggle back. Tapping a row's identity
+  cell opens the **same** action sheet as the list view; since calendar rows
+  identify a product rather than a step, `openStepSheetForProduct` resolves it
+  to its first visible step (morning before evening).
+
+### Verification
+
+- `npx tsc --noEmit`: clean.
+- Full suite: **3 failing suites — the same 3 baseline suites**, 0 introduced;
+  1306 tests passing (baseline 1221).
+- 16 matrix tests (every-day, specific weekdays, AM/PM independence, hidden,
+  dangling, product-hidden, row order, same-period overlap, leap-year February,
+  empty routine) + 9 component tests.
+- **Acceptance "fills match the Today checklist" is proven, not assumed:** a
+  parity test reproduces the screen's filter through the same shared helper and
+  compares grid vs checklist for three spot-check dates (Mon 6, Thu 9, Sun 12
+  July 2026).
+
+### Files touched
+
+`src/utils/routineSchedule.ts`, `src/utils/calendarMatrix.ts` (+ `.test.ts`),
+`src/components/routine/CalendarCell.tsx`,
+`src/components/routine/RoutineCalendarView.tsx`,
+`tests/product-images/RoutineCalendarView.test.tsx`,
+`src/screens/RoutinesScreen.tsx`, `src/utils/routineStatus.ts`,
+`src/utils/routineEngine/dailyView.ts`.
+
+### Manual QA for the human (needs a device / Expo Go)
+
+- [ ] Toggle list ⇄ calendar; today is visible on mount without manual scrolling.
+- [ ] Vertical scroll keeps the frozen product column locked to its rows;
+      horizontal scroll moves only the day columns.
+- [ ] Smooth scroll with ~15 products on a mid-range device.
+- [ ] Diagonal halves render crisply on both iOS and Android at cell size.
+
+### Out of scope (noted as follow-ups)
+
+Editing from the grid; multi-month paging (v1 is current-month only — routines
+are weekly-recurring so other months repeat the pattern); procedure/PAO overlays
+on the calendar.

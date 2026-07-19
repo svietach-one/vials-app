@@ -24,6 +24,7 @@ import { GenerateCard } from '@/components/routine/GenerateCard';
 import { OptimizeStrip } from '@/components/routine/OptimizeStrip';
 import { PlannerBlock, type RoutineViewMode } from '@/components/routine/PlannerBlock';
 import { RehabWidget } from '@/components/routine/RehabWidget';
+import { RoutineCalendarView } from '@/components/routine/RoutineCalendarView';
 import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineStepActionSheet } from '@/components/routine/RoutineStepActionSheet';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
@@ -50,6 +51,7 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
+import { isScheduledOnDay } from '@/utils/routineSchedule';
 import {
   buildRoutineRows,
   getInitialAccordionState,
@@ -77,8 +79,7 @@ type Period = 'morning' | 'evening';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isStepForDay(step: RoutineStep, dow: number): boolean {
-  const days = step.scheduledDays ?? [];
-  return days.length === 0 || days.includes(dow);
+  return isScheduledOnDay(step.scheduledDays, dow);
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -305,6 +306,22 @@ export default function RoutinesScreen({ navigation }: Props) {
     setSheetStep(null);
   }
 
+  /**
+   * Calendar rows identify a product, not a step. Resolve it to its first
+   * visible step (morning before evening) so the sheet's remove/hide actions
+   * have something concrete to act on.
+   */
+  function openStepSheetForProduct(product: Product) {
+    for (const routine of [morningRoutine, eveningRoutine]) {
+      const step = routine?.steps.find((s) => s.productId === product.id && !s.hidden);
+      if (routine && step) {
+        setSheetProduct(product);
+        setSheetStep({ stepId: step.id, routineId: routine.id });
+        return;
+      }
+    }
+  }
+
   const renderItem = useCallback(
     ({ item, drag, isActive: _isActive }: RenderItemParams<RoutineRow>) => {
       if (item.kind === 'section') {
@@ -419,6 +436,25 @@ export default function RoutinesScreen({ navigation }: Props) {
           </View>
         }
       />
+      {viewMode === 'calendar' ? (
+        <View style={styles.calendarWrap}>
+          {/* Keep the sub-header so the user can toggle back to the list. */}
+          <View style={styles.calendarHeader}>
+            <PlannerBlock
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              selectedDow={selectedDow}
+              onDaySelect={handleDaySelect}
+            />
+          </View>
+          <RoutineCalendarView
+            routines={routines}
+            products={products}
+            onProductPress={openStepSheetForProduct}
+            onAddProduct={handleOpenAddSheet}
+          />
+        </View>
+      ) : (
       <DraggableFlatList
         // With no steps at all the section headers are noise — fall through to
         // the Generate card instead.
@@ -461,6 +497,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+      )}
 
       <AddToRoutineSheet
         visible={addSheetVisible}
@@ -703,6 +740,15 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
+    paddingHorizontal: space.gutterScreen,
+    paddingTop: space[6],
+    paddingBottom: space[4],
+  },
+
+  calendarWrap: {
+    flex: 1,
+  },
+  calendarHeader: {
     paddingHorizontal: space.gutterScreen,
     paddingTop: space[6],
     paddingBottom: space[4],
