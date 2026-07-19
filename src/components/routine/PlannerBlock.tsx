@@ -6,9 +6,17 @@ import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/** Which representation the Routine tab is showing. */
+export type RoutineViewMode = 'list' | 'calendar';
+
 export interface PlannerBlockProps {
-  activePeriod: 'morning' | 'evening';
-  onPeriodChange: (p: 'morning' | 'evening') => void;
+  /**
+   * List ⇄ calendar switch (img-03). Replaces the former AM/PM segmented
+   * toggle: both periods now render together as accordions in the list view,
+   * so there is nothing to switch between.
+   */
+  viewMode: RoutineViewMode;
+  onViewModeChange: (mode: RoutineViewMode) => void;
   /** Currently selected day of week (0 = Sun … 6 = Sat). */
   selectedDow: number;
   onDaySelect: (dow: number) => void;
@@ -52,8 +60,8 @@ function buildDateLabel(selectedDate: Date, isToday: boolean): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PlannerBlock({
-  activePeriod,
-  onPeriodChange,
+  viewMode,
+  onViewModeChange,
   selectedDow,
   onDaySelect,
 }: PlannerBlockProps) {
@@ -71,31 +79,31 @@ export function PlannerBlock({
         </Text>
         <View style={styles.toggleGroup}>
           <Pressable
-            style={[styles.toggleBtn, activePeriod === 'morning' && styles.toggleBtnActive]}
-            onPress={() => onPeriodChange('morning')}
+            style={[styles.toggleBtn, viewMode === 'list' && styles.toggleBtnActive]}
+            onPress={() => onViewModeChange('list')}
             accessibilityRole="button"
-            accessibilityState={{ selected: activePeriod === 'morning' }}
-            accessibilityLabel="Morning routine"
+            accessibilityState={{ selected: viewMode === 'list' }}
+            accessibilityLabel="List view"
             hitSlop={4}
           >
             <Feather
-              name="sun"
+              name="list"
               size={16}
-              color={activePeriod === 'morning' ? palette.white : colors.textTertiary}
+              color={viewMode === 'list' ? palette.white : colors.textTertiary}
             />
           </Pressable>
           <Pressable
-            style={[styles.toggleBtn, activePeriod === 'evening' && styles.toggleBtnActive]}
-            onPress={() => onPeriodChange('evening')}
+            style={[styles.toggleBtn, viewMode === 'calendar' && styles.toggleBtnActive]}
+            onPress={() => onViewModeChange('calendar')}
             accessibilityRole="button"
-            accessibilityState={{ selected: activePeriod === 'evening' }}
-            accessibilityLabel="Evening routine"
+            accessibilityState={{ selected: viewMode === 'calendar' }}
+            accessibilityLabel="Calendar view"
             hitSlop={4}
           >
             <Feather
-              name="moon"
+              name="calendar"
               size={16}
-              color={activePeriod === 'evening' ? palette.white : colors.textTertiary}
+              color={viewMode === 'calendar' ? palette.white : colors.textTertiary}
             />
           </Pressable>
         </View>

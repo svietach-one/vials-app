@@ -40,14 +40,13 @@ export interface RoutineStepCardProps {
   onCardPress?: () => void;
   conflictingProductName?: string | null;
   /**
-   * The raw `drag` callback from DraggableFlatList's renderItem.
-   * Only rendered (via the drag handle) when isEditMode is true.
+   * DraggableFlatList's `drag` callback. Wired to the card's long press —
+   * holding anywhere on the card lifts it, so there is no edit mode to arm
+   * and no separate drag handle (img-03).
    */
-  drag?: () => void;
-  /** Switches the card between normal mode and edit mode (drag handle + delete). */
-  isEditMode?: boolean;
-  /** Called when the user taps the delete button in edit mode. */
-  onDelete?: () => void;
+  onLongPress?: () => void;
+  /** Opens the step's overflow action sheet (three-dots, trailing). */
+  onOverflowPress?: () => void;
   /**
    * Adaptation week (1–4) while the engine micro-doses this product
    * (research §2.6). Renders the ⏳ status line — informational, not a warning.
@@ -61,9 +60,8 @@ export function RoutineStepCard({
   product,
   onCardPress,
   conflictingProductName,
-  drag,
-  isEditMode = false,
-  onDelete,
+  onLongPress,
+  onOverflowPress,
   adaptationWeek,
 }: RoutineStepCardProps) {
   const hasConflict = !!conflictingProductName;
@@ -90,25 +88,6 @@ export function RoutineStepCard({
 
   const mainRow = (
     <View style={styles.mainRow}>
-      {/* Drag handle — only in edit mode, directly calls the RNDFL drag fn */}
-      {isEditMode && drag ? (
-        // RN Pressable (not RNGH) so RNDFL's GestureDetector can claim the
-        // touch after drag() is called without a competing RNGH handler.
-        <Pressable
-          onLongPress={drag}
-          delayLongPress={150}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={dragStyles.container}
-          accessibilityLabel="Hold to reorder"
-        >
-          <View style={dragStyles.dotsGrid}>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <View key={i} style={dragStyles.dot} />
-            ))}
-          </View>
-        </Pressable>
-      ) : null}
-
       {/* Leading product photo (compact 44px) — placeholder when none */}
       <ProductThumbnail product={product} size={44} />
 
@@ -155,17 +134,15 @@ export function RoutineStepCard({
             ) : null}
           </View>
 
-          {isEditMode ? (
+          {onOverflowPress ? (
             <TouchableOpacity
-              onPress={onDelete}
-              disabled={!onDelete}
+              onPress={onOverflowPress}
               activeOpacity={0.5}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{ opacity: onDelete ? 1 : 0.35 }}
               accessibilityRole="button"
-              accessibilityLabel={`Remove ${product.name}`}
+              accessibilityLabel={`More actions for ${product.name}`}
             >
-              <Feather name="trash-2" size={18} color={palette.zinc500} />
+              <Feather name="more-vertical" size={18} color={palette.zinc500} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -202,29 +179,18 @@ export function RoutineStepCard({
     />
   );
 
-  // Edit mode: plain View root — no RNGH handler competing with drag handle
-  if (isEditMode) {
-    return (
-      <>
-        <View style={cardStyle}>
-          {mainRow}
-          {conflictRow}
-          {adaptationRow}
-        </View>
-        {attributionTooltip}
-      </>
-    );
-  }
-
-  // Normal mode: RNGH TouchableOpacity for tap-to-navigate
+  // One root: tap navigates, long press hands the touch to the drag gesture.
   return (
     <>
       <TouchableOpacity
         onPress={onCardPress}
+        onLongPress={onLongPress}
+        delayLongPress={200}
         activeOpacity={onCardPress ? 0.92 : 1}
         style={cardStyle}
         accessibilityRole="button"
         accessibilityLabel={`${product.name}, tap to view product detail`}
+        accessibilityHint={onLongPress ? 'Hold to reorder' : undefined}
       >
         {mainRow}
         {conflictRow}

@@ -158,3 +158,113 @@
 - [ ] Scroll performance on a ~50-item shelf list with mixed photos/placeholders.
 - [ ] Scan an ingredient label in the manual form with no photo set → the shot
       appears in the photo preview and is attached after save.
+
+---
+
+## Task 03 — Routine Screen Restructure (list view) ✅
+
+### Investigation findings (step 1, recorded before coding)
+
+- **AM/PM today:** `RoutinesScreen` held `activePeriod` state and rendered ONE
+  period at a time; the sun/moon segmented toggle lived in `PlannerBlock`'s
+  header row. A separate `isEditMode` toggle (header pencil) gated the drag
+  handle + per-card delete button.
+- **`react-native-draggable-flatlist`:** installed (^4.0.3) and already used —
+  one `DraggableFlatList` whose `ListHeaderComponent` carries the banners +
+  `PlannerBlock`.
+- **List/calendar toggle: DOES NOT EXIST.** Task 03 assumes it "stays" and task
+  05 depends on it. Nothing in the routine screen switches representations.
+  There is a `WeeklyPlanView.tsx` component, but it is **dead code** — imported
+  nowhere. Resolution: built the toggle in this task (see Deviations) so task 05
+  has a real mount point. Not a BLOCKER — the premise was wrong, not impossible.
+- **Nesting decision — chose (b), a single list with section headers.** Rows are
+  a flat `RoutineRow[]` (`{kind:'section'}` / `{kind:'step'}`) so exactly ONE
+  VirtualizedList is ever mounted. Rationale: option (a) (per-section
+  DraggableFlatList inside an outer ScrollView) is precisely the nested-list
+  configuration that produces gesture fights and nested-VirtualizedList
+  warnings; a flat list sidesteps it entirely and makes collapse a pure filter.
+  Cross-section (AM→PM) drops are rejected in `resolveDragResult`, matching the
+  "out of scope" rule.
+- **Action-sheet pattern:** `ProductActionSheet` (Modal + backdrop + icon rows,
+  tokens only) is the house pattern — mirrored rather than inventing a new one.
+- **Hidden-steps mechanism exists:** `routinesStore.setStepHidden(routineId,
+  stepId, hidden)` — no gap.
+
+### Shipped
+
+- **`src/utils/routineAccordion.ts`** (new, pure + fully unit-tested):
+  `getInitialAccordionState(now)` (the 15:00 rule, date injected),
+  `buildRoutineRows`, `routineRowKey`, `resolveDragResult` (rejects
+  cross-section and above-first-header drops), `mergeReorderedSteps` (writes a
+  reordered visible subset back around filtered-out steps).
+- **`RoutineStepActionSheet`** (new): the four locked actions — view details /
+  edit product / remove from routine (step only) / hide from routine.
+- **`PlannerBlock`**: sun/moon AM-PM toggle replaced by the **list ⇄ calendar**
+  toggle (`viewMode` / `onViewModeChange`, exported `RoutineViewMode`).
+- **`RoutinesScreen`**: both periods on one screen as Morning/Evening accordion
+  sections (chevron, step count, empty-section state with inline add); initial
+  expansion from the 15:00 rule **on mount only**, manual toggles win after;
+  `isEditMode` removed entirely; header is now `refresh-cw` (Regenerate) +
+  `plus` (Add), Add rightmost; drag persists per-period order on drop.
+- **`RoutineStepCard`**: `drag`/`isEditMode`/`onDelete` replaced by
+  `onLongPress` (RNDFL drag) + `onOverflowPress` (three-dots). The dual-root
+  edit/normal branching collapsed into one root.
+
+### Deviations
+
+- **Built the list/calendar toggle rather than preserving one** — it did not
+  exist (see findings). The calendar branch is not wired yet; `viewMode` state
+  is in place and task 05 renders into it.
+- **`AddToRoutineSheet` still needs a period** — with no active period it now
+  receives the time-derived default (same 15:00 rule as the accordions).
+- **Three existing tests updated** because the locked decisions intentionally
+  changed the behaviour they guarded:
+  - `routines-screen-generation-ux`: the edit-mode pencil test replaced by two
+    tests for the new header (Regenerate + Add present, no edit toggle;
+    Regenerate previews without committing).
+  - `routines-screen-hidden-filter`: AC-R5 no longer "switches period" — it
+    expands the Evening accordion in place.
+  - `routines-screen-paused-rows`: dropped the `switch-to-evening` press (the
+    paused row is in the footer and always rendered).
+- **Wall-clock hazard found and fixed:** because the screen seeds accordion
+  state from `new Date()`, screen tests became time-of-day dependent (they
+  failed only because this run happened after 15:00). The two affected screen
+  suites now pin `getInitialAccordionState` via a partial module mock; the 15:00
+  rule keeps its own injected-date unit tests. Worth remembering — any future
+  RoutinesScreen test must pin this too.
+
+### Verification
+
+- `npx tsc --noEmit`: clean.
+- Full suite: **3 failing suites — the same 3 baseline suites**, 0 introduced;
+  1266 tests passing (up from 1221 at baseline).
+- New: 14 accordion-util tests + 6 action-sheet tests, all green.
+
+### Files touched
+
+`src/utils/routineAccordion.ts` (+ `.test.ts`),
+`src/components/routine/RoutineStepActionSheet.tsx`,
+`tests/product-images/RoutineStepActionSheet.test.tsx`,
+`src/components/routine/PlannerBlock.tsx`,
+`src/components/routine/RoutineStepCard.tsx`,
+`src/screens/RoutinesScreen.tsx`,
+`tests/routine-engine/routines-screen-generation-ux.test.tsx`,
+`tests/routine-engine/routines-screen-paused-rows.test.tsx`,
+`tests/routines/routines-screen-hidden-filter.test.tsx`.
+
+### Manual QA for the human (needs a device / Expo Go)
+
+- [ ] Long-press reorder works in BOTH sections without fighting the page
+      scroll; the card lifts with scale feedback and the order persists.
+- [ ] Dragging a card from Morning into the Evening section is rejected
+      cleanly (order snaps back, nothing is written).
+- [ ] Open the screen before 15:00 → Morning expanded; after 15:00 → Evening.
+      Manually opening the other section is never auto-undone.
+- [ ] All four sheet actions behave; "Remove from routine" leaves the product
+      on the shelf.
+
+### Follow-ups / known gaps
+
+- `WeeklyPlanView.tsx` is dead code (imported nowhere) and now overlaps the new
+  accordion list conceptually — candidate for deletion in a cleanup pass.
+- The calendar half of the toggle renders the list until task 05 lands.

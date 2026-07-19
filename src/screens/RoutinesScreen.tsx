@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -21,9 +22,10 @@ import {
 } from '@/components/routine/DuplicateSlotWarningInline';
 import { GenerateCard } from '@/components/routine/GenerateCard';
 import { OptimizeStrip } from '@/components/routine/OptimizeStrip';
-import { PlannerBlock } from '@/components/routine/PlannerBlock';
+import { PlannerBlock, type RoutineViewMode } from '@/components/routine/PlannerBlock';
 import { RehabWidget } from '@/components/routine/RehabWidget';
 import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
+import { RoutineStepActionSheet } from '@/components/routine/RoutineStepActionSheet';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
 import { GoalConfirmBanner } from '@/components/routine/GoalConfirmBanner';
 import { PhototypeConfirmBanner } from '@/components/routine/PhototypeConfirmBanner';
@@ -48,6 +50,15 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
+import {
+  buildRoutineRows,
+  getInitialAccordionState,
+  mergeReorderedSteps,
+  resolveDragResult,
+  routineRowKey,
+  type AccordionState,
+  type RoutineRow,
+} from '@/utils/routineAccordion';
 import { getAdaptationStatus } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { getDailyView, type FrozenStepView } from '@/utils/routineEngine/dailyView';
@@ -83,41 +94,43 @@ export default function RoutinesScreen({ navigation }: Props) {
   const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
   const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
   const removeProductStep = useRoutinesStore((s) => s.removeProductStep);
+  const setStepHidden = useRoutinesStore((s) => s.setStepHidden);
 
-  const [activePeriod, setActivePeriod] = useState<Period>('morning');
+  const [viewMode, setViewMode] = useState<RoutineViewMode>('list');
+  // Decided once, on mount: before 15:00 Morning is open, after it Evening is.
+  // Manual toggles win from then on — never recomputed on re-render.
+  const [expanded, setExpanded] = useState<AccordionState>(() => getInitialAccordionState());
   const [selectedDow, setSelectedDow] = useState<number>(() => new Date().getDay());
   const [addSheetVisible, setAddSheetVisible] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [pendingRemoval, setPendingRemoval] = useState<{ stepId: string; productId: string; productName: string } | null>(null);
+  const [sheetProduct, setSheetProduct] = useState<Product | null>(null);
+  const [sheetStep, setSheetStep] = useState<{ stepId: string; routineId: string } | null>(null);
+  // Which period new-product flows default to, from the same 15:00 rule.
+  const defaultPeriod: Period = expanded.morning ? 'morning' : 'evening';
+  const [pendingRemoval, setPendingRemoval] = useState<{ stepId: string; productId: string; productName: string; routineId: string } | null>(null);
   // Draft Preview state — a generated plan lives only here until committed
   const [draft, setDraft] = useState<ValidationResult | null>(null);
   // Story 3 (routine-similar-product-priority): the duplicate-slot group
   // currently opened in the resolution sheet, if any.
   const [pendingDuplicateGroup, setPendingDuplicateGroup] = useState<DuplicateSlotGroupPress | null>(null);
 
-  // Restore today's day and exit edit mode when the screen gains focus.
+  // Restore today's day when the screen gains focus.
   useFocusEffect(
     useCallback(() => {
       setSelectedDow(new Date().getDay());
-      setIsEditMode(false);
     }, []),
   );
 
-  const handlePeriodChange = useCallback((p: Period) => {
-    setActivePeriod(p);
-    setIsEditMode(false);
-  }, []);
-
   const handleDaySelect = useCallback((dow: number) => {
     setSelectedDow(dow);
-    setIsEditMode(false);
+  }, []);
+
+  const toggleSection = useCallback((period: Period) => {
+    setExpanded((prev) => ({ ...prev, [period]: !prev[period] }));
   }, []);
 
   // Single shared entry point for both the header "+" and the in-content
   // "Add product" button — both must open the exact same flow.
-  // Always exits edit mode first so the sheet opens in a clean state.
   const handleOpenAddSheet = useCallback(() => {
-    setIsEditMode(false);
     setAddSheetVisible(true);
   }, []);
 
@@ -135,7 +148,6 @@ export default function RoutinesScreen({ navigation }: Props) {
   );
 
   const handleOpenDraftPreview = useCallback(() => {
-    setIsEditMode(false);
     setDraft(validateCurrentRoutines());
   }, []);
 
@@ -259,25 +271,57 @@ export default function RoutinesScreen({ navigation }: Props) {
     return { amSteps: am, pmSteps: pm, conflictMap: map };
   }, [routines, products, selectedDow, frozenRows]);
 
-  const activeRoutine = activePeriod === 'morning' ? morningRoutine : eveningRoutine;
-  const activeSteps = activePeriod === 'morning' ? amSteps : pmSteps;
+  // Both periods render together; rows are one flat list so long-press drag
+  // never competes with an outer scroll container (see routineAccordion).
+  const rows = useMemo(
+    () => buildRoutineRows(amSteps, pmSteps, expanded),
+    [amSteps, pmSteps, expanded],
+  );
 
-  function handleDragEnd(reorderedVisible: RoutineStep[]) {
-    if (!isEditMode || !activeRoutine) return;
-    const visibleSet = new Set(reorderedVisible.map((s) => s.id));
-    const result: RoutineStep[] = [];
-    let idx = 0;
-    for (const step of activeRoutine.steps) {
-      result.push(visibleSet.has(step.id) ? reorderedVisible[idx++] : step);
-    }
-    if (idx !== reorderedVisible.length) return;
-    reorderSteps(activeRoutine.id, result);
+  function handleDragEnd(reorderedRows: RoutineRow[]) {
+    const resolved = resolveDragResult(reorderedRows);
+    // Cross-section drop (AM↔PM) — out of scope, so keep the previous order.
+    if (!resolved) return;
+
+    const commit = (routine: typeof morningRoutine, visible: RoutineStep[]) => {
+      if (!routine) return;
+      const merged = mergeReorderedSteps(routine.steps, visible);
+      if (merged) reorderSteps(routine.id, merged);
+    };
+
+    commit(morningRoutine, resolved.morning);
+    commit(eveningRoutine, resolved.evening);
+  }
+
+  function openStepSheet(product: Product, stepId: string, period: Period) {
+    const routine = period === 'morning' ? morningRoutine : eveningRoutine;
+    if (!routine) return;
+    setSheetProduct(product);
+    setSheetStep({ stepId, routineId: routine.id });
+  }
+
+  function closeStepSheet() {
+    setSheetProduct(null);
+    setSheetStep(null);
   }
 
   const renderItem = useCallback(
-    ({ item, drag, isActive: _isActive }: RenderItemParams<RoutineStep>) => {
-      const product = item.productId
-        ? products.find((p) => p.id === item.productId) ?? null
+    ({ item, drag, isActive: _isActive }: RenderItemParams<RoutineRow>) => {
+      if (item.kind === 'section') {
+        return (
+          <SectionHeader
+            period={item.period}
+            count={item.count}
+            expanded={item.expanded}
+            onToggle={() => toggleSection(item.period)}
+            onAdd={handleOpenAddSheet}
+          />
+        );
+      }
+
+      const step = item.step;
+      const product = step.productId
+        ? products.find((p) => p.id === step.productId) ?? null
         : null;
 
       if (!product) return null;
@@ -287,38 +331,28 @@ export default function RoutinesScreen({ navigation }: Props) {
           <View style={styles.cardWrapper}>
             <RoutineStepCard
               product={product}
-              onCardPress={
-                isEditMode
-                  ? undefined
-                  : () =>
-                      navigation.navigate('My Shelf', {
-                        screen: 'ProductDetail',
-                        params: { productId: product.id },
-                      })
+              onCardPress={() =>
+                navigation.navigate('My Shelf', {
+                  screen: 'ProductDetail',
+                  params: { productId: product.id },
+                })
               }
-              conflictingProductName={conflictMap.get(item.id) ?? null}
+              conflictingProductName={conflictMap.get(step.id) ?? null}
               adaptationWeek={adaptationWeeks.get(product.id) ?? null}
-              drag={drag}
-              isEditMode={isEditMode}
-              onDelete={
-                isEditMode && activeRoutine
-                  ? () =>
-                      setPendingRemoval({
-                        stepId: item.id,
-                        productId: product.id,
-                        productName: product.name,
-                      })
-                  : undefined
-              }
+              // Long-press anywhere on the card lifts it into drag — no
+              // separate edit mode to arm first (img-03).
+              onLongPress={drag}
+              onOverflowPress={() => openStepSheet(product, step.id, item.period)}
             />
           </View>
         </ScaleDecorator>
       );
     },
-    [isEditMode, activeRoutine, conflictMap, adaptationWeeks, products, navigation],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openStepSheet reads routines from the closure below
+    [conflictMap, adaptationWeeks, products, navigation, toggleSection, handleOpenAddSheet, morningRoutine, eveningRoutine],
   );
 
-  const activeFrozen = activeRoutine ? frozenRows.get(activeRoutine.id) ?? [] : [];
+  const allFrozen = useMemo(() => [...frozenRows.values()].flat(), [frozenRows]);
 
   const listHeader = useMemo(
     () => (
@@ -348,14 +382,14 @@ export default function RoutinesScreen({ navigation }: Props) {
           onPressGroup={handlePressDuplicateGroup}
         />
         <PlannerBlock
-          activePeriod={activePeriod}
-          onPeriodChange={handlePeriodChange}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
           selectedDow={selectedDow}
           onDaySelect={handleDaySelect}
         />
       </View>
     ),
-    [activePeriod, selectedDow, handlePeriodChange, handleDaySelect, rehabState, routines, products, handlePressDuplicateGroup, profile, updateProfile, navigation],
+    [viewMode, selectedDow, handleDaySelect, rehabState, routines, products, handlePressDuplicateGroup, profile, updateProfile, navigation],
   );
 
   return (
@@ -364,61 +398,55 @@ export default function RoutinesScreen({ navigation }: Props) {
         title="Routines"
         rightAction={
           <View style={styles.headerActions}>
-            {!isEditMode ? (
-              <IconButton
-                icon={<Feather name="plus" size={18} color={palette.bottleGreen} />}
-                label="Add product to routine"
-                variant="ghost"
-                size="sm"
-                round
-                onPress={handleOpenAddSheet}
-              />
-            ) : null}
+            {/* Regenerate sits immediately left of "+", which stays rightmost
+                so adding a product is always a single tap (img-03). */}
             <IconButton
-              icon={
-                <Feather
-                  name={isEditMode ? 'check' : 'edit-2'}
-                  size={18}
-                  color={palette.bottleGreen}
-                />
-              }
-              label={isEditMode ? 'Done editing' : 'Edit routine'}
+              icon={<Feather name="refresh-cw" size={18} color={palette.bottleGreen} />}
+              label="Regenerate routine"
               variant="ghost"
               size="sm"
               round
-              onPress={() => setIsEditMode((prev) => !prev)}
+              onPress={handleOpenDraftPreview}
+            />
+            <IconButton
+              icon={<Feather name="plus" size={18} color={palette.bottleGreen} />}
+              label="Add product to routine"
+              variant="ghost"
+              size="sm"
+              round
+              onPress={handleOpenAddSheet}
             />
           </View>
         }
       />
       <DraggableFlatList
-        data={activeSteps}
-        keyExtractor={(item) => item.id}
+        // With no steps at all the section headers are noise — fall through to
+        // the Generate card instead.
+        data={totalSteps === 0 ? [] : rows}
+        keyExtractor={routineRowKey}
         onDragEnd={({ data }) => handleDragEnd(data)}
         renderItem={renderItem}
         ListHeaderComponent={listHeader}
         ListFooterComponent={
-          !isEditMode ? (
-            <View style={styles.addProductFooter}>
-              <PausedSteps frozen={activeFrozen} products={products} />
-              <Button
-                variant="textActive"
-                size="md"
-                fullWidth
-                icon={<Feather name="plus" size={16} color={palette.bottleGreen} />}
-                onPress={handleOpenAddSheet}
-                accessibilityLabel="Add product to routine"
-              >
-                Add product
-              </Button>
-              {totalSteps > 0 ? (
-                <OptimizeStrip
-                  hasFindings={validation?.hasBlockingFindings ?? false}
-                  onPress={handleOpenDraftPreview}
-                />
-              ) : null}
-            </View>
-          ) : null
+          <View style={styles.addProductFooter}>
+            <PausedSteps frozen={allFrozen} products={products} />
+            <Button
+              variant="textActive"
+              size="md"
+              fullWidth
+              icon={<Feather name="plus" size={16} color={palette.bottleGreen} />}
+              onPress={handleOpenAddSheet}
+              accessibilityLabel="Add product to routine"
+            >
+              Add product
+            </Button>
+            {totalSteps > 0 ? (
+              <OptimizeStrip
+                hasFindings={validation?.hasBlockingFindings ?? false}
+                onPress={handleOpenDraftPreview}
+              />
+            ) : null}
+          </View>
         }
         ListEmptyComponent={
           totalSteps === 0 ? (
@@ -437,7 +465,9 @@ export default function RoutinesScreen({ navigation }: Props) {
       <AddToRoutineSheet
         visible={addSheetVisible}
         onClose={() => setAddSheetVisible(false)}
-        activePeriod={activePeriod}
+        // Both periods are visible now, so the sheet pre-selects the one the
+        // time of day suggests — the same rule the accordions open with.
+        activePeriod={defaultPeriod}
       />
 
       <DraftPreviewSheet
@@ -458,19 +488,51 @@ export default function RoutinesScreen({ navigation }: Props) {
         rankedProducts={duplicateResolution?.rankedProducts ?? []}
       />
 
+      <RoutineStepActionSheet
+        product={sheetProduct}
+        onViewDetails={(p) =>
+          navigation.navigate('My Shelf', {
+            screen: 'ProductDetail',
+            params: { productId: p.id },
+          })
+        }
+        onEdit={(p) =>
+          navigation.navigate('My Shelf', {
+            screen: 'ManualProductForm',
+            params: { editingProductId: p.id },
+          })
+        }
+        onRemoveFromRoutine={(p) => {
+          // Drops the step only — the product stays on the shelf. The modal
+          // then offers "this day" vs "every day".
+          if (sheetStep) {
+            setPendingRemoval({
+              stepId: sheetStep.stepId,
+              productId: p.id,
+              productName: p.name,
+              routineId: sheetStep.routineId,
+            });
+          }
+        }}
+        onHide={(_p) => {
+          if (sheetStep) setStepHidden(sheetStep.routineId, sheetStep.stepId, true);
+        }}
+        onClose={closeStepSheet}
+      />
+
       <RemoveStepModal
         visible={pendingRemoval !== null}
         productName={pendingRemoval?.productName ?? ''}
         dow={selectedDow}
         onRemoveDay={() => {
-          if (activeRoutine && pendingRemoval) {
-            removeStepFromDay(activeRoutine.id, pendingRemoval.stepId, selectedDow);
+          if (pendingRemoval) {
+            removeStepFromDay(pendingRemoval.routineId, pendingRemoval.stepId, selectedDow);
           }
           setPendingRemoval(null);
         }}
         onRemoveAll={() => {
-          if (activeRoutine && pendingRemoval) {
-            removeProductStep(activeRoutine.id, pendingRemoval.productId);
+          if (pendingRemoval) {
+            removeProductStep(pendingRemoval.routineId, pendingRemoval.productId);
           }
           setPendingRemoval(null);
         }}
@@ -479,6 +541,94 @@ export default function RoutinesScreen({ navigation }: Props) {
     </SafeAreaView>
   );
 }
+
+// ─── Accordion section header (img-03) ────────────────────────────────────────
+
+interface SectionHeaderProps {
+  period: Period;
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+  onAdd: () => void;
+}
+
+function SectionHeader({ period, count, expanded, onToggle, onAdd }: SectionHeaderProps) {
+  const title = period === 'morning' ? 'Morning' : 'Evening';
+  const stepLabel = `${count} ${count === 1 ? 'step' : 'steps'}`;
+
+  return (
+    <View style={sectionStyles.wrap}>
+      <Pressable
+        style={sectionStyles.header}
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={`${title}, ${stepLabel}, ${expanded ? 'expanded' : 'collapsed'}`}
+      >
+        <Feather
+          name={expanded ? 'chevron-down' : 'chevron-right'}
+          size={18}
+          color={colors.textSecondary}
+        />
+        <Feather
+          name={period === 'morning' ? 'sun' : 'moon'}
+          size={16}
+          color={colors.textSecondary}
+        />
+        <Text style={sectionStyles.title}>{title}</Text>
+        <Text style={sectionStyles.count}>· {stepLabel}</Text>
+      </Pressable>
+
+      {expanded && count === 0 ? (
+        <View style={sectionStyles.empty}>
+          <Text style={sectionStyles.emptyText}>
+            No steps for this {period === 'morning' ? 'morning' : 'evening'}.
+          </Text>
+          <Pressable onPress={onAdd} accessibilityRole="button" hitSlop={8}>
+            <Text style={sectionStyles.emptyAction}>Add product</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const sectionStyles = StyleSheet.create({
+  wrap: {
+    marginBottom: space[3],
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    paddingVertical: space[2],
+  },
+  title: {
+    ...typography.body,
+    fontFamily: 'DMSans-Bold',
+    color: colors.textPrimary,
+  },
+  count: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  empty: {
+    paddingVertical: space[3],
+    paddingHorizontal: space[3],
+    gap: space[2],
+    backgroundColor: colors.surfaceSunken,
+    borderRadius: radius.md,
+  },
+  emptyText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  emptyAction: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: palette.bottleGreen,
+  },
+});
 
 // ─── Paused rows (clinical freezes, research §1.5) ────────────────────────────
 

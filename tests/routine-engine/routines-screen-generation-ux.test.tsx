@@ -220,8 +220,11 @@ describe('Story 1 AC: the bottom Optimize strip appears once routines are popula
   });
 });
 
-describe('Story 1 AC: the header pencil stays limited to manual reorder/delete, separate from generation entry points', () => {
-  it('hides the Optimize strip and the Add-product footer while in edit mode, without opening the Draft Preview', () => {
+describe('Story 1 AC: header actions stay limited to regenerate + add, separate from committing a plan', () => {
+  // img-03 replaced the edit-mode pencil: reordering is now a long-press on the
+  // card itself, so the header carries exactly two actions — Regenerate
+  // (immediately left) and Add product (rightmost, always one tap away).
+  it('exposes Regenerate and Add product in the header, with no edit-mode toggle', () => {
     const product = makeProduct({ id: 'p1', name: 'Gentle Cleanser' });
     mockProducts = [product];
     mockRoutines = [
@@ -230,16 +233,27 @@ describe('Story 1 AC: the header pencil stays limited to manual reorder/delete, 
     ];
 
     renderScreen();
-    expect(screen.getByLabelText('Optimize or Regenerate Routine')).toBeTruthy();
 
-    fireEvent.press(screen.getByLabelText('Edit routine'));
+    expect(screen.getByLabelText('Regenerate routine')).toBeTruthy();
+    // The header "+" and the in-content footer button share this label — both
+    // open the same add flow, so at least one must always be present.
+    expect(screen.getAllByLabelText('Add product to routine').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByLabelText('Edit routine')).toBeNull();
+    expect(screen.queryByLabelText('Done editing')).toBeNull();
+  });
 
-    // Entering edit mode via the pencil only swaps the footer for manual
-    // reorder/delete controls — the generation entry point disappears
-    // entirely rather than opening the Draft Preview.
-    expect(screen.queryByLabelText('Optimize or Regenerate Routine')).toBeNull();
-    expect(screen.getByLabelText('Done editing')).toBeTruthy();
+  it('opens the Draft Preview from the header Regenerate action without committing a plan', () => {
+    const product = makeProduct({ id: 'p1', name: 'Gentle Cleanser' });
+    mockProducts = [product];
+    mockRoutines = [
+      { id: 'routine-am', name: 'Morning', timeOfDay: 'morning', steps: [makeStep({ id: 's1', productId: product.id })] },
+      { id: 'routine-pm', name: 'Evening', timeOfDay: 'evening', steps: [] },
+    ];
 
+    renderScreen();
+    fireEvent.press(screen.getByLabelText('Regenerate routine'));
+
+    // Regenerating only previews — nothing is written until the user commits.
     const { applyRoutinePlan } = require('@/domain/routinePlanActions');
     expect(applyRoutinePlan).not.toHaveBeenCalled();
   });
