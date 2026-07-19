@@ -4,6 +4,7 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 
 import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
+import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
@@ -108,6 +109,9 @@ export function RoutineStepCard({
         </Pressable>
       ) : null}
 
+      {/* Leading product photo (compact 44px) — placeholder when none */}
+      <ProductThumbnail product={product} size={44} />
+
       {/* Content area */}
       <View style={styles.contentArea}>
         {/* Top row: product name (left, up to 2 lines) + brand (right, 1 line) */}
@@ -134,9 +138,10 @@ export function RoutineStepCard({
                 onPress={() => setAttributionVisible(true)}
                 style={styles.activeBadge}
               >
-                <Text style={styles.activeBadgeText}>
-                  {activeLabel}
-                </Text>
+                {/* Compact routine surface: a lightning glyph signals "has
+                    actives" — full biomarker tags live on the shelf card only.
+                    The glyph stays tappable so INCI attribution is preserved. */}
+                <Feather name="zap" size={12} color={palette.zinc600} />
                 {showAliasIcon ? (
                   <View
                     testID={`active-badge-alias-icon-${activeKey}`}

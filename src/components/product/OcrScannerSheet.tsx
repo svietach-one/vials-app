@@ -19,8 +19,12 @@ import { colors, radius, space, typography } from '@/constants/tokens';
 export interface OcrScannerSheetProps {
   visible: boolean;
   onClose: () => void;
-  /** Called with the cleaned INCI string once OCR succeeds. */
-  onResult: (text: string) => void;
+  /**
+   * Called with the cleaned INCI string once OCR succeeds. `sourceUri` is the
+   * original captured image, offered for reuse as the product photo (img-02)
+   * so the user never re-shoots the same label.
+   */
+  onResult: (text: string, sourceUri?: string) => void;
 }
 
 const SCAN_TIMEOUT_MS = 10_000;
@@ -38,6 +42,8 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
   // The shared Tesseract engine (hidden WebView) buffers images internally
   // until its worker is ready, so this sheet only ever calls processImage.
   const engineRef = useRef<OcrEngineHandle>(null);
+  // URI of the last captured image, threaded to onResult for photo reuse.
+  const lastSourceUriRef = useRef<string | null>(null);
   // Fail-safe: if loading stays true for >10s we auto-reset and surface an error.
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -115,7 +121,7 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
       onClose();
       return;
     }
-    handlePickedImage(result.assets[0]?.base64 ?? null);
+    handlePickedImage(result.assets[0]?.base64 ?? null, result.assets[0]?.uri ?? null);
   }
 
   async function handleGallery() {
@@ -137,17 +143,18 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
       onClose();
       return;
     }
-    handlePickedImage(result.assets[0]?.base64 ?? null);
+    handlePickedImage(result.assets[0]?.base64 ?? null, result.assets[0]?.uri ?? null);
   }
 
   // ── OCR pipeline ──────────────────────────────────────────────────────────
 
-  function handlePickedImage(base64: string | null | undefined) {
+  function handlePickedImage(base64: string | null | undefined, sourceUri?: string | null) {
     if (!base64) {
       onClose();
       return;
     }
 
+    lastSourceUriRef.current = sourceUri ?? null;
     // ▶ Show the loading overlay IMMEDIATELY, before any OCR work.
     setLoading(true);
     startScanTimeout();
@@ -161,15 +168,19 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
       showOcrError();
       return;
     }
+    const sourceUri = lastSourceUriRef.current ?? undefined;
+    // Keep the call one-arg when there is no image, so the text-flow contract
+    // is unchanged; only pass the URI when a shot is available for reuse.
+    const emit = () => (sourceUri ? onResult(cleanedText, sourceUri) : onResult(cleanedText));
     setLoading(false);
     if (hadNonLatin) {
       Alert.alert(
         'Some Characters Removed',
         'Many non-Latin characters were stripped from the scan. Check the ingredient list looks correct.',
-        [{ text: 'OK', onPress: () => onResult(cleanedText) }],
+        [{ text: 'OK', onPress: emit }],
       );
     } else {
-      onResult(cleanedText);
+      emit();
     }
   }
 

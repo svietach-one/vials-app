@@ -78,3 +78,83 @@
 
 - [ ] Attach a photo (camera + gallery) to a product; confirm it persists across
       an app restart (files land under the document directory, not cache).
+
+---
+
+## Task 02 — ProductThumbnail, Cards, Photo Attach UI ✅
+
+**Shipped**
+
+- **`src/components/ui/ProductThumbnail.tsx`** (new): single owner of image
+  precedence (`localImageUri ?? imageUrl ?? placeholder`) + all states. Plain RN
+  `<Image>` (no expo-image). `onError` → placeholder; a local `file://` URI is
+  additionally probed via `localPhotoExists` (async, off-render) and falls back
+  to the placeholder — the Android dangling-file case. `ProductThumbnailPlaceholder`
+  is its own subcomponent (Feather `image` glyph on a muted per-type wash).
+- **`src/services/imageFile.ts`** (new): `localPhotoExists(uri)` — a lightweight
+  existence probe kept out of productImage so a card render never pulls the
+  picker/manipulator/queue chain.
+- **`src/utils/productThumbnailTint.ts`** (new): pure per-type wash — the type
+  accent hue at 0.08 alpha (never full-value Apothecary colours, never the
+  semantic `*Tint` tokens). Resolves palette lazily and never throws on a
+  partial/absent palette (display-util hygiene).
+- **`RoutineStepCard`**: leading 44px `ProductThumbnail`. The active badge's
+  text label is replaced by a compact Feather `zap` glyph — full biomarker tags
+  stay on the shelf card only. The badge stays a Pressable with the same testID /
+  attribution tooltip / alias icon, so INCI attribution is preserved.
+- **`ProductShelfCard`**: inner layout restructured to a leading-52px-thumbnail
+  row + content column. Thumbnail dims with `isHidden`. Full active badges
+  unchanged.
+- **`ManualProductFormScreen`**: photo section in Block 1 (preview via
+  `ProductThumbnail` + Add/Change/Remove via an Alert picker → `pickAndStoreProductPhoto`).
+  A stable `productId` (useRef) lets a photo be captured before save. `handleSave`
+  now carries `imageUrl` (edit) + `localImageUri` (no more hardcoded null) via a
+  `buildProduct` helper; removing a photo is staged and its files cleaned on save.
+- **OCR shot reuse**: `OcrScannerSheet.onResult` gained an optional `sourceUri`
+  (the captured shot); the form offers it as the product photo when none is set
+  (staged, changeable/removable before save). The one-arg call is preserved when
+  no image, so the OCR text-flow contract is unchanged.
+
+**Deviations**
+
+- The task's OCR-reuse step names `CameraCaptureModal` / `CaptureResult`, but the
+  manual form's OCR entry point is actually `OcrScannerSheet` (text-only
+  `onResult`). Implemented the reuse there instead — same outcome (the scanned
+  shot becomes the product photo without re-shooting). The front-label
+  `CameraCaptureModal` capture lives in the separate add-product wizard, which
+  saves via a different path and is out of scope here. No BLOCKER: the acceptance
+  criterion is satisfied through the form's real OCR path.
+- The reused shot is the ingredient-label photo (the form's only in-context
+  capture). It is *offered*, not forced: only set when no photo exists, and it is
+  visible + removable in the preview before save.
+
+**Verification**
+
+- `npx tsc --noEmit`: clean.
+- Full suite: **3 failing suites — the same 3 baseline suites**, 0 introduced;
+  1246 tests passing (up from 1221). The 3 baseline suites fail on their OWN
+  incomplete `@/constants/tokens` mocks (e.g. `palette` supplied as only
+  `{white, black}`), unmasked by the img-01 AsyncStorage mock — `ProductShelfCard`
+  already read `palette.zinc100` / `palette.cobaltTint` at module-init before this
+  work, so these are pre-existing test-mock gaps, not image regressions. The new
+  tint util is robust and out of the crash path.
+- Affected card suites (product-shelf-card, routine-step-card, attribution
+  wiring) all green (69 tests).
+
+**Files touched**
+
+`src/components/ui/ProductThumbnail.tsx`, `src/services/imageFile.ts`,
+`src/utils/productThumbnailTint.ts` (+ `.test.ts`),
+`tests/product-images/ProductThumbnail.test.tsx`,
+`src/components/routine/RoutineStepCard.tsx`,
+`src/components/product/ProductShelfCard.tsx`,
+`src/components/product/OcrScannerSheet.tsx`,
+`src/screens/ManualProductFormScreen.tsx`.
+
+**Manual QA for the human (needs a device / Expo Go)**
+
+- [ ] A dangling `localImageUri` on Android falls back to the placeholder (not a
+      broken-image glyph).
+- [ ] Scroll performance on a ~50-item shelf list with mixed photos/placeholders.
+- [ ] Scan an ingredient label in the manual form with no photo set → the shot
+      appears in the photo preview and is attached after save.

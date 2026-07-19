@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { ActiveBadgeCategory, Product, ProductType } from '@/types';
@@ -97,6 +98,11 @@ export function ProductShelfCard({
         accessibilityRole="button"
         accessibilityLabel={`${product.name}, tap to view details`}
       >
+        <View style={styles.rowWrap}>
+          {/* Leading product photo (52px) — placeholder when none, dims with card */}
+          <ProductThumbnail product={product} size={52} dimmed={!!product.isHidden} />
+
+          <View style={styles.mainColumn}>
         <View
           testID="shelf-card-content"
           style={[styles.content, product.isHidden && styles.contentDimmed]}
@@ -185,6 +191,8 @@ export function ProductShelfCard({
             }}
           />
         </View>
+          </View>
+        </View>
       </Pressable>
 
       <ProductActionSheet
@@ -226,6 +234,17 @@ const styles = StyleSheet.create({
   },
   cardDisabled: {
     opacity: 0.4,
+  },
+
+  rowWrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[3],
+  },
+  mainColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: space[2],
   },
 
   content: {
