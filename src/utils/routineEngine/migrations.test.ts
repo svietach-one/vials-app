@@ -55,8 +55,8 @@ function makeRoutine(steps: Routine['steps']): Routine {
 // ─── Schema version ───────────────────────────────────────────────────────────
 
 describe('CURRENT_SCHEMA_VERSION', () => {
-  it('is 2 for the routine-engine schema alignment pass', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(2);
+  it('is 3 after the V2.1 migration package (phase-08: goals + confirmation flags + peptides)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(3);
   });
 });
 
@@ -350,5 +350,124 @@ describe('migrateRoutines', () => {
     const once = migrateRoutines(routines);
     const twice = migrateRoutines(once);
     expect(twice).toBe(once);
+  });
+});
+
+describe('migrateProfile — goal derivation (phase-03 §3.1)', () => {
+  it('derives aging + needsConfirmation from a wrinkles concern', () => {
+    const result = migrateProfile(makeLegacyProfile({ concerns: ['wrinkles'] }));
+    expect(result.primaryGoal).toBe('aging');
+    expect(result.secondaryGoal).toBeNull();
+    expect(result.goalNeedsConfirmation).toBe(true);
+  });
+
+  it('defaults empty concerns to maintenance WITHOUT a confirmation prompt', () => {
+    // A default is not a guess — nothing to confirm (tech design Assumption 1)
+    const result = migrateProfile(makeLegacyProfile({ concerns: [] }));
+    expect(result.primaryGoal).toBe('maintenance');
+    expect(result.goalNeedsConfirmation).toBe(false);
+  });
+
+  it('applies first-match-wins ordering across concern groups', () => {
+    // acne group outranks pigmentation and aging even when all are present
+    const result = migrateProfile(
+      makeLegacyProfile({ concerns: ['wrinkles', 'dark_spots', 'pores'] }),
+    );
+    expect(result.primaryGoal).toBe('acne');
+  });
+
+  it('maps sensitivity-family concerns to barrier_repair', () => {
+    const result = migrateProfile(makeLegacyProfile({ concerns: ['eczema'] }));
+    expect(result.primaryGoal).toBe('barrier_repair');
+  });
+
+  it('never re-derives a present goal — including user-confirmed maintenance', () => {
+    const confirmed = migrateProfile(
+      makeLegacyProfile({
+        concerns: ['wrinkles'],
+        primaryGoal: 'maintenance',
+        secondaryGoal: null,
+        goalNeedsConfirmation: false,
+      }),
+    );
+    expect(confirmed.primaryGoal).toBe('maintenance');
+    expect(confirmed.goalNeedsConfirmation).toBe(false);
+  });
+
+  it('is idempotent — a second run returns the same reference', () => {
+    const once = migrateProfile(makeLegacyProfile({ concerns: ['dryness'] }));
+    const twice = migrateProfile(once);
+    expect(twice).toBe(once);
+    expect(once.primaryGoal).toBe('dehydration');
+  });
+});
+
+describe('migrateProfile — phototype confirmation flag (phase-08 §8.1)', () => {
+  it('flags a migrating profile with a grouped phototype for confirmation', () => {
+    const result = migrateProfile(makeLegacyProfile({ phototype: 'type_3_4' }));
+    expect(result.fitzpatrick).toBe(4); // strict-member derivation
+    expect(result.phototypeNeedsConfirmation).toBe(true);
+  });
+
+  it('does not flag a migrating profile that had no phototype', () => {
+    const result = migrateProfile(makeLegacyProfile({ phototype: null }));
+    expect(result.phototypeNeedsConfirmation).toBe(false);
+  });
+
+  it('never re-flags a post-v3 profile — a present flag is preserved', () => {
+    const confirmed = migrateProfile(
+      makeLegacyProfile({ phototype: 'type_5_6', phototypeNeedsConfirmation: false }),
+    );
+    expect(confirmed.phototypeNeedsConfirmation).toBe(false);
+  });
+});
+
+describe('migrateProductActiveKeys — peptide re-attribution (phase-08 §8.3)', () => {
+  it('re-tags copper_peptides to peptide_signal when INCI has no copper marker', () => {
+    const result = migrateProductActiveKeys(
+      makeProduct({
+        activeTags: ['copper_peptides'],
+        fullIngredientText: 'Aqua, Palmitoyl Pentapeptide-4, Glycerin',
+      }),
+    );
+    expect(result.activeTags).toEqual(['peptide_signal']);
+  });
+
+  it('keeps copper_peptides when the INCI carries a copper marker', () => {
+    const product = makeProduct({
+      activeTags: ['copper_peptides'],
+      fullIngredientText: 'Aqua, Copper Tripeptide-1, Glycerin',
+    });
+    const result = migrateProductActiveKeys(product);
+    expect(result).toBe(product); // same reference — no change
+    expect(result.activeTags).toEqual(['copper_peptides']);
+  });
+
+  it('keeps copper_peptides when there is no INCI text (user assertion, no evidence)', () => {
+    const product = makeProduct({ activeTags: ['copper_peptides'], fullIngredientText: null });
+    const result = migrateProductActiveKeys(product);
+    expect(result).toBe(product);
+    expect(result.activeTags).toEqual(['copper_peptides']);
+  });
+
+  it('does not duplicate peptide_signal when the tag list already carries it', () => {
+    const result = migrateProductActiveKeys(
+      makeProduct({
+        activeTags: ['copper_peptides', 'peptide_signal'],
+        fullIngredientText: 'Aqua, Palmitoyl Pentapeptide-4',
+      }),
+    );
+    expect(result.activeTags).toEqual(['peptide_signal']);
+  });
+
+  it('is idempotent — a second run over the re-tagged product is a no-op', () => {
+    const once = migrateProductActiveKeys(
+      makeProduct({
+        activeTags: ['copper_peptides'],
+        fullIngredientText: 'Aqua, Palmitoyl Pentapeptide-4',
+      }),
+    );
+    const twice = migrateProductActiveKeys(once);
+    expect(twice).toBe(once); // same reference — nothing left to migrate
   });
 });

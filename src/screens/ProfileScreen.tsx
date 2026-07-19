@@ -276,10 +276,12 @@ export default function ProfileScreen() {
 
   function handleCycleToggle(enableDynamic: boolean) {
     if (!enableDynamic) {
-      // Dynamic → fixed discards cycle progress — confirm first (research §1.4)
+      // Dynamic → fixed discards cycle progress — confirm first (research §1.4).
+      // Manual weekly schedules are preserved: dynamic mode only masks them at
+      // render (phase-06), so switching back restores them exactly.
       Alert.alert(
         'Switch to fixed days?',
-        'Your skin-cycle progress will be discarded. Application counters are kept.',
+        'Your skin-cycle progress will be discarded. Your manual weekly schedule and application counters are kept.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Switch', style: 'destructive', onPress: () => switchCycleType('fixed') },
@@ -287,6 +289,8 @@ export default function ProfileScreen() {
       );
       return;
     }
+    // Enabling dynamic keeps your saved weekly schedule — it is masked while
+    // cycling, and returns unchanged if you switch back.
     switchCycleType('dynamic');
   }
 

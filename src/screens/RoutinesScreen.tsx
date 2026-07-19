@@ -25,15 +25,18 @@ import { PlannerBlock } from '@/components/routine/PlannerBlock';
 import { RehabWidget } from '@/components/routine/RehabWidget';
 import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
+import { GoalConfirmBanner } from '@/components/routine/GoalConfirmBanner';
+import { PhototypeConfirmBanner } from '@/components/routine/PhototypeConfirmBanner';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
-import { getSlotCategoryLabel } from '@/constants/labels';
+import { getSlotCategoryLabel, GOAL_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import {
   applyRoutinePlan,
+  currentOverrideHash,
   validateCurrentRoutines,
   type PlanCommitScope,
 } from '@/domain/routinePlanActions';
@@ -74,6 +77,7 @@ export default function RoutinesScreen({ navigation }: Props) {
   const routines = useRoutinesStore((s) => s.routines);
   const procedures = useProceduresStore((s) => s.procedures);
   const profile = useProfileStore((s) => s.profile);
+  const updateProfile = useProfileStore((s) => s.updateProfile);
   const cycleType = useSettingsStore((s) => s.routineCycleType);
   const applicationStats = useTrackingStore((s) => s.applicationStats);
   const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
@@ -154,6 +158,13 @@ export default function RoutinesScreen({ navigation }: Props) {
         ? { ...prev, proposedPlan: applySlotAlternativeSwap(prev.proposedPlan, winnerProductId, chosenProductId) }
         : prev,
     );
+  }, []);
+
+  // phase-07 override: record the "add anyway" and regenerate the draft so the
+  // forced-in product now appears in the plan.
+  const handleOverride = useCallback((productId: string) => {
+    useTrackingStore.getState().addOverride(productId, currentOverrideHash());
+    setDraft(validateCurrentRoutines());
   }, []);
 
   // Story 3 (routine-similar-product-priority): tapping a duplicate-slot
@@ -315,6 +326,20 @@ export default function RoutinesScreen({ navigation }: Props) {
         {/* Rehab shield anchors at the very top while a rehab window is live
             (research §1.5 V3); the blocks below render null when idle */}
         <RehabWidget state={rehabState} />
+        {profile?.goalNeedsConfirmation === true && (
+          <GoalConfirmBanner
+            goalLabel={GOAL_LABELS[profile.primaryGoal]}
+            onConfirm={() => updateProfile({ goalNeedsConfirmation: false })}
+            onAdjust={() => navigation.navigate('Profile' as never)}
+          />
+        )}
+        {profile?.phototypeNeedsConfirmation === true && (
+          <PhototypeConfirmBanner
+            fitzpatrick={profile.fitzpatrick}
+            onConfirm={() => updateProfile({ phototypeNeedsConfirmation: false })}
+            onAdjust={() => navigation.navigate('Profile' as never)}
+          />
+        )}
         <SeasonalNoticeBanner />
         <ClinicalRestrictionsBlock />
         <DuplicateSlotWarningInline
@@ -330,7 +355,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         />
       </View>
     ),
-    [activePeriod, selectedDow, handlePeriodChange, handleDaySelect, rehabState, routines, products, handlePressDuplicateGroup],
+    [activePeriod, selectedDow, handlePeriodChange, handleDaySelect, rehabState, routines, products, handlePressDuplicateGroup, profile, updateProfile, navigation],
   );
 
   return (
@@ -422,6 +447,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         diff={draft?.diff ?? []}
         onCommit={handleCommitDraft}
         onSwapAlternative={handleSwapAlternative}
+        onOverride={handleOverride}
       />
 
       <DuplicateSlotResolutionSheet

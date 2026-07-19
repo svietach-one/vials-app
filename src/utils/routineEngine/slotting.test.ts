@@ -76,9 +76,12 @@ describe('periodsForProduct', () => {
 });
 
 describe('isTreatment', () => {
-  it('classifies irritant actives as treatments', () => {
+  it('classifies strong-carrier actives as treatments — mild ones render freely', () => {
+    // phase-04 tightened the boundary to the cumulative rule (irritancy >= 3):
+    // mild bioactives like niacinamide carry no cumulative restriction and
+    // may render in every allowed period (2026-07-17 directive, report §7).
     expect(isTreatment(makeFacts({ activeTags: ['retinoid'] }))).toBe(true);
-    expect(isTreatment(makeFacts({ activeTags: ['niacinamide'] }))).toBe(true);
+    expect(isTreatment(makeFacts({ activeTags: ['niacinamide'] }))).toBe(false);
   });
 
   it('classifies benign hydrators and products without actives as non-treatments', () => {

@@ -147,6 +147,16 @@ export function buildDraftSummaryLines(
     );
   }
 
+  // Skeleton reserve (phase-04): healthy products the routine did not need —
+  // narrated so nothing vanishes silently (research §1.8).
+  if (plan.reserve.length > 0 && lines.length < 3) {
+    lines.push(
+      plan.reserve.length === 1
+        ? `${nameOf(plan.reserve[0].productId)} kept in reserve`
+        : `${plan.reserve.length} products kept in reserve`,
+    );
+  }
+
   const moved = diff.filter((d) => d.kind === 'moved');
   if (moved.length > 0 && lines.length < 3) {
     const to = moved[0].to === 'morning' ? 'morning' : 'evening';

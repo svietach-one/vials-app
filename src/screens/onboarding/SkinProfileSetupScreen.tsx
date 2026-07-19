@@ -12,11 +12,12 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
+import { GoalSelector } from '@/components/profile/GoalSelector';
 import { Button } from '@/components/ui/core/Button';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
-import type { FitzpatrickType, SkinConcern, SkinType } from '@/types';
+import type { FitzpatrickType, SkinConcern, SkinGoal, SkinType } from '@/types';
 import type { OnboardingStackParamList } from '@/navigation/AppNavigator';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,6 +56,8 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
   const [skinType, setSkinType] = useState<SkinType | null>(null);
   const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(null);
   const [concerns, setConcerns] = useState<SkinConcern[]>([]);
+  const [primaryGoal, setPrimaryGoal] = useState<SkinGoal>('maintenance');
+  const [secondaryGoal, setSecondaryGoal] = useState<SkinGoal | null>(null);
 
   function toggleConcern(c: SkinConcern) {
     setConcerns((prev) =>
@@ -70,6 +73,13 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
       skinType,
       fitzpatrick,
       concerns,
+      primaryGoal,
+      secondaryGoal,
+      // Chosen (or deliberately left at maintenance) during onboarding —
+      // never prompt this user to confirm a derived goal.
+      goalNeedsConfirmation: false,
+      // Choosing on the 6-card selector IS confirming the skin tone.
+      phototypeNeedsConfirmation: false,
     };
   }
 
@@ -159,6 +169,21 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
                 />
               ))}
             </View>
+          </Section>
+
+          {/* Care goals (V2.1 Step 0) */}
+          <Section
+            label="Care goals (optional)"
+            hint="Pick up to two. Routines are built around your primary goal; leave empty for maintenance care."
+          >
+            <GoalSelector
+              primaryGoal={primaryGoal}
+              secondaryGoal={secondaryGoal}
+              onChange={(primary, secondary) => {
+                setPrimaryGoal(primary);
+                setSecondaryGoal(secondary);
+              }}
+            />
           </Section>
 
           {/* Phototype — visually unlabeled cards (US-03) */}

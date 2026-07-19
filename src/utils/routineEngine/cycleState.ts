@@ -34,6 +34,39 @@ export function getCyclePhaseForTonight(state: CycleState): CyclePhase {
   return CYCLE_PHASES[state.cyclePhaseIndex];
 }
 
+/** The two active phases gated by shelf composition; recovery needs no product. */
+export type CycleClass = 'exfoliant' | 'retinoid';
+
+/** Reason surfaced when neither cycle class is on the shelf (V2.1 phase-06). */
+export const DYNAMIC_UNAVAILABLE_REASON = 'dynamic_unavailable_no_actives';
+
+/**
+ * Tonight's phase resolved against shelf composition (V2.1 phase-06 §6.1): an
+ * exfoliation or retinoid night whose class is not available degrades to
+ * recovery, so the cycle never shows an empty night. `cyclePhaseIndex` is NOT
+ * touched — it keeps advancing mod 4 via checkInCycle, so returning a product
+ * to the shelf seamlessly restores the full cycle. `available` is the set of
+ * cycle classes with at least one *eligible* product (caller-computed).
+ */
+export function resolveCyclePhase(
+  state: CycleState,
+  available: ReadonlySet<string>,
+): CyclePhase {
+  const raw = getCyclePhaseForTonight(state);
+  if (raw === 'exfoliation' && !available.has('exfoliant')) return 'recovery';
+  if (raw === 'retinoid' && !available.has('retinoid')) return 'recovery';
+  return raw;
+}
+
+/**
+ * Whether dynamic cycling has anything to cycle: with neither an exfoliant nor
+ * a retinoid on the shelf every night resolves to recovery, so the mode adds
+ * nothing and the UI advises staying on fixed.
+ */
+export function isDynamicCyclingAvailable(available: ReadonlySet<string>): boolean {
+  return available.has('exfoliant') || available.has('retinoid');
+}
+
 /** True when a check-in was already recorded for the current skincare day. */
 export function isCheckedInToday(state: CycleState, now: Date = new Date()): boolean {
   return state.lastAppliedDate === getSkincareDateString(now);

@@ -20,7 +20,7 @@ import type { ActiveIngredientKey } from '@/types';
 
 describe('parseActiveIngredientsFromInci', () => {
   it('should return retinoid key when INCI text contains "retinol"', () => {
-    const result = parseActiveIngredientsFromInci('Water, Glycerin, Retinol, Fragrance');
+    const result = parseActiveIngredientsFromInci('Water, Squalane, Retinol, Fragrance');
 
     expect(result).toContain('retinoid');
   });
@@ -56,7 +56,7 @@ describe('parseActiveIngredientsFromInci', () => {
   });
 
   it('should return vitamin_c_derivative key when INCI text contains "sodium ascorbyl phosphate"', () => {
-    const result = parseActiveIngredientsFromInci('Water, Sodium Ascorbyl Phosphate, Glycerin');
+    const result = parseActiveIngredientsFromInci('Water, Sodium Ascorbyl Phosphate, Squalane');
 
     expect(result).toContain('vitamin_c_derivative');
     expect(result).not.toContain('vitamin_c_pure');
@@ -93,7 +93,7 @@ describe('parseActiveIngredientsFromInci', () => {
   });
 
   it('should return pha key when INCI text contains "gluconolactone"', () => {
-    const result = parseActiveIngredientsFromInci('Water, Gluconolactone, Glycerin');
+    const result = parseActiveIngredientsFromInci('Water, Gluconolactone, Squalane');
 
     expect(result).toContain('pha');
   });
@@ -106,7 +106,7 @@ describe('parseActiveIngredientsFromInci', () => {
 
   it('should return multiple keys when INCI text contains several mapped ingredients', () => {
     const result = parseActiveIngredientsFromInci(
-      'Water, Niacinamide, Ascorbic Acid, Retinol, Glycerin',
+      'Water, Niacinamide, Ascorbic Acid, Retinol, Squalane',
     );
 
     const expected: ActiveIngredientKey[] = ['retinoid', 'vitamin_c_pure', 'niacinamide'];
@@ -116,7 +116,7 @@ describe('parseActiveIngredientsFromInci', () => {
   });
 
   it('should return an empty array when INCI text contains no mapped ingredients', () => {
-    const result = parseActiveIngredientsFromInci('Water, Glycerin, Dimethicone, Tocopherol');
+    const result = parseActiveIngredientsFromInci('Water, Squalane, Dimethicone, Tocopherol');
 
     expect(result).toHaveLength(0);
   });
@@ -151,13 +151,13 @@ describe('parseActiveIngredientsFromInci', () => {
   // ── Negative patterns and word boundaries ──────────────────────────────────
 
   it('should not return retinoid key when text says "retinol-free"', () => {
-    const result = parseActiveIngredientsFromInci('Retinol-free formula, Water, Glycerin');
+    const result = parseActiveIngredientsFromInci('Retinol-free formula, Water, Squalane');
 
     expect(result).not.toContain('retinoid');
   });
 
   it('should not return aha key for "sodium lactate" (not an exfoliating acid)', () => {
-    const result = parseActiveIngredientsFromInci('Water, Sodium Lactate, Glycerin');
+    const result = parseActiveIngredientsFromInci('Water, Sodium Lactate, Squalane');
 
     expect(result).not.toContain('aha');
   });
@@ -175,7 +175,7 @@ describe('parseActiveIngredientsFromInci', () => {
   });
 
   it('should classify "3-o-ethyl ascorbic acid" as derivative only, never pure vitamin C', () => {
-    const result = parseActiveIngredientsFromInci('Water, 3-O-Ethyl Ascorbic Acid, Glycerin');
+    const result = parseActiveIngredientsFromInci('Water, 3-O-Ethyl Ascorbic Acid, Squalane');
 
     expect(result).toContain('vitamin_c_derivative');
     expect(result).not.toContain('vitamin_c_pure');
@@ -197,7 +197,7 @@ describe('parseActiveIngredientsFromInci', () => {
 
 describe('parseActiveIngredientDetails — matches attribution', () => {
   it('returns one MatchedToken carrying the literal matched substring when a single matcher fires', () => {
-    const result = parseActiveIngredientDetails('Water, Betaine Salicylate, Glycerin');
+    const result = parseActiveIngredientDetails('Water, Betaine Salicylate, Squalane');
 
     const bha = result.find((detail) => detail.key === 'bha');
     expect(bha).toBeDefined();
@@ -207,7 +207,7 @@ describe('parseActiveIngredientDetails — matches attribution', () => {
   });
 
   it('retains a MatchedToken for every matcher that fires within a class, not just the strongest-potency one', () => {
-    const result = parseActiveIngredientDetails('Water, Salicylic Acid, Willow Bark Extract, Glycerin');
+    const result = parseActiveIngredientDetails('Water, Salicylic Acid, Willow Bark Extract, Squalane');
 
     const bha = result.find((detail) => detail.key === 'bha');
     expect(bha?.potency).toBe('high'); // salicylic acid (high) wins over willow bark (low)
@@ -218,20 +218,20 @@ describe('parseActiveIngredientDetails — matches attribution', () => {
   });
 
   it('uses the exact regex source string as matcherPattern, matching aliasOverrides.json keys verbatim', () => {
-    const result = parseActiveIngredientDetails('Water, Willow Bark Extract, Glycerin');
+    const result = parseActiveIngredientDetails('Water, Willow Bark Extract, Squalane');
 
     const bha = result.find((detail) => detail.key === 'bha');
     expect(bha?.matches[0]?.matcherPattern).toBe('\\b(salix\\s+alba|willow\\s+bark)\\b');
   });
 
   it('produces no match/no token when the only occurrence is stripped by a negative pattern', () => {
-    const result = parseActiveIngredientDetails('Retinol-free formula, Water, Glycerin');
+    const result = parseActiveIngredientDetails('Retinol-free formula, Water, Squalane');
 
     expect(result.find((detail) => detail.key === 'retinoid')).toBeUndefined();
   });
 
   it('omits a class entirely from the result when none of its matchers fire', () => {
-    const result = parseActiveIngredientDetails('Water, Glycerin, Dimethicone');
+    const result = parseActiveIngredientDetails('Water, Squalane, Dimethicone');
 
     expect(result).toHaveLength(0);
   });
@@ -318,7 +318,7 @@ describe('getProductActiveKeys', () => {
   it('should merge keys from both activeIngredients and fullIngredientText', () => {
     const product = {
       activeIngredients: [{ key: 'retinoid' as ActiveIngredientKey, displayName: 'Retinoids' }],
-      fullIngredientText: 'Water, Niacinamide, Glycerin',
+      fullIngredientText: 'Water, Niacinamide, Squalane',
     };
 
     const result = getProductActiveKeys(product);
@@ -330,7 +330,7 @@ describe('getProductActiveKeys', () => {
   it('should not return duplicates when a legacy tag and its parsed canonical key both resolve to the same class', () => {
     const product = {
       activeIngredients: [{ key: 'retinol' as ActiveIngredientKey, displayName: 'Retinol' }],
-      fullIngredientText: 'Water, Retinol, Glycerin',
+      fullIngredientText: 'Water, Retinol, Squalane',
     };
 
     const result = getProductActiveKeys(product);
@@ -353,11 +353,60 @@ describe('getProductActiveKeys', () => {
   it('should return an empty array when activeIngredients is empty and fullIngredientText has no mapped ingredients', () => {
     const product = {
       activeIngredients: [],
-      fullIngredientText: 'Water, Glycerin, Dimethicone',
+      fullIngredientText: 'Water, Squalane, Dimethicone',
     };
 
     const result = getProductActiveKeys(product);
 
     expect(result).toHaveLength(0);
+  });
+});
+
+describe('position-gated attribution (phase-03 §consultant items)', () => {
+  it('attributes glycerin_class when glycerin sits in the leading positions', () => {
+    const result = parseActiveIngredientsFromInci('Aqua, Glycerin, Niacinamide, Dimethicone');
+    expect(result).toContain('glycerin_class');
+  });
+
+  it('does not attribute glycerin_class from a tail-of-list trace', () => {
+    // Position 7 > requireWithinPosition 5 — the near-universal-base case the
+    // gate exists for: practically every formula carries some glycerin.
+    const result = parseActiveIngredientsFromInci(
+      'Aqua, Niacinamide, Dimethicone, Squalane, Tocopherol, Panthenol, Glycerin',
+    );
+    expect(result).not.toContain('glycerin_class');
+  });
+
+  it('downgrades a tail-of-list AHA to low potency instead of dropping it', () => {
+    // The "acid cream with glycolic at the INCI tail" case: the class stays
+    // visible to safety checks (do-no-harm), at trace potency.
+    const detail = parseActiveIngredientDetails(
+      'Aqua, Squalane, Dimethicone, Cetearyl Alcohol, Ceteareth-20, Tocopherol, Phenoxyethanol, Parfum, Glycolic Acid',
+    ).find((d) => d.key === 'aha');
+
+    expect(detail).toBeDefined();
+    expect(detail?.position).toBe(9);
+    expect(detail?.potency).toBe('low');
+  });
+
+  it('keeps full potency for an AHA in the leading positions', () => {
+    const detail = parseActiveIngredientDetails('Aqua, Glycolic Acid, Squalane').find(
+      (d) => d.key === 'aha',
+    );
+    expect(detail?.position).toBe(2);
+    expect(detail?.potency).toBe('high');
+  });
+
+  it('treats freeform text without commas as position 1 — gates never fire', () => {
+    const details = parseActiveIngredientDetails('contains glycolic acid and glycerin');
+    expect(details.find((d) => d.key === 'aha')?.potency).toBe('high');
+    expect(details.map((d) => d.key)).toContain('glycerin_class');
+  });
+
+  it('reports the earliest position when a class matches several tokens', () => {
+    const detail = parseActiveIngredientDetails(
+      'Aqua, Salicylic Acid, Squalane, Willow Bark Extract',
+    ).find((d) => d.key === 'bha');
+    expect(detail?.position).toBe(2);
   });
 });

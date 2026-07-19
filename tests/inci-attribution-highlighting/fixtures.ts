@@ -100,6 +100,7 @@ export function makeParsedActiveDetail(
     key: 'bha',
     potency: 'high',
     matches: [BHA_SALICYLIC_ACID_MATCH],
+    position: 1,
     ...overrides,
   };
 }

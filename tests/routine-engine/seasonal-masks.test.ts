@@ -25,9 +25,15 @@ import {
 beforeEach(() => resetFixtureCounters());
 
 describe('Story 8 AC: seasonal rules apply through generate/validate once a SeasonMask is supplied', () => {
+  // phase-04: these use a goal that ranks the fixture's active, so the active
+  // is admitted as a treatment (a maintenance profile would reserve it and the
+  // seasonal effect would have nothing to act on).
+  const ACNE = { fitzpatrick: null, concerns: [], primaryGoal: 'acne' as const, secondaryGoal: null };
+  const PIGMENT = { fitzpatrick: null, concerns: [], primaryGoal: 'pigmentation' as const, secondaryGoal: null };
+
   it('summer mandates an AM SPF placeholder when the plan contains a photosensitizing active and none is on the shelf', () => {
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
-    const plan = generatePlan(makeEngineInput([retinoid], { seasonMask: makeSeasonMask('summer') }));
+    const plan = generatePlan(makeEngineInput([retinoid], { seasonMask: makeSeasonMask('summer'), profile: ACNE }));
     expect(plan.placeholders).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ period: 'am', productTypes: ['spf'], reasonCode: 'summer_photosensitizer_spf' }),
@@ -37,28 +43,28 @@ describe('Story 8 AC: seasonal rules apply through generate/validate once a Seas
 
   it('does not mandate SPF in spring for the same shelf (season-scoped rule)', () => {
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
-    const plan = generatePlan(makeEngineInput([retinoid], { seasonMask: makeSeasonMask('spring') }));
+    const plan = generatePlan(makeEngineInput([retinoid], { seasonMask: makeSeasonMask('spring'), profile: ACNE }));
     expect(plan.placeholders.some((p) => p.reasonCode === 'summer_photosensitizer_spf')).toBe(false);
   });
 
   it('summer caps a solo exfoliant to 1 day/week (Wednesday) via the seasonal limit', () => {
     const aha = makeProduct({ activeTags: ['aha'] });
-    const plan = generatePlan(makeEngineInput([aha], { seasonMask: makeSeasonMask('summer') }));
+    const plan = generatePlan(makeEngineInput([aha], { seasonMask: makeSeasonMask('summer'), profile: PIGMENT }));
     const step = plan.periods.evening.find((s) => s.productId === aha.id);
+    // Summer exfoliant cap (1/wk) is stricter than the exfoliant treatment cap
+    // (2/wk), so the seasonal limit wins the strictest-merge → Wednesday only.
     expect(step?.scheduledDays).toEqual([3]); // Wednesday
   });
 
-  it('winter boosts a barrier-repair product ahead of a newer-but-plain competitor for the PM serum slot', () => {
-    // Both share the "serum" slot and are benign (irritancy 0) with no pair
-    // rule between them, so under the routine-similar-product-priority engine
-    // cap (only one product admitted per slot per period) they now COMPETE
-    // for that one PM slot rather than both coexisting — the observable
-    // seasonal effect is which one WINS: winter_barrier_priority (period: pm)
-    // boosts ceramide's score, overriding the normal newer-addedAt-wins
-    // tie-break (resolve.ts compareCandidates), and the loser is recorded as
-    // a swappable alternative instead of being dropped (plan.slotAlternatives).
-    const ceramideSerum = makeProduct({ activeTags: ['ceramides'], addedAt: '2026-01-01' });
-    const plainSerum = makeProduct({ addedAt: '2026-06-01' }); // newer -> would win with no boost
+  it('winter boosts a barrier-repair product ahead of a newer-but-plain competitor for the PM moisturizer slot', () => {
+    // phase-04: two plain serums no longer compete (non-ranked products
+    // reserve). The seasonal boost is now observable in STRUCTURAL-slot
+    // competition — two moisturizers contend for the one moisturizer slot, and
+    // winter_barrier_repair (period: pm) boosts the ceramide one's score,
+    // overriding the normal newer-addedAt-wins tie-break; the loser is a
+    // swappable alternative (plan.slotAlternatives), not dropped.
+    const ceramideSerum = makeProduct({ activeTags: ['ceramides'], productType: 'moisturizer', addedAt: '2026-01-01' });
+    const plainSerum = makeProduct({ productType: 'cream', addedAt: '2026-06-01' }); // newer -> would win with no boost
 
     // Both are also benign/non-treatment in AM, so they compete for that slot
     // too — this assertion scopes to the PM entry only, mirroring how the

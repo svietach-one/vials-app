@@ -18,9 +18,12 @@ export type ActiveIngredientKey =
   | 'benzoyl_peroxide'
   | 'azelaic_acid'
   | 'copper_peptides'
+  | 'peptide_signal'
+  | 'peptide_neuro'
   | 'spf_filters'
   | 'ceramides'
   | 'hyaluronic_acid'
+  | 'glycerin_class'
   | 'panthenol'
   | 'cica'
   // Legacy (pre-ruleset persisted tags, normalized on read)
@@ -133,6 +136,21 @@ export type SkinConcern =
   | 'pores'
   | 'dark_spots';
 
+/**
+ * The user's care goal — what the routine is built FOR (V2.1 pipeline
+ * Step 0). Distinct from {@link SkinConcern}: concerns are symptoms the user
+ * reports; a goal is the single treatment direction the engine optimizes.
+ * 'maintenance' means no problem to solve — the treatment slot stays empty.
+ */
+export type SkinGoal =
+  | 'acne'
+  | 'pigmentation'
+  | 'aging'
+  | 'dehydration'
+  | 'barrier_repair'
+  | 'oil_control'
+  | 'maintenance';
+
 export interface UserProfile {
   id: string;
   gender: 'female' | 'male' | null;
@@ -152,6 +170,22 @@ export interface UserProfile {
   /** Selected city for weather-driven season masks; null until the user picks one. */
   city: CityLocation | null;
   concerns: SkinConcern[];
+  /**
+   * Primary care goal driving treatment selection (V2.1 Step 0). Defaults to
+   * 'maintenance'; heuristically derived from concerns for pre-goal profiles.
+   */
+  primaryGoal: SkinGoal;
+  /** Optional second goal; at most 2 goals total. */
+  secondaryGoal: SkinGoal | null;
+  /** True when goals were derived rather than user-chosen — one-time confirm prompt. */
+  goalNeedsConfirmation: boolean;
+  /**
+   * True when `fitzpatrick` was auto-derived from a grouped phototype during a
+   * migration rather than chosen on the 6-card selector (V2.1 phase-08) — a
+   * one-time "confirm your skin tone" prompt. The engine keeps using the
+   * conservatively-derived value until confirmed.
+   */
+  phototypeNeedsConfirmation: boolean;
   spfSensitivity: boolean;
   onboardingCompleted: boolean;
   /** Per-procedure duration overrides set when the user confirms actual fading. */
@@ -349,6 +383,12 @@ export interface ProductApplicationStats {
   count: number;
   /** Skincare date of the last counted application. */
   lastAppliedDate: string;
+  /**
+   * Skincare date of the FIRST counted application (V2.1 phase-05 usage
+   * anchor). Null for pre-phase-5 stats; the virtual count then anchors on the
+   * product's first scheduled date instead of its shelf-add date.
+   */
+  firstAppliedDate: string | null;
 }
 
 export interface AppSettings {

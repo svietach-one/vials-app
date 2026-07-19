@@ -81,7 +81,7 @@ describe('Story 3 AC: a saved custom-procedure preset drives the custom_default 
       customRehabDays: 0,
       datePerformed: '2026-07-04',
     });
-    const plan = generatePlan(makeEngineInput([aha], { procedures: [custom] }));
+    const plan = generatePlan(makeEngineInput([aha], { procedures: [custom] , profile: { fitzpatrick: null, concerns: [], primaryGoal: 'pigmentation', secondaryGoal: null } }));
     expect(plan.frozen).toHaveLength(0);
     expect(plan.periods.evening.map((s) => s.productId)).toEqual([aha.id]);
   });

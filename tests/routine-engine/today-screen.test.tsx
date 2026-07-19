@@ -13,7 +13,7 @@
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
-import type { Product, Routine } from '@/types';
+import type { CycleState, Product, Routine } from '@/types';
 
 jest.mock('@expo/vector-icons', () => {
   const { View } = require('react-native');
@@ -35,7 +35,7 @@ jest.mock('@/domain/seasonActions', () => ({
 let mockProducts: Product[] = [];
 let mockRoutines: Routine[] = [];
 let mockCycleType: 'fixed' | 'dynamic' = 'fixed';
-let mockCycleState = { cyclePhaseIndex: 0 as const, lastAppliedDate: null as string | null };
+let mockCycleState: CycleState = { cyclePhaseIndex: 0, lastAppliedDate: null };
 
 jest.mock('@/store/productsStore', () => ({
   useProductsStore: jest.fn((selector: any) => selector({ products: mockProducts })),
@@ -141,5 +141,30 @@ describe('Story 5 AC: dynamic mode shows exactly one global check-in button, no 
     expect(
       screen.queryByText('One tap per day advances your skin cycle and adaptation tracking.'),
     ).toBeNull();
+  });
+});
+
+describe('phase-06: dynamic phase card resolves against shelf composition', () => {
+  it('shows the paused notice when the shelf has no exfoliant or retinoid', () => {
+    mockCycleType = 'dynamic';
+    mockProducts = [makeProduct({ id: 'p1', productType: 'cleanser', activeTags: [] })];
+    render(<TodayScreen />);
+
+    expect(screen.getByText(/Skin cycling is paused/)).toBeTruthy();
+    // The check-in action still exists — availability is advisory, not blocking.
+    expect(screen.getByLabelText('Complete My Routine')).toBeTruthy();
+  });
+
+  it('shows Recovery night for a retinoid-night index when the shelf has only an exfoliant', () => {
+    mockCycleType = 'dynamic';
+    mockProducts = [makeProduct({ id: 'p1', productType: 'serum', activeTags: ['aha'] })];
+    mockCycleState = { cyclePhaseIndex: 1, lastAppliedDate: null }; // raw phase = retinoid
+
+    render(<TodayScreen />);
+
+    // Retinoid night with no retinoid on the shelf resolves to recovery.
+    expect(screen.getByText('Recovery night')).toBeTruthy();
+    expect(screen.queryByText('Retinoid night')).toBeNull();
+    expect(screen.queryByText(/Skin cycling is paused/)).toBeNull();
   });
 });

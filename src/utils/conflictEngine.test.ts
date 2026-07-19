@@ -7,6 +7,7 @@
  */
 
 import { ConflictEngine } from '@/utils/conflictEngine';
+import { getProductActiveKeys } from '@/utils/ingredientParser';
 import type { Product, RoutineStep } from '@/types';
 
 // ─── Factories ────────────────────────────────────────────────────────────────
@@ -81,7 +82,52 @@ describe('ConflictEngine.detectConflicts', () => {
     expect(results[0].rule.severity).toBe('avoid');
   });
 
-  it('should return vitamin C + niacinamide caution when both are present in routine steps', () => {
+  it('does not conflict a signal peptide with pure vitamin C', () => {
+    // The headline acceptance case (spec phase-01). Assert the attribution too:
+    // before the subclass split, Matrixyl matched no class at all, so "no
+    // conflict" passed vacuously. It must now be a recognised peptide_signal
+    // product AND still be conflict-free.
+    const matrixyl = makeProduct({
+      fullIngredientText: 'Aqua, Palmitoyl Pentapeptide-4, Squalane',
+    });
+    const vitC = makeProduct({ fullIngredientText: 'Aqua, Ascorbic Acid' });
+    const steps = [makeStep(matrixyl.id), makeStep(vitC.id)];
+
+    expect(getProductActiveKeys(matrixyl)).toContain('peptide_signal');
+    expect(ConflictEngine.detectConflicts(steps, [matrixyl, vitC])).toEqual([]);
+  });
+
+  it('conflicts a copper peptide with pure vitamin C at caution', () => {
+    const ghkCu = makeProduct({ fullIngredientText: 'Aqua, Copper Tripeptide-1' });
+    const vitC = makeProduct({ fullIngredientText: 'Aqua, Ascorbic Acid' });
+    const steps = [makeStep(ghkCu.id), makeStep(vitC.id)];
+
+    const results = ConflictEngine.detectConflicts(steps, [ghkCu, vitC]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].rule.id).toBe('rule_vitc_pure_copper_peptides');
+    expect(results[0].rule.severity).toBe('caution');
+  });
+
+  it('matches a pair rule whose side is a shared group (copper peptides × acids)', () => {
+    // pairRules sides may be arrays; the legacy flat table could not express
+    // this, so the array path is new and needs its own cover.
+    const ghkCu = makeProduct({ activeTags: ['copper_peptides'] });
+    const bha = makeProduct({ activeTags: ['bha'] });
+    const steps = [makeStep(ghkCu.id), makeStep(bha.id)];
+
+    const results = ConflictEngine.detectConflicts(steps, [ghkCu, bha]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].rule.id).toBe('rule_copper_peptides_acids');
+    expect(results[0].rule.itemA).toBe('copper_peptides');
+    expect(results[0].rule.itemB).toBe('bha');
+  });
+
+  it('treats vitamin C + niacinamide as compatible — the low-pH myth is retired', () => {
+    // Regression lock (spec phase-01 §1.4): the two are widely believed to
+    // cancel each other out. They do not, and this pair carried a caution rule
+    // until 2026-07-17. Do not reintroduce one without a clinical source.
     const productA = makeProduct({
       activeIngredients: [{ key: 'vitamin_c', displayName: 'Ascorbic Acid' }],
     });
@@ -92,9 +138,7 @@ describe('ConflictEngine.detectConflicts', () => {
 
     const results = ConflictEngine.detectConflicts(steps, [productA, productB]);
 
-    expect(results).toHaveLength(1);
-    expect(results[0].rule.id).toBe('rule_vitc_niacinamide');
-    expect(results[0].rule.severity).toBe('caution');
+    expect(results).toEqual([]);
   });
 
   it('should return benzoyl peroxide + retinol conflict when both are present in routine steps', () => {
@@ -220,7 +264,7 @@ describe('ConflictEngine.detectConflicts', () => {
   it('should detect conflicts derived from INCI fullIngredientText when no explicit activeIngredients are set', () => {
     const productA = makeProduct({
       activeIngredients: [],
-      fullIngredientText: 'Water, Glycerin, Retinol, Fragrance',
+      fullIngredientText: 'Water, Squalane, Retinol, Fragrance',
     });
     const productB = makeProduct({
       activeIngredients: [],

@@ -14,10 +14,12 @@ import { validateRoutines } from '@/utils/routineEngine/validate';
 import {
   daysOverlap,
   makeEngineInput,
+  makeProduct,
   makeSeasonMask,
   NOW,
   randomConcerns,
   randomFitzpatrick,
+  randomGoal,
   randomShelf,
   makeRng,
   routinesFromPlan,
@@ -61,6 +63,31 @@ describe('Determinism (spec §9): identical inputs produce byte-identical plans'
     }
   });
 
+  it('is invariant to the seasonMask source — same season, weather vs calendar → identical plan (phase-06 §6.4)', () => {
+    // The engine consumes seasonMask as a resolved input and never branches on
+    // its `source` provenance field. A pinned season with either source must
+    // produce a byte-identical plan.
+    for (let seed = 0; seed < 40; seed += 1) {
+      const rng = makeRng(seed * 5 + 3);
+      const { products } = randomShelf(rng, 4 + Math.floor(rng() * 10));
+      const profile = {
+        fitzpatrick: randomFitzpatrick(rng),
+        concerns: randomConcerns(rng),
+        primaryGoal: randomGoal(rng),
+        secondaryGoal: null,
+      };
+      const season = SEASONS[Math.floor(rng() * SEASONS.length)];
+
+      const fromWeather = generatePlan(
+        makeEngineInput(products, { profile, seasonMask: makeSeasonMask(season, 'weather'), now: NOW }),
+      );
+      const fromCalendar = generatePlan(
+        makeEngineInput(products, { profile, seasonMask: makeSeasonMask(season, 'calendar'), now: NOW }),
+      );
+      expect(fromCalendar).toEqual(fromWeather);
+    }
+  });
+
   it('is insensitive to shelf ordering — shuffling the same products yields the same plan', () => {
     const rng = makeRng(42);
     const { products } = randomShelf(rng, 12);
@@ -85,16 +112,10 @@ describe('Safety (spec §9): no generated plan ever co-schedules an avoid-level 
   it('holds across 100 randomized shelves, every season, and every fitzpatrick value', () => {
     let pairsChecked = 0;
 
-    for (let seed = 0; seed < 100; seed += 1) {
-      const rng = makeRng(seed * 7 + 1);
-      const { products, tagsById } = randomShelf(rng, 4 + Math.floor(rng() * 12));
-      const input = makeEngineInput(products, {
-        profile: { fitzpatrick: randomFitzpatrick(rng), concerns: randomConcerns(rng) },
-        seasonMask: makeSeasonMask(SEASONS[Math.floor(rng() * SEASONS.length)]),
-        now: NOW,
-      });
-      const plan = generatePlan(input);
-
+    const assertNoAvoidOverlap = (
+      plan: ReturnType<typeof generatePlan>,
+      tagsById: Map<string, ActiveIngredientKey[]>,
+    ) => {
       for (const period of [plan.periods.morning, plan.periods.evening]) {
         for (let i = 0; i < period.length; i += 1) {
           for (let j = i + 1; j < period.length; j += 1) {
@@ -110,10 +131,50 @@ describe('Safety (spec §9): no generated plan ever co-schedules an avoid-level 
           }
         }
       }
+    };
+
+    for (let seed = 0; seed < 100; seed += 1) {
+      const rng = makeRng(seed * 7 + 1);
+      const { products, tagsById } = randomShelf(rng, 4 + Math.floor(rng() * 12));
+      // phase-04+: a non-maintenance goal is what admits actives as treatments,
+      // so vary the goal or the property test is vacuous under minimalism.
+      const input = makeEngineInput(products, {
+        profile: {
+          fitzpatrick: randomFitzpatrick(rng),
+          concerns: randomConcerns(rng),
+          primaryGoal: randomGoal(rng),
+          secondaryGoal: null,
+        },
+        seasonMask: makeSeasonMask(SEASONS[Math.floor(rng() * SEASONS.length)]),
+        now: NOW,
+      });
+      assertNoAvoidOverlap(generatePlan(input), tagsById);
     }
 
-    // Sanity: the random shelves actually exercised avoid-pair scenarios at least once —
-    // an empty check would make the property test vacuously true.
+    // Deterministic anchor guaranteeing a checked pair — a rinse-off retinoid
+    // cleanser is exempt from the cumulative cap and co-occupies PM with an AHA
+    // treatment, so the avoid pair rule is genuinely exercised (skeleton
+    // selection makes two treatment-slot strong actives rare, so we force the
+    // structural-vs-treatment case that still can co-occur).
+    const cleanser = makeProduct({
+      activeTags: ['retinoid'],
+      productType: 'cleanser',
+      usageTime: 'evening',
+    });
+    const ahaSerum = makeProduct({ activeTags: ['aha'] });
+    const anchorTags = new Map<string, ActiveIngredientKey[]>([
+      [cleanser.id, ['retinoid']],
+      [ahaSerum.id, ['aha']],
+    ]);
+    const anchorPlan = generatePlan(
+      makeEngineInput([cleanser, ahaSerum], {
+        profile: { fitzpatrick: null, concerns: [], primaryGoal: 'acne', secondaryGoal: null },
+        now: NOW,
+      }),
+    );
+    assertNoAvoidOverlap(anchorPlan, anchorTags);
+
+    // Sanity: the checks above actually exercised at least one avoid pair.
     expect(pairsChecked).toBeGreaterThan(0);
   });
 

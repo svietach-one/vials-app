@@ -7,6 +7,7 @@ import type {
   Routine,
   RoutineStep,
   SkinConcern,
+  SkinGoal,
   UserProcedureLog,
   UserProfile,
 } from '@/types';
@@ -120,6 +121,10 @@ export function makeFullProfile(overrides: Partial<UserProfile> = {}): UserProfi
     fitzpatrick: null,
     city: null,
     concerns: [],
+    primaryGoal: 'maintenance',
+    secondaryGoal: null,
+    goalNeedsConfirmation: false,
+    phototypeNeedsConfirmation: false,
     spfSensitivity: false,
     onboardingCompleted: true,
     individualDurationMonths: {},
@@ -253,4 +258,21 @@ export function randomConcerns(rng: () => number): SkinConcern[] {
     if (!concerns.includes(c)) concerns.push(c);
   }
   return concerns;
+}
+
+const RANDOM_GOALS: SkinGoal[] = [
+  'maintenance',
+  'acne',
+  'pigmentation',
+  'aging',
+  'dehydration',
+  'barrier_repair',
+  'oil_control',
+];
+
+/** A random primary care goal (phase-04+: a non-maintenance goal is what lets
+ *  actives be admitted as treatments, so property tests over the goal-driven
+ *  engine must vary it). */
+export function randomGoal(rng: () => number): SkinGoal {
+  return pick(rng, RANDOM_GOALS);
 }

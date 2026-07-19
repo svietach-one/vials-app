@@ -17,7 +17,9 @@ import type {
   ConflictSeverity,
   ProductType,
   SkinConcern,
+  SkinGoal,
 } from '@/types';
+import type { DecisionReasonCode } from '@/constants/decisionReasons';
 
 // ─── Shared vocabulary ──────────────────────────────────────────────────────
 
@@ -40,17 +42,61 @@ export type ResolutionStrategy =
   | 'freeze_lower_priority'
   | 'keep_with_note';
 
+/**
+ * Irritation tier, 0–5. The scale is the engine's mild/strong boundary — see
+ * {@link isStrongActive} — so a class's value is a safety decision, not a label.
+ *
+ * | Level | Meaning | Classes |
+ * |---|---|---|
+ * | 0 | Inert / restorative | ceramides, panthenol, hyaluronic_acid, spf_filters |
+ * | 1 | Mild actives | niacinamide, peptide_signal, peptide_neuro, vitamin_c_derivative, pha |
+ * | 2 | Moderate | azelaic_acid, copper_peptides |
+ * | 3 | Strong | aha, bha, vitamin_c_pure, retinoid @ low/medium potency |
+ * | 4 | Very strong | benzoyl_peroxide, retinoid @ high/rx potency |
+ * | 5 | Reserved for prescription-only classes (unused in v2.1) | — |
+ *
+ * Levels 3+ are "strong actives": they are the only classes the cumulative
+ * exposure cap counts, and the only ones subject to break regression.
+ */
+export type IrritancyLevel = 0 | 1 | 2 | 3 | 4 | 5;
+
 /** Aggregatable class/product boolean-ish properties rules can target. */
 export interface ActiveProperties {
   photosensitizing?: boolean;
   exfoliating?: boolean;
-  /** 0–3 irritation tier. */
+  /** Flat irritation tier; see {@link IrritancyLevel}. Overridden per-potency
+   * by {@link ActiveProperties.irritancyByPotency} where declared. */
   irritancy?: number;
+  /**
+   * Per-potency irritancy override — a retinol and a tretinoin are not equally
+   * irritating, and the flat tier cannot say so. Falls back to `irritancy` for
+   * any potency not listed, and for products whose potency is unknown.
+   */
+  irritancyByPotency?: Partial<Record<Potency, number>>;
   barrierRepair?: boolean;
   lowPh?: boolean;
   spf?: boolean;
   /** Application-style flag (facial-massage balms) — used by procedure freezes. */
   massageRequired?: boolean;
+}
+
+/** Irritancy at a given potency: the per-potency override, else the flat tier, else 0. */
+export function resolveIrritancy(props: ActiveProperties, potency?: Potency): number {
+  const byPotency = potency ? props.irritancyByPotency?.[potency] : undefined;
+  return byPotency ?? props.irritancy ?? 0;
+}
+
+/**
+ * The single definition of the mild/strong boundary (spec phase-01 §1.2).
+ * Strong actives are the only classes that declare a stacking cap, count
+ * toward cumulative exposure, and regress after a break. Mild ones (peptides,
+ * niacinamide, vitamin C derivatives, hydrators) are bioactive but not
+ * irritating — the cap limits irritants, not bioactivity.
+ *
+ * Derived, never stored: there is no exemption list to drift out of sync.
+ */
+export function isStrongActive(props: ActiveProperties, potency?: Potency): boolean {
+  return resolveIrritancy(props, potency) >= 3;
 }
 
 /**
@@ -72,6 +118,13 @@ export interface ActiveClassMatcher {
   potency?: Potency;
 }
 
+/**
+ * REMOVED in V2.1 phase-04: per-class stacking caps are subsumed by the
+ * cumulative active exposure rule (report §7) — a class is subject to the
+ * cumulative cap iff {@link isStrongActive}; no class declares its own cap.
+ * The type stays only so a stray `stacking` key in the JSON fails the
+ * integrity suite rather than silently passing the loader cast.
+ */
 export interface ActiveClassStacking {
   maxPerPeriod: number;
   sharedCapWith?: ActiveIngredientKey[];
@@ -95,12 +148,30 @@ export interface AdaptationConfig {
   phases: AdaptationPhase[];
 }
 
+/**
+ * INCI-position attribution gates (V2.1 phase-03; draft values are a
+ * clinical-consultant review item). Position is the 1-based comma-token index
+ * of the earliest matcher hit; INCI lists are concentration-ordered above 1%,
+ * so position approximates concentration. Gates act on parse-sourced
+ * attribution only — wizard-confirmed tags are user-asserted and never gated.
+ */
+export interface AttributionConfig {
+  /** Attribute the class only when it first appears at or before this position
+   * (near-universal bases like glycerin would otherwise tag every product). */
+  requireWithinPosition?: number;
+  /** First appearance after this position downgrades evidenced potency to
+   * 'low' — a trace acid stays visible to safety checks at reduced severity,
+   * never dropped (do-no-harm). */
+  downgradeToLowAfterPosition?: number;
+}
+
 export interface ActiveClass {
   displayName: string;
   matchers: ActiveClassMatcher[];
   negativePatterns?: string[];
   properties: ActiveProperties;
   allowedPeriods: Period[];
+  attribution?: AttributionConfig;
   stacking?: ActiveClassStacking;
   cycleClass?: string;
   /** Micro-dosing escalation for irritating actives (research §2.6). */
@@ -128,6 +199,12 @@ export interface PairRule {
   b: ActiveIngredientKey | ActiveIngredientKey[];
   scope: 'same_period' | 'same_day' | 'anywhere';
   severity: ConflictSeverity;
+  /**
+   * Decision-log reason code (V2.1 phase-07), decoupled from `id`: `id` is the
+   * rule's registry key (renameable provenance), `reasonCode` is a stable
+   * DecisionReasonCode surfaced to the user. Several rules may share one code.
+   */
+  reasonCode: DecisionReasonCode;
   resolutions: ResolutionStrategy[];
   exceptions?: PairRuleException[];
   explanation: string;
@@ -145,14 +222,14 @@ export interface PhototypeEscalateEffect {
   when: { bothProductsProperties: Record<string, boolean | string | number> };
   from: ConflictSeverity;
   to: ConflictSeverity;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 export interface PhototypeTightenLimitEffect {
   effect: 'tightenLimit';
   targets: RuleTargets;
   maxDaysPerWeek: number;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 export interface PhototypeAddMandateEffect {
@@ -160,7 +237,7 @@ export interface PhototypeAddMandateEffect {
   if?: { planContainsProperty?: string };
   then: { action: RuleAction; targets?: RuleTargets; period?: Period };
   nonSkippable?: boolean;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 export type PhototypeEffect =
@@ -174,12 +251,31 @@ export interface PhototypeModifier {
   effects: PhototypeEffect[];
 }
 
+/**
+ * A base mandate: always in force, independent of phototype, season, or
+ * clinical state. Deliberately the SeasonRule shape minus `seasons`, so a rule
+ * can migrate between the two blocks by adding or removing one field.
+ */
+export interface RulesetMandate {
+  id: string;
+  /** Conditions AND together; `goalIn` matches the primary OR secondary goal. */
+  if?: { planContainsProperty?: string; goalIn?: SkinGoal[] };
+  then: { action: RuleAction; targets?: RuleTargets; period?: Period };
+  severity?: ConflictSeverity;
+  nonSkippable?: boolean;
+  reasonCode: DecisionReasonCode;
+}
+
 export interface ActivesRuleset {
   version: string;
   legacyKeyMap: Record<string, ActiveIngredientKey>;
   classes: Record<string, ActiveClass>;
   pairRules: PairRule[];
   phototypeModifiers?: PhototypeModifier[];
+  /** Unconditional require-mandates (pipeline step 6), folded with the clinical/seasonal/phototype sources. */
+  mandates?: RulesetMandate[];
+  /** Which classes SOLVE each goal; priority = array order (V2.1 Step 0). Draft values pending clinical review. */
+  goals: Record<SkinGoal, ActiveIngredientKey[]>;
 }
 
 // ─── Season mask (engine input) ─────────────────────────────────────────────
@@ -210,7 +306,7 @@ export interface ProcedureProductRule {
   targets: RuleTargets;
   /** Restricts a `require` mandate to one period. */
   period?: Period;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 export interface ProcedureRules {
@@ -243,7 +339,7 @@ export interface SeasonRule {
   if?: SeasonRuleCondition;
   then: SeasonRuleThen;
   severity?: ConflictSeverity;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 export interface ClimateConfig {
