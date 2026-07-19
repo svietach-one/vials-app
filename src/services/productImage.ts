@@ -3,18 +3,16 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert } from 'react-native';
 
-import { enqueue, remove as removeFromQueue } from '@/services/photoUploadQueue';
-import type { PhotoUploadQueueEntry } from '@/types';
-
 /**
- * Product photo capture + local persistence (img-01). Filesystem/native access
- * lives here in the service layer (utils stay pure). Two copies are produced
- * from every picked image:
+ * Product photo capture + local persistence. Filesystem/native access lives
+ * here in the service layer (utils stay pure).
  *
- *  - a small DISPLAY copy (800px / JPEG 0.7) rendered on cards — the value
- *    stored as `product.localImageUri`;
- *  - a larger UPLOAD copy (1600px / JPEG 0.8) queued for the community server
- *    (img-04). Deleted only after a successful upload or product deletion.
+ * One copy is kept on disk: a DISPLAY copy (800px / JPEG 0.7) rendered on
+ * cards — the value stored as `product.localImageUri`.
+ *
+ * A second, larger render is produced *on demand* for a community
+ * contribution ({@link renderContributionBlob}) and never written to disk —
+ * it goes straight into the contributions database as a BLOB.
  *
  * Nothing here ever throws to the caller: capture returns `null` on
  * cancel/permission-denied, deletion is best-effort.
@@ -22,13 +20,13 @@ import type { PhotoUploadQueueEntry } from '@/types';
 
 // ── Directories (under the document dir — safe from OS cache eviction) ────────
 const DISPLAY_DIR = 'product-images';
-const UPLOAD_DIR = 'pending-uploads';
 
-// ── Render targets (img-01 locked decisions) ─────────────────────────────────
+// ── Render targets ───────────────────────────────────────────────────────────
 const DISPLAY_MAX_EDGE = 800;
 const DISPLAY_QUALITY = 0.7;
-const UPLOAD_MAX_EDGE = 1600;
-const UPLOAD_QUALITY = 0.8;
+/** Contribution blob: legible enough to verify packaging during SQL review. */
+const CONTRIBUTION_MAX_EDGE = 1200;
+const CONTRIBUTION_QUALITY = 0.7;
 
 export type PhotoSource = 'camera' | 'library';
 
@@ -86,7 +84,6 @@ async function storeFromUri(
   height: number,
 ): Promise<{ localImageUri: string }> {
   const displayDir = ensureDir(DISPLAY_DIR);
-  const uploadDir = ensureDir(UPLOAD_DIR);
 
   const displayTmp = await renderResized(
     sourceUri,
@@ -95,26 +92,38 @@ async function storeFromUri(
     DISPLAY_MAX_EDGE,
     DISPLAY_QUALITY,
   );
-  const localImageUri = persist(displayDir, productId, displayTmp);
 
-  const uploadTmp = await renderResized(
-    sourceUri,
-    width,
-    height,
-    UPLOAD_MAX_EDGE,
-    UPLOAD_QUALITY,
-  );
-  const uploadUri = persist(uploadDir, productId, uploadTmp);
+  return { localImageUri: persist(displayDir, productId, displayTmp) };
+}
 
-  const entry: PhotoUploadQueueEntry = {
-    productId,
-    filePath: uploadUri,
-    createdAt: new Date().toISOString(),
-    attempts: 0,
-  };
-  await enqueue(entry);
-
-  return { localImageUri };
+/**
+ * Renders a product photo into bytes for the contributions BLOB column.
+ *
+ * PRIVACY — load-bearing: the bytes always come from the image-manipulator
+ * re-encode, never from the raw camera/picker file. `saveAsync` drops ALL EXIF
+ * during re-encoding, so GPS coordinates and device metadata cannot ride along
+ * in the blob. This is what keeps the contribution anonymous (PRD architecture
+ * constraint); do not "optimize" this by reading the original file instead.
+ *
+ * Returns null when there is no photo or the render fails — the caller then
+ * submits a text-only contribution rather than failing the whole submission.
+ */
+export async function renderContributionBlob(
+  localImageUri: string | null | undefined,
+): Promise<Uint8Array | null> {
+  if (!localImageUri) return null;
+  try {
+    const tmpUri = await renderResized(
+      localImageUri,
+      0,
+      0,
+      CONTRIBUTION_MAX_EDGE,
+      CONTRIBUTION_QUALITY,
+    );
+    return await new File(tmpUri).bytes();
+  } catch {
+    return null;
+  }
 }
 
 // ── Picker (mirrors CameraCaptureModal's permission + Alert pattern) ──────────
@@ -183,15 +192,12 @@ export async function storeExistingPhotoAsProductPhoto(
   }
 }
 
-/** Best-effort removal of both copies + the queue entry. Never throws. */
+/** Best-effort removal of the stored photo. Never throws. */
 export async function deleteProductPhoto(productId: string): Promise<void> {
-  for (const dirName of [DISPLAY_DIR, UPLOAD_DIR]) {
-    try {
-      const file = new File(new Directory(Paths.document, dirName), `${productId}.jpg`);
-      if (file.exists) file.delete();
-    } catch {
-      // Missing/unreadable file — nothing to clean up.
-    }
+  try {
+    const file = new File(new Directory(Paths.document, DISPLAY_DIR), `${productId}.jpg`);
+    if (file.exists) file.delete();
+  } catch {
+    // Missing/unreadable file — nothing to clean up.
   }
-  await removeFromQueue(productId);
 }

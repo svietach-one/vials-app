@@ -9,7 +9,6 @@ import { ImageManipulator } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert } from 'react-native';
 
-import { enqueue } from '@/services/photoUploadQueue';
 import { pickAndStoreProductPhoto } from '@/services/productImage';
 
 jest.mock('expo-image-picker', () => ({
@@ -47,11 +46,6 @@ jest.mock('expo-file-system', () => ({
   })),
 }));
 
-jest.mock('@/services/photoUploadQueue', () => ({
-  enqueue: jest.fn(async () => {}),
-  remove: jest.fn(async () => {}),
-}));
-
 const picker = ImagePicker as jest.Mocked<typeof ImagePicker>;
 
 beforeEach(() => {
@@ -60,28 +54,28 @@ beforeEach(() => {
 });
 
 describe('pickAndStoreProductPhoto', () => {
-  it('returns null and enqueues nothing when the user cancels', async () => {
+  it('returns null and writes nothing when the user cancels', async () => {
     picker.requestCameraPermissionsAsync.mockResolvedValue({ granted: true } as never);
     picker.launchCameraAsync.mockResolvedValue({ canceled: true, assets: null } as never);
 
     const result = await pickAndStoreProductPhoto('p1', 'camera');
 
     expect(result).toBeNull();
-    expect(enqueue).not.toHaveBeenCalled();
+    expect(mockFileCopy).not.toHaveBeenCalled();
   });
 
-  it('returns null and enqueues nothing when permission is denied', async () => {
+  it('returns null and writes nothing when permission is denied', async () => {
     picker.requestCameraPermissionsAsync.mockResolvedValue({ granted: false } as never);
 
     const result = await pickAndStoreProductPhoto('p1', 'camera');
 
     expect(result).toBeNull();
     expect(picker.launchCameraAsync).not.toHaveBeenCalled();
-    expect(enqueue).not.toHaveBeenCalled();
+    expect(mockFileCopy).not.toHaveBeenCalled();
     expect(Alert.alert).toHaveBeenCalled();
   });
 
-  it('renders both copies and enqueues one upload entry on the happy path', async () => {
+  it('renders exactly one display copy on the happy path', async () => {
     picker.requestCameraPermissionsAsync.mockResolvedValue({ granted: true } as never);
     picker.launchCameraAsync.mockResolvedValue({
       canceled: false,
@@ -92,15 +86,11 @@ describe('pickAndStoreProductPhoto', () => {
 
     expect(result).not.toBeNull();
     expect(result?.localImageUri).toBeTruthy();
-    // Two renders (800px display + 1600px upload), two file writes.
-    expect(ImageManipulator.manipulate).toHaveBeenCalledTimes(2);
-    expect(mockSaveAsync).toHaveBeenCalledTimes(2);
-    expect(mockFileCopy).toHaveBeenCalledTimes(2);
-    // Exactly one queue entry, keyed to the product with a zero attempt count.
-    expect(enqueue).toHaveBeenCalledTimes(1);
-    expect(enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ productId: 'p1', attempts: 0, filePath: expect.any(String) }),
-    );
+    // One render (800px display). The contribution blob is produced on demand
+    // at submit time, not written to disk here.
+    expect(ImageManipulator.manipulate).toHaveBeenCalledTimes(1);
+    expect(mockSaveAsync).toHaveBeenCalledTimes(1);
+    expect(mockFileCopy).toHaveBeenCalledTimes(1);
   });
 
   it('reads from the gallery when source is library', async () => {
@@ -114,6 +104,6 @@ describe('pickAndStoreProductPhoto', () => {
 
     expect(result?.localImageUri).toBeTruthy();
     expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
-    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(mockFileCopy).toHaveBeenCalledTimes(1);
   });
 });

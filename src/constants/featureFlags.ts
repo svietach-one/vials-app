@@ -1,24 +1,21 @@
 /**
- * Build-time feature flags. Each flag must document why it is off and what has
- * to be true before it flips.
+ * Build-time feature flags. Each flag must document why it is set as it is and
+ * what has to be true to change it.
  */
 
 /**
- * Community contribution (US-3): submitting locally-added products back to a
- * shared database so other users benefit.
+ * Community contribution (US-3): submitting locally-added products to a shared
+ * database so other users benefit.
  *
- * **OFF — there is nothing to submit to.** `docs/PRD_Spec.md` (sync note
- * 2026-07-07) states plainly: "there is no such API", and §4.3 confirms the
- * `POST /api/v1/products/suggest` pipeline is "not built". With the flag off,
- * `suggestProductInBackground` does not fire and no UI claims a contribution
- * was made — previously the barcode section showed "Community contribution
- * saved" with a success check for a request that never left the device.
+ * **ON.** Contributions are written directly to the `vials-contributions`
+ * Turso database (`src/services/contributions.ts`) — no API server, no object
+ * storage. Moderation is manual SQL against that database. This resolved
+ * BLOCKER-2, which had this flag off because there was nowhere to submit to.
  *
- * Barcode scanning itself stays fully enabled: the code is stored on the local
- * product record and used for local lookup. Only the *community* claims are
- * gated.
- *
- * Flip to `true` only once a contribution endpoint actually exists — see
- * docs/tasks/product-images/BLOCKERS.md (BLOCKER-2).
+ * Being on does NOT mean a submission always succeeds: the write is awaited
+ * and reports `success` / `unavailable` / `error` honestly. In builds without
+ * the libSQL native module (Expo Go, bundled-corpus) the result is
+ * `unavailable`, and the UI says so rather than faking success — the failure
+ * mode that made this flag necessary in the first place.
  */
-export const COMMUNITY_CONTRIBUTION_ENABLED = false;
+export const COMMUNITY_CONTRIBUTION_ENABLED = true;

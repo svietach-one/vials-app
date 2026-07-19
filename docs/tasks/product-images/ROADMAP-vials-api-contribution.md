@@ -3,8 +3,12 @@
 **Type:** roadmap / product decision. **Not a code ticket** — nothing here should
 be implemented by picking this up in an implementation task.
 **Raised:** 2026-07-19, out of the product-images series (task 04).
-**Status:** PROPOSAL — awaiting a decision from whoever owns the product and
-backend roadmap.
+**Status:** ⚠️ SUPERSEDED 2026-07-19. The Vials API was **not** built. US-3 was
+instead delivered by writing contributions directly to a second Turso database
+— see `BLOCKERS.md` → RESOLUTION. This document is retained only for the
+analysis of *why* the alternatives were rejected; its Option A/B/C proposal is
+no longer the plan. Revisit only if contribution volume outgrows manual SQL
+moderation.
 
 ## Purpose of this document
 

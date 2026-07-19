@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Linking,
@@ -26,11 +27,14 @@ import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
+import { COMMUNITY_CONTRIBUTION_ENABLED } from '@/constants/featureFlags';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProductRepository } from '@/hooks/useCorpusRepositories';
+import { submitContribution, type ContributionResult } from '@/services/contributions';
 import {
   deleteProductPhoto,
   pickAndStoreProductPhoto,
+  renderContributionBlob,
   storeExistingPhotoAsProductPhoto,
   type PhotoSource,
 } from '@/services/productImage';
@@ -323,6 +327,72 @@ function OpenedDateField({ isOpened, dateValue, onToggle, onDateChange }: Opened
   );
 }
 
+/**
+ * Honest reporting of the community-share outcome (US-3). Four distinct
+ * states — sharing / shared / unavailable / failed — because the whole point
+ * of this surface is that it must never imply a submission happened when it
+ * did not. "Unavailable" is deliberately not an error: retrying cannot help in
+ * a build without the libSQL module, so no retry is offered there.
+ */
+function ShareStatus({
+  sharing,
+  result,
+  onRetry,
+}: {
+  sharing: boolean;
+  result: ContributionResult | null;
+  onRetry: () => void;
+}) {
+  if (sharing) {
+    return (
+      <View style={s.shareRow} testID="share-status-pending">
+        <ActivityIndicator size="small" color={colors.textSecondary} />
+        <Text style={s.shareText}>Sharing with the Vials database…</Text>
+      </View>
+    );
+  }
+
+  if (!result) return null;
+
+  if (result.status === 'success') {
+    return (
+      <View style={s.shareRow} testID="share-status-success">
+        <Feather name="check-circle" size={16} color={palette.bottleGreen} />
+        <Text style={s.shareText}>
+          {result.withPhoto
+            ? 'Shared for review, with your photo.'
+            : 'Shared for review — text only, no photo attached.'}
+        </Text>
+      </View>
+    );
+  }
+
+  if (result.status === 'unavailable') {
+    return (
+      <View style={s.shareRow} testID="share-status-unavailable">
+        <Feather name="info" size={16} color={colors.statusInfo} />
+        <Text style={s.shareText}>
+          Sharing isn&apos;t available in this build. Your product is saved on this device.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={s.shareRow} testID="share-status-error">
+      <Feather name="alert-triangle" size={16} color={colors.statusWarningAccent} />
+      <View style={s.shareErrorBody}>
+        <Text style={s.shareText}>
+          Couldn&apos;t share this product. It&apos;s still saved on your shelf.
+        </Text>
+        <Pressable onPress={onRetry} accessibilityRole="button" hitSlop={8}>
+          <Text style={s.shareRetry}>Try again</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ManualProductFormScreen({ route, navigation }: Props) {
@@ -363,6 +433,10 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [openedDate, setOpenedDate] = useState(todayIso());
   const [showObfAttribution, setShowObfAttribution] = useState(false);
   const [corpusProductUrl, setCorpusProductUrl] = useState<string | null>(null);
+  // Community-contribution state. Separate from the local save, which never
+  // waits on it and never fails because of it.
+  const [sharing, setSharing] = useState(false);
+  const [shareResult, setShareResult] = useState<ContributionResult | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -517,6 +591,43 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     ]);
   }
 
+  /**
+   * Shares the product with the community database. Deliberately awaited and
+   * its outcome surfaced — the local save has already happened and is never
+   * rolled back, so a failure here only affects the sharing status line.
+   */
+  async function shareProduct(product: Product) {
+    if (!COMMUNITY_CONTRIBUTION_ENABLED) return;
+    setSharing(true);
+    setShareResult(null);
+    try {
+      const blob = await renderContributionBlob(product.localImageUri);
+      const result = await submitContribution(
+        {
+          brand: product.brand ?? '',
+          name: product.name,
+          productType: product.productType,
+          barcode: product.barcode ?? null,
+          inciRaw: product.fullIngredientText,
+          status: 'pending',
+        },
+        blob,
+      );
+      setShareResult(result);
+    } catch (e) {
+      setShareResult({
+        status: 'error',
+        message: e instanceof Error ? e.message : 'Could not share this product.',
+      });
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  function handleRetryShare() {
+    void shareProduct(buildProduct());
+  }
+
   function handleSave() {
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -535,14 +646,16 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     const product = buildProduct();
 
     if (isEditMode) {
-      // The user removed a previously attached photo → clean its files + queue.
+      // The user removed a previously attached photo → clean up its file.
       if (editingProduct?.localImageUri && !product.localImageUri) {
         void deleteProductPhoto(productId);
       }
       updateProduct(product.id, product);
       navigation.goBack();
     } else {
+      // Local shelf save is instant and never awaits the contribution.
       addProduct(product);
+      void shareProduct(product);
       setSchedulerProduct(product);
     }
   }
@@ -708,6 +821,11 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         </ScrollView>
 
         <View style={s.footer}>
+          <ShareStatus
+            sharing={sharing}
+            result={shareResult}
+            onRetry={handleRetryShare}
+          />
           <Button fullWidth size="lg" onPress={handleSave} disabled={!name.trim()}>
             {isEditMode ? 'Save Changes' : 'Add to Catalog'}
           </Button>
@@ -803,6 +921,28 @@ const s = StyleSheet.create({
     fontSize: 16,
     textTransform: 'uppercase',
     color: colors.textPrimary,
+  },
+
+  // Community-share status
+  shareRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[2],
+    paddingBottom: space[3],
+  },
+  shareText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
+  shareErrorBody: {
+    flexShrink: 1,
+    gap: space[1],
+  },
+  shareRetry: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: palette.bottleGreen,
   },
 
   // Photo attach row

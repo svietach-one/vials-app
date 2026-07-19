@@ -1,9 +1,91 @@
 # Blockers — product-images task series
 
+> **BLOCKER-1 and BLOCKER-2 are RESOLVED (2026-07-19)** by the second-Turso-database
+> design recorded below. Both original write-ups are retained under
+> "Resolved blockers" for the reasoning trail — they explain why the obvious
+> paths (Supabase Storage, writing to the corpus) are wrong, which is still
+> load-bearing context for anyone extending this.
+
+## RESOLUTION — contributions go to a second Turso database
+
+**Decided and implemented:** 2026-07-19. Replaces the deferred "Vials API".
+
+Product suggestions are written **directly into a separate Turso database**
+(`vials-contributions`) from the client. No API server, no object storage, no
+moderation dashboard.
+
+### Design
+
+| Concern | Resolution |
+|---|---|
+| Where rows go | `vials-contributions` Turso DB, table `contributions`, `status='pending_review'` |
+| Where photos go | `photo_blob BLOB` in the same row — ~1200px JPEG q0.7, ~100–150 KB |
+| Corpus safety | Untouched. It stays a **pull-only, read-only** replica; the app still never writes to it |
+| Moderation | **Manual SQL** by a human: review `pending_review`, INSERT approved rows into the corpus, mark handled. Queries in `docs/database/contributions_schema.sql` |
+| Retry/offline | **None by design.** The write is awaited and its outcome surfaced; the user retries by hand |
+
+### What replaces Supabase RLS — answered
+
+The gate is **structural, not a policy**: unapproved submissions live in a
+*different database* that the client's corpus replica never syncs. Unapproved
+content is therefore **physically absent** from the client rather than hidden
+by a row-visibility rule. Promotion into the corpus is an explicit human step.
+
+### Token scoping — narrower than expected, and used
+
+Turso supports **fine-grained per-table, per-operation** tokens, not just
+read-only/full-access. The client token is provisioned at the narrowest scope
+available:
+
+```
+turso db tokens create vials-contributions -p contributions:data_add --expiration 90d
+```
+
+`contributions:data_add` = INSERT-only, one table, one database. It **cannot**
+read rows back, update, delete, or alter schema. Enforced in code by
+`src/services/contributionsDb.ts`, which reads only the
+`EXPO_PUBLIC_TURSO_CONTRIBUTIONS_*` pair — the corpus read token never appears
+in that module and the two are never combined into one config object.
+
+Note `remoteOnly: true` is **required**, not a preference: an embedded replica
+syncs by *reading* the primary, which an insert-only token cannot do.
+
+### Accepted limitations (deliberate, for MVP)
+
+1. **The write token ships in the client bundle.** `EXPO_PUBLIC_*` values are
+   inlined into JS and are extractable from a shipped app. `data_add`-only
+   contains the blast radius (no reads of others' submissions, no deletes, no
+   schema changes), but nothing prevents an extracted token from inserting spam
+   rows or oversized blobs — there is no server to rate-limit. Mitigations if
+   this becomes real: rotate the token (`--expiration` is already set), or move
+   the write behind a server, which is the thing this design exists to avoid.
+2. **Sharing does not work in every build.** The libSQL native module is absent
+   from Expo Go and from bundled-corpus builds (`app.config.js` compiles
+   expo-sqlite with `useLibSQL: false` when `VIALS_CORPUS_BUNDLED=1`). The app
+   reports this as a distinct **`unavailable`** state — not a failure the user
+   could retry — and the local shelf save is unaffected. Testing the real write
+   path requires a dev/EAS build with libSQL enabled.
+3. **No moderation tooling.** Review is raw SQL. Fine at MVP volume; it will
+   not scale, and there is no audit trail beyond the `status` column.
+
+### Anonymity — how it is enforced
+
+The bound INSERT parameters are the entire payload: product metadata only. No
+profile fields, no device or install identifier. `id` is a fresh row UUID, not
+a user handle. Photo bytes come **only** from the image-manipulator re-encode,
+which strips all EXIF — so GPS coordinates and device metadata cannot ride
+along in the blob. That dependency is load-bearing and commented at
+`renderContributionBlob`; reading the original camera file instead would
+silently reintroduce location data.
+
+---
+
+## Resolved blockers (retained for reasoning)
+
 ## BLOCKER-1 — Contributed product photos have no server destination
 
 **Raised:** 2026-07-19, during task 04 implementation.
-**Status:** OPEN — task 04 halted and its client code reverted.
+**Status:** ✅ RESOLVED 2026-07-19 — photos are now BLOBs in the contributions Turso DB (see RESOLUTION above).
 **Blocks:** task 04 only. Tasks 01–03 shipped and are unaffected.
 **Needs:** a backend/product decision, not a client-side fix.
 
@@ -110,7 +192,7 @@ endpoint exists.
 ## BLOCKER-2 — There is no Vials API; US-3 has no destination at all
 
 **Raised:** 2026-07-19. **Confirmed** the same day against the PRD.
-**Status:** OPEN — needs a product decision, not a backend ETA.
+**Status:** ✅ RESOLVED 2026-07-19 — superseded, not built. Contributions bypass the API entirely and write to a second Turso database (see RESOLUTION above). The Vials API remains unbuilt and is no longer required for US-3.
 **Severity:** product-level gap, wider than the product-images series.
 
 Every candidate design in BLOCKER-1 assumes a Vials API that can receive an

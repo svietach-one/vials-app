@@ -23,12 +23,12 @@ import { COMMUNITY_CONTRIBUTION_ENABLED } from '@/constants/featureFlags';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, space, typography } from '@/constants/tokens';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
-import { suggestProductInBackground } from '@/services/vialsApi/products';
+import { submitContribution } from '@/services/contributions';
 import { useProductsStore } from '@/store/productsStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { AddProductDraft } from '@/types';
 import { canSave, formReducer, initialDraft } from '@/utils/productForm/formReducer';
-import { buildProductFromDraft } from '@/utils/productForm/saveProduct';
+import { buildProductFromDraft, buildSuggestPayload } from '@/utils/productForm/saveProduct';
 import { generateId } from '@/utils/generateId';
 
 type Props = NativeStackScreenProps<CatalogStackParamList, 'AddProduct'>;
@@ -155,12 +155,25 @@ export default function AddProductScreen({ navigation }: Props) {
       ToastAndroid.show('Product added to your shelf', ToastAndroid.SHORT);
     }
 
-    // 3. Fire-and-forget. Never awaited, never gates any UI state; failures
-    // are swallowed silently (db-tech-design.md §5.3) — the contribution is
-    // invisible infrastructure from the user's perspective.
-    suggestProductInBackground(draft).catch((err) => {
-      console.warn('[suggestProduct] background sync failed', err);
-    });
+    // 3. Share with the community database. The local save above is already
+    //    committed and is never rolled back, so this only reports on itself.
+    //    The wizard carries no photo (text-only contribution); a failure is
+    //    surfaced rather than swallowed — this screen has already navigated
+    //    away, so an Alert is the honest surface available.
+    void shareDraft(draft);
+  }
+
+  async function shareDraft(draft: AddProductDraft) {
+    if (!COMMUNITY_CONTRIBUTION_ENABLED) return;
+    const result = await submitContribution(buildSuggestPayload(draft), null);
+    if (result.status === 'error') {
+      Alert.alert(
+        'Couldn’t share this product',
+        'It’s saved on your shelf. You can share it later from the product’s edit screen.',
+      );
+    }
+    // 'unavailable' is silent here: nothing the user did failed, and this
+    // screen is gone — the edit form states it explicitly when they go there.
   }
 
   const showSection1Error =

@@ -228,20 +228,19 @@ describe('BarcodeSection', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'SKIP_BARCODE' });
   });
 
-  // Community contribution is gated off (src/constants/featureFlags.ts): there
-  // is no endpoint to submit to, so the UI must not claim one happened. The
-  // counter and the "helped the community" framing return with the flag.
-  it('hides the contribution counter while community contribution is disabled', () => {
+  // Community contribution is enabled again (src/constants/featureFlags.ts):
+  // contributions now write to the vials-contributions Turso database, so the
+  // community framing describes something that genuinely happens.
+  it('shows the local per-device contribution counter', () => {
     render(<BarcodeSection draft={makeDraft()} dispatch={jest.fn()} />);
 
-    expect(screen.queryByText("You've helped verify 3 products")).toBeNull();
+    expect(screen.getByText("You've helped verify 3 products")).toBeTruthy();
   });
 
-  it('frames the barcode as a local convenience, not a community contribution', () => {
+  it('frames the barcode as a community contribution', () => {
     render(<BarcodeSection draft={makeDraft()} dispatch={jest.fn()} />);
 
-    expect(screen.queryByText(/Help the community find this product/)).toBeNull();
-    expect(screen.getByText(/find it again quickly/)).toBeTruthy();
+    expect(screen.getByText(/Help the community find this product/)).toBeTruthy();
   });
 
   it('opens the barcode camera from the scan tile', () => {

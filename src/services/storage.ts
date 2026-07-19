@@ -34,11 +34,6 @@ export const STORAGE_KEYS = {
   schemaVersion: '@vials/schemaVersion',
   /** Dynamic-cycling state + per-product application counters (FE-6). */
   tracking: '@vials/tracking',
-  /**
-   * Pending product-photo uploads (img-01). Kept OUT of productsStore so a
-   * transient upload-retry state never rewrites the product list.
-   */
-  photoUploadQueue: '@vials/photoUploadQueue',
 } as const;
 
 /** Reads the persisted schema version, defaulting to the pre-versioning baseline. */

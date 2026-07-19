@@ -42,14 +42,14 @@ jest.mock('@/store/settingsStore', () => {
   };
 });
 
-jest.mock('@/services/vialsApi/products', () => ({
-  suggestProductInBackground: jest.fn(),
+jest.mock('@/services/contributions', () => ({
+  submitContribution: jest.fn(),
 }));
 
 const mockAddProduct: jest.Mock = jest.requireMock('@/store/productsStore').__state.addProduct;
-const mockSuggestInBackground: jest.Mock = jest.requireMock(
-  '@/services/vialsApi/products',
-).suggestProductInBackground;
+const mockSubmitContribution: jest.Mock = jest.requireMock(
+  '@/services/contributions',
+).submitContribution;
 
 import AddProductScreen from '@/screens/catalog/AddProductScreen';
 
@@ -72,7 +72,7 @@ function fillRequiredFields() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockSuggestInBackground.mockResolvedValue(undefined);
+  mockSubmitContribution.mockResolvedValue({ status: 'success', withPhoto: false });
   jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 });
 
@@ -133,7 +133,7 @@ describe('local-first save', () => {
   it('writes to productsStore synchronously and leaves before the suggest call resolves', () => {
     // A suggest promise that never resolves during the test: goBack firing
     // proves nothing in the save path awaits the network.
-    mockSuggestInBackground.mockReturnValue(new Promise(() => undefined));
+    mockSubmitContribution.mockReturnValue(new Promise(() => undefined));
     renderScreen();
     fillRequiredFields();
 
@@ -151,7 +151,7 @@ describe('local-first save', () => {
       source: 'user_local',
     });
     expect(mockGoBack).toHaveBeenCalledTimes(1);
-    expect(mockSuggestInBackground).toHaveBeenCalledTimes(1);
+    expect(mockSubmitContribution).toHaveBeenCalledTimes(1);
   });
 
   it('saves with zero actives and no barcode — neither is an error state', () => {
@@ -166,22 +166,58 @@ describe('local-first save', () => {
     expect(mockGoBack).toHaveBeenCalled();
   });
 
-  it('swallows a failed background suggest without surfacing anything', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    mockSuggestInBackground.mockRejectedValue(new Error('offline'));
+  // Contribution failures are SURFACED, not swallowed. The old behaviour
+  // (console.warn only) told the user nothing had gone wrong when it had.
+  it('surfaces a failed contribution while leaving the local save intact', async () => {
+    mockSubmitContribution.mockResolvedValue({ status: 'error', message: 'offline' });
     renderScreen();
     fillRequiredFields();
 
     fireEvent.press(screen.getByText('Save and put on shelf'));
     await act(async () => Promise.resolve());
 
+    // Local save and navigation are unaffected…
+    expect(mockAddProduct).toHaveBeenCalledTimes(1);
     expect(mockGoBack).toHaveBeenCalledTimes(1);
-    expect(Alert.alert).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[suggestProduct] background sync failed',
-      expect.any(Error),
+    // …and the failure is reported rather than hidden.
+    expect(Alert.alert).toHaveBeenCalledWith(
+      expect.stringContaining('share'),
+      expect.stringContaining('saved on your shelf'),
     );
-    warnSpy.mockRestore();
+  });
+
+  it('stays silent when sharing is unavailable in this build', async () => {
+    mockSubmitContribution.mockResolvedValue({ status: 'unavailable' });
+    renderScreen();
+    fillRequiredFields();
+
+    fireEvent.press(screen.getByText('Save and put on shelf'));
+    await act(async () => Promise.resolve());
+
+    // Nothing the user did failed, and this screen has already closed — the
+    // edit form states it explicitly instead.
+    expect(mockAddProduct).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it('does not send any identifying field in the contribution payload', async () => {
+    renderScreen();
+    fillRequiredFields();
+
+    fireEvent.press(screen.getByText('Save and put on shelf'));
+    await act(async () => Promise.resolve());
+
+    const [payload, blob] = mockSubmitContribution.mock.calls[0];
+    // Product metadata only — the anonymity rule (PRD architecture constraint).
+    expect(Object.keys(payload).sort()).toEqual(
+      ['barcode', 'brand', 'inciRaw', 'name', 'productType', 'status'].sort(),
+    );
+    // Local-only fields must never leave the device.
+    expect(payload).not.toHaveProperty('openedDate');
+    expect(payload).not.toHaveProperty('paoMonths');
+    expect(payload).not.toHaveProperty('localImageUri');
+    // The wizard carries no photo.
+    expect(blob).toBeNull();
   });
 });
 
