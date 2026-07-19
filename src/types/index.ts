@@ -261,6 +261,34 @@ export interface Product {
    * lets the user reclassify it as a derivative. Absence is treated as false.
    */
   vitaminCAutoMigrated?: boolean;
+  /**
+   * Device-local, user-attached product photo — a `file://` path inside the
+   * app document directory (img-01). Distinct from {@link imageUrl}, which is
+   * server-owned and round-trips on sync. This path is meaningless off-device
+   * and MUST NEVER enter an outbound payload (SuggestPayload and every
+   * vialsApi request-builder): same local-only firewall as openedDate /
+   * paoMonths. Absent on records saved before this field.
+   *
+   * Render precedence everywhere: `localImageUri ?? imageUrl ?? <placeholder>`.
+   */
+  localImageUri?: string | null;
+}
+
+// ─── Product photo upload queue (img-01) ──────────────────────────────────────
+
+/**
+ * A pending product-photo upload, persisted under
+ * `STORAGE_KEYS.photoUploadQueue` (never inside productsStore). `filePath`
+ * points at the 1600px upload copy in `<documentDirectory>/pending-uploads/`;
+ * the entry (and its file) live until a successful upload (img-04) or product
+ * deletion. The transport is a no-op stub until img-04.
+ */
+export interface PhotoUploadQueueEntry {
+  productId: string;
+  filePath: string;
+  createdAt: string;
+  attempts: number;
+  lastAttemptAt?: string;
 }
 
 // ─── Routine target ───────────────────────────────────────────────────────────
