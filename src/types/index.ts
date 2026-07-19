@@ -314,6 +314,13 @@ export interface RoutineStep {
    * treated as false.
    */
   userPinned?: boolean;
+  /**
+   * Contextual instruction attached at plan generation (e.g. a pre-cleanse
+   * step followed by a cleanser) — not a step type, no completion tracking of
+   * its own. `null`/absent = no note. Set on save from `PlannedStep.stepNote`;
+   * manual edits leave it as-is until the next regeneration overwrites it.
+   */
+  stepNote?: string | null;
 }
 
 export interface Routine {

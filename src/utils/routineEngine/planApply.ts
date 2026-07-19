@@ -78,6 +78,7 @@ export function buildStepsFromPlan(
       hidden: false,
       scheduledDays: plannedStep.scheduledDays,
       userPinned: prior?.userPinned ?? false,
+      stepNote: plannedStep.stepNote ?? null,
     };
   });
 

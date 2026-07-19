@@ -83,6 +83,17 @@ export type EngineReasonCode =
 export type DecisionReasonCode = RulesetReasonCode | EngineReasonCode;
 
 /**
+ * Contextual per-step instructions attached to a scheduled step at plan
+ * generation (V2.1 pre_cleanse follow-up ruling, 2026-07-19). NOT reason codes
+ * and NOT a step type — just display copy resolved from shelf state. Kept here
+ * so step notes are never inline string literals in the engine (English-only).
+ */
+export const STEP_NOTE_TEXT = {
+  pre_cleanse_follow_with_cleanser:
+    'Follow with your cleanser — micellar water shouldn’t stay on skin.',
+} as const;
+
+/**
  * Human-readable English text per reason code (CLAUDE.md: English-only).
  * `satisfies` makes a missing entry a compile error and forbids stray keys.
  */

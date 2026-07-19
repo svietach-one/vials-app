@@ -768,3 +768,62 @@ This file tracks the whole package; each phase appends to the Log.
   pre-existing failed / 2 todo (+14 vs the 1221 package baseline). Self-review
   ACCEPT (test-driven, layer-clean: engine imports a pure productForm util; no
   React/store/AsyncStorage introduced).
+
+- 2026-07-19: **DEVIATION-BY-RULING — pre_cleanse stepNote (follow-up to the
+  same-day pre_cleanse ruling).** User ruling during Expo Go review: the
+  rinse-off requirement was enforced at planning level (the placeholder) but
+  invisible at execution level (the daily checklist). A contextual instruction
+  must ride the micellar step itself when the requirement IS satisfied by the
+  shelf, communicating "why this order matters" at the point of use.
+
+  **ENGINE/DATA LAYER SHIPPED, UI LAYER DEFERRED** — a parallel session
+  (product-images branch work) holds uncommitted edits to
+  `RoutineStepCard.tsx` and `RoutinesScreen.tsx` at the time of this work
+  (confirmed via `git status`/`git diff`: `PlannerBlock.tsx` also touched, new
+  `RoutineStepActionSheet.tsx`/`routineAccordion.ts` appearing, and
+  `RoutinesScreen.tsx` was mid-edit in a BROKEN state — missing `isEditMode`/
+  `activePeriod` hooks, tsc errors). Rather than editing files mid-flight
+  under someone else's unsaved refactor, the note-rendering UI (task originally
+  scoped as "render stepNote in RoutineStepCard + wire RoutinesScreen") is
+  deferred to a follow-up commit once that session's `RoutineStepCard.tsx`
+  edit lands. Everything up to and including persistence is done and tested:
+
+  1. **Copy** (`decisionReasons.ts`): new `STEP_NOTE_TEXT` constant (separate
+     from `REASON_TEXT` — notes are display copy, not reason codes) with
+     `pre_cleanse_follow_with_cleanser`. No inline string literals in the engine.
+  2. **Types**: `PlannedStep.stepNote?: string | null` (planTypes.ts) and
+     `RoutineStep.stepNote?: string | null` (types/index.ts) — optional so
+     existing plan/routine fixtures keep compiling.
+  3. **Resolution** (`generate.ts` `attachPreCleanseNotes`): runs on the FINAL
+     resolved PM period (post-admission, not skeleton candidacy) — the ground
+     truth of what the user actually sees. A pre_cleanse step gets the note
+     iff a structural cleanser is ALSO scheduled in that PM; otherwise
+     `stepNote: null` and NO fallback text — the unmet-placeholder mechanism
+     from the prior ruling remains the sole communication channel when no
+     cleanser exists. `makeStep` (resolve.ts) now sets `stepNote: null`
+     explicitly (not left `undefined`) so the field is stable under the
+     determinism property test's deep-equal.
+  4. **Persistence** (`planApply.ts` `buildStepsFromPlan`): carries
+     `plannedStep.stepNote` onto the saved `RoutineStep`. `getDailyView`
+     (dailyView.ts) needed NO change — it pushes the original `RoutineStep`
+     object through unmodified, so the note already flows to the render layer
+     once a step is on screen.
+
+  Acceptance (`tests/routine-engine/pre-cleanse.test.ts`, extended): the
+  ruling's two note scenarios (micellar-only → no note; micellar+foam → note
+  on the micellar step only) + a non-pre_cleanse-never-notes guard + an
+  explicit determinism regeneration check + a save-path passthrough check.
+  8/8 pass.
+
+  Verified: `tsc` clean. Full engine+integration suite (excluding the two
+  files under the other session's active, currently-broken edit —
+  `RoutinesScreen.tsx` and `RoutineStepCard.tsx`) → **527 passed**, 2 todo, 0
+  failed. Those two files' own test suites (`routines-screen-*`,
+  `routine-step-card.test.tsx`) fail on the OTHER session's in-progress code,
+  confirmed via `git diff` to be untouched by this change.
+
+  **Remaining for the deferred UI step**: `RoutineStepCard` needs a
+  `stepNote?: string | null` prop + a note row (styled like the existing
+  `conflictRow`/`adaptationRow` pattern); `RoutinesScreen`'s renderItem needs
+  to pass `stepNote={item.stepNote ?? null}`. No engine logic required —
+  purely wiring the already-resolved, already-persisted field onto the card.

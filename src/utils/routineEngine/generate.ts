@@ -1,4 +1,5 @@
 import { ACTIVES_RULESET, type SeasonMask } from '@/constants/rulesets/rulesetTypes';
+import { STEP_NOTE_TEXT } from '@/constants/decisionReasons';
 import type {
   Product,
   ProductApplicationStats,
@@ -22,6 +23,7 @@ import type {
 import { buildShelfFacts } from '@/utils/routineEngine/productFacts';
 import { resolvePeriods } from '@/utils/routineEngine/resolve';
 import { selectSkeleton } from '@/utils/routineEngine/skeleton';
+import { structuralSlotFor } from '@/utils/routineEngine/slotting';
 import { getSkincareDateString } from '@/utils/timeHelpers';
 
 /**
@@ -90,6 +92,26 @@ export interface RoutinePlan {
   slotAlternatives?: SlotAlternative[];
 }
 
+/**
+ * Resolves the pre-cleanse follow-up note against the FINAL resolved PM
+ * period (post-admission, not skeleton candidacy) — this is the shelf state
+ * the user actually sees. A gentle cleanser scheduled alongside a pre_cleanse
+ * step earns the "follow with your cleanser" note; no cleanser earns no note
+ * text at all — the unmet cleanse-slot placeholder (pre_cleanse_requires_followup,
+ * skeleton.ts) is the sole mechanism communicating the requirement then. Pure
+ * and deterministic: same resolved PM steps ⇒ same notes.
+ */
+function attachPreCleanseNotes(pmSteps: PlannedStep[]): PlannedStep[] {
+  const hasCleanser = pmSteps.some((s) => structuralSlotFor(s.productType) === 'cleanser');
+  return pmSteps.map((step) => {
+    if (structuralSlotFor(step.productType) !== 'pre_cleanse') return step;
+    return {
+      ...step,
+      stepNote: hasCleanser ? STEP_NOTE_TEXT.pre_cleanse_follow_with_cleanser : null,
+    };
+  });
+}
+
 export function generatePlan(input: EngineInput): RoutinePlan {
   const now = input.now ?? new Date();
   // Read-time classification guard: a mistyped micellar/oil/balm cleanser is
@@ -148,7 +170,7 @@ export function generatePlan(input: EngineInput): RoutinePlan {
   return {
     rulesetVersion: ACTIVES_RULESET.version,
     generatedFor: getSkincareDateString(now),
-    periods: { morning: resolved.periods.am, evening: resolved.periods.pm },
+    periods: { morning: resolved.periods.am, evening: attachPreCleanseNotes(resolved.periods.pm) },
     frozen: [...gateFrozen, ...resolved.frozen],
     reserve: skeleton.reserve,
     // Skeleton placeholders (neutral moisturizer) merge with mandate
