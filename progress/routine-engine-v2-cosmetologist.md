@@ -724,3 +724,47 @@ This file tracks the whole package; each phase appends to the Log.
   package is COMPLETE (phases 1–9). Remaining product-level open items are
   deferred, not part of this package: §4.3 pregnancy/lactation (its own feature,
   never in scope for 1–9).
+
+- 2026-07-19: **DEVIATION-BY-RULING — pre_cleanse slot (post-package follow-up).**
+  User ruling during Expo Go review: micellar water / cleansing oils / cleansing
+  balms are surfactant-based makeup/SPF removers and must NOT serve as a
+  standalone morning cleanse. This is a **class-level safety rule**, not a
+  per-product usageTime tweak. Amends the Phase 4 skeleton (phase-04 spec §4.1
+  updated so later work inherits it). Implemented:
+
+  1. **Slot model** (`slotting.ts`): `makeup_remover` removed from
+     `SKELETON_SLOTS.cleanser`; new **PM-only `pre_cleanse`** slot (`['makeup_remover']`)
+     ordered before `cleanser` (double-cleanse). `structuralSlotFor` /
+     `SkeletonSlotName` derive from the map, so both pick it up. AM has no
+     pre_cleanse slot.
+  2. **Class default period** (`productFacts.ts`): `DEFAULT_PERIOD_BY_TYPE`
+     defaults `makeup_remover → pm` when usageTime is unset (`'both'`); an
+     explicit per-product `morning`/`evening` still wins. Safe behavior is the
+     default, not an opt-in.
+  3. **requiresFollowUp** (`skeleton.ts`): if a pre_cleanse product is a PM
+     candidate and no gentle cleanser is PM-eligible, the PM cleanse slot renders
+     a placeholder (`productTypes: ['cleanser']`, severity `caution`) with the
+     new reason code **`pre_cleanse_requires_followup`**. The makeup remover
+     never satisfies the cleanse slot on its own.
+  4. **Classification guard** (`categoryDetector.ts` + `generate.ts`): a
+     `cleanser` whose name matches micellar / cleansing oil|balm|water / makeup
+     remover / démaquillant is reclassified to `makeup_remover` at read time
+     (`reclassifyMakeupRemover`, applied at `generatePlan` entry) so mistyped
+     DB/corpus imports inherit the rule. The wizard detector also emits
+     `makeup_remover` (pattern ordered before the generic cleanser rule).
+
+  New reason code `pre_cleanse_requires_followup` added to the closed
+  `DecisionReasonCode` union + REASON_TEXT (rulesetIntegrity engine-literal scan
+  covers it). **Scoping note:** `facts.rinseOff` for `makeup_remover` was left
+  unchanged — it governs the cumulative-cap exemption (report §7.4), orthogonal
+  to slotting; changing it would alter cap behavior out of scope.
+
+  Acceptance: `tests/routine-engine/pre-cleanse.test.ts` (the ruling's 3
+  scenarios) + `categoryDetector.test.ts` makeup-remover cases. Two existing
+  categoryDetector assertions updated to the now-correct classification
+  ("Huile Démaquillante" / "Micellar Cleanzer" → makeup_remover), not silently
+  — the change is the whole point of the ruling. Verified: `tsc` clean;
+  full `jest --testPathIgnorePatterns=worktrees` → **1235 passed** / 3 known
+  pre-existing failed / 2 todo (+14 vs the 1221 package baseline). Self-review
+  ACCEPT (test-driven, layer-clean: engine imports a pure productForm util; no
+  React/store/AsyncStorage introduced).

@@ -198,6 +198,35 @@ function neutralMoisturizerPlaceholders(
   return placeholders;
 }
 
+/**
+ * A pre-cleanse product (micellar/oil/balm) does NOT satisfy the cleanse slot —
+ * it must be rinsed off. If PM has a pre_cleanse candidate but no gentle
+ * cleanser, surface a PM cleanse placeholder so the routine is unmistakably
+ * incomplete rather than silently letting the makeup remover stand in. PM-only
+ * because the skeleton has no AM pre_cleanse slot (makeup_remover defaults PM).
+ */
+function preCleanseFollowupPlaceholders(structural: Entry[]): PlaceholderSlot[] {
+  const eligiblePm = (e: Entry) =>
+    periodsForProduct(e.product.productType, e.facts).includes('pm');
+  const hasPreCleanse = structural.some(
+    (e) => structuralSlotFor(e.product.productType) === 'pre_cleanse' && eligiblePm(e),
+  );
+  if (!hasPreCleanse) return [];
+  const hasCleanser = structural.some(
+    (e) => structuralSlotFor(e.product.productType) === 'cleanser' && eligiblePm(e),
+  );
+  if (hasCleanser) return [];
+  return [
+    {
+      period: 'pm',
+      productTypes: ['cleanser'],
+      reasonCode: 'pre_cleanse_requires_followup',
+      nonSkippable: false,
+      severity: 'caution',
+    },
+  ];
+}
+
 export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
   const ranking = input.context.treatmentClassRanking;
   const periodCandidates: Record<Period, Set<string>> = { am: new Set(), pm: new Set() };
@@ -286,6 +315,9 @@ export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
     decisions.push({ action: 'reserve', productId: item.productId, reasonCode: item.reasonCode });
   }
 
-  const placeholders = neutralMoisturizerPlaceholders(selectedTreatments, structural);
+  const placeholders = [
+    ...neutralMoisturizerPlaceholders(selectedTreatments, structural),
+    ...preCleanseFollowupPlaceholders(structural),
+  ];
   return { periodCandidates, reserve: finalReserve, decisions, placeholders, treatmentCaps };
 }

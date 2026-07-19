@@ -88,6 +88,16 @@ const USAGE_TIME_PERIODS: Record<Product['usageTime'], Period[]> = {
   both: ['am', 'pm'],
 };
 
+/**
+ * Product types whose SAFE default period is narrower than the usageTime band.
+ * makeup_remover (micellar/oil/balm) is a PM-only pre-cleanse: the safe
+ * behavior is the default, not an opt-in. Applies only when usageTime is left
+ * at 'both' (unset) — an explicit per-product 'morning'/'evening' still wins.
+ */
+const DEFAULT_PERIOD_BY_TYPE: Partial<Record<ProductType, Period[]>> = {
+  makeup_remover: ['pm'],
+};
+
 /** Conservative default for wizard-confirmed classes without INCI evidence. */
 const DEFAULT_TAG_POTENCY: Potency = 'high';
 
@@ -142,6 +152,7 @@ function attributeClasses(product: Product): ProductFactClass[] {
 function aggregateProperties(
   classes: ProductFactClass[],
   usageTime: Product['usageTime'],
+  productType: ProductType,
 ): { properties: AggregatedProperties; allowedPeriods: Period[] } {
   const properties: AggregatedProperties = { ...EMPTY_PROPERTIES };
   let allowedPeriods: Period[] = ['am', 'pm'];
@@ -158,9 +169,12 @@ function aggregateProperties(
     properties.irritancy = Math.max(properties.irritancy, resolveIrritancy(p, potency));
     allowedPeriods = allowedPeriods.filter((period) => cls.allowedPeriods.includes(period));
   }
-  allowedPeriods = allowedPeriods.filter((period) =>
-    USAGE_TIME_PERIODS[usageTime].includes(period),
-  );
+  // usageTime narrows the band; when left unset ('both'), a type-level safe
+  // default (e.g. makeup_remover → pm) applies instead of the full am+pm.
+  const typeDefault = DEFAULT_PERIOD_BY_TYPE[productType];
+  const usageBand =
+    usageTime === 'both' && typeDefault ? typeDefault : USAGE_TIME_PERIODS[usageTime];
+  allowedPeriods = allowedPeriods.filter((period) => usageBand.includes(period));
 
   return { properties, allowedPeriods };
 }
@@ -172,7 +186,11 @@ function aggregateProperties(
  */
 export function buildProductFacts(product: Product, now: Date = new Date()): ProductFacts {
   const classes = attributeClasses(product);
-  const { properties, allowedPeriods } = aggregateProperties(classes, product.usageTime);
+  const { properties, allowedPeriods } = aggregateProperties(
+    classes,
+    product.usageTime,
+    product.productType,
+  );
 
   return {
     productId: product.id,

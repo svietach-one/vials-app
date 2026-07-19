@@ -49,9 +49,17 @@ export function periodsForProduct(productType: ProductType, facts: ProductFacts)
  * each structural slot. Treatment is not listed — it is selected by class
  * ranking, not by format. Types outside this map and outside the treatment
  * ranking do not enter a generated routine at all (minimalism).
+ *
+ * `pre_cleanse` (micellar water, cleansing oils/balms) is a distinct PM-only
+ * step ordered BEFORE `cleanser` (the double-cleanse pattern). It is a
+ * surfactant-based makeup/SPF remover, NOT a standalone cleanse: a makeup
+ * remover never satisfies the cleanse slot, and its presence triggers a
+ * follow-up gentle-cleanser requirement (see `pre_cleanse_requires_followup`).
+ * The AM skeleton has no pre_cleanse slot — makeup_remover defaults to PM.
  */
 export const SKELETON_SLOTS = {
-  cleanser: ['cleanser', 'makeup_remover'],
+  pre_cleanse: ['makeup_remover'],
+  cleanser: ['cleanser'],
   moisturizer: ['moisturizer', 'cream', 'lotion'],
   spf: ['spf'],
 } as const satisfies Record<string, readonly ProductType[]>;

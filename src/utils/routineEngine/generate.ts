@@ -6,6 +6,7 @@ import type {
   UserProcedureLog,
   UserProfile,
 } from '@/types';
+import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
 import { collectAdaptationLimits, collectTolerability } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { applyEligibilityGates } from '@/utils/routineEngine/eligibility';
@@ -91,7 +92,11 @@ export interface RoutinePlan {
 
 export function generatePlan(input: EngineInput): RoutinePlan {
   const now = input.now ?? new Date();
-  const facts = buildShelfFacts(input.products, now);
+  // Read-time classification guard: a mistyped micellar/oil/balm cleanser is
+  // normalized to makeup_remover before facts/skeleton see it, so DB imports
+  // inherit the pre_cleanse slot + follow-up rule. Pure (same ref when no-op).
+  const products = input.products.map(reclassifyMakeupRemover);
+  const facts = buildShelfFacts(products, now);
   const context = buildRoutineContext({
     procedures: input.procedures,
     profile: {
@@ -103,7 +108,7 @@ export function generatePlan(input: EngineInput): RoutinePlan {
     now,
   });
 
-  const gates = applyEligibilityGates(input.products, facts, context);
+  const gates = applyEligibilityGates(products, facts, context);
   const skeleton = selectSkeleton({
     products: gates.eligible,
     facts,

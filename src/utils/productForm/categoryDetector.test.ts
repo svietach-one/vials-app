@@ -13,7 +13,16 @@ describe('detectCategory', () => {
   it('detects cleanser including wash and cleanzer spellings', () => {
     expect(detectCategory('Foaming Facial Cleanser')).toBe('cleanser');
     expect(detectCategory('Gentle Face Wash')).toBe('cleanser');
-    expect(detectCategory('Micellar Cleanzer')).toBe('cleanser');
+    expect(detectCategory('Gentle Foaming Cleanzer')).toBe('cleanser');
+  });
+
+  it('detects makeup removers (micellar / oil / balm) ahead of the cleanser rule', () => {
+    // Pre-cleanse products — surfactant-based makeup/SPF removers that do not
+    // rinse clean. Must classify apart from a gentle rinse-off cleanser.
+    expect(detectCategory('Micellar Cleansing Water')).toBe('makeup_remover');
+    expect(detectCategory('Deep Cleansing Oil')).toBe('makeup_remover');
+    expect(detectCategory('Melting Cleansing Balm')).toBe('makeup_remover');
+    expect(detectCategory('Bi-Phase Makeup Remover')).toBe('makeup_remover');
   });
 
   it('detects toner including tonic wording', () => {
@@ -57,7 +66,7 @@ describe('detectCategory', () => {
     expect(detectCategory('Eau Tonique Apaisante')).toBe('toner');
     expect(detectCategory('Écran Solaire Invisible')).toBe('spf');
     expect(detectCategory('Masque Purifiant')).toBe('mask');
-    expect(detectCategory('Huile Démaquillante')).toBe('cleanser');
+    expect(detectCategory('Huile Démaquillante')).toBe('makeup_remover');
     expect(detectCategory('Gommage Corps')).toBe('peeling');
   });
 
