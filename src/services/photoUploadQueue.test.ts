@@ -9,6 +9,7 @@ import {
   drain,
   enqueue,
   getAll,
+  MAX_UPLOAD_ATTEMPTS,
   noopTransport,
   remove,
   type PhotoUploadTransport,
@@ -123,5 +124,70 @@ describe('drain', () => {
     const transport: PhotoUploadTransport = { upload: jest.fn() };
     await drain(transport);
     expect(transport.upload).not.toHaveBeenCalled();
+  });
+});
+
+describe('drain retry cap and cleanup', () => {
+  const failing: PhotoUploadTransport = {
+    upload: jest.fn(async () => {
+      throw new Error('offline');
+    }),
+  };
+
+  it('marks an entry failed once the attempt cap is reached', async () => {
+    await enqueue(makeEntry({ attempts: MAX_UPLOAD_ATTEMPTS - 1 }));
+
+    await drain(failing);
+
+    const [entry] = await getAll();
+    expect(entry.attempts).toBe(MAX_UPLOAD_ATTEMPTS);
+    expect(entry.failed).toBe(true);
+  });
+
+  it('keeps a capped-out entry but never retries it', async () => {
+    await enqueue(makeEntry({ attempts: MAX_UPLOAD_ATTEMPTS, failed: true }));
+    const transport: PhotoUploadTransport = { upload: jest.fn() };
+
+    await drain(transport);
+
+    expect(transport.upload).not.toHaveBeenCalled();
+    expect(await getAll()).toHaveLength(1);
+  });
+
+  it('deletes the pending file and drops the entry once it passes the TTL', async () => {
+    const created = new Date('2026-01-01T00:00:00.000Z');
+    await enqueue(makeEntry({ createdAt: created.toISOString() }));
+    const transport: PhotoUploadTransport = { upload: jest.fn() };
+
+    // 31 days later — past PENDING_FILE_TTL_DAYS.
+    const now = created.getTime() + 31 * 24 * 60 * 60 * 1000;
+    await drain(transport, now);
+
+    // Cleanup happens without ever attempting another upload.
+    expect(transport.upload).not.toHaveBeenCalled();
+    expect(mockFileDelete).toHaveBeenCalledTimes(1);
+    expect(await getAll()).toEqual([]);
+  });
+
+  it('cleans up an expired entry even when it is already marked failed', async () => {
+    const created = new Date('2026-01-01T00:00:00.000Z');
+    await enqueue(makeEntry({ createdAt: created.toISOString(), failed: true }));
+
+    await drain(failing, created.getTime() + 31 * 24 * 60 * 60 * 1000);
+
+    expect(await getAll()).toEqual([]);
+    expect(mockFileDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves a not-yet-expired entry alone for cleanup purposes', async () => {
+    const created = new Date('2026-01-01T00:00:00.000Z');
+    await enqueue(makeEntry({ createdAt: created.toISOString() }));
+
+    // 29 days later — still inside the TTL, so it is retried, not cleaned up.
+    await drain(failing, created.getTime() + 29 * 24 * 60 * 60 * 1000);
+
+    const [entry] = await getAll();
+    expect(entry.attempts).toBe(1);
+    expect(mockFileDelete).not.toHaveBeenCalled();
   });
 });

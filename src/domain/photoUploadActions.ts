@@ -2,19 +2,19 @@ import { drain, noopTransport, type PhotoUploadTransport } from '@/services/phot
 
 /**
  * Photo-upload domain action (img-01). Owns the drain cadence so screens and
- * App root never touch the queue directly. The transport is a no-op stub until
- * img-04 swaps in the real Supabase transport (behind an env flag) via
- * {@link activeTransport}.
+ * App root never touch the queue directly.
+ *
+ * {@link activeTransport} returns the no-op stub and will keep doing so until
+ * contributed photos have a server destination — the Turso corpus is a
+ * pull-only read-only replica and the stack has no object storage. See
+ * docs/tasks/product-images/BLOCKERS.md before wiring anything real here.
  */
 
 const THROTTLE_MS = 15 * 60 * 1000; // at most one drain per 15 minutes
 
 let lastDrainAt = 0;
 
-/**
- * The upload transport in force. img-04 replaces the noop with a real
- * transport (or keeps the noop when server env vars are absent).
- */
+/** The upload transport in force. No real transport exists yet (BLOCKERS.md). */
 function activeTransport(): PhotoUploadTransport {
   return noopTransport;
 }

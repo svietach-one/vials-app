@@ -268,3 +268,80 @@
 - `WeeklyPlanView.tsx` is dead code (imported nowhere) and now overlaps the new
   accordion list conceptually — candidate for deletion in a cleanup pass.
 - The calendar half of the toggle renders the list until task 05 lands.
+
+---
+
+## Task 04 — Photo Server Sync ⛔ HALTED (see BLOCKERS.md)
+
+**Outcome:** not shipped. Implemented against Supabase Storage as specced, then
+reverted after the premise proved wrong. Client code returned to a coherent
+state; the blocking questions are recorded for the backend owner.
+
+### What happened
+
+Task 04 locked "upload target: Supabase Storage, bucket `product-images`". That
+target comes from the **superseded pre-Turso** design in
+`docs/database/db-tech-design.md` — a document carrying a "superseded" banner
+over an otherwise-unchanged Supabase body. It was implemented before the
+mismatch was caught; the user flagged it ("why Supabase? our database is
+Turso"), and investigation confirmed the problem is deeper than a wrong vendor.
+
+### What the investigation found
+
+- Turso is configured for exactly one job: a **pull-only, read-only product
+  corpus replica** (`CorpusProvider` + `expo-sqlite` libSQL mode, no
+  `@libsql/client`). The token is read-only *by contract*
+  (`.env.example`: `--read-only`); repositories are SELECT-only.
+- **No write path** to the corpus exists, by design.
+- **No object storage exists anywhere in the stack.** Turso replaced Supabase as
+  the database; nothing replaced Supabase *Storage*. Photo bytes have no home.
+- **No addressable suggestion**: `suggestProduct` returns `void`, and
+  `EXPO_PUBLIC_VIALS_API_URL` is not even in `.env.example`.
+- **RLS has no Turso equivalent** — its gating job moves to the API tier
+  (contributions in a separate server-side DB the replica never syncs;
+  moderation as an explicit promotion job). Full reasoning in BLOCKERS.md.
+
+### Changes kept
+
+- `photoUploadQueue.ts` hardening — 5-attempt cap (`MAX_UPLOAD_ATTEMPTS`),
+  30-day pending-file TTL cleanup (`PENDING_FILE_TTL_DAYS`), `failed` marker.
+  Backend-agnostic; survives whichever upload design lands.
+- `PhotoUploadTransport` seam + `noopTransport` still wired — nothing uploads,
+  nothing throws, the queue simply accumulates.
+- `PhotoUploadQueueEntry.failed?` in types.
+- 5 new queue tests (cap, capped-out skip, TTL cleanup, TTL for failed entries,
+  not-yet-expired retry). 11 queue tests total, all green.
+
+### Changes reverted
+
+- `src/services/supabaseClient.ts`, `src/services/photoUploadTransport.supabase.ts`
+  — deleted (wrong premise; would also require a write-capable client credential
+  with no RLS to contain it).
+- `linkPhotoEvidence` + `SuggestPayload.photo_evidence_url` — phantom contract
+  for an endpoint that does not exist.
+- **The two-step upload→link drain — reverted deliberately, on review of my own
+  design.** With no linking endpoint, a transport wired without a link
+  implementation would leave every entry uncleared and grow the queue forever.
+  `drain` is single-step (upload success completes the entry) until a real
+  endpoint exists. This also made the previously-failing queue test pass
+  honestly rather than by adjusting the assertion.
+
+### Verification
+
+- `npx tsc --noEmit`: clean.
+- Full suite: **3 failing suites — the same 3 baseline suites**, 0 introduced;
+  1277 tests passing (up from 1221 at baseline).
+- `grep -rni supabase src/` — no functional references remain (only a
+  pre-existing mock comment in `DebugAccountSyncCard`).
+
+### Open items for the human
+
+- **BLOCKER-1** — decide the upload destination (API-owned vs presigned) and
+  who owns moderation.
+- **BLOCKER-2** — confirm whether the Vials API / an upload endpoint is on the
+  backend roadmap at all. If not, US-3 (community contribution) is
+  unsatisfiable regardless of client design and should be explicitly deferred.
+  This is a product-roadmap gap, not a client scoping issue.
+- **`TICKET-docs-pre-turso-architecture.md`** — the stale-docs cleanup that
+  caused this detour (raised as a separate ticket, deliberately not bundled
+  into this commit).

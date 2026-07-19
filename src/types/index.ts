@@ -289,6 +289,11 @@ export interface PhotoUploadQueueEntry {
   createdAt: string;
   attempts: number;
   lastAttemptAt?: string;
+  /**
+   * Set once the retry cap is reached; the entry is retained for diagnostics
+   * but never retried again. Absence is treated as false.
+   */
+  failed?: boolean;
 }
 
 // ─── Routine target ───────────────────────────────────────────────────────────
