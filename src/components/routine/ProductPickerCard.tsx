@@ -52,16 +52,16 @@ export function ProductPickerCard({ product, onAdd }: ProductPickerCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.contentArea}>
-        {/* Top row: product name (left, up to 2 lines) + brand (right, 1 line) */}
+        {/* Identity: brand (muted) above product name (bold) */}
         <View style={styles.topRow}>
-          <Text style={styles.productName} numberOfLines={2}>
-            {product.name}
-          </Text>
           {product.brand ? (
             <Text style={styles.brandName} numberOfLines={1}>
               {product.brand}
             </Text>
           ) : null}
+          <Text style={styles.productName} numberOfLines={2}>
+            {product.name}
+          </Text>
         </View>
 
         {/* Bottom row: badges (left) + add button (right) */}
@@ -109,13 +109,11 @@ const styles = StyleSheet.create({
   contentArea: {
     gap: space[2],
   },
+  // Brand above the name, both left-aligned (matches the shelf/routine cards).
   topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: space[2],
+    gap: 2,
   },
   productName: {
-    flex: 1,
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: palette.black,
@@ -123,9 +121,6 @@ const styles = StyleSheet.create({
   brandName: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    flexShrink: 0,
-    maxWidth: 110,
-    textAlign: 'right',
   },
   bottomRow: {
     flexDirection: 'row',

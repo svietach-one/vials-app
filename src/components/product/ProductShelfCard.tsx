@@ -100,23 +100,23 @@ export function ProductShelfCard({
       >
         <View style={styles.rowWrap}>
           {/* Leading product photo (52px) — placeholder when none, dims with card */}
-          <ProductThumbnail product={product} size={52} dimmed={!!product.isHidden} />
+          <ProductThumbnail product={product} size={88} dimmed={!!product.isHidden} />
 
           <View style={styles.mainColumn}>
         <View
           testID="shelf-card-content"
           style={[styles.content, product.isHidden && styles.contentDimmed]}
         >
-          {/* Top row: product name (left) + brand name (right) */}
+          {/* Identity: brand (muted) above product name (bold) */}
           <View style={styles.topRow}>
-            <Text style={styles.productName} numberOfLines={2}>
-              {product.name}
-            </Text>
             {product.brand ? (
               <Text style={styles.brandName} numberOfLines={1}>
                 {product.brand}
               </Text>
             ) : null}
+            <Text style={styles.productName} numberOfLines={2}>
+              {product.name}
+            </Text>
           </View>
 
           {/* Middle row: routine info or hidden state */}
@@ -254,23 +254,19 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
 
+  // Brand sits above the name, both left-aligned — the name is the primary
+  // identifier, the brand is context for it.
   topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: space[2],
+    gap: 2,
   },
   productName: {
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: palette.black,
-    flex: 1,
   },
   brandName: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    textAlign: 'right',
-    flexShrink: 0,
   },
 
   middleRow: {

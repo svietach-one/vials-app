@@ -95,17 +95,17 @@ export function RoutineStepCard({
 
   const mainRow = (
     <View style={styles.mainRow}>
-      {/* Leading product photo (compact 44px) — placeholder when none */}
-      <ProductThumbnail product={product} size={44} />
+      {/* Leading product photo — placeholder when none */}
+      <ProductThumbnail product={product} size={72} />
 
       {/* Content area */}
       <View style={styles.contentArea}>
-        {/* Top row: product name (left, up to 2 lines) + brand (right, 1 line) */}
+        {/* Identity: brand (muted) above product name (bold) */}
         <View style={styles.topRow}>
-          <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
           {product.brand ? (
             <Text style={styles.brandName} numberOfLines={1}>{product.brand}</Text>
           ) : null}
+          <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
         </View>
 
         {/* Bottom row: badges (left) + delete button in edit mode (right) */}
@@ -269,13 +269,11 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
 
+  // Brand above the name, both left-aligned (matches the shelf card).
   topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: space[2],
+    gap: 2,
   },
   productName: {
-    flex: 1,
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: palette.black,
@@ -283,9 +281,6 @@ const styles = StyleSheet.create({
   brandName: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    flexShrink: 0,
-    maxWidth: 110,
-    textAlign: 'right',
   },
 
   bottomRow: {
