@@ -126,9 +126,9 @@ describe('Story 2 AC: Draft Preview renders a Before -> After layout with the fo
     // Paused row for the frozen (until-bearing) product.
     expect(screen.getByText(/Retinol Night Cream — paused until 2026-07-18/)).toBeTruthy();
 
-    expect(screen.getByLabelText('Save for Both (AM & PM)')).toBeTruthy();
-    expect(screen.getByLabelText('Save for AM Only')).toBeTruthy();
-    expect(screen.getByLabelText('Save for PM Only')).toBeTruthy();
+    expect(screen.getByLabelText('Save for Morning & Evening')).toBeTruthy();
+    expect(screen.getByLabelText('Save for Morning Only')).toBeTruthy();
+    expect(screen.getByLabelText('Save for Evening Only')).toBeTruthy();
     expect(screen.getByLabelText('Cancel and discard draft')).toBeTruthy();
   });
 
@@ -150,24 +150,24 @@ describe('Story 2 AC: Draft Preview renders a Before -> After layout with the fo
 });
 
 describe('Story 2 AC: each commit action invokes onCommit with the correct scope', () => {
-  it('"Save for Both (AM & PM)" commits scope "both"', () => {
+  it('"Save for Morning & Evening" commits scope "both"', () => {
     const onCommit = jest.fn();
     render(<DraftPreviewSheet visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
-    fireEvent.press(screen.getByLabelText('Save for Both (AM & PM)'));
+    fireEvent.press(screen.getByLabelText('Save for Morning & Evening'));
     expect(onCommit).toHaveBeenCalledWith('both');
   });
 
-  it('"Save for AM Only" commits scope "am"', () => {
+  it('"Save for Morning Only" commits scope "am"', () => {
     const onCommit = jest.fn();
     render(<DraftPreviewSheet visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
-    fireEvent.press(screen.getByLabelText('Save for AM Only'));
+    fireEvent.press(screen.getByLabelText('Save for Morning Only'));
     expect(onCommit).toHaveBeenCalledWith('am');
   });
 
-  it('"Save for PM Only" commits scope "pm"', () => {
+  it('"Save for Evening Only" commits scope "pm"', () => {
     const onCommit = jest.fn();
     render(<DraftPreviewSheet visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
-    fireEvent.press(screen.getByLabelText('Save for PM Only'));
+    fireEvent.press(screen.getByLabelText('Save for Evening Only'));
     expect(onCommit).toHaveBeenCalledWith('pm');
   });
 

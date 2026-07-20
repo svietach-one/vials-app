@@ -209,34 +209,28 @@ export function DraftPreviewSheet({
             size="md"
             fullWidth
             onPress={() => onCommit('both')}
-            accessibilityLabel="Save for Both (AM & PM)"
+            accessibilityLabel="Save for Morning & Evening"
           >
-            Save for Both (AM & PM)
+            Save for Morning & Evening
           </Button>
-          <View style={styles.actionRow}>
-            <View style={styles.actionHalf}>
-              <Button
-                variant="secondary"
-                size="md"
-                fullWidth
-                onPress={() => onCommit('am')}
-                accessibilityLabel="Save for AM Only"
-              >
-                Save for AM Only
-              </Button>
-            </View>
-            <View style={styles.actionHalf}>
-              <Button
-                variant="secondary"
-                size="md"
-                fullWidth
-                onPress={() => onCommit('pm')}
-                accessibilityLabel="Save for PM Only"
-              >
-                Save for PM Only
-              </Button>
-            </View>
-          </View>
+          <Button
+            variant="secondary"
+            size="md"
+            fullWidth
+            onPress={() => onCommit('am')}
+            accessibilityLabel="Save for Morning Only"
+          >
+            Save for Morning Only
+          </Button>
+          <Button
+            variant="secondary"
+            size="md"
+            fullWidth
+            onPress={() => onCommit('pm')}
+            accessibilityLabel="Save for Evening Only"
+          >
+            Save for Evening Only
+          </Button>
           <Button
             variant="ghost"
             size="md"
@@ -426,12 +420,5 @@ const styles = StyleSheet.create({
   actions: {
     gap: space[2],
     marginTop: space[2],
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: space[2],
-  },
-  actionHalf: {
-    flex: 1,
   },
 });

@@ -230,7 +230,11 @@ export default function CatalogScreen({ navigation }: Props) {
 function RoutineBadge({ status }: { status: RoutineStatusResult }) {
   if (status === 'none') return null;
   const label =
-    status === 'both' ? 'AM · PM' : status === 'morning' ? 'AM' : 'PM';
+    status === 'both'
+      ? 'Morning · Evening'
+      : status === 'morning'
+        ? 'Morning'
+        : 'Evening';
   return <Badge status="Default" type="Light">{label}</Badge>;
 }
 
