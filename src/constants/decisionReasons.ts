@@ -65,6 +65,7 @@ export type EngineReasonCode =
   | 'duplicate_function'
   | 'cumulative_active_cap'
   | 'moisturizer_recommended'
+  | 'pre_cleanse_requires_followup'
   | 'rinse_off_active_note'
   | 'exfoliant_treatment_cap'
   | 'reclassified_treatment_cap'
@@ -80,6 +81,17 @@ export type EngineReasonCode =
   | 'dynamic_unavailable_no_actives';
 
 export type DecisionReasonCode = RulesetReasonCode | EngineReasonCode;
+
+/**
+ * Contextual per-step instructions attached to a scheduled step at plan
+ * generation (V2.1 pre_cleanse follow-up ruling, 2026-07-19). NOT reason codes
+ * and NOT a step type — just display copy resolved from shelf state. Kept here
+ * so step notes are never inline string literals in the engine (English-only).
+ */
+export const STEP_NOTE_TEXT = {
+  pre_cleanse_follow_with_cleanser:
+    'Follow with your cleanser — micellar water shouldn’t stay on skin.',
+} as const;
 
 /**
  * Human-readable English text per reason code (CLAUDE.md: English-only).
@@ -129,6 +141,8 @@ export const REASON_TEXT = {
   duplicate_function: 'Another product already covers this role — kept in reserve.',
   cumulative_active_cap: 'One strong active per evening is enough — kept in reserve.',
   moisturizer_recommended: 'Add a plain moisturiser to finish this routine.',
+  pre_cleanse_requires_followup:
+    'Micellar water and cleansing oils/balms don’t rinse clean — add a gentle rinse-off cleanser after this step.',
   rinse_off_active_note: 'Heads-up: your cleanser also contains an active (it rinses off, so it’s fine).',
   exfoliant_treatment_cap: 'Exfoliating treatments are limited to two nights a week.',
   reclassified_treatment_cap: 'This leave-on active is treated as a treatment, not a daily step.',

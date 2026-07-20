@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -24,8 +26,18 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
+import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
+import { COMMUNITY_CONTRIBUTION_ENABLED } from '@/constants/featureFlags';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProductRepository } from '@/hooks/useCorpusRepositories';
+import { submitContribution, type ContributionResult } from '@/services/contributions';
+import {
+  deleteProductPhoto,
+  pickAndStoreProductPhoto,
+  renderContributionBlob,
+  storeExistingPhotoAsProductPhoto,
+  type PhotoSource,
+} from '@/services/productImage';
 import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 import { generateId } from '@/utils/generateId';
 import { resolveProductType } from '@/utils/productType';
@@ -315,6 +327,72 @@ function OpenedDateField({ isOpened, dateValue, onToggle, onDateChange }: Opened
   );
 }
 
+/**
+ * Honest reporting of the community-share outcome (US-3). Four distinct
+ * states — sharing / shared / unavailable / failed — because the whole point
+ * of this surface is that it must never imply a submission happened when it
+ * did not. "Unavailable" is deliberately not an error: retrying cannot help in
+ * a build without the libSQL module, so no retry is offered there.
+ */
+function ShareStatus({
+  sharing,
+  result,
+  onRetry,
+}: {
+  sharing: boolean;
+  result: ContributionResult | null;
+  onRetry: () => void;
+}) {
+  if (sharing) {
+    return (
+      <View style={s.shareRow} testID="share-status-pending">
+        <ActivityIndicator size="small" color={colors.textSecondary} />
+        <Text style={s.shareText}>Sharing with the Vials database…</Text>
+      </View>
+    );
+  }
+
+  if (!result) return null;
+
+  if (result.status === 'success') {
+    return (
+      <View style={s.shareRow} testID="share-status-success">
+        <Feather name="check-circle" size={16} color={palette.bottleGreen} />
+        <Text style={s.shareText}>
+          {result.withPhoto
+            ? 'Shared for review, with your photo.'
+            : 'Shared for review — text only, no photo attached.'}
+        </Text>
+      </View>
+    );
+  }
+
+  if (result.status === 'unavailable') {
+    return (
+      <View style={s.shareRow} testID="share-status-unavailable">
+        <Feather name="info" size={16} color={colors.statusInfo} />
+        <Text style={s.shareText}>
+          Sharing isn&apos;t available in this build. Your product is saved on this device.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={s.shareRow} testID="share-status-error">
+      <Feather name="alert-triangle" size={16} color={colors.statusWarningAccent} />
+      <View style={s.shareErrorBody}>
+        <Text style={s.shareText}>
+          Couldn&apos;t share this product. It&apos;s still saved on your shelf.
+        </Text>
+        <Pressable onPress={onRetry} accessibilityRole="button" hitSlop={8}>
+          <Text style={s.shareRetry}>Try again</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ManualProductFormScreen({ route, navigation }: Props) {
@@ -331,7 +409,13 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
 
   const isEditMode = !!editingProduct;
 
+  // Stable id established once, so a photo can be captured (and its files named)
+  // before the product is saved. Reused as the product id on save.
+  const productId = useRef(editingProduct?.id ?? generateId()).current;
+
   const [name, setName] = useState('');
+  const [localImageUri, setLocalImageUri] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [brand, setBrand] = useState('');
   const [productType, setProductType] = useState<ProductType | null>(null);
   const [selectedIngredients, setSelectedIngredients] = useState<ActiveIngredient[]>([]);
@@ -349,6 +433,10 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [openedDate, setOpenedDate] = useState(todayIso());
   const [showObfAttribution, setShowObfAttribution] = useState(false);
   const [corpusProductUrl, setCorpusProductUrl] = useState<string | null>(null);
+  // Community-contribution state. Separate from the local save, which never
+  // waits on it and never fails because of it.
+  const [sharing, setSharing] = useState(false);
+  const [shareResult, setShareResult] = useState<ContributionResult | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -359,6 +447,8 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       setProductType(editingProduct.productType);
       setFullIngredientText(editingProduct.fullIngredientText ?? '');
       setObfId(editingProduct.openBeautyFactsId);
+      setImageUrl(editingProduct.imageUrl);
+      setLocalImageUri(editingProduct.localImageUri ?? null);
       const tagKeys: ActiveIngredientKey[] =
         editingProduct.activeTags ?? editingProduct.activeIngredients.map((i) => i.key);
       setSelectedIngredients(keysToIngredients(tagKeys));
@@ -431,12 +521,111 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     setSelectedIngredients(keysToIngredients(parsedKeys));
   }
 
-  function handleOcrResult(text: string) {
+  function handleOcrResult(text: string, sourceUri?: string) {
     setFullIngredientText(text);
     const parsedKeys = parseActiveIngredientsFromInci(text);
     setSelectedIngredients(keysToIngredients(parsedKeys));
     setOcrScanned(true);
     setShowOcrScanner(false);
+
+    // Reuse the just-captured label shot as the product photo when the user
+    // hasn't attached one — staged like any other photo edit, so it shows in
+    // the preview and can be changed/removed before save (img-02).
+    if (sourceUri && !localImageUri) {
+      void storeExistingPhotoAsProductPhoto(productId, sourceUri).then((result) => {
+        if (result) setLocalImageUri(result.localImageUri);
+      });
+    }
+  }
+
+  function buildProduct(): Product {
+    const resolvedPaoMonths: number | null = isCustomPao
+      ? (parseInt(customPaoText, 10) || null)
+      : paoMonths;
+
+    return {
+      id: productId,
+      name: name.trim(),
+      brand: brand.trim() || null,
+      productType: productType ?? 'other',
+      // Carry the server-owned URL (edit/corpus); stop hardcoding null.
+      imageUrl,
+      localImageUri,
+      activeIngredients: selectedIngredients,
+      activeTags: selectedIngredients.map((i) => i.key),
+      fullIngredientText: fullIngredientText.trim() || null,
+      usageTime: editingProduct?.usageTime ?? 'both',
+      openBeautyFactsId: obfId,
+      addedAt: editingProduct?.addedAt ?? new Date().toISOString(),
+      notes: null,
+      openedDate: isOpened ? openedDate : null,
+      paoMonths: resolvedPaoMonths,
+      // Edits preserve the original provenance; new records split on
+      // whether they came from an OBF result or pure manual entry.
+      source: editingProduct?.source ?? (obfId ? 'obf_import' : 'user_local'),
+    };
+  }
+
+  async function attachPhoto(source: PhotoSource) {
+    const result = await pickAndStoreProductPhoto(productId, source);
+    if (result) setLocalImageUri(result.localImageUri);
+  }
+
+  function handlePhotoPress() {
+    // Photo edits are staged like every other field: capture writes files
+    // immediately (keyed to the stable productId), but "Remove" only clears
+    // local state — the files are cleaned on save (see handleSave).
+    Alert.alert('Product Photo', 'Photograph only the product.', [
+      { text: 'Take Photo', onPress: () => void attachPhoto('camera') },
+      { text: 'Choose from Gallery', onPress: () => void attachPhoto('library') },
+      ...(localImageUri
+        ? [
+            {
+              text: 'Remove Photo',
+              style: 'destructive' as const,
+              onPress: () => setLocalImageUri(null),
+            },
+          ]
+        : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }
+
+  /**
+   * Shares the product with the community database. Deliberately awaited and
+   * its outcome surfaced — the local save has already happened and is never
+   * rolled back, so a failure here only affects the sharing status line.
+   */
+  async function shareProduct(product: Product) {
+    if (!COMMUNITY_CONTRIBUTION_ENABLED) return;
+    setSharing(true);
+    setShareResult(null);
+    try {
+      const blob = await renderContributionBlob(product.localImageUri);
+      const result = await submitContribution(
+        {
+          brand: product.brand ?? '',
+          name: product.name,
+          productType: product.productType,
+          barcode: product.barcode ?? null,
+          inciRaw: product.fullIngredientText,
+          status: 'pending',
+        },
+        blob,
+      );
+      setShareResult(result);
+    } catch (e) {
+      setShareResult({
+        status: 'error',
+        message: e instanceof Error ? e.message : 'Could not share this product.',
+      });
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  function handleRetryShare() {
+    void shareProduct(buildProduct());
   }
 
   function handleSave() {
@@ -454,35 +643,19 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     }
     setPaoError(null);
 
-    const resolvedPaoMonths: number | null = isCustomPao
-      ? (parseInt(customPaoText, 10) || null)
-      : paoMonths;
-
-    const product: Product = {
-      id: editingProduct?.id ?? generateId(),
-      name: trimmedName,
-      brand: brand.trim() || null,
-      productType: productType ?? 'other',
-      imageUrl: null,
-      activeIngredients: selectedIngredients,
-      activeTags: selectedIngredients.map((i) => i.key),
-      fullIngredientText: fullIngredientText.trim() || null,
-      usageTime: editingProduct?.usageTime ?? 'both',
-      openBeautyFactsId: obfId,
-      addedAt: editingProduct?.addedAt ?? new Date().toISOString(),
-      notes: null,
-      openedDate: isOpened ? openedDate : null,
-      paoMonths: resolvedPaoMonths,
-      // Edits preserve the original provenance; new records split on
-      // whether they came from an OBF result or pure manual entry.
-      source: editingProduct?.source ?? (obfId ? 'obf_import' : 'user_local'),
-    };
+    const product = buildProduct();
 
     if (isEditMode) {
+      // The user removed a previously attached photo → clean up its file.
+      if (editingProduct?.localImageUri && !product.localImageUri) {
+        void deleteProductPhoto(productId);
+      }
       updateProduct(product.id, product);
       navigation.goBack();
     } else {
+      // Local shelf save is instant and never awaits the contribution.
       addProduct(product);
+      void shareProduct(product);
       setSchedulerProduct(product);
     }
   }
@@ -546,6 +719,21 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
           <Card variant="raised" padding="none" style={s.card}>
             <View style={s.cardContent}>
               <SectionEyebrow num="01" label="Product Basics" />
+
+              <View style={s.photoRow}>
+                <ProductThumbnail product={buildProduct()} size={72} />
+                <View style={s.photoActions}>
+                  <Text style={s.featureTitle}>Product Photo</Text>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Feather name="camera" size={16} color={colors.textPrimary} />}
+                    onPress={handlePhotoPress}
+                  >
+                    {localImageUri ? 'Change photo' : 'Add photo'}
+                  </Button>
+                </View>
+              </View>
 
               <Input
                 label="Product Name *"
@@ -633,6 +821,11 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         </ScrollView>
 
         <View style={s.footer}>
+          <ShareStatus
+            sharing={sharing}
+            result={shareResult}
+            onRetry={handleRetryShare}
+          />
           <Button fullWidth size="lg" onPress={handleSave} disabled={!name.trim()}>
             {isEditMode ? 'Save Changes' : 'Add to Catalog'}
           </Button>
@@ -728,6 +921,40 @@ const s = StyleSheet.create({
     fontSize: 16,
     textTransform: 'uppercase',
     color: colors.textPrimary,
+  },
+
+  // Community-share status
+  shareRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[2],
+    paddingBottom: space[3],
+  },
+  shareText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
+  shareErrorBody: {
+    flexShrink: 1,
+    gap: space[1],
+  },
+  shareRetry: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: palette.bottleGreen,
+  },
+
+  // Photo attach row
+  photoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[4],
+  },
+  photoActions: {
+    flex: 1,
+    gap: space[2],
+    alignItems: 'flex-start',
   },
 
   // Field layout helpers

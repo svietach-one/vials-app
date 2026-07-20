@@ -17,6 +17,7 @@ import {
 } from '@/utils/routineEngine/cycleState';
 import { buildShelfFacts, type ProductFacts } from '@/utils/routineEngine/productFacts';
 import { matchesRuleTargets } from '@/utils/routineEngine/targeting';
+import { isScheduledOnDay } from '@/utils/routineSchedule';
 import { getSkincareDateString } from '@/utils/timeHelpers';
 
 /**
@@ -67,7 +68,7 @@ export interface DailyRoutineView {
 }
 
 function isScheduledOn(step: RoutineStep, dayOfWeek: number): boolean {
-  return step.scheduledDays.length === 0 || step.scheduledDays.includes(dayOfWeek);
+  return isScheduledOnDay(step.scheduledDays, dayOfWeek);
 }
 
 /** Cycle classes attributed to a product (e.g. 'retinoid', 'exfoliant'). */

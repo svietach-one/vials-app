@@ -369,6 +369,10 @@ function makeStep(candidate: Candidate, days: number[]): PlannedStep {
     slotIndex: getSlotIndex(candidate.product.productType),
     score: candidate.score,
     addedAt: candidate.product.addedAt,
+    // Explicit null (not left undefined) so the field is stable across the
+    // determinism property test's deep-equal comparison; generate.ts may
+    // overwrite it for a pre_cleanse step once the resolved PM period is known.
+    stepNote: null,
   };
 }
 

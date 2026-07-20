@@ -228,10 +228,19 @@ describe('BarcodeSection', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'SKIP_BARCODE' });
   });
 
+  // Community contribution is enabled again (src/constants/featureFlags.ts):
+  // contributions now write to the vials-contributions Turso database, so the
+  // community framing describes something that genuinely happens.
   it('shows the local per-device contribution counter', () => {
     render(<BarcodeSection draft={makeDraft()} dispatch={jest.fn()} />);
 
     expect(screen.getByText("You've helped verify 3 products")).toBeTruthy();
+  });
+
+  it('frames the barcode as a community contribution', () => {
+    render(<BarcodeSection draft={makeDraft()} dispatch={jest.fn()} />);
+
+    expect(screen.getByText(/Help the community find this product/)).toBeTruthy();
   });
 
   it('opens the barcode camera from the scan tile', () => {

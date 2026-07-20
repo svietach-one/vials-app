@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { IconButton } from '@/components/ui/core/IconButton';
+import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { Product, ProductType } from '@/types';
@@ -51,44 +52,50 @@ export function ProductPickerCard({ product, onAdd }: ProductPickerCardProps) {
 
   return (
     <View style={styles.card}>
-      <View style={styles.contentArea}>
-        {/* Top row: product name (left, up to 2 lines) + brand (right, 1 line) */}
-        <View style={styles.topRow}>
-          <Text style={styles.productName} numberOfLines={2}>
-            {product.name}
-          </Text>
-          {product.brand ? (
-            <Text style={styles.brandName} numberOfLines={1}>
-              {product.brand}
-            </Text>
-          ) : null}
-        </View>
+      <View style={styles.mainRow}>
+        {/* Leading product photo — placeholder when none. Matches the size the
+            same product gets once it is a RoutineStepCard. */}
+        <ProductThumbnail product={product} size={88} />
 
-        {/* Bottom row: badges (left) + add button (right) */}
-        <View style={styles.bottomRow}>
-          <View style={styles.badgesRow}>
-            <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
-              <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
-                {typeLabel}
+        <View style={styles.contentArea}>
+          {/* Identity: brand (muted) above product name (bold) */}
+          <View style={styles.topRow}>
+            {product.brand ? (
+              <Text style={styles.brandName} numberOfLines={1}>
+                {product.brand}
               </Text>
-            </View>
-            {activeLabel ? (
-              <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText}>
-                  {activeLabel}
-                </Text>
-              </View>
             ) : null}
+            <Text style={styles.productName} numberOfLines={1}>
+              {product.name}
+            </Text>
           </View>
 
-          <IconButton
-            icon={<Feather name="plus" size={18} color={palette.white} />}
-            label={`Add ${product.name} to routine`}
-            variant="filled"
-            size="md"
-            round
-            onPress={() => onAdd(product)}
-          />
+          {/* Bottom row: badges (left) + add button (right) */}
+          <View style={styles.bottomRow}>
+            <View style={styles.badgesRow}>
+              <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
+                <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
+                  {typeLabel}
+                </Text>
+              </View>
+              {activeLabel ? (
+                <View style={styles.activeBadge}>
+                  <Text style={styles.activeBadgeText}>
+                    {activeLabel}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            <IconButton
+              icon={<Feather name="plus" size={18} color={palette.white} />}
+              label={`Add ${product.name} to routine`}
+              variant="filled"
+              size="md"
+              round
+              onPress={() => onAdd(product)}
+            />
+          </View>
         </View>
       </View>
     </View>
@@ -103,19 +110,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.zinc200,
     borderRadius: radius.sm,
-    paddingHorizontal: space[4],
+    paddingHorizontal: space[2],
     paddingVertical: space[3],
   },
+  mainRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: space[3],
+  },
   contentArea: {
+    flex: 1,
+    minWidth: 0,
     gap: space[2],
   },
+  // Brand above the name, both left-aligned (matches the shelf/routine cards).
   topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: space[2],
+    gap: 2,
   },
   productName: {
-    flex: 1,
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: palette.black,
@@ -123,9 +135,6 @@ const styles = StyleSheet.create({
   brandName: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    flexShrink: 0,
-    maxWidth: 110,
-    textAlign: 'right',
   },
   bottomRow: {
     flexDirection: 'row',

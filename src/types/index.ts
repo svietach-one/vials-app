@@ -261,7 +261,20 @@ export interface Product {
    * lets the user reclassify it as a derivative. Absence is treated as false.
    */
   vitaminCAutoMigrated?: boolean;
+  /**
+   * Device-local, user-attached product photo — a `file://` path inside the
+   * app document directory (img-01). Distinct from {@link imageUrl}, which is
+   * server-owned and round-trips on sync. This path is meaningless off-device
+   * and MUST NEVER enter an outbound payload: a contribution carries photo
+   * BYTES (EXIF-stripped, see renderContributionBlob), never a device path.
+   * Same local-only firewall as openedDate / paoMonths. Absent on records
+   * saved before this field.
+   *
+   * Render precedence everywhere: `localImageUri ?? imageUrl ?? <placeholder>`.
+   */
+  localImageUri?: string | null;
 }
+
 
 // ─── Routine target ───────────────────────────────────────────────────────────
 
@@ -286,6 +299,13 @@ export interface RoutineStep {
    * treated as false.
    */
   userPinned?: boolean;
+  /**
+   * Contextual instruction attached at plan generation (e.g. a pre-cleanse
+   * step followed by a cleanser) — not a step type, no completion tracking of
+   * its own. `null`/absent = no note. Set on save from `PlannedStep.stepNote`;
+   * manual edits leave it as-is until the next regeneration overwrites it.
+   */
+  stepNote?: string | null;
 }
 
 export interface Routine {

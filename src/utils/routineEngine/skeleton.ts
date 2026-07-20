@@ -286,6 +286,8 @@ export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
     decisions.push({ action: 'reserve', productId: item.productId, reasonCode: item.reasonCode });
   }
 
-  const placeholders = neutralMoisturizerPlaceholders(selectedTreatments, structural);
+  const placeholders = [
+    ...neutralMoisturizerPlaceholders(selectedTreatments, structural),
+  ];
   return { periodCandidates, reserve: finalReserve, decisions, placeholders, treatmentCaps };
 }

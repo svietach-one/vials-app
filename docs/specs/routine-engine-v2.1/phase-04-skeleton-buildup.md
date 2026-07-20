@@ -37,12 +37,19 @@ the shelf.
 ```
 Skeleton (order = build order):
   AM: [cleanser] → [treatment?] → [moisturizer] → [SPF*]
-  PM: [cleanser] → [treatment?] → [moisturizer]
+  PM: [pre_cleanse?] → [cleanser] → [treatment?] → [moisturizer]
 
   * SPF per Phase 2 rules.
   cleanser/moisturizer: no product → cleanser slot is dropped; the moisturizer
     slot renders a placeholder recommendation when the routine contains
     actives. A missing product is NOT an error.
+  pre_cleanse (PM-only, added by 2026-07-19 ruling): micellar water and
+    cleansing oils/balms (productType `makeup_remover`). A surfactant-based
+    makeup/SPF remover is NOT a standalone cleanse — it fills its own slot
+    ordered before `cleanser`, never satisfies the cleanse slot, and defaults
+    to PM. If a pre_cleanse product is scheduled with no gentle cleanser on the
+    shelf, the PM cleanse slot renders a placeholder with reason
+    `pre_cleanse_requires_followup`. The AM skeleton has no pre_cleanse slot.
 ```
 
 Fill algorithm:

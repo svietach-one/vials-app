@@ -187,7 +187,8 @@ describe('Story 3 AC: an in-window custom_default match renders as a dimmed "Pau
     ];
 
     renderScreen();
-    fireEvent.press(screen.getByTestId('switch-to-evening'));
+    // img-03: both periods render together, so there is no period to switch to —
+    // the paused row lives in the footer regardless of accordion state.
 
     // Not a normal draggable step card...
     expect(screen.queryByLabelText('AHA Resurfacing Serum')).toBeNull();

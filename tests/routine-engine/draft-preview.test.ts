@@ -42,7 +42,7 @@ describe('Story 2 AC: a PM-only commit leaves AM untouched and validate re-runs 
     const input = makeEngineInput([oldAm, vitC, retinoid]);
     const draft = generatePlan(input);
 
-    // Simulate "Save for PM Only": AM routine reference is untouched, only the
+    // Simulate "Save for Evening Only": AM routine reference is untouched, only the
     // PM routine is replaced by the draft's evening period.
     const [, savedPm] = routinesFromPlan(draft);
     const combined = [savedAm, savedPm];
@@ -106,14 +106,14 @@ describe('Story 2 AC: applyRoutinePlan commits the right scope into routinesStor
 
   beforeEach(seedRoutines);
 
-  it('"Save for Both (AM & PM)" persists both periods atomically', () => {
+  it('"Save for Morning & Evening" persists both periods atomically', () => {
     applyRoutinePlan(makeTestPlan(), 'both');
     const { routines } = useRoutinesStore.getState();
     expect(routines.find((r) => r.timeOfDay === 'morning')?.steps.map((s) => s.productId)).toEqual([amOnlyProduct.id]);
     expect(routines.find((r) => r.timeOfDay === 'evening')?.steps.map((s) => s.productId)).toEqual([pmOnlyProduct.id]);
   });
 
-  it('"Save for AM Only" persists only the AM period, discarding the PM draft', () => {
+  it('"Save for Morning Only" persists only the AM period, discarding the PM draft', () => {
     applyRoutinePlan(makeTestPlan(), 'am');
     const { routines } = useRoutinesStore.getState();
     expect(routines.find((r) => r.timeOfDay === 'morning')?.steps.map((s) => s.productId)).toEqual([amOnlyProduct.id]);
@@ -121,7 +121,7 @@ describe('Story 2 AC: applyRoutinePlan commits the right scope into routinesStor
     expect(routines.find((r) => r.timeOfDay === 'evening')?.steps.map((s) => s.productId)).toEqual([product.id]);
   });
 
-  it('"Save for PM Only" persists only the PM period, discarding the AM draft', () => {
+  it('"Save for Evening Only" persists only the PM period, discarding the AM draft', () => {
     applyRoutinePlan(makeTestPlan(), 'pm');
     const { routines } = useRoutinesStore.getState();
     expect(routines.find((r) => r.timeOfDay === 'evening')?.steps.map((s) => s.productId)).toEqual([pmOnlyProduct.id]);

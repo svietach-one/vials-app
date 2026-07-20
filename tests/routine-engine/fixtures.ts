@@ -140,6 +140,7 @@ function stepFromPlannedStep(planned: RoutinePlan['periods']['morning'][number],
     productId: planned.productId,
     hidden: false,
     scheduledDays: planned.scheduledDays,
+    stepNote: planned.stepNote ?? null,
   };
 }
 

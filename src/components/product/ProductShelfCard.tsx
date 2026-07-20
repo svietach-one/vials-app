@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { ActiveBadgeCategory, Product, ProductType } from '@/types';
@@ -97,20 +98,25 @@ export function ProductShelfCard({
         accessibilityRole="button"
         accessibilityLabel={`${product.name}, tap to view details`}
       >
+        <View style={styles.rowWrap}>
+          {/* Leading product photo (52px) — placeholder when none, dims with card */}
+          <ProductThumbnail product={product} size={104} dimmed={!!product.isHidden} />
+
+          <View style={styles.mainColumn}>
         <View
           testID="shelf-card-content"
           style={[styles.content, product.isHidden && styles.contentDimmed]}
         >
-          {/* Top row: product name (left) + brand name (right) */}
+          {/* Identity: brand (muted) above product name (bold) */}
           <View style={styles.topRow}>
-            <Text style={styles.productName} numberOfLines={2}>
-              {product.name}
-            </Text>
             {product.brand ? (
               <Text style={styles.brandName} numberOfLines={1}>
                 {product.brand}
               </Text>
             ) : null}
+            <Text style={styles.productName} numberOfLines={1}>
+              {product.name}
+            </Text>
           </View>
 
           {/* Middle row: routine info or hidden state */}
@@ -185,6 +191,8 @@ export function ProductShelfCard({
             }}
           />
         </View>
+          </View>
+        </View>
       </Pressable>
 
       <ProductActionSheet
@@ -217,7 +225,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.zinc200,
     borderRadius: radius.sm,
-    paddingHorizontal: space[4],
+    paddingHorizontal: space[2],
     paddingVertical: space[4],
     gap: space[2],
   },
@@ -228,6 +236,17 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
 
+  rowWrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[3],
+  },
+  mainColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: space[2],
+  },
+
   content: {
     gap: space[2],
   },
@@ -235,23 +254,19 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
 
+  // Brand sits above the name, both left-aligned — the name is the primary
+  // identifier, the brand is context for it.
   topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: space[2],
+    gap: 2,
   },
   productName: {
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: palette.black,
-    flex: 1,
   },
   brandName: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    textAlign: 'right',
-    flexShrink: 0,
   },
 
   middleRow: {

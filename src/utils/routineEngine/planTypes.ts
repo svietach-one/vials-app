@@ -21,6 +21,13 @@ export interface PlannedStep {
   score: number;
   /** Product.addedAt, kept for stable ordering tiebreaks. */
   addedAt: string;
+  /**
+   * Contextual instruction resolved from shelf state at generation (e.g. a
+   * pre-cleanse step followed by a cleanser). `null` = no note. Part of the
+   * plan snapshot, so it is covered by the determinism property test.
+   * makeStep always emits it (never undefined on a generated step).
+   */
+  stepNote?: string | null;
 }
 
 /** A product excluded with an explainable cause (dimmed "Paused until" rows). */

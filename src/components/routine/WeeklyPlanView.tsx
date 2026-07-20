@@ -39,8 +39,8 @@ interface StepRowProps {
 import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
 
 const PERIOD_OPTIONS = [
-  { value: 'morning', label: 'AM — Morning' },
-  { value: 'evening', label: 'PM — Evening' },
+  { value: 'morning', label: 'Morning' },
+  { value: 'evening', label: 'Evening' },
 ];
 
 // ─── Step row ─────────────────────────────────────────────────────────────────

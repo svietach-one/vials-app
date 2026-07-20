@@ -4,6 +4,7 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 
 import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
+import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
@@ -39,19 +40,34 @@ export interface RoutineStepCardProps {
   onCardPress?: () => void;
   conflictingProductName?: string | null;
   /**
-   * The raw `drag` callback from DraggableFlatList's renderItem.
-   * Only rendered (via the drag handle) when isEditMode is true.
+   * DraggableFlatList's `drag` callback. Wired to the card's long press —
+   * holding anywhere on the card lifts it, so there is no edit mode to arm
+   * and no separate drag handle (img-03).
    */
-  drag?: () => void;
-  /** Switches the card between normal mode and edit mode (drag handle + delete). */
-  isEditMode?: boolean;
-  /** Called when the user taps the delete button in edit mode. */
-  onDelete?: () => void;
+  onLongPress?: () => void;
+  /** Opens the step's overflow action sheet (three-dots, trailing). */
+  onOverflowPress?: () => void;
   /**
    * Adaptation week (1–4) while the engine micro-doses this product
    * (research §2.6). Renders the ⏳ status line — informational, not a warning.
    */
   adaptationWeek?: number | null;
+  /**
+   * Contextual instruction resolved at plan generation (e.g. the pre-cleanse
+   * follow-up: "Follow with your cleanser…"). Renders as a plain info line —
+   * not a warning, not a step of its own, no completion tracking.
+   */
+  stepNote?: string | null;
+  /**
+   * The step's resolved productType (e.g. after the pre_cleanse
+   * classification guard reclassifies a mistyped micellar water from
+   * `cleanser` to `makeup_remover`). Drives the type badge instead of
+   * `product.productType` so the badge never contradicts a stepNote or
+   * placeholder computed from the SAME resolved type — reclassification is
+   * engine-derived, never persisted back to the catalog record. Falls back to
+   * `product.productType` when absent (every pre-existing call site).
+   */
+  displayProductType?: ProductType;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -60,12 +76,14 @@ export function RoutineStepCard({
   product,
   onCardPress,
   conflictingProductName,
-  drag,
-  isEditMode = false,
-  onDelete,
+  onLongPress,
+  onOverflowPress,
   adaptationWeek,
+  stepNote,
+  displayProductType,
 }: RoutineStepCardProps) {
   const hasConflict = !!conflictingProductName;
+  const productType = displayProductType ?? product.productType;
 
   const activeKey = product.activeTags?.[0] ?? product.activeIngredients?.[0]?.key ?? null;
   const activeLabel = activeKey ? (ACTIVE_INGREDIENT_LABELS[activeKey] ?? null) : null;
@@ -74,8 +92,8 @@ export function RoutineStepCard({
   const activeMatches = activeKey ? getMatchesForKey(product.fullIngredientText, activeKey) : [];
   const showAliasIcon = hasAliasOverride(activeMatches);
 
-  const typeLabel = PRODUCT_TYPE_LABELS[product.productType] ?? product.productType;
-  const typeColor = TYPE_COLORS[product.productType] ?? DEFAULT_TYPE_COLOR;
+  const typeLabel = PRODUCT_TYPE_LABELS[productType] ?? productType;
+  const typeColor = TYPE_COLORS[productType] ?? DEFAULT_TYPE_COLOR;
 
   const cardStyle = [styles.card, hasConflict && styles.cardConflict];
 
@@ -89,33 +107,17 @@ export function RoutineStepCard({
 
   const mainRow = (
     <View style={styles.mainRow}>
-      {/* Drag handle — only in edit mode, directly calls the RNDFL drag fn */}
-      {isEditMode && drag ? (
-        // RN Pressable (not RNGH) so RNDFL's GestureDetector can claim the
-        // touch after drag() is called without a competing RNGH handler.
-        <Pressable
-          onLongPress={drag}
-          delayLongPress={150}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={dragStyles.container}
-          accessibilityLabel="Hold to reorder"
-        >
-          <View style={dragStyles.dotsGrid}>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <View key={i} style={dragStyles.dot} />
-            ))}
-          </View>
-        </Pressable>
-      ) : null}
+      {/* Leading product photo — placeholder when none */}
+      <ProductThumbnail product={product} size={88} />
 
       {/* Content area */}
       <View style={styles.contentArea}>
-        {/* Top row: product name (left, up to 2 lines) + brand (right, 1 line) */}
+        {/* Identity: brand (muted) above product name (bold) */}
         <View style={styles.topRow}>
-          <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
           {product.brand ? (
             <Text style={styles.brandName} numberOfLines={1}>{product.brand}</Text>
           ) : null}
+          <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
         </View>
 
         {/* Bottom row: badges (left) + delete button in edit mode (right) */}
@@ -134,9 +136,10 @@ export function RoutineStepCard({
                 onPress={() => setAttributionVisible(true)}
                 style={styles.activeBadge}
               >
-                <Text style={styles.activeBadgeText}>
-                  {activeLabel}
-                </Text>
+                {/* Compact routine surface: a lightning glyph signals "has
+                    actives" — full biomarker tags live on the shelf card only.
+                    The glyph stays tappable so INCI attribution is preserved. */}
+                <Feather name="zap" size={12} color={palette.zinc600} />
                 {showAliasIcon ? (
                   <View
                     testID={`active-badge-alias-icon-${activeKey}`}
@@ -150,17 +153,15 @@ export function RoutineStepCard({
             ) : null}
           </View>
 
-          {isEditMode ? (
+          {onOverflowPress ? (
             <TouchableOpacity
-              onPress={onDelete}
-              disabled={!onDelete}
+              onPress={onOverflowPress}
               activeOpacity={0.5}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{ opacity: onDelete ? 1 : 0.35 }}
               accessibilityRole="button"
-              accessibilityLabel={`Remove ${product.name}`}
+              accessibilityLabel={`More actions for ${product.name}`}
             >
-              <Feather name="trash-2" size={18} color={palette.zinc500} />
+              <Feather name="more-vertical" size={18} color={palette.zinc500} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -188,6 +189,17 @@ export function RoutineStepCard({
       </View>
     ) : null;
 
+  // Plain info line — not a warning, not a step of its own (pre_cleanse
+  // follow-up ruling). Shares the adaptationRow divider styling since both
+  // are informational, non-actionable status lines under the card.
+  const stepNoteRow = stepNote ? (
+    <View style={styles.adaptationRow}>
+      <Text style={styles.adaptationText} numberOfLines={2}>
+        {stepNote}
+      </Text>
+    </View>
+  ) : null;
+
   const attributionTooltip = (
     <AttributionTooltip
       visible={attributionVisible}
@@ -197,33 +209,23 @@ export function RoutineStepCard({
     />
   );
 
-  // Edit mode: plain View root — no RNGH handler competing with drag handle
-  if (isEditMode) {
-    return (
-      <>
-        <View style={cardStyle}>
-          {mainRow}
-          {conflictRow}
-          {adaptationRow}
-        </View>
-        {attributionTooltip}
-      </>
-    );
-  }
-
-  // Normal mode: RNGH TouchableOpacity for tap-to-navigate
+  // One root: tap navigates, long press hands the touch to the drag gesture.
   return (
     <>
       <TouchableOpacity
         onPress={onCardPress}
+        onLongPress={onLongPress}
+        delayLongPress={200}
         activeOpacity={onCardPress ? 0.92 : 1}
         style={cardStyle}
         accessibilityRole="button"
         accessibilityLabel={`${product.name}, tap to view product detail`}
+        accessibilityHint={onLongPress ? 'Hold to reorder' : undefined}
       >
         {mainRow}
         {conflictRow}
         {adaptationRow}
+        {stepNoteRow}
       </TouchableOpacity>
       {attributionTooltip}
     </>
@@ -260,7 +262,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.zinc200,
     borderRadius: radius.sm,
-    paddingHorizontal: space[4],
+    paddingHorizontal: space[2],
     paddingVertical: space[3],
   },
   cardConflict: {
@@ -279,13 +281,11 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
 
+  // Brand above the name, both left-aligned (matches the shelf card).
   topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: space[2],
+    gap: 2,
   },
   productName: {
-    flex: 1,
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: palette.black,
@@ -293,9 +293,6 @@ const styles = StyleSheet.create({
   brandName: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    flexShrink: 0,
-    maxWidth: 110,
-    textAlign: 'right',
   },
 
   bottomRow: {

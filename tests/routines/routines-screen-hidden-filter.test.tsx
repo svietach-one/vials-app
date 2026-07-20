@@ -187,6 +187,14 @@ jest.mock('@/store/routinesStore', () => ({
 
 // ── Subject under test ────────────────────────────────────────────────────────
 
+// img-03: the Morning/Evening accordions open based on the time of day. Pin
+// that here so these filtering assertions never depend on the wall clock —
+// the 15:00 rule itself is covered in src/utils/routineAccordion.test.ts.
+jest.mock('@/utils/routineAccordion', () => ({
+  ...jest.requireActual('@/utils/routineAccordion'),
+  getInitialAccordionState: () => ({ morning: true, evening: false }),
+}));
+
 import RoutinesScreen from '@/screens/RoutinesScreen';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -300,10 +308,13 @@ describe('AC-R4: a step already excluded via step.hidden stays excluded regardle
 // ── AC-R5 — PM step filtering ──────────────────────────────────────────────────
 
 describe('AC-R5: a step for a hidden product does not appear in the PM list', () => {
-  it('should not render the hidden product name after switching to the evening period', () => {
+  it('should not render the hidden product name once the evening section is expanded', () => {
     renderScreen();
-    fireEvent.press(screen.getByTestId('switch-to-evening'));
-    expect(screen.getByText('Gentle Cleanser')).toBeTruthy();
+    // img-03: periods are accordion sections on one screen, not a segmented
+    // switch — expanding Evening reveals the PM list in place.
+    fireEvent.press(screen.getByLabelText(/^Evening/));
+    // Gentle Cleanser is scheduled in both periods, so it now appears twice.
+    expect(screen.getAllByText('Gentle Cleanser').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText('Retinol Serum')).toBeNull();
   });
 });

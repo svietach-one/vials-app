@@ -724,3 +724,197 @@ This file tracks the whole package; each phase appends to the Log.
   package is COMPLETE (phases 1–9). Remaining product-level open items are
   deferred, not part of this package: §4.3 pregnancy/lactation (its own feature,
   never in scope for 1–9).
+
+- 2026-07-19: **DEVIATION-BY-RULING — pre_cleanse slot (post-package follow-up).**
+  User ruling during Expo Go review: micellar water / cleansing oils / cleansing
+  balms are surfactant-based makeup/SPF removers and must NOT serve as a
+  standalone morning cleanse. This is a **class-level safety rule**, not a
+  per-product usageTime tweak. Amends the Phase 4 skeleton (phase-04 spec §4.1
+  updated so later work inherits it). Implemented:
+
+  1. **Slot model** (`slotting.ts`): `makeup_remover` removed from
+     `SKELETON_SLOTS.cleanser`; new **PM-only `pre_cleanse`** slot (`['makeup_remover']`)
+     ordered before `cleanser` (double-cleanse). `structuralSlotFor` /
+     `SkeletonSlotName` derive from the map, so both pick it up. AM has no
+     pre_cleanse slot.
+  2. **Class default period** (`productFacts.ts`): `DEFAULT_PERIOD_BY_TYPE`
+     defaults `makeup_remover → pm` when usageTime is unset (`'both'`); an
+     explicit per-product `morning`/`evening` still wins. Safe behavior is the
+     default, not an opt-in.
+  3. **requiresFollowUp** (`skeleton.ts`): if a pre_cleanse product is a PM
+     candidate and no gentle cleanser is PM-eligible, the PM cleanse slot renders
+     a placeholder (`productTypes: ['cleanser']`, severity `caution`) with the
+     new reason code **`pre_cleanse_requires_followup`**. The makeup remover
+     never satisfies the cleanse slot on its own.
+  4. **Classification guard** (`categoryDetector.ts` + `generate.ts`): a
+     `cleanser` whose name matches micellar / cleansing oil|balm|water / makeup
+     remover / démaquillant is reclassified to `makeup_remover` at read time
+     (`reclassifyMakeupRemover`, applied at `generatePlan` entry) so mistyped
+     DB/corpus imports inherit the rule. The wizard detector also emits
+     `makeup_remover` (pattern ordered before the generic cleanser rule).
+
+  New reason code `pre_cleanse_requires_followup` added to the closed
+  `DecisionReasonCode` union + REASON_TEXT (rulesetIntegrity engine-literal scan
+  covers it). **Scoping note:** `facts.rinseOff` for `makeup_remover` was left
+  unchanged — it governs the cumulative-cap exemption (report §7.4), orthogonal
+  to slotting; changing it would alter cap behavior out of scope.
+
+  Acceptance: `tests/routine-engine/pre-cleanse.test.ts` (the ruling's 3
+  scenarios) + `categoryDetector.test.ts` makeup-remover cases. Two existing
+  categoryDetector assertions updated to the now-correct classification
+  ("Huile Démaquillante" / "Micellar Cleanzer" → makeup_remover), not silently
+  — the change is the whole point of the ruling. Verified: `tsc` clean;
+  full `jest --testPathIgnorePatterns=worktrees` → **1235 passed** / 3 known
+  pre-existing failed / 2 todo (+14 vs the 1221 package baseline). Self-review
+  ACCEPT (test-driven, layer-clean: engine imports a pure productForm util; no
+  React/store/AsyncStorage introduced).
+
+- 2026-07-19: **DEVIATION-BY-RULING — pre_cleanse stepNote (follow-up to the
+  same-day pre_cleanse ruling).** User ruling during Expo Go review: the
+  rinse-off requirement was enforced at planning level (the placeholder) but
+  invisible at execution level (the daily checklist). A contextual instruction
+  must ride the micellar step itself when the requirement IS satisfied by the
+  shelf, communicating "why this order matters" at the point of use.
+
+  **ENGINE/DATA LAYER SHIPPED, UI LAYER DEFERRED** — a parallel session
+  (product-images branch work) holds uncommitted edits to
+  `RoutineStepCard.tsx` and `RoutinesScreen.tsx` at the time of this work
+  (confirmed via `git status`/`git diff`: `PlannerBlock.tsx` also touched, new
+  `RoutineStepActionSheet.tsx`/`routineAccordion.ts` appearing, and
+  `RoutinesScreen.tsx` was mid-edit in a BROKEN state — missing `isEditMode`/
+  `activePeriod` hooks, tsc errors). Rather than editing files mid-flight
+  under someone else's unsaved refactor, the note-rendering UI (task originally
+  scoped as "render stepNote in RoutineStepCard + wire RoutinesScreen") is
+  deferred to a follow-up commit once that session's `RoutineStepCard.tsx`
+  edit lands. Everything up to and including persistence is done and tested:
+
+  1. **Copy** (`decisionReasons.ts`): new `STEP_NOTE_TEXT` constant (separate
+     from `REASON_TEXT` — notes are display copy, not reason codes) with
+     `pre_cleanse_follow_with_cleanser`. No inline string literals in the engine.
+  2. **Types**: `PlannedStep.stepNote?: string | null` (planTypes.ts) and
+     `RoutineStep.stepNote?: string | null` (types/index.ts) — optional so
+     existing plan/routine fixtures keep compiling.
+  3. **Resolution** (`generate.ts` `attachPreCleanseNotes`): runs on the FINAL
+     resolved PM period (post-admission, not skeleton candidacy) — the ground
+     truth of what the user actually sees. A pre_cleanse step gets the note
+     iff a structural cleanser is ALSO scheduled in that PM; otherwise
+     `stepNote: null` and NO fallback text — the unmet-placeholder mechanism
+     from the prior ruling remains the sole communication channel when no
+     cleanser exists. `makeStep` (resolve.ts) now sets `stepNote: null`
+     explicitly (not left `undefined`) so the field is stable under the
+     determinism property test's deep-equal.
+  4. **Persistence** (`planApply.ts` `buildStepsFromPlan`): carries
+     `plannedStep.stepNote` onto the saved `RoutineStep`. `getDailyView`
+     (dailyView.ts) needed NO change — it pushes the original `RoutineStep`
+     object through unmodified, so the note already flows to the render layer
+     once a step is on screen.
+
+  Acceptance (`tests/routine-engine/pre-cleanse.test.ts`, extended): the
+  ruling's two note scenarios (micellar-only → no note; micellar+foam → note
+  on the micellar step only) + a non-pre_cleanse-never-notes guard + an
+  explicit determinism regeneration check + a save-path passthrough check.
+  8/8 pass.
+
+  Verified: `tsc` clean. Full engine+integration suite (excluding the two
+  files under the other session's active, currently-broken edit —
+  `RoutinesScreen.tsx` and `RoutineStepCard.tsx`) → **527 passed**, 2 todo, 0
+  failed. Those two files' own test suites (`routines-screen-*`,
+  `routine-step-card.test.tsx`) fail on the OTHER session's in-progress code,
+  confirmed via `git diff` to be untouched by this change.
+
+  **Remaining for the deferred UI step**: `RoutineStepCard` needs a
+  `stepNote?: string | null` prop + a note row (styled like the existing
+  `conflictRow`/`adaptationRow` pattern); `RoutinesScreen`'s renderItem needs
+  to pass `stepNote={item.stepNote ?? null}`. No engine logic required —
+  purely wiring the already-resolved, already-persisted field onto the card.
+
+- 2026-07-20: **DEVIATION-BY-RULING FOLLOW-UP COMPLETE — pre_cleanse stepNote UI.**
+  The UI half of the 2026-07-19 stepNote ruling, deferred at commit d0fa4b8
+  because the product-images session held active broken edits to
+  `RoutineStepCard.tsx`/`RoutinesScreen.tsx` at the time. That session has
+  since committed its work (RoutineStepCard rewritten: edit mode replaced by
+  long-press-to-drag + overflow menu; tsc confirmed clean) — the deferred
+  wiring is now complete:
+
+  1. `RoutineStepCard.tsx`: new `stepNote?: string | null` prop; a
+     `stepNoteRow` renders it as a plain info line (reuses the existing
+     `adaptationRow`/`adaptationText` divider styling — both are informational
+     status lines, not warnings). Absent/null → no row, matching the
+     `adaptationWeek` precedent exactly.
+  2. `RoutinesScreen.tsx` `renderItem`: `stepNote={step.stepNote ?? null}` —
+     the field was already on the persisted `RoutineStep` (no plumbing needed,
+     `item.step` is the saved object).
+
+  Tests: 3 new cases in `tests/routine-engine/routine-step-card.test.tsx`
+  (shows note / no note when absent / no note when explicitly null), mirroring
+  the existing adaptationWeek test triad. All pass.
+
+  Verified: `tsc --noEmit` clean. Full engine+integration suite
+  (tests/routine-engine + src/utils/routineEngine) → **542 passed**, 2 todo, 0
+  failed, 48/48 suites green — RoutinesScreen-dependent suites that failed
+  under the other session's mid-edit state on 2026-07-19 are now green. Full
+  project suite → 1311 passed / 3 known pre-existing failed (unchanged set:
+  tests/catalog ×2, tests/shelf-filtering PaoChip) / 2 todo.
+
+  **pre_cleanse ruling (both parts) is now fully shipped end-to-end**: slot
+  model → default period → placeholder → classification guard → stepNote
+  resolution → persistence → execution-time rendering.
+
+- 2026-07-20: **REVIEW OF THE PRE_CLEANSE RULING — 2 confirmed bugs, both fixed.**
+  Requested review of the shipped implementation (commits d05359f, d0fa4b8,
+  170a41d). Traced the pipeline (not just re-ran the test suite) and found two
+  real gaps the acceptance tests didn't exercise:
+
+  **Finding 1 (fixed) — the note and the placeholder could BOTH go silent.**
+  Root cause: two pipeline stages independently answered "is there a
+  cleanser" from different information. `preCleanseFollowupPlaceholders`
+  (skeleton.ts) checked pre-admission candidacy; `attachPreCleanseNotes`
+  (generate.ts) checked post-admission existence with no day-overlap check.
+  Traced and EMPIRICALLY REPRODUCED: a cleanser carrying an active that
+  collides with a co-scheduled treatment (e.g. a BHA cleanser + a retinoid
+  treatment, `rule_retinol_bha`, resolutions `['separate_periods',
+  'separate_days']`) gets day-split by the ordinary pair-rule ladder —
+  `findPairViolations` does not exempt rinse-off products, only the
+  cumulative cap does. With a micellar water scheduled every day and the BHA
+  cleanser admitted only on days [0,1], the OLD code showed the note
+  unconditionally (misleading on the uncovered days) while the placeholder
+  was suppressed (skeleton saw a cleanser candidate pre-admission). Fix:
+  deleted `preCleanseFollowupPlaceholders` from skeleton.ts entirely; a new
+  `pmCleanseCoverage` predicate in generate.ts computes ONCE, from the final
+  resolved PM period, whether the admitted cleanser's `scheduledDays` fully
+  covers the pre_cleanse step's own days (not mere existence) — both the note
+  and the placeholder now derive from that single predicate, so they cannot
+  structurally disagree.
+
+  **Finding 2 (fixed) — the reclassified type never reached the visible badge.**
+  `reclassifyMakeupRemover` is engine-internal only, never persisted to the
+  catalog record (by design — same "derived, not persisted" pattern as
+  `rinseOff`). But `RoutineStepCard` derived its type badge from the LIVE
+  `product.productType` (via `products.find(...)` in RoutinesScreen), not
+  from the resolved `step.productType` — so a mistyped "Micellar Cleansing
+  Water" (DB type `cleanser`) scheduled correctly but rendered a green
+  "Cleanser" badge directly above an "Add a gentle cleanser" placeholder:
+  self-contradictory. Fix: new `displayProductType?: ProductType` prop on
+  `RoutineStepCardProps`, defaulting to `product.productType`; RoutinesScreen
+  passes `step.productType` (the resolved value, correct for every
+  pre-existing case too, since it only differs from `product.productType`
+  when reclassification actually fired).
+
+  **Not fixed, filed as open notes (not defects):** `usageTime==='both'`
+  being silently coerced to PM-only for makeup_remover is an inherent
+  ambiguity given the schema has no tri-state for "never touched" vs
+  "explicitly chose both" — resolving toward safety matches the ruling's own
+  wording. "Gentle cleanser" in the copy/placeholder is satisfied by ANY
+  structural cleanser, including one carrying a strong active — likely fine,
+  flagged as a wording nuance only. Property-test suites (`randomShelf` /
+  `RANDOM_PRODUCT_TYPES` in fixtures.ts) still don't generate `makeup_remover`
+  products — zero randomized coverage of this feature, a convention gap
+  relative to the project's Phase-9 property-test philosophy, left as a
+  follow-up rather than expanded here (out of scope for a bug-fix pass).
+
+  New regression tests (day-split reproduction + coverage-direction sanity +
+  badge override/fallback): 4 new cases across `pre-cleanse.test.ts` and
+  `routine-step-card.test.tsx`. Verified: `tsc --noEmit` clean. Full
+  engine+integration suite → 546 passed, 2 todo, 48/48 suites green. Full
+  project suite → 1315 passed / 3 known pre-existing failed (unchanged) / 2
+  todo.
