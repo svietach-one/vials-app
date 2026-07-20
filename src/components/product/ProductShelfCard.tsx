@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.zinc200,
     borderRadius: radius.sm,
-    paddingHorizontal: space[4],
+    paddingHorizontal: space[2],
     paddingVertical: space[4],
     gap: space[2],
   },
