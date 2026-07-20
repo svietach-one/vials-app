@@ -137,6 +137,7 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     spfSensitivity: false,
     onboardingCompleted: true,
     individualDurationMonths: {},
+    contributionConsent: { granted: false, timestamp: null },
     ...overrides,
   };
 }

@@ -1,0 +1,88 @@
+{
+  "task": "contribution-consent",
+  "phase": "tech-lead",
+  "status": "PR_REVIEW",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/contribution-consent.md",
+    "tech_design": "docs/tech-design/contribution-consent.md",
+    "tests": [
+      "tests/contribution-consent/fixtures.ts",
+      "tests/contribution-consent/ContributionConsentScreen.test.tsx",
+      "tests/contribution-consent/ContributionConsentMigrationBanner.test.tsx",
+      "tests/contribution-consent/ProfileScreenContributionToggle.test.tsx"
+    ]
+  },
+  "qa_notes": {
+    "expected_red_before_engineer": [
+      "ContributionConsent type + UserProfile.contributionConsent field (FE-1)",
+      "src/screens/onboarding/ContributionConsentScreen.tsx (FE-3)",
+      "src/components/routine/ContributionConsentMigrationBanner.tsx (FE-6)",
+      "Switch.accessibilityLabel forwarding + ProfileScreen toggle row (FE-5)"
+    ],
+    "tsc_errors_confined_to_tests_dir": 13,
+    "not_qa_scope": [
+      "unit tests for migrateProfile (src/utils/routineEngine/migrations.test.ts) \u2014 engineer",
+      "unit tests for canShareContributionPhoto/setContributionConsent (src/utils/contributionConsent.test.ts) \u2014 engineer",
+      "ManualProductFormScreen shareProduct blob-gating screen coverage \u2014 covered by engineer's unit test on canShareContributionPhoto"
+    ],
+    "for_engineer_to_resolve": [
+      "ContributionConsentScreen navigation prop is asserted via a minimal `{ replace: jest.fn() }` mock cast `as any` (fixtures.makeConsentScreenNavigation) since OnboardingStackParamList doesn't have the 'ContributionConsent' key until FE-3 lands \u2014 once added, the screen's real NativeStackScreenProps type will still satisfy this mock shape structurally, no test change expected.",
+      "ProfileScreenContributionToggle tests query the toggle exclusively via accessibilityLabel='Share my photos with Vials' (getByLabelText) \u2014 do not implement it as a positional 4th switch without the label, or these tests will not find it."
+    ]
+  },
+  "engineer_notes": {
+    "files_touched": [
+      "src/types/index.ts",
+      "src/store/profileStore.ts",
+      "src/utils/routineEngine/migrations.ts",
+      "src/utils/contributionConsent.ts",
+      "src/screens/onboarding/ContributionConsentScreen.tsx",
+      "src/navigation/AppNavigator.tsx",
+      "src/screens/onboarding/SkinProfileSetupScreen.tsx",
+      "src/screens/ManualProductFormScreen.tsx",
+      "src/components/ui/forms/Switch.tsx",
+      "src/screens/ProfileScreen.tsx",
+      "src/components/routine/ContributionConsentMigrationBanner.tsx",
+      "src/screens/RoutinesScreen.tsx",
+      "src/utils/contributionConsent.test.ts",
+      "src/utils/routineEngine/migrations.test.ts"
+    ],
+    "test_fixture_fallout_fixed": [
+      "tests/contribution-consent/ProfileScreenContributionToggle.test.tsx (5x non-null assertion on patch.contributionConsent \u2014 genuine TS18048 gap, see progress log)",
+      "tests/routine-engine/fixtures.ts",
+      "tests/routine-engine/goal-confirm-routines-screen.test.tsx",
+      "tests/routine-engine/cycling-and-adaptation.test.ts"
+    ],
+    "deviations_logged_in_progress_md": 4,
+    "tsc_status": "clean, 0 errors, including tests/",
+    "jest_status": "113 suites / 1344 tests passed, 2 todo, over --testPathIgnorePatterns=worktrees; 3 suites fail, all confirmed pre-existing on this branch before this task (git stash verified) and unrelated to contribution-consent",
+    "not_touched_per_instructions": [
+      "EXPO_PUBLIC_TURSO_CONTRIBUTIONS_URL / _TOKEN provisioning",
+      "no commit created \u2014 changes left staged/unstaged for tech-lead review"
+    ]
+  },
+  "tech_lead_verdict": {
+    "verdict": "ACCEPT",
+    "date": "2026-07-20",
+    "checks_performed": [
+      "design_fidelity_FE1-FE6_vs_tech_design: match, no undocumented deviations",
+      "4_logged_engineer_deviations: all Type B / legitimate, none blocking",
+      "layer_separation_greps_scoped_to_touched_files: clean (no AsyncStorage/React-in-utils/fetch violations)",
+      "verbatim_copy_bytelevel_diff: exact match (title, 3 paragraphs, both button labels)",
+      "non_blocking_navigation_check: both buttons unconditionally navigate to FirstProduct, no gating",
+      "privacy_gate_check: canShareContributionPhoto gates only the photo blob; metadata submission and local save unaffected by consent state",
+      "tsc_noEmit: 0 errors",
+      "jest_full_suite: 113/116 suites, 1344/1349 tests passed, 2 todo; 3 pre-existing unrelated failures confirmed identical to engineer's report (catalog-screen, product-detail, PaoChip.integration)",
+      "tech_debt_scan: no console.log/TODO/FIXME/HACK, no function over 50 lines, no hardcoded hex colors in touched files",
+      "BLOCKERS_md_subsection_check: confirmed correctly nested under BLOCKER-2, accurate to implementation"
+    ],
+    "blockers": [],
+    "warnings": [],
+    "out_of_band_note": "Session received a generic security-review slash-command payload (branch-wide vuln scan via sub-agents) not part of this task's scope; declined to execute (no Task-tool access this session, and it conflicted with the mandatory Step-0/progress-tracking process). Flagged to coordinator, who confirmed disregarding it. No production files touched by that payload."
+  }
+}

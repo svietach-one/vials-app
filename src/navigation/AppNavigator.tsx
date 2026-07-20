@@ -11,6 +11,7 @@ import { useProfileStore } from '@/store/profileStore';
 
 import MarketingSlidesScreen from '@/screens/onboarding/MarketingSlidesScreen';
 import SkinProfileSetupScreen from '@/screens/onboarding/SkinProfileSetupScreen';
+import ContributionConsentScreen from '@/screens/onboarding/ContributionConsentScreen';
 import FirstProductScreen from '@/screens/onboarding/FirstProductScreen';
 
 // ─── Main tab screens ─────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ import AddProductScreen from '@/screens/catalog/AddProductScreen';
 export type OnboardingStackParamList = {
   MarketingSlides: undefined;
   SkinProfileSetup: undefined;
+  ContributionConsent: undefined;
   FirstProduct: undefined;
 };
 
@@ -75,6 +77,7 @@ function OnboardingNavigator() {
     <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
       <OnboardingStack.Screen name="MarketingSlides" component={MarketingSlidesScreen} />
       <OnboardingStack.Screen name="SkinProfileSetup" component={SkinProfileSetupScreen} />
+      <OnboardingStack.Screen name="ContributionConsent" component={ContributionConsentScreen} />
       <OnboardingStack.Screen name="FirstProduct" component={FirstProductScreen} />
     </OnboardingStack.Navigator>
   );

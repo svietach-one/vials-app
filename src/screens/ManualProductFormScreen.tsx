@@ -49,6 +49,8 @@ import type {
 } from '@/types';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
+import { useProfileStore } from '@/store/profileStore';
+import { canShareContributionPhoto } from '@/utils/contributionConsent';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -401,6 +403,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const products = useProductsStore((st) => st.products);
   const addProduct = useProductsStore((st) => st.addProduct);
   const updateProduct = useProductsStore((st) => st.updateProduct);
+  const profile = useProfileStore((s) => s.profile);
   const productRepository = useProductRepository();
 
   const editingProduct = editingProductId
@@ -601,7 +604,9 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     setSharing(true);
     setShareResult(null);
     try {
-      const blob = await renderContributionBlob(product.localImageUri);
+      const blob = canShareContributionPhoto(profile?.contributionConsent)
+        ? await renderContributionBlob(product.localImageUri)
+        : null;
       const result = await submitContribution(
         {
           brand: product.brand ?? '',
