@@ -136,3 +136,64 @@ describe('pre_cleanse follow-up note (stepNote): visible at execution, not just 
     expect(savedMicellar?.stepNote).toBe(STEP_NOTE_TEXT.pre_cleanse_follow_with_cleanser);
   });
 });
+
+describe('pre_cleanse + note/placeholder reconciliation (review follow-up, 2026-07-20)', () => {
+  // The note and the placeholder previously answered "is there a cleanser"
+  // from DIFFERENT pipeline stages: the placeholder checked skeleton-time
+  // (pre-admission) candidacy, the note checked resolved (post-admission)
+  // existence with no day-overlap check. A cleanser carrying an active that
+  // collides with a co-scheduled treatment can be day-split by the SAME
+  // pair-rule ladder every other candidate goes through (rinse-off products
+  // are NOT exempt from pair-rule matching, only from the cumulative cap) —
+  // which used to produce BOTH a false-positive note (shown on days the
+  // cleanser doesn't actually run) AND a false-negative placeholder
+  // (suppressed because a cleanser candidate existed pre-admission). Both
+  // now derive from one shared post-admission coverage predicate.
+  it('a day-split cleanser that does not cover every day of the pre_cleanse step: no note, placeholder fires', () => {
+    const micellar = makeProduct({ name: 'Micellar Water', productType: 'makeup_remover' });
+    const bhaCleanser = makeProduct({
+      name: 'BHA Cleanser',
+      productType: 'cleanser',
+      activeTags: ['bha'],
+    });
+    const retinoid = makeProduct({ name: 'Retinoid Serum', activeTags: ['retinoid'] });
+    const plan = generatePlan(
+      makeEngineInput([micellar, bhaCleanser, retinoid], {
+        now: NOW,
+        profile: { fitzpatrick: null, concerns: [], primaryGoal: 'aging', secondaryGoal: null },
+      }),
+    );
+
+    const cleanserStep = plan.periods.evening.find((s) => s.productId === bhaCleanser.id);
+    const micellarStep = plan.periods.evening.find((s) => s.productId === micellar.id);
+    // Sanity: the scenario actually produces a day-split, non-full-coverage
+    // cleanser — otherwise this test would be vacuous.
+    expect(cleanserStep?.scheduledDays.length).toBeGreaterThan(0);
+    expect(micellarStep?.scheduledDays).toEqual([]); // every day
+
+    // No misleading note — the cleanser does not run every day the micellar does.
+    expect(micellarStep?.stepNote ?? null).toBeNull();
+    // The placeholder is the mechanism instead — it must fire, not be
+    // suppressed by the pre-admission "a cleanser candidate exists" view.
+    expect(plan.placeholders).toContainEqual(
+      expect.objectContaining({ period: 'pm', reasonCode: 'pre_cleanse_requires_followup' }),
+    );
+  });
+
+  it('a cleanser scheduled on every day (empty scheduledDays) fully covers a partially-scheduled pre_cleanse step', () => {
+    // Coverage direction check: the cleanser side, not the pre_cleanse side,
+    // is what must be "every day or a superset" — confirms scheduleFullyCovers
+    // isn't accidentally checking the relationship backwards.
+    const micellar = makeProduct({
+      name: 'Micellar Water',
+      productType: 'makeup_remover',
+      usageTime: 'evening',
+    });
+    const foam = makeProduct({ name: 'Gentle Foaming Cleanser', productType: 'cleanser' });
+    const plan = generatePlan(makeEngineInput([micellar, foam], { now: NOW }));
+
+    const micellarStep = plan.periods.evening.find((s) => s.productId === micellar.id);
+    expect(micellarStep?.stepNote).toBe(STEP_NOTE_TEXT.pre_cleanse_follow_with_cleanser);
+    expect(plan.placeholders.map((p) => p.reasonCode)).not.toContain('pre_cleanse_requires_followup');
+  });
+});

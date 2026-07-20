@@ -859,3 +859,62 @@ This file tracks the whole package; each phase appends to the Log.
   **pre_cleanse ruling (both parts) is now fully shipped end-to-end**: slot
   model → default period → placeholder → classification guard → stepNote
   resolution → persistence → execution-time rendering.
+
+- 2026-07-20: **REVIEW OF THE PRE_CLEANSE RULING — 2 confirmed bugs, both fixed.**
+  Requested review of the shipped implementation (commits d05359f, d0fa4b8,
+  170a41d). Traced the pipeline (not just re-ran the test suite) and found two
+  real gaps the acceptance tests didn't exercise:
+
+  **Finding 1 (fixed) — the note and the placeholder could BOTH go silent.**
+  Root cause: two pipeline stages independently answered "is there a
+  cleanser" from different information. `preCleanseFollowupPlaceholders`
+  (skeleton.ts) checked pre-admission candidacy; `attachPreCleanseNotes`
+  (generate.ts) checked post-admission existence with no day-overlap check.
+  Traced and EMPIRICALLY REPRODUCED: a cleanser carrying an active that
+  collides with a co-scheduled treatment (e.g. a BHA cleanser + a retinoid
+  treatment, `rule_retinol_bha`, resolutions `['separate_periods',
+  'separate_days']`) gets day-split by the ordinary pair-rule ladder —
+  `findPairViolations` does not exempt rinse-off products, only the
+  cumulative cap does. With a micellar water scheduled every day and the BHA
+  cleanser admitted only on days [0,1], the OLD code showed the note
+  unconditionally (misleading on the uncovered days) while the placeholder
+  was suppressed (skeleton saw a cleanser candidate pre-admission). Fix:
+  deleted `preCleanseFollowupPlaceholders` from skeleton.ts entirely; a new
+  `pmCleanseCoverage` predicate in generate.ts computes ONCE, from the final
+  resolved PM period, whether the admitted cleanser's `scheduledDays` fully
+  covers the pre_cleanse step's own days (not mere existence) — both the note
+  and the placeholder now derive from that single predicate, so they cannot
+  structurally disagree.
+
+  **Finding 2 (fixed) — the reclassified type never reached the visible badge.**
+  `reclassifyMakeupRemover` is engine-internal only, never persisted to the
+  catalog record (by design — same "derived, not persisted" pattern as
+  `rinseOff`). But `RoutineStepCard` derived its type badge from the LIVE
+  `product.productType` (via `products.find(...)` in RoutinesScreen), not
+  from the resolved `step.productType` — so a mistyped "Micellar Cleansing
+  Water" (DB type `cleanser`) scheduled correctly but rendered a green
+  "Cleanser" badge directly above an "Add a gentle cleanser" placeholder:
+  self-contradictory. Fix: new `displayProductType?: ProductType` prop on
+  `RoutineStepCardProps`, defaulting to `product.productType`; RoutinesScreen
+  passes `step.productType` (the resolved value, correct for every
+  pre-existing case too, since it only differs from `product.productType`
+  when reclassification actually fired).
+
+  **Not fixed, filed as open notes (not defects):** `usageTime==='both'`
+  being silently coerced to PM-only for makeup_remover is an inherent
+  ambiguity given the schema has no tri-state for "never touched" vs
+  "explicitly chose both" — resolving toward safety matches the ruling's own
+  wording. "Gentle cleanser" in the copy/placeholder is satisfied by ANY
+  structural cleanser, including one carrying a strong active — likely fine,
+  flagged as a wording nuance only. Property-test suites (`randomShelf` /
+  `RANDOM_PRODUCT_TYPES` in fixtures.ts) still don't generate `makeup_remover`
+  products — zero randomized coverage of this feature, a convention gap
+  relative to the project's Phase-9 property-test philosophy, left as a
+  follow-up rather than expanded here (out of scope for a bug-fix pass).
+
+  New regression tests (day-split reproduction + coverage-direction sanity +
+  badge override/fallback): 4 new cases across `pre-cleanse.test.ts` and
+  `routine-step-card.test.tsx`. Verified: `tsc --noEmit` clean. Full
+  engine+integration suite → 546 passed, 2 todo, 48/48 suites green. Full
+  project suite → 1315 passed / 3 known pre-existing failed (unchanged) / 2
+  todo.
