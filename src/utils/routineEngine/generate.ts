@@ -92,24 +92,66 @@ export interface RoutinePlan {
   slotAlternatives?: SlotAlternative[];
 }
 
+/** Empty array is the Routine schema's "every day" (tests/routine-engine/fixtures.ts
+ *  `daysOverlap` uses the same convention). True when `coverDays` schedules on
+ *  EVERY day `neededDays` requires — not merely "some overlap": a cleanser
+ *  day-split away from the pre_cleanse step's own days doesn't actually follow
+ *  it on the uncovered days, so partial overlap must read as "not covered". */
+function scheduleFullyCovers(coverDays: number[], neededDays: number[]): boolean {
+  if (coverDays.length === 0) return true;
+  if (neededDays.length === 0) return false;
+  return neededDays.every((d) => coverDays.includes(d));
+}
+
 /**
- * Resolves the pre-cleanse follow-up note against the FINAL resolved PM
- * period (post-admission, not skeleton candidacy) — this is the shelf state
- * the user actually sees. A gentle cleanser scheduled alongside a pre_cleanse
- * step earns the "follow with your cleanser" note; no cleanser earns no note
- * text at all — the unmet cleanse-slot placeholder (pre_cleanse_requires_followup,
- * skeleton.ts) is the sole mechanism communicating the requirement then. Pure
- * and deterministic: same resolved PM steps ⇒ same notes.
+ * Whether the PM cleanse slot genuinely satisfies a scheduled pre_cleanse
+ * step, computed ONCE against the FINAL resolved PM period (post-admission,
+ * not skeleton candidacy) — the shelf state the user actually sees. Both the
+ * follow-up note and the follow-up placeholder derive from this single
+ * predicate so they can never disagree: a pre-admission "a cleanser candidate
+ * exists" check (as skeleton.ts used to run) can diverge from what the
+ * pair-rule/cap ladder actually admits — e.g. a cleanser carrying an active
+ * that collides with a co-scheduled treatment can get day-split or fully
+ * frozen by the SAME ladder every other candidate goes through (resolve.ts
+ * findPairViolations does not exempt rinse-off products). Requiring full
+ * schedule coverage (not just "a cleanser is scheduled at all") closes both
+ * that divergence and the narrower case of a day-split cleanser that simply
+ * doesn't run on the same days as the pre_cleanse step.
  */
-function attachPreCleanseNotes(pmSteps: PlannedStep[]): PlannedStep[] {
-  const hasCleanser = pmSteps.some((s) => structuralSlotFor(s.productType) === 'cleanser');
-  return pmSteps.map((step) => {
-    if (structuralSlotFor(step.productType) !== 'pre_cleanse') return step;
-    return {
-      ...step,
-      stepNote: hasCleanser ? STEP_NOTE_TEXT.pre_cleanse_follow_with_cleanser : null,
-    };
-  });
+function pmCleanseCoverage(
+  pmSteps: PlannedStep[],
+): { preCleanseProductId: string; covered: boolean } | null {
+  const preCleanse = pmSteps.find((s) => structuralSlotFor(s.productType) === 'pre_cleanse');
+  if (!preCleanse) return null;
+  const cleanser = pmSteps.find((s) => structuralSlotFor(s.productType) === 'cleanser');
+  const covered = cleanser ? scheduleFullyCovers(cleanser.scheduledDays, preCleanse.scheduledDays) : false;
+  return { preCleanseProductId: preCleanse.productId, covered };
+}
+
+/** No fallback instruction is ever substituted when uncovered — the placeholder
+ *  (below) is the sole mechanism then, per the pre_cleanse ruling. */
+function attachPreCleanseNotes(pmSteps: PlannedStep[], coverage: ReturnType<typeof pmCleanseCoverage>): PlannedStep[] {
+  if (!coverage) return pmSteps;
+  return pmSteps.map((step) =>
+    step.productId === coverage.preCleanseProductId
+      ? { ...step, stepNote: coverage.covered ? STEP_NOTE_TEXT.pre_cleanse_follow_with_cleanser : null }
+      : step,
+  );
+}
+
+/** Fires exactly when the note above would NOT — same coverage predicate,
+ *  so the two mechanisms are structurally incapable of both staying silent. */
+function preCleanseFollowupPlaceholder(coverage: ReturnType<typeof pmCleanseCoverage>): PlaceholderSlot[] {
+  if (!coverage || coverage.covered) return [];
+  return [
+    {
+      period: 'pm',
+      productTypes: ['cleanser'],
+      reasonCode: 'pre_cleanse_requires_followup',
+      nonSkippable: false,
+      severity: 'caution',
+    },
+  ];
 }
 
 export function generatePlan(input: EngineInput): RoutinePlan {
@@ -167,15 +209,25 @@ export function generatePlan(input: EngineInput): RoutinePlan {
     reasonCode: r.reasonCode,
   }));
 
+  const preCleanseCoverage = pmCleanseCoverage(resolved.periods.pm);
+
   return {
     rulesetVersion: ACTIVES_RULESET.version,
     generatedFor: getSkincareDateString(now),
-    periods: { morning: resolved.periods.am, evening: attachPreCleanseNotes(resolved.periods.pm) },
+    periods: {
+      morning: resolved.periods.am,
+      evening: attachPreCleanseNotes(resolved.periods.pm, preCleanseCoverage),
+    },
     frozen: [...gateFrozen, ...resolved.frozen],
     reserve: skeleton.reserve,
     // Skeleton placeholders (neutral moisturizer) merge with mandate
-    // placeholders (SPF); different periods/types never collide.
-    placeholders: [...skeleton.placeholders, ...mandates.placeholders],
+    // placeholders (SPF) and the pre-cleanse follow-up (computed post-admission,
+    // same source as the note above); different periods/types never collide.
+    placeholders: [
+      ...skeleton.placeholders,
+      ...mandates.placeholders,
+      ...preCleanseFollowupPlaceholder(preCleanseCoverage),
+    ],
     // Step-0 goal decisions lead: they explain the ranking every later
     // selection/admit/freeze decision was made against.
     decisions: [

@@ -58,6 +58,16 @@ export interface RoutineStepCardProps {
    * not a warning, not a step of its own, no completion tracking.
    */
   stepNote?: string | null;
+  /**
+   * The step's resolved productType (e.g. after the pre_cleanse
+   * classification guard reclassifies a mistyped micellar water from
+   * `cleanser` to `makeup_remover`). Drives the type badge instead of
+   * `product.productType` so the badge never contradicts a stepNote or
+   * placeholder computed from the SAME resolved type — reclassification is
+   * engine-derived, never persisted back to the catalog record. Falls back to
+   * `product.productType` when absent (every pre-existing call site).
+   */
+  displayProductType?: ProductType;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -70,8 +80,10 @@ export function RoutineStepCard({
   onOverflowPress,
   adaptationWeek,
   stepNote,
+  displayProductType,
 }: RoutineStepCardProps) {
   const hasConflict = !!conflictingProductName;
+  const productType = displayProductType ?? product.productType;
 
   const activeKey = product.activeTags?.[0] ?? product.activeIngredients?.[0]?.key ?? null;
   const activeLabel = activeKey ? (ACTIVE_INGREDIENT_LABELS[activeKey] ?? null) : null;
@@ -80,8 +92,8 @@ export function RoutineStepCard({
   const activeMatches = activeKey ? getMatchesForKey(product.fullIngredientText, activeKey) : [];
   const showAliasIcon = hasAliasOverride(activeMatches);
 
-  const typeLabel = PRODUCT_TYPE_LABELS[product.productType] ?? product.productType;
-  const typeColor = TYPE_COLORS[product.productType] ?? DEFAULT_TYPE_COLOR;
+  const typeLabel = PRODUCT_TYPE_LABELS[productType] ?? productType;
+  const typeColor = TYPE_COLORS[productType] ?? DEFAULT_TYPE_COLOR;
 
   const cardStyle = [styles.card, hasConflict && styles.cardConflict];
 
