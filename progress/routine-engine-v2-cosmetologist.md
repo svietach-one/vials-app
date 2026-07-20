@@ -827,3 +827,35 @@ This file tracks the whole package; each phase appends to the Log.
   `conflictRow`/`adaptationRow` pattern); `RoutinesScreen`'s renderItem needs
   to pass `stepNote={item.stepNote ?? null}`. No engine logic required —
   purely wiring the already-resolved, already-persisted field onto the card.
+
+- 2026-07-20: **DEVIATION-BY-RULING FOLLOW-UP COMPLETE — pre_cleanse stepNote UI.**
+  The UI half of the 2026-07-19 stepNote ruling, deferred at commit d0fa4b8
+  because the product-images session held active broken edits to
+  `RoutineStepCard.tsx`/`RoutinesScreen.tsx` at the time. That session has
+  since committed its work (RoutineStepCard rewritten: edit mode replaced by
+  long-press-to-drag + overflow menu; tsc confirmed clean) — the deferred
+  wiring is now complete:
+
+  1. `RoutineStepCard.tsx`: new `stepNote?: string | null` prop; a
+     `stepNoteRow` renders it as a plain info line (reuses the existing
+     `adaptationRow`/`adaptationText` divider styling — both are informational
+     status lines, not warnings). Absent/null → no row, matching the
+     `adaptationWeek` precedent exactly.
+  2. `RoutinesScreen.tsx` `renderItem`: `stepNote={step.stepNote ?? null}` —
+     the field was already on the persisted `RoutineStep` (no plumbing needed,
+     `item.step` is the saved object).
+
+  Tests: 3 new cases in `tests/routine-engine/routine-step-card.test.tsx`
+  (shows note / no note when absent / no note when explicitly null), mirroring
+  the existing adaptationWeek test triad. All pass.
+
+  Verified: `tsc --noEmit` clean. Full engine+integration suite
+  (tests/routine-engine + src/utils/routineEngine) → **542 passed**, 2 todo, 0
+  failed, 48/48 suites green — RoutinesScreen-dependent suites that failed
+  under the other session's mid-edit state on 2026-07-19 are now green. Full
+  project suite → 1311 passed / 3 known pre-existing failed (unchanged set:
+  tests/catalog ×2, tests/shelf-filtering PaoChip) / 2 todo.
+
+  **pre_cleanse ruling (both parts) is now fully shipped end-to-end**: slot
+  model → default period → placeholder → classification guard → stepNote
+  resolution → persistence → execution-time rendering.

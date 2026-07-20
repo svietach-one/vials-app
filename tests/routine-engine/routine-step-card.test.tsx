@@ -59,3 +59,27 @@ describe('Story 6 AC: RoutineStepCard renders the adaptation status line, not a 
     expect(screen.queryByText(/Adaptation Phase/)).toBeNull();
   });
 });
+
+describe('pre_cleanse follow-up ruling: RoutineStepCard renders stepNote as a plain info line', () => {
+  it('shows the note text when stepNote is set', () => {
+    render(
+      <RoutineStepCard
+        product={makeProduct({ productType: 'makeup_remover' })}
+        stepNote="Follow with your cleanser — micellar water shouldn’t stay on skin."
+      />,
+    );
+    expect(
+      screen.getByText(/Follow with your cleanser — micellar water shouldn’t stay on skin\./),
+    ).toBeTruthy();
+  });
+
+  it('renders no note line when stepNote is absent', () => {
+    render(<RoutineStepCard product={makeProduct()} />);
+    expect(screen.queryByText(/Follow with your cleanser/)).toBeNull();
+  });
+
+  it('renders no note line when stepNote is explicitly null (no cleanser on shelf)', () => {
+    render(<RoutineStepCard product={makeProduct({ productType: 'makeup_remover' })} stepNote={null} />);
+    expect(screen.queryByText(/Follow with your cleanser/)).toBeNull();
+  });
+});

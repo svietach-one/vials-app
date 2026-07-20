@@ -356,6 +356,7 @@ export default function RoutinesScreen({ navigation }: Props) {
               }
               conflictingProductName={conflictMap.get(step.id) ?? null}
               adaptationWeek={adaptationWeeks.get(product.id) ?? null}
+              stepNote={step.stepNote ?? null}
               // Long-press anywhere on the card lifts it into drag — no
               // separate edit mode to arm first (img-03).
               onLongPress={drag}

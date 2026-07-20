@@ -52,6 +52,12 @@ export interface RoutineStepCardProps {
    * (research §2.6). Renders the ⏳ status line — informational, not a warning.
    */
   adaptationWeek?: number | null;
+  /**
+   * Contextual instruction resolved at plan generation (e.g. the pre-cleanse
+   * follow-up: "Follow with your cleanser…"). Renders as a plain info line —
+   * not a warning, not a step of its own, no completion tracking.
+   */
+  stepNote?: string | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -63,6 +69,7 @@ export function RoutineStepCard({
   onLongPress,
   onOverflowPress,
   adaptationWeek,
+  stepNote,
 }: RoutineStepCardProps) {
   const hasConflict = !!conflictingProductName;
 
@@ -170,6 +177,17 @@ export function RoutineStepCard({
       </View>
     ) : null;
 
+  // Plain info line — not a warning, not a step of its own (pre_cleanse
+  // follow-up ruling). Shares the adaptationRow divider styling since both
+  // are informational, non-actionable status lines under the card.
+  const stepNoteRow = stepNote ? (
+    <View style={styles.adaptationRow}>
+      <Text style={styles.adaptationText} numberOfLines={2}>
+        {stepNote}
+      </Text>
+    </View>
+  ) : null;
+
   const attributionTooltip = (
     <AttributionTooltip
       visible={attributionVisible}
@@ -195,6 +213,7 @@ export function RoutineStepCard({
         {mainRow}
         {conflictRow}
         {adaptationRow}
+        {stepNoteRow}
       </TouchableOpacity>
       {attributionTooltip}
     </>
