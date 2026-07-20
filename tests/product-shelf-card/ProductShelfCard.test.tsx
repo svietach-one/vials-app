@@ -230,27 +230,29 @@ describe('Story 5 — Card states', () => {
 
 // ── Title: 2-line truncation behaviour ────────────────────────────────────────
 
-describe('Product title — 2-line truncation', () => {
+describe('Product title — single-line truncation', () => {
   it('renders normally for a short title', () => {
     renderCard({ product: makeProduct({ name: 'Toner' }) });
     const title = screen.getByText('Toner');
     expect(title).toBeTruthy();
-    expect(title.props.numberOfLines).toBe(2);
+    expect(title.props.numberOfLines).toBe(1);
   });
 
-  it('renders a medium title in full without truncation (fits within 2 lines)', () => {
+  it('keeps a medium title on one line', () => {
     renderCard({ product: makeProduct({ name: 'Hydrabio H2O Micellar Water' }) });
     const title = screen.getByText('Hydrabio H2O Micellar Water');
     expect(title).toBeTruthy();
-    expect(title.props.numberOfLines).toBe(2);
+    expect(title.props.numberOfLines).toBe(1);
   });
 
-  it('applies numberOfLines={2} on a very long title so truncation occurs after line 2', () => {
+  it('truncates a very long title with an ellipsis instead of wrapping', () => {
     const longName =
       'Ultra Hydrating Deeply Moisturizing Anti-Aging Overnight Recovery Serum Concentrate';
     renderCard({ product: makeProduct({ name: longName }) });
     const title = screen.getByText(longName);
-    expect(title.props.numberOfLines).toBe(2);
+    // One line, tail-ellipsized (RN's default ellipsizeMode) — the card height
+    // stays constant regardless of product-name length.
+    expect(title.props.numberOfLines).toBe(1);
   });
 
   it('keeps brand name on a single line regardless of title length', () => {

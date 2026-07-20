@@ -16,9 +16,20 @@ import { getProductThumbnailTint } from '@/utils/productThumbnailTint';
 
 const DEFAULT_SIZE = 44;
 
+/**
+ * Width : height. Skincare packaging (bottles, tubes, droppers) is portrait,
+ * so a portrait frame crops far less of the product than a square one did.
+ */
+const ASPECT_W_OVER_H = 3 / 4;
+
+/** Derives the thumbnail width from its height. */
+export function productThumbnailWidth(height: number): number {
+  return Math.round(height * ASPECT_W_OVER_H);
+}
+
 export interface ProductThumbnailProps {
   product: Product;
-  /** Square edge in px. 44 on routine cards, 52 on the shelf card. */
+  /** Height in px; width is derived from the portrait aspect ratio. */
   size?: number;
   /** Dim to match a hidden/disabled card. */
   dimmed?: boolean;
@@ -63,7 +74,7 @@ export function ProductThumbnail({
       testID="product-thumbnail"
       style={[
         styles.box,
-        { width: size, height: size, borderRadius: radius.sm },
+        { width: productThumbnailWidth(size), height: size, borderRadius: radius.sm },
         dimmed && styles.dimmed,
       ]}
     >
@@ -86,6 +97,7 @@ export function ProductThumbnail({
 
 export interface ProductThumbnailPlaceholderProps {
   productType: ProductType;
+  /** Height in px — matches {@link ProductThumbnailProps.size}. */
   size: number;
 }
 
@@ -95,6 +107,9 @@ export interface ProductThumbnailPlaceholderProps {
  * glyph on a muted per-type wash — deliberately a filled tile (a product with
  * no photo yet), semantically distinct from any future "deleted"/empty-slot
  * placeholder.
+ *
+ * Fills its parent, so it is the same portrait rectangle as a real photo. The
+ * glyph scales off the WIDTH, the constraining edge in a portrait frame.
  */
 export function ProductThumbnailPlaceholder({
   productType,
@@ -105,7 +120,11 @@ export function ProductThumbnailPlaceholder({
       testID="product-thumbnail-placeholder"
       style={[styles.placeholder, { backgroundColor: getProductThumbnailTint(productType) }]}
     >
-      <Feather name="image" size={Math.round(size * 0.4)} color={palette.zinc400} />
+      <Feather
+        name="image"
+        size={Math.round(productThumbnailWidth(size) * 0.4)}
+        color={palette.zinc400}
+      />
     </View>
   );
 }

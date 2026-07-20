@@ -96,7 +96,7 @@ export function RoutineStepCard({
   const mainRow = (
     <View style={styles.mainRow}>
       {/* Leading product photo — placeholder when none */}
-      <ProductThumbnail product={product} size={72} />
+      <ProductThumbnail product={product} size={88} />
 
       {/* Content area */}
       <View style={styles.contentArea}>
@@ -105,7 +105,7 @@ export function RoutineStepCard({
           {product.brand ? (
             <Text style={styles.brandName} numberOfLines={1}>{product.brand}</Text>
           ) : null}
-          <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+          <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
         </View>
 
         {/* Bottom row: badges (left) + delete button in edit mode (right) */}

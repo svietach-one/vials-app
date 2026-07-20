@@ -100,7 +100,7 @@ export function ProductShelfCard({
       >
         <View style={styles.rowWrap}>
           {/* Leading product photo (52px) — placeholder when none, dims with card */}
-          <ProductThumbnail product={product} size={88} dimmed={!!product.isHidden} />
+          <ProductThumbnail product={product} size={104} dimmed={!!product.isHidden} />
 
           <View style={styles.mainColumn}>
         <View
@@ -114,7 +114,7 @@ export function ProductShelfCard({
                 {product.brand}
               </Text>
             ) : null}
-            <Text style={styles.productName} numberOfLines={2}>
+            <Text style={styles.productName} numberOfLines={1}>
               {product.name}
             </Text>
           </View>

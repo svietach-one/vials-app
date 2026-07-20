@@ -59,7 +59,7 @@ export function ProductPickerCard({ product, onAdd }: ProductPickerCardProps) {
               {product.brand}
             </Text>
           ) : null}
-          <Text style={styles.productName} numberOfLines={2}>
+          <Text style={styles.productName} numberOfLines={1}>
             {product.name}
           </Text>
         </View>
