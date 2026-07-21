@@ -217,7 +217,6 @@ export default function CatalogScreen({ navigation }: Props) {
       <FilterSheet
         visible={sheetOpen}
         initialState={filterState}
-        products={products}
         onApply={setFilterState}
         onClose={() => setSheetOpen(false)}
       />

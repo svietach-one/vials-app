@@ -53,7 +53,6 @@ export function makeFilterSheetProps(overrides: Partial<FilterSheetProps> = {}):
   return {
     visible: true,
     initialState: makeFilterState(),
-    products: [],
     onApply: () => {},
     onClose: () => {},
     ...overrides,
