@@ -94,6 +94,7 @@ jest.mock('@/constants/tokens', () => ({
   typography: new Proxy({}, { get: () => ({}) }),
   radius: new Proxy({}, { get: () => 8 }),
   palette: { white: '#FFFFFF', black: '#000000' },
+  shadow: new Proxy({}, { get: () => ({}) }),
 }));
 
 jest.mock('@/constants/labels', () => ({

@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { Product, ProductType } from '@/types';
 
 // ─── Product type → badge color ───────────────────────────────────────────────
@@ -107,11 +107,10 @@ export function ProductPickerCard({ product, onAdd }: ProductPickerCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: palette.white,
-    borderWidth: 1,
-    borderColor: palette.zinc200,
     borderRadius: radius.sm,
     paddingHorizontal: space[2],
     paddingVertical: space[3],
+    ...shadow.sm,
   },
   mainRow: {
     flexDirection: 'row',

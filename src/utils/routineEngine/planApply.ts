@@ -5,38 +5,57 @@ import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
 
 /**
  * Story 2 (routine-similar-product-priority) one-tap swap over an
- * uncommitted Draft Preview plan: replaces the admitted winner's step in its
- * period with one of its recorded `slotAlternatives` entries. Pure array
- * splice — the alternative was already a full `PlannedStep` snapshot recorded
- * by `resolve.ts` at generation time (tech design Assumption 1), so this
- * never re-runs eligibility/frequency-cap math. Returns `plan` unchanged if
- * the winner/alternative pairing isn't found (defensive — should not happen
- * given the sheet only offers recorded alternatives).
+ * uncommitted Draft Preview plan: replaces the admitted step in its period
+ * with one of its recorded `slotAlternatives` entries. `winnerProductId` is
+ * always the entry's ORIGINAL identity key (`SlotAlternative.winnerProductId`,
+ * stable for the lifetime of the draft) — never the currently-admitted
+ * product — so the same slot stays locatable across repeated swaps; the slot
+ * itself is matched by `slotIndex`, not by which product currently occupies
+ * it (screen-improvements: Draft Preview "Replace with" select, which lets
+ * the user reselect a slot's candidate any number of times).
+ *
+ * The swap is symmetric: the step being displaced is pushed onto
+ * `alternatives` in the same move that removes the chosen one, so every
+ * previously-admitted product (including the original engine winner) stays a
+ * selectable candidate forever — nothing is lost after the first swap. Pure
+ * array splice — candidates are the exact `PlannedStep` snapshots recorded by
+ * `resolve.ts` at generation time (tech design Assumption 1), so this never
+ * re-runs eligibility/frequency-cap math. Returns `plan` unchanged if the
+ * slot or the chosen candidate isn't found (defensive — should not happen
+ * given the UI only offers recorded candidates).
  */
 export function applySlotAlternativeSwap(
   plan: RoutinePlan,
   winnerProductId: string,
   chosenProductId: string,
 ): RoutinePlan {
-  const entry = (plan.slotAlternatives ?? []).find(
-    (a) => a.winnerProductId === winnerProductId && a.alternatives.some((alt) => alt.productId === chosenProductId),
-  );
-  if (!entry) return plan;
+  const slotAlternatives = plan.slotAlternatives ?? [];
+  const entryIndex = slotAlternatives.findIndex((a) => a.winnerProductId === winnerProductId);
+  if (entryIndex === -1) return plan;
+  const entry = slotAlternatives[entryIndex];
+
+  const steps = plan.periods[entry.period];
+  const slotPos = steps.findIndex((s) => s.slotIndex === entry.slotIndex);
+  if (slotPos === -1) return plan;
+
+  const currentStep = steps[slotPos];
+  if (currentStep.productId === chosenProductId) return plan;
 
   const chosenStep = entry.alternatives.find((alt) => alt.productId === chosenProductId);
   if (!chosenStep) return plan;
 
-  const periodKey = entry.period;
-  const steps = plan.periods[periodKey];
-  const winnerIndex = steps.findIndex((s) => s.productId === winnerProductId);
-  if (winnerIndex === -1) return plan;
+  const nextAlternatives = [currentStep, ...entry.alternatives.filter((alt) => alt.productId !== chosenProductId)];
 
   const nextSteps = [...steps];
-  nextSteps[winnerIndex] = chosenStep;
+  nextSteps[slotPos] = chosenStep;
+
+  const nextSlotAlternatives = [...slotAlternatives];
+  nextSlotAlternatives[entryIndex] = { ...entry, alternatives: nextAlternatives };
 
   return {
     ...plan,
-    periods: { ...plan.periods, [periodKey]: nextSteps },
+    periods: { ...plan.periods, [entry.period]: nextSteps },
+    slotAlternatives: nextSlotAlternatives,
   };
 }
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   BottomSheetBackdrop,
@@ -9,16 +9,19 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Badge } from '@/components/ui/feedback/Badge';
 import { Button } from '@/components/ui/core/Button';
+import { Tag } from '@/components/ui/core/Tag';
+import { Select, type SelectOption, type SelectOptionTone } from '@/components/ui/forms/Select';
 import { reasonText } from '@/constants/decisionReasons';
-import { SlotAlternativeRow } from '@/components/routine/SlotAlternativeRow';
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { colors, radius, shadow, space, typography } from '@/constants/tokens';
 import type { PlanCommitScope } from '@/domain/routinePlanActions';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import type { RoutinePlan } from '@/utils/routineEngine/generate';
 import { buildDraftSummaryLines } from '@/utils/routineEngine/planApply';
 import type { PlannedStep, SlotAlternative } from '@/utils/routineEngine/planTypes';
+import { getSlotIndex } from '@/utils/routineEngine/slotting';
 import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -30,11 +33,14 @@ export interface DraftPreviewSheetProps {
   diff: PlanDiffEntry[];
   onCommit: (scope: PlanCommitScope) => void;
   /**
-   * Story 2 (routine-similar-product-priority): fired when the user taps a
-   * SlotAlternativeRow's swap action. The sheet never applies the swap
-   * itself — RoutinesScreen owns rewriting the still-uncommitted draft via
-   * `applySlotAlternativeSwap` (tech design §1). Optional so pre-existing
-   * callers/tests that predate this feature keep typechecking.
+   * Story 2 (routine-similar-product-priority): fired when the user picks a
+   * candidate from a step's "Replace with" select. `winnerProductId` is
+   * always the recorded slot's stable identity key (never the currently-
+   * admitted product — see planApply.ts), so repeated reselection keeps
+   * working. The sheet never applies the swap itself — RoutinesScreen owns
+   * rewriting the still-uncommitted draft via `applySlotAlternativeSwap`
+   * (tech design §1). Optional so pre-existing callers/tests that predate
+   * this feature keep typechecking.
    */
   onSwapAlternative?: (winnerProductId: string, chosenProductId: string) => void;
   /**
@@ -50,9 +56,11 @@ const SNAP_POINTS = ['88%'];
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
- * Draft Preview (Diff Mode, research §3): a Before → After layout with at
- * most three quiet summary lines and the four-way commit scope. Nothing here
- * writes — the commit callback routes through routinePlanActions.
+ * Draft Preview (Diff Mode, research §3): each step renders as a vertical
+ * changed/unchanged stack (screen-improvements redesign — no more clipped
+ * side-by-side Before|After columns), with at most three quiet summary lines
+ * and the four-way commit scope. Nothing here writes — the commit callback
+ * routes through routinePlanActions.
  */
 export function DraftPreviewSheet({
   visible,
@@ -66,6 +74,7 @@ export function DraftPreviewSheet({
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheetModal>(null);
   const wasPresented = useRef(false);
+  const [reserveExpanded, setReserveExpanded] = useState(false);
 
   const products = useProductsStore((s) => s.products);
   const routines = useRoutinesStore((s) => s.routines);
@@ -100,21 +109,35 @@ export function DraftPreviewSheet({
     (productId && products.find((p) => p.id === productId)?.name) ?? 'Unknown product';
   const summaryLines = buildDraftSummaryLines(plan, diff, products);
 
-  const beforeFor = (timeOfDay: 'morning' | 'evening') =>
-    routines
-      .filter((r) => r.timeOfDay === timeOfDay)
-      .flatMap((r) => r.steps.filter((s) => !s.hidden && s.productId))
-      .map((s) => nameOf(s.productId));
+  // The currently-saved product occupying each layering slot, keyed by
+  // slotIndex — used to decide whether an After step is "changing" and, if
+  // so, what to show struck through above it. Saved RoutineStep has no
+  // slotIndex of its own, so it's derived the same way validate.ts does.
+  const oldStepsFor = (timeOfDay: 'morning' | 'evening'): Map<number, { productId: string }> => {
+    const map = new Map<number, { productId: string }>();
+    for (const routine of routines) {
+      if (routine.timeOfDay !== timeOfDay) continue;
+      for (const step of routine.steps) {
+        if (step.hidden || !step.productId) continue;
+        map.set(getSlotIndex(step.productType), { productId: step.productId });
+      }
+    }
+    return map;
+  };
 
-  // Story 2 (routine-similar-product-priority): same-slot losers, keyed by
-  // the winning step's productId, scoped to one period — a winner's
-  // alternatives never bleed into the other period's After column.
-  const alternativesFor = (period: 'morning' | 'evening'): Map<string, SlotAlternative['alternatives']> =>
+  // Story 2 (routine-similar-product-priority): same-slot candidates, keyed
+  // by slotIndex (stable regardless of which candidate is currently
+  // admitted) so the "Replace with" select can always find its slot, even
+  // after the user has already swapped once.
+  const alternativesFor = (period: 'morning' | 'evening'): Map<number, SlotAlternative> =>
     new Map(
-      (plan.slotAlternatives ?? [])
-        .filter((a) => a.period === period)
-        .map((a) => [a.winnerProductId, a.alternatives]),
+      (plan.slotAlternatives ?? []).filter((a) => a.period === period).map((a) => [a.slotIndex, a]),
     );
+
+  const reasonForProduct = (productId: string): string | null => {
+    const entry = plan.decisions.find((d) => d.productId === productId && d.reasonCode);
+    return entry?.reasonCode ? reasonText(entry.reasonCode) : null;
+  };
 
   // Every frozen item gets a row — clinical pauses with their expiry date,
   // pair-rule freezes with the human reason text (nothing vanishes silently, §1.8)
@@ -152,20 +175,22 @@ export function DraftPreviewSheet({
           </View>
         ) : null}
 
-        <PeriodDiff
+        <PeriodSteps
           label="Morning"
-          before={beforeFor('morning')}
           afterSteps={plan.periods.morning}
+          oldSteps={oldStepsFor('morning')}
+          alternativesBySlot={alternativesFor('morning')}
           nameOf={nameOf}
-          alternativesByWinner={alternativesFor('morning')}
+          reasonForProduct={reasonForProduct}
           onSwapAlternative={onSwapAlternative}
         />
-        <PeriodDiff
+        <PeriodSteps
           label="Evening"
-          before={beforeFor('evening')}
           afterSteps={plan.periods.evening}
+          oldSteps={oldStepsFor('evening')}
+          alternativesBySlot={alternativesFor('evening')}
           nameOf={nameOf}
-          alternativesByWinner={alternativesFor('evening')}
+          reasonForProduct={reasonForProduct}
           onSwapAlternative={onSwapAlternative}
         />
 
@@ -181,25 +206,43 @@ export function DraftPreviewSheet({
 
         {plan.reserve.length > 0 ? (
           <View style={styles.pausedBlock}>
-            <Text style={styles.reserveHeading}>In reserve</Text>
-            {plan.reserve.map((item) => (
-              <View key={item.productId} style={styles.reserveRow}>
-                <View style={styles.reserveTextWrap}>
-                  <Text style={styles.reserveName}>{nameOf(item.productId)}</Text>
-                  <Text style={styles.pausedText}>{reasonText(item.reasonCode)}</Text>
-                </View>
-                {onOverride ? (
-                  <Pressable
-                    onPress={() => onOverride(item.productId)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Add ${nameOf(item.productId)} anyway`}
-                    style={styles.overrideBtn}
-                  >
-                    <Text style={styles.overrideBtnText}>Add anyway</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            ))}
+            <Pressable
+              onPress={() => setReserveExpanded((v) => !v)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: reserveExpanded }}
+              accessibilityLabel={`In reserve, ${plan.reserve.length} product${plan.reserve.length === 1 ? '' : 's'}`}
+              style={styles.reserveHeader}
+            >
+              <Text style={styles.reserveHeading}>
+                {`In reserve · ${plan.reserve.length} product${plan.reserve.length === 1 ? '' : 's'}`}
+              </Text>
+              <Feather
+                name={reserveExpanded ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.textTertiary}
+              />
+            </Pressable>
+
+            {reserveExpanded
+              ? plan.reserve.map((item) => (
+                  <View key={item.productId} style={styles.reserveRow}>
+                    <View style={styles.reserveTextWrap}>
+                      <Text style={styles.reserveName}>{nameOf(item.productId)}</Text>
+                      <Text style={styles.pausedText}>{reasonText(item.reasonCode)}</Text>
+                    </View>
+                    {onOverride ? (
+                      <Pressable
+                        onPress={() => onOverride(item.productId)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Add ${nameOf(item.productId)} anyway`}
+                        style={styles.overrideBtn}
+                      >
+                        <Text style={styles.overrideBtnText}>Add anyway</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ))
+              : null}
           </View>
         ) : null}
 
@@ -246,65 +289,149 @@ export function DraftPreviewSheet({
   );
 }
 
-// ─── Before → After block ─────────────────────────────────────────────────────
+// ─── Period block ─────────────────────────────────────────────────────────────
 
-function PeriodDiff({
+function PeriodSteps({
   label,
-  before,
   afterSteps,
+  oldSteps,
+  alternativesBySlot,
   nameOf,
-  alternativesByWinner,
+  reasonForProduct,
   onSwapAlternative,
 }: {
   label: string;
-  before: string[];
   afterSteps: PlannedStep[];
+  oldSteps: Map<number, { productId: string }>;
+  alternativesBySlot: Map<number, SlotAlternative>;
   nameOf: (productId: string | null) => string;
-  alternativesByWinner: Map<string, SlotAlternative['alternatives']>;
+  reasonForProduct: (productId: string) => string | null;
   onSwapAlternative?: (winnerProductId: string, chosenProductId: string) => void;
 }) {
   return (
     <View style={styles.periodBlock}>
       <Text style={styles.periodLabel}>{label}</Text>
-      <View style={styles.diffColumns}>
-        <View style={styles.diffColumn}>
-          <Text style={styles.columnLabel}>Before</Text>
-          {before.length > 0 ? (
-            before.map((name, i) => (
-              <Text key={`${name}-${i}`} style={styles.diffItemMuted} numberOfLines={1}>
-                {name}
-              </Text>
-            ))
-          ) : (
-            <Text style={styles.diffItemMuted}>—</Text>
-          )}
-        </View>
-        <Feather name="arrow-right" size={16} color={colors.textTertiary} style={styles.diffArrow} />
-        <View style={styles.diffColumn}>
-          <Text style={styles.columnLabel}>After</Text>
-          {afterSteps.length > 0 ? (
-            afterSteps.map((step) => (
-              <View key={step.productId}>
-                <Text style={styles.diffItem} numberOfLines={1}>
-                  {nameOf(step.productId)}
-                </Text>
-                {(alternativesByWinner.get(step.productId) ?? []).map((alt) => (
-                  <SlotAlternativeRow
-                    key={alt.productId}
-                    winnerProductName={nameOf(step.productId)}
-                    alternativeProductName={nameOf(alt.productId)}
-                    onSwap={() => onSwapAlternative?.(step.productId, alt.productId)}
-                  />
-                ))}
-              </View>
-            ))
-          ) : (
-            <Text style={styles.diffItemMuted}>—</Text>
-          )}
-        </View>
-      </View>
+      {afterSteps.length > 0 ? (
+        afterSteps.map((step) => (
+          <RoutineStepRow
+            key={step.productId}
+            step={step}
+            oldStep={oldSteps.get(step.slotIndex)}
+            reason={reasonForProduct(step.productId)}
+            entry={alternativesBySlot.get(step.slotIndex)}
+            nameOf={nameOf}
+            onSwapAlternative={onSwapAlternative}
+          />
+        ))
+      ) : (
+        <Text style={styles.diffItemMuted}>—</Text>
+      )}
     </View>
   );
+}
+
+// ─── One step: changed/unchanged stack + "Replace with" select ────────────────
+
+function RoutineStepRow({
+  step,
+  oldStep,
+  reason,
+  entry,
+  nameOf,
+  onSwapAlternative,
+}: {
+  step: PlannedStep;
+  oldStep: { productId: string } | undefined;
+  reason: string | null;
+  entry: SlotAlternative | undefined;
+  nameOf: (productId: string | null) => string;
+  onSwapAlternative?: (winnerProductId: string, chosenProductId: string) => void;
+}) {
+  const isChanged = !oldStep || oldStep.productId !== step.productId;
+
+  return (
+    <View style={styles.stepCard}>
+      {isChanged && oldStep ? (
+        <>
+          <Text style={styles.oldName}>{nameOf(oldStep.productId)}</Text>
+          <Feather name="arrow-down" size={14} color={colors.textTertiary} style={styles.changeArrow} />
+        </>
+      ) : null}
+
+      <Text style={isChanged ? styles.newNameChanged : styles.newName}>{nameOf(step.productId)}</Text>
+
+      {isChanged ? (
+        reason ? (
+          <Badge status="Cobalt" type="Light" style={styles.reasonBadge}>
+            {reason}
+          </Badge>
+        ) : null
+      ) : (
+        <Tag tone="neutral" style={styles.noChangeTag}>
+          No change
+        </Tag>
+      )}
+
+      {entry ? (
+        <Select
+          label="Replace with"
+          value={step.productId}
+          options={buildStepOptions(entry, step.productId, oldStep, nameOf)}
+          onValueChange={(chosen) => onSwapAlternative?.(entry.winnerProductId, chosen)}
+          accessibilityLabel={`Replace ${nameOf(step.productId)}`}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Every candidate for one slot, deduplicated: the currently-admitted product
+ * first, then the entry's original recommendation (if not already admitted),
+ * then the pre-regeneration product as "keep current" when it's still a
+ * recorded candidate, then the rest as "from reserve" — ranked best-first per
+ * `resolvePeriods`.
+ */
+function buildStepOptions(
+  entry: SlotAlternative,
+  currentProductId: string,
+  oldStep: { productId: string } | undefined,
+  nameOf: (productId: string | null) => string,
+): SelectOption[] {
+  const options: SelectOption[] = [];
+  const seen = new Set<string>();
+
+  const push = (productId: string, reasonFragment: string, tone: SelectOptionTone) => {
+    if (seen.has(productId)) return;
+    seen.add(productId);
+    options.push({ value: productId, title: nameOf(productId), reason: reasonFragment, tone });
+  };
+
+  push(
+    currentProductId,
+    currentProductId === entry.winnerProductId
+      ? 'recommended'
+      : oldStep?.productId === currentProductId
+      ? 'keep current'
+      : 'from reserve',
+    currentProductId === entry.winnerProductId
+      ? 'recommended'
+      : oldStep?.productId === currentProductId
+      ? 'neutral'
+      : 'info',
+  );
+
+  push(entry.winnerProductId, 'recommended', 'recommended');
+
+  if (oldStep && entry.alternatives.some((alt) => alt.productId === oldStep.productId)) {
+    push(oldStep.productId, 'keep current', 'neutral');
+  }
+
+  for (const alt of entry.alternatives) {
+    push(alt.productId, 'from reserve', 'info');
+  }
+
+  return options;
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -344,36 +471,48 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   periodBlock: {
-    gap: space[2],
+    gap: space[3],
   },
   periodLabel: {
     ...typography.label,
     color: colors.textSecondary,
   },
-  diffColumns: {
-    flexDirection: 'row',
-    gap: space[2],
-    alignItems: 'flex-start',
-  },
-  diffColumn: {
-    flex: 1,
-    gap: space[1],
-  },
-  diffArrow: {
-    marginTop: space[5],
-  },
-  columnLabel: {
-    ...typography.caption,
-    color: colors.textTertiary,
-  },
-  diffItem: {
-    ...typography.bodySmall,
-    color: colors.textPrimary,
-  },
   diffItemMuted: {
     ...typography.bodySmall,
     color: colors.textTertiary,
   },
+
+  stepCard: {
+    gap: space[1],
+    padding: space[3],
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radius.md,
+    ...shadow.sm,
+  },
+  oldName: {
+    ...typography.bodySmall,
+    color: colors.textTertiary,
+    textDecorationLine: 'line-through',
+  },
+  changeArrow: {
+    marginVertical: 1,
+  },
+  newName: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  newNameChanged: {
+    ...typography.body,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
+  },
+  reasonBadge: {
+    marginTop: space[1],
+  },
+  noChangeTag: {
+    marginTop: space[1],
+  },
+
   pausedBlock: {
     backgroundColor: colors.surfaceSunken,
     borderRadius: radius.md,
@@ -384,10 +523,14 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textSecondary,
   },
+  reserveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   reserveHeading: {
     ...typography.label,
     color: colors.textPrimary,
-    marginBottom: space[1],
   },
   reserveRow: {
     flexDirection: 'row',
@@ -395,6 +538,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: space[3],
     paddingVertical: space[1],
+    marginTop: space[2],
   },
   reserveTextWrap: {
     flex: 1,

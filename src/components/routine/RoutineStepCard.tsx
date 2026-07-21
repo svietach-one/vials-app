@@ -6,7 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
 import type { Product, ProductType } from '@/types';
 
@@ -120,7 +120,8 @@ export function RoutineStepCard({
           <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
         </View>
 
-        {/* Bottom row: badges (left) + delete button in edit mode (right) */}
+        {/* Bottom row: badges only — overflow button moved to the top-right
+            corner, on the brand's line (see below) */}
         <View style={styles.bottomRow}>
           <View style={styles.badgesRow}>
             <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
@@ -152,20 +153,21 @@ export function RoutineStepCard({
               </Pressable>
             ) : null}
           </View>
-
-          {onOverflowPress ? (
-            <TouchableOpacity
-              onPress={onOverflowPress}
-              activeOpacity={0.5}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel={`More actions for ${product.name}`}
-            >
-              <Feather name="more-vertical" size={18} color={palette.zinc500} />
-            </TouchableOpacity>
-          ) : null}
         </View>
       </View>
+
+      {onOverflowPress ? (
+        <TouchableOpacity
+          onPress={onOverflowPress}
+          activeOpacity={0.5}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={`More actions for ${product.name}`}
+          style={styles.overflowButton}
+        >
+          <Feather name="more-vertical" size={18} color={palette.zinc500} />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 
@@ -260,10 +262,11 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: palette.white,
     borderWidth: 1,
-    borderColor: palette.zinc200,
+    borderColor: 'transparent',
     borderRadius: radius.sm,
     paddingHorizontal: space[2],
     paddingVertical: space[3],
+    ...shadow.sm,
   },
   cardConflict: {
     borderColor: palette.amber,
@@ -281,9 +284,18 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
 
+  overflowButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+  },
+
   // Brand above the name, both left-aligned (matches the shelf card).
+  // Right padding reserves room for the overflow button, which shares
+  // this line but sits outside contentArea's flow (absolute, top-right).
   topRow: {
     gap: 2,
+    paddingRight: space[8],
   },
   productName: {
     ...typography.body,

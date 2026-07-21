@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   toggleGroup: {
     flexDirection: 'row',
     gap: space[1],
-    backgroundColor: colors.surfaceSunken,
+    backgroundColor: palette.white,
     borderRadius: radius.pill,
     padding: space[1],
     ...shadow.sm,
@@ -152,6 +152,7 @@ const styles = StyleSheet.create({
     gap: space[1],
     height: 40,
     borderRadius: radius.pill,
+    backgroundColor: palette.white,
   },
   toggleBtnActive: {
     backgroundColor: palette.plum,

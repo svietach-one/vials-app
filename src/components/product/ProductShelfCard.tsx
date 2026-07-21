@@ -6,7 +6,7 @@ import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { ActiveBadgeCategory, Product, ProductType } from '@/types';
 import { getActiveBadgeCategory, getProductActiveBadgeKeys } from '@/utils/activeBadges';
 
@@ -103,80 +103,84 @@ export function ProductShelfCard({
           <ProductThumbnail product={product} size={104} dimmed={!!product.isHidden} />
 
           <View style={styles.mainColumn}>
-        <View
-          testID="shelf-card-content"
-          style={[styles.content, product.isHidden && styles.contentDimmed]}
-        >
-          {/* Identity: brand (muted) above product name (bold) */}
-          <View style={styles.topRow}>
-            {product.brand ? (
-              <Text style={styles.brandName} numberOfLines={1}>
-                {product.brand}
-              </Text>
-            ) : null}
-            <Text style={styles.productName} numberOfLines={1}>
-              {product.name}
-            </Text>
-          </View>
+            <View
+              testID="shelf-card-content"
+              style={[styles.content, product.isHidden && styles.contentDimmed]}
+            >
+              {/* Identity: brand (muted) above product name (bold) */}
+              <View style={styles.topRow}>
+                {product.brand ? (
+                  <Text style={styles.brandName} numberOfLines={1}>
+                    {product.brand}
+                  </Text>
+                ) : null}
+                <Text style={styles.productName} numberOfLines={1}>
+                  {product.name}
+                </Text>
+              </View>
 
-          {/* Middle row: routine info or hidden state */}
-          {isInRoutine ? (
-            <View style={styles.middleRow}>
-              <View style={styles.scheduleBlock}>
-                <View testID="icon-calendar">
-                  <Feather name="calendar" size={14} color={colors.textTertiary} />
+              {/* Middle row: routine info or hidden state */}
+              {isInRoutine ? (
+                <View style={styles.middleRow}>
+                  <View style={styles.scheduleBlock}>
+                    <View testID="icon-calendar">
+                      <Feather name="calendar" size={14} color={colors.textTertiary} />
+                    </View>
+                    <Text style={styles.scheduleText}>{scheduleLabel}</Text>
+                  </View>
+                  <View style={styles.timeOfDayBlock}>
+                    {(usageTime === 'evening' || usageTime === 'both') ? (
+                      <View testID="icon-moon">
+                        <Feather name="moon" size={14} color={colors.textTertiary} />
+                      </View>
+                    ) : null}
+                    {(usageTime === 'morning' || usageTime === 'both') ? (
+                      <View testID="icon-sun">
+                        <Feather name="sun" size={14} color={colors.textTertiary} />
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
-                <Text style={styles.scheduleText}>{scheduleLabel}</Text>
-              </View>
-              <View style={styles.timeOfDayBlock}>
-                {(usageTime === 'evening' || usageTime === 'both') ? (
-                  <View testID="icon-moon">
-                    <Feather name="moon" size={14} color={colors.textTertiary} />
+              ) : (
+                <View style={styles.middleRow}>
+                  <View style={styles.hiddenBlock}>
+                    <Feather name="eye-off" size={14} color={colors.textTertiary} />
+                    <Text style={styles.hiddenText}>Hidden from routine</Text>
                   </View>
-                ) : null}
-                {(usageTime === 'morning' || usageTime === 'both') ? (
-                  <View testID="icon-sun">
-                    <Feather name="sun" size={14} color={colors.textTertiary} />
-                  </View>
-                ) : null}
-              </View>
+                </View>
+              )}
             </View>
-          ) : (
-            <View style={styles.middleRow}>
-              <View style={styles.hiddenBlock}>
-                <Feather name="eye-off" size={14} color={colors.textTertiary} />
-                <Text style={styles.hiddenText}>Hidden from routine</Text>
-              </View>
-            </View>
-          )}
-        </View>
 
-        {/* Bottom row: badge row (left, dims with content) + overflow button (right, always opaque) */}
-        <View style={styles.bottomRow}>
-          <View style={[styles.badgesRow, product.isHidden && styles.contentDimmed]}>
-            {product.isHidden ? (
-              <View style={styles.activeBadge}>
-                <Feather name="eye-off" size={12} color={colors.textTertiary} />
-              </View>
-            ) : null}
-            {activeKeys.map((key) => {
-              const categoryColor = ACTIVE_CATEGORY_COLORS[getActiveBadgeCategory(key)];
-              return (
-                <View
-                  key={key}
-                  testID={`active-badge-${key}`}
-                  style={[styles.activeBadge, { borderColor: categoryColor.border }]}
-                >
-                  <Text style={[styles.activeBadgeText, { color: categoryColor.text }]}>
-                    {ACTIVE_INGREDIENT_LABELS[key]}
+            {/* Badge row — dims with content; overflow button lives outside
+                this wrapper (see below) so it stays opaque and aligned with
+                the brand line in the top-right corner */}
+            <View style={styles.bottomRow}>
+              <View style={[styles.badgesRow, product.isHidden && styles.contentDimmed]}>
+                {product.isHidden ? (
+                  <View style={styles.activeBadge}>
+                    <Feather name="eye-off" size={12} color={colors.textTertiary} />
+                  </View>
+                ) : null}
+                {activeKeys.map((key) => {
+                  const categoryColor = ACTIVE_CATEGORY_COLORS[getActiveBadgeCategory(key)];
+                  return (
+                    <View
+                      key={key}
+                      testID={`active-badge-${key}`}
+                      style={[styles.activeBadge, { borderColor: categoryColor.border }]}
+                    >
+                      <Text style={[styles.activeBadgeText, { color: categoryColor.text }]}>
+                        {ACTIVE_INGREDIENT_LABELS[key]}
+                      </Text>
+                    </View>
+                  );
+                })}
+                <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
+                  <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
+                    {typeLabel}
                   </Text>
                 </View>
-              );
-            })}
-            <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
-              <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
-                {typeLabel}
-              </Text>
+              </View>
             </View>
           </View>
 
@@ -185,13 +189,12 @@ export function ProductShelfCard({
             label={`More actions for ${product.name}`}
             variant="ghost"
             size="sm"
+            style={styles.overflowButton}
             onPress={(e) => {
               e?.stopPropagation?.();
               setSheetVisible(true);
             }}
           />
-        </View>
-          </View>
         </View>
       </Pressable>
 
@@ -222,12 +225,11 @@ export function ProductShelfCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: palette.white,
-    borderWidth: 1,
-    borderColor: palette.zinc200,
     borderRadius: radius.sm,
     paddingHorizontal: space[2],
     paddingVertical: space[4],
     gap: space[2],
+    ...shadow.sm,
   },
   cardPressed: {
     backgroundColor: colors.bgSubtle,
@@ -246,6 +248,11 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: space[2],
   },
+  overflowButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+  },
 
   content: {
     gap: space[2],
@@ -258,6 +265,7 @@ const styles = StyleSheet.create({
   // identifier, the brand is context for it.
   topRow: {
     gap: 2,
+    paddingRight: space[10],
   },
   productName: {
     ...typography.body,
