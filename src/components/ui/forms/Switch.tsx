@@ -17,6 +17,8 @@ export interface SwitchProps {
   size?: 'sm' | 'md';
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** Forwarded to the underlying Pressable — disambiguates screens with several switches. */
+  accessibilityLabel?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -34,6 +36,7 @@ export function Switch({
   size = 'md',
   disabled = false,
   style,
+  accessibilityLabel,
 }: SwitchProps) {
   const { w, h } = DIMS[size];
   const knobDim = h - 6; // 3px inset on each side
@@ -69,6 +72,7 @@ export function Switch({
       onPress={() => !disabled && onValueChange?.(!checked)}
       accessibilityRole="switch"
       accessibilityState={{ checked, disabled }}
+      accessibilityLabel={accessibilityLabel}
       disabled={disabled}
       style={[disabled && styles.disabled, style]}
       hitSlop={4}

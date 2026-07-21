@@ -55,8 +55,8 @@ function makeRoutine(steps: Routine['steps']): Routine {
 // ─── Schema version ───────────────────────────────────────────────────────────
 
 describe('CURRENT_SCHEMA_VERSION', () => {
-  it('is 3 after the V2.1 migration package (phase-08: goals + confirmation flags + peptides)', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(3);
+  it('is 4 after adding contributionConsent (contribution-consent task)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(4);
   });
 });
 
@@ -419,6 +419,46 @@ describe('migrateProfile — phototype confirmation flag (phase-08 §8.1)', () =
       makeLegacyProfile({ phototype: 'type_5_6', phototypeNeedsConfirmation: false }),
     );
     expect(confirmed.phototypeNeedsConfirmation).toBe(false);
+  });
+});
+
+describe('migrateProfile — contribution consent backfill (contribution-consent task)', () => {
+  it('backfills a declined, never-asked consent when the field is absent', () => {
+    // Arrange
+    const profile = makeLegacyProfile();
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.contributionConsent).toEqual({ granted: false, timestamp: null });
+  });
+
+  it('leaves an already-present consent value untouched, including a user-granted true', () => {
+    // Arrange
+    const consent = { granted: true, timestamp: '2026-05-01T00:00:00.000Z' };
+    const profile = makeLegacyProfile({ contributionConsent: consent });
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.contributionConsent).toBe(consent);
+  });
+
+  it('leaves an already-present declined consent with a real timestamp untouched', () => {
+    // Arrange
+    const consent = { granted: false, timestamp: '2026-05-01T00:00:00.000Z' };
+    const profile = makeLegacyProfile({ contributionConsent: consent });
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.contributionConsent).toBe(consent);
+  });
+
+  it('returns the same reference when contributionConsent is already present and every other field conforms', () => {
+    // Arrange
+    const migratedOnce = migrateProfile(makeLegacyProfile({ phototype: 'type_3_4' }));
+    // Act
+    const migratedTwice = migrateProfile(migratedOnce);
+    // Assert
+    expect(migratedTwice).toBe(migratedOnce);
   });
 });
 

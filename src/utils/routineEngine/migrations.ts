@@ -21,7 +21,7 @@ import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingr
  */
 
 /** Current persisted schema version. Bumped whenever a migration is added. */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /** Version assumed for installs that predate the schemaVersion key. */
 export const BASELINE_SCHEMA_VERSION = 1;
@@ -92,8 +92,16 @@ export function migrateProfile(profile: UserProfile): UserProfile {
   const goalsPresent = profile.primaryGoal !== undefined;
   // Pre-v3 profiles lack the phototype-confirmation flag (V2.1 phase-08).
   const phototypeConfirmationPresent = profile.phototypeNeedsConfirmation !== undefined;
+  // Pre-v4 profiles lack contribution consent entirely (contribution-consent task).
+  const contributionConsentPresent = profile.contributionConsent !== undefined;
 
-  if (cityPresent && fitzpatrickCurrent && goalsPresent && phototypeConfirmationPresent) {
+  if (
+    cityPresent &&
+    fitzpatrickCurrent &&
+    goalsPresent &&
+    phototypeConfirmationPresent &&
+    contributionConsentPresent
+  ) {
     return profile;
   }
 
@@ -114,6 +122,11 @@ export function migrateProfile(profile: UserProfile): UserProfile {
     phototypeNeedsConfirmation: phototypeConfirmationPresent
       ? profile.phototypeNeedsConfirmation
       : profile.phototype !== null,
+    // Existing installs default to no photo sharing with a null timestamp
+    // (never asked) — RoutinesScreen's migration banner keys off that null.
+    contributionConsent: contributionConsentPresent
+      ? profile.contributionConsent
+      : { granted: false, timestamp: null },
   };
 }
 

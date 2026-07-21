@@ -267,6 +267,38 @@ arrive.
 
 ---
 
+### Follow-up — photo-sharing consent required (RESOLVED 2026-07-20)
+
+**Raised & resolved:** 2026-07-20, task `contribution-consent`
+(`docs/specs/contribution-consent.md`, `docs/tech-design/contribution-consent.md`).
+
+BLOCKER-2's resolution above gave contributed photos a destination (the
+`vials-contributions` Turso DB), but shipped with no consent gate on the photo
+itself: `ManualProductFormScreen.shareProduct` rendered and sent
+`product.localImageUri` unconditionally whenever a photo was attached. That is
+the privacy gap this follow-up closes — not "where do photos go" (resolved
+above) but "did the user agree to send this specific photo."
+
+**Fix:** a one-time, non-blocking, opt-in onboarding screen
+(`ContributionConsentScreen`, inserted between `SkinProfileSetup` and
+`FirstProduct`) plus a `Profile > Settings` toggle, both writing
+`profileStore.profile.contributionConsent: { granted, timestamp }`.
+`shareProduct` now passes `photo_blob = null` unless `granted === true`;
+metadata-only sharing (brand/name/type/barcode/INCI — already free of personal
+data) is unaffected either way. Existing installs migrate to `granted: false`
+and are pointed at the Settings toggle via a dismissible banner. Declining, or
+never being asked yet, blocks nothing else — scanning, cataloging, routines,
+and conflict checks are identical regardless of this choice.
+
+Consent is opt-in, off by default until explicitly granted, and never gates
+any unrelated app functionality — consistent with GDPR Art. 7(4) / Recital 43
+(consent must be freely given and not bundled with access to a service).
+`EXPO_PUBLIC_TURSO_CONTRIBUTIONS_URL`/`_TOKEN` provisioning and an end-to-end
+verification pass against the live contributions DB remain an explicit
+follow-up, unaffected by this change.
+
+---
+
 ## Related, tracked separately
 
 `docs/tasks/product-images/TICKET-docs-pre-turso-architecture.md` — the DB docs

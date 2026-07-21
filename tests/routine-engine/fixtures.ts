@@ -128,6 +128,7 @@ export function makeFullProfile(overrides: Partial<UserProfile> = {}): UserProfi
     spfSensitivity: false,
     onboardingCompleted: true,
     individualDurationMonths: {},
+    contributionConsent: { granted: false, timestamp: null },
     ...overrides,
   };
 }

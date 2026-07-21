@@ -190,6 +190,21 @@ export interface UserProfile {
   onboardingCompleted: boolean;
   /** Per-procedure duration overrides set when the user confirms actual fading. */
   individualDurationMonths: Partial<Record<CosmeticProcedureKey, number>>;
+  /**
+   * Whether the user has agreed to include their product photo in community
+   * contributions (GDPR Art. 7(4) consent), and when that choice was last
+   * made. `timestamp === null` means the choice predates this feature
+   * (migrated install) and the user has never been asked. See
+   * `src/utils/contributionConsent.ts` for the gating helper.
+   */
+  contributionConsent: ContributionConsent;
+}
+
+/** Consent to share a product photo in community contributions (schema v4). */
+export interface ContributionConsent {
+  granted: boolean;
+  /** ISO timestamp of the last choice, or null if never explicitly made. */
+  timestamp: string | null;
 }
 
 // ─── Products ─────────────────────────────────────────────────────────────────

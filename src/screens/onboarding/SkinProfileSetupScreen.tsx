@@ -85,13 +85,13 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
 
   function handleContinue() {
     updateProfile(buildProfilePatch());
-    navigation.replace('FirstProduct');
+    navigation.replace('ContributionConsent');
   }
 
   function handleSkip() {
     // Save whatever was entered so the user doesn't lose partial data
     updateProfile(buildProfilePatch());
-    navigation.replace('FirstProduct');
+    navigation.replace('ContributionConsent');
   }
 
   const canContinue = skinType !== null && fitzpatrick !== null;
