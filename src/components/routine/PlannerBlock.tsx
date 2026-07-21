@@ -27,17 +27,6 @@ export interface PlannerBlockProps {
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Mo … Su ordered for display (matching JS dow: Mon=1 … Sat=6, Sun=0)
-const DAY_CHIPS: { dow: number; label: string }[] = [
-  { dow: 1, label: 'Mo' },
-  { dow: 2, label: 'Tu' },
-  { dow: 3, label: 'We' },
-  { dow: 4, label: 'Th' },
-  { dow: 5, label: 'Fr' },
-  { dow: 6, label: 'Sa' },
-  { dow: 0, label: 'Su' },
-];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -108,28 +97,6 @@ export function PlannerBlock({
           </Pressable>
         </View>
       </View>
-
-      {/* Row 2: weekday navigation — single active day, tapping changes selection */}
-      <View style={styles.dayRow}>
-        {DAY_CHIPS.map(({ dow, label }) => {
-          const active = selectedDow === dow;
-          return (
-            <Pressable
-              key={dow}
-              style={[styles.dayChip, active && styles.dayChipActive]}
-              onPress={() => onDaySelect(dow)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={`${DAY_NAMES[dow]}, ${active ? 'selected' : ''}`}
-              hitSlop={4}
-            >
-              <Text style={[styles.dayChipLabel, active && styles.dayChipLabelActive]}>
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
     </View>
   );
 }
@@ -169,34 +136,5 @@ const styles = StyleSheet.create({
   },
   toggleBtnActive: {
     backgroundColor: palette.black,
-  },
-
-  dayRow: {
-    flexDirection: 'row',
-    gap: space[1],
-    marginTop: space[1],
-  },
-  dayChip: {
-    flex: 1,
-    height: 30,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceRaised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayChipActive: {
-    backgroundColor: palette.black,
-    borderColor: palette.black,
-  },
-  dayChipLabel: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textSecondary,
-  },
-  dayChipLabelActive: {
-    color: palette.white,
   },
 });
