@@ -78,7 +78,7 @@ Defined in `/src/constants/tokens.ts`:
 | Sand (bg) | `#F5F2EB` | Background |
 | Slate (text) | `#2F4F4F` | Text / dark elements |
 
-High contrast, unisex, medical-minimalist. **No pink hues.**
+High contrast, unisex, medical-minimalist.
 
 ---
 
@@ -106,7 +106,6 @@ Ingredient-pair detection (TBD) will live in `/src/services/conflictEngine/` or 
 
 ## Key Constraints
 
-- **No pink** — palette is unisex (teal/sand/slate tones)
 - **English only** — all UI text, comments, and logs in English (Phase 1)
 - **Local-only storage** — no Supabase/Firebase in Phase 1
 - **Conflict warnings only in routines** — not on product catalog cards

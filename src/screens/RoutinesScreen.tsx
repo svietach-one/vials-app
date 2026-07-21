@@ -420,7 +420,7 @@ export default function RoutinesScreen({ navigation }: Props) {
             {/* Regenerate sits immediately left of "+", which stays rightmost
                 so adding a product is always a single tap (img-03). */}
             <IconButton
-              icon={<Feather name="refresh-cw" size={18} color={palette.bottleGreen} />}
+              icon={<Feather name="refresh-cw" size={18} color={palette.plum} />}
               label="Regenerate routine"
               variant="ghost"
               size="sm"
@@ -428,7 +428,7 @@ export default function RoutinesScreen({ navigation }: Props) {
               onPress={handleOpenDraftPreview}
             />
             <IconButton
-              icon={<Feather name="plus" size={18} color={palette.bottleGreen} />}
+              icon={<Feather name="plus" size={18} color={palette.plum} />}
               label="Add product to routine"
               variant="ghost"
               size="sm"
@@ -472,7 +472,7 @@ export default function RoutinesScreen({ navigation }: Props) {
               variant="textActive"
               size="md"
               fullWidth
-              icon={<Feather name="plus" size={16} color={palette.bottleGreen} />}
+              icon={<Feather name="plus" size={16} color={palette.plum} />}
               onPress={handleOpenAddSheet}
               accessibilityLabel="Add product to routine"
             >
@@ -738,7 +738,7 @@ const emptyStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgSubtle,
+    backgroundColor: colors.bgScreen,
   },
 
   listContent: {

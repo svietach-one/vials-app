@@ -13,6 +13,14 @@
 export const palette = {
   white: '#FFFFFF',
   black: '#09090B',
+  bone: '#FAF9F6',
+
+  plum: '#4F1242',
+  // Pressed state — one step lighter than plum, matching the zinc900→zinc800
+  // "+15 per channel" pressed relationship used elsewhere in this palette.
+  plumPressed: '#5E2151',
+  plumTint: '#E5DBE3',
+  plumLine: '#D8CBD5',
 
   zinc50: '#FAFAFA',
   zinc100: '#F4F4F5',
@@ -48,7 +56,10 @@ export const palette = {
 
 export const colors = {
   // Surfaces
+  // bgBase: white — the sheet/modal/tab-bar surface. Standalone screens use
+  // bgScreen (bone) instead; sheets stay white per design.
   bgBase: palette.white,
+  bgScreen: palette.bone,
   bgSubtle: palette.zinc50,
   surfaceCard: palette.white,
   surfaceRaised: palette.white,

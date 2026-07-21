@@ -867,7 +867,7 @@ const s = StyleSheet.create({
   },
   safe: {
     flex: 1,
-    backgroundColor: colors.bgSubtle,
+    backgroundColor: colors.bgScreen,
   },
   scroll: { flex: 1 },
   content: {
@@ -881,7 +881,7 @@ const s = StyleSheet.create({
     paddingVertical: space[4],
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
-    backgroundColor: colors.bgSubtle,
+    backgroundColor: colors.bgScreen,
   },
 
   // Card shell

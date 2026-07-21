@@ -7,7 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radius } from '@/constants/tokens';
+import { colors, palette, radius } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,8 +93,8 @@ const variantStyles = StyleSheet.create({
     borderColor: colors.borderStrong,
   },
   filled: {
-    backgroundColor: colors.controlFill,
-    borderColor: colors.controlFill,
+    backgroundColor: palette.plum,
+    borderColor: palette.plum,
   },
 });
 
@@ -108,7 +108,7 @@ const variantPressedStyles = StyleSheet.create({
     borderColor: colors.borderStrong,
   },
   filled: {
-    backgroundColor: colors.controlFillHover,
-    borderColor: colors.controlFillHover,
+    backgroundColor: palette.plumPressed,
+    borderColor: palette.plumPressed,
   },
 });

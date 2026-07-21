@@ -202,7 +202,7 @@ export default function ClinicScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgSubtle,
+    backgroundColor: colors.bgScreen,
   },
   list: {
     paddingHorizontal: space.gutterScreen,

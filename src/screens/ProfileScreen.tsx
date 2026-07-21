@@ -479,7 +479,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgSubtle,
+    backgroundColor: colors.bgScreen,
   },
   scroll: { flex: 1 },
   content: {
