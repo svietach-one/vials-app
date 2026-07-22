@@ -102,7 +102,7 @@ export function RoutineSchedulerSheet({
     >
       {/* Section 1: Time of Day */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>TIME OF DAY</Text>
+        <Text style={styles.sectionLabel}>Time of Day</Text>
         <View style={styles.chipRow}>
           <TimeChip
             icon="sun"
@@ -127,7 +127,7 @@ export function RoutineSchedulerSheet({
 
       {/* Section 2: Weekly Planner */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>WEEKLY PLANNER</Text>
+        <Text style={styles.sectionLabel}>Weekly Planner</Text>
         <WeeklySchedulePicker scheduledDays={scheduledDays} onUpdate={setScheduledDays} />
       </View>
 

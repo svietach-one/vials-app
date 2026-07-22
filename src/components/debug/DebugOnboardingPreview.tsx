@@ -87,7 +87,7 @@ export function DebugOnboardingPreview({ visible, onClose }: Props) {
           <View style={styles.badgeRow} pointerEvents="box-none">
             <View style={styles.badge}>
               <Feather name="eye" size={12} color={palette.white} />
-              <Text style={styles.badgeText}>DEBUG PREVIEW</Text>
+              <Text style={styles.badgeText}>Debug Preview</Text>
             </View>
             <IconButton
               icon={<Feather name="x" size={16} color={palette.white} />}
@@ -133,7 +133,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     fontFamily: 'DMSans-Medium',
-    letterSpacing: 0.6,
     color: palette.white,
   },
   closeBtn: {

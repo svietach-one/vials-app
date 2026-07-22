@@ -203,8 +203,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontFamily: 'DMSans-Medium',
     color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   assignRow: {
     gap: space[2],

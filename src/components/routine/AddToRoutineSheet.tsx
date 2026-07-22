@@ -460,7 +460,7 @@ function StepSchedule({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>TIME OF DAY</Text>
+          <Text style={styles.sectionLabel}>Time of Day</Text>
           <View style={styles.chipRow}>
             <TimeChip
               icon="sun"
@@ -484,7 +484,7 @@ function StepSchedule({
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>WEEKLY PLANNER</Text>
+          <Text style={styles.sectionLabel}>Weekly Planner</Text>
           <WeeklySchedulePicker scheduledDays={scheduledDays} onUpdate={onScheduledDaysChange} />
         </View>
       </BottomSheetScrollView>

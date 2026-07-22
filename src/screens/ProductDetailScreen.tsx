@@ -328,8 +328,6 @@ const styles = StyleSheet.create({
   brand: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   productName: {
     ...typography.h2,

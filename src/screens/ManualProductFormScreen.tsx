@@ -920,7 +920,6 @@ const s = StyleSheet.create({
     flex: 1,
     fontFamily: 'DMSans-Medium',
     fontSize: 16,
-    textTransform: 'uppercase',
     color: colors.textPrimary,
   },
 

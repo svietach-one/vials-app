@@ -193,8 +193,6 @@ export const typography = {
     fontFamily: SANS_MEDIUM,
     fontSize: 14,
     lineHeight: 20,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase' as const,
   },
   caption: {
     fontFamily: SANS,
