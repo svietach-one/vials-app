@@ -351,21 +351,27 @@ export interface ClinicalConflictResult {
   suggestion: string;
 }
 
-// ─── Routine engine: rehab shield widget ──────────────────────────────────────
+// ─── Routine engine: rehab notice ─────────────────────────────────────────────
 
 /**
- * State of the top-anchored rehabilitation widget on the Routines screen.
- * Derived per render from procedure logs — never persisted. Null when no
- * procedure has remaining rehab days (long-term effects like an active Botox
- * cycle never produce a widget; they live on the Clinic timeline only).
+ * One merged rehab notification card (Routines screen). Consolidates the old
+ * separate rehab shield + lifestyle-restrictions cards into a single card per
+ * procedure — two cards about the same procedure read as needlessly anxious.
+ * Procedures sharing identical restrictions AND timeframe are merged into one
+ * notice (procedureName joined with " + "). `restrictions` is populated only
+ * during the acute (disrupted) phase and drops to [] once the barrier is
+ * merely sensitive, so the card's body shrinks as the relevance passes.
+ * Derived per render from procedure logs; never persisted.
  */
-export interface RehabWidgetState {
+export interface RehabNotice {
+  /** Stable list key — the merged procedures' ids joined with "+". */
+  key: string;
   procedureName: string;
   /** 1-based day inside the rehab window. */
   currentDay: number;
   totalDays: number;
   barrierStatus: 'disrupted' | 'sensitive';
-  affectedZones: TreatmentZone[];
+  restrictions: string[];
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

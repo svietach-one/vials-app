@@ -134,8 +134,8 @@ jest.mock('@/components/routine/RemoveStepModal', () => ({
 
 // Banner blocks are not the subject under test; mocking them also keeps the
 // AsyncStorage-backed procedures/settings stores out of the module graph.
-jest.mock('@/components/routine/ClinicalRestrictionsBlock', () => ({
-  ClinicalRestrictionsBlock: () => null,
+jest.mock('@/components/routine/RehabNoticeCard', () => ({
+  RehabNoticeCard: () => null,
 }));
 
 jest.mock('@/components/routine/SeasonalNoticeBanner', () => ({

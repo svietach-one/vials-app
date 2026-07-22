@@ -13,7 +13,6 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { AddToRoutineSheet } from '@/components/routine/AddToRoutineSheet';
-import { ClinicalRestrictionsBlock } from '@/components/routine/ClinicalRestrictionsBlock';
 import { DraftPreviewSheet } from '@/components/routine/DraftPreviewSheet';
 import { DuplicateSlotResolutionSheet } from '@/components/routine/DuplicateSlotResolutionSheet';
 import {
@@ -24,7 +23,7 @@ import { GenerateCard } from '@/components/routine/GenerateCard';
 import { OptimizeStrip } from '@/components/routine/OptimizeStrip';
 import { PreCleanseReminderCard } from '@/components/routine/PreCleanseReminderCard';
 import { PlannerBlock, type RoutineViewMode } from '@/components/routine/PlannerBlock';
-import { RehabWidget } from '@/components/routine/RehabWidget';
+import { RehabNoticeCard } from '@/components/routine/RehabNoticeCard';
 import { RoutineCalendarView } from '@/components/routine/RoutineCalendarView';
 import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineStepActionSheet } from '@/components/routine/RoutineStepActionSheet';
@@ -70,7 +69,7 @@ import { rankSlotGroup } from '@/utils/routineEngine/duplicateSlot';
 import { applySlotAlternativeSwap } from '@/utils/routineEngine/planApply';
 import { findPreCleanseReminder } from '@/utils/routineEngine/preCleanseReminder';
 import { buildProductFacts, buildShelfFacts } from '@/utils/routineEngine/productFacts';
-import { buildRehabWidgetState } from '@/utils/routineEngine/rehabFilter';
+import { buildRehabNotices } from '@/utils/routineEngine/rehabFilter';
 import type { ValidationResult } from '@/utils/routineEngine/validate';
 import type { Product, RoutineStep } from '@/types';
 
@@ -296,7 +295,7 @@ export default function RoutinesScreen({ navigation }: Props) {
 
   // Adaptation weeks per product (⏳ status line, research §2.6) + clinical
   // "Paused until" rows from the daily-mask projection.
-  const { adaptationWeeks, frozenRows, rehabState } = useMemo(() => {
+  const { adaptationWeeks, frozenRows, rehabNotices } = useMemo(() => {
     const weeks = new Map<string, number>();
     for (const product of products) {
       const status = getAdaptationStatus(
@@ -319,13 +318,13 @@ export default function RoutinesScreen({ navigation }: Props) {
     return {
       adaptationWeeks: weeks,
       frozenRows: frozen,
-      rehabState: buildRehabWidgetState(procedures),
+      rehabNotices: buildRehabNotices(procedures),
     };
   }, [products, routines, procedures, profile, cycleType, applicationStats]);
 
   const { amSteps, pmSteps, conflictMap } = useMemo(() => {
     // Clinically frozen steps leave the visible list (research §1.5: the
-    // RehabWidget + Paused rows explain them — never silent, never draggable)
+    // rehab notice + Paused rows explain them — never silent, never draggable)
     const frozenStepIds = new Set(
       [...frozenRows.values()].flat().map((f) => f.stepId),
     );
@@ -510,9 +509,21 @@ export default function RoutinesScreen({ navigation }: Props) {
   const listHeader = useMemo(
     () => (
       <View style={styles.listHeader}>
-        {/* Rehab shield anchors at the very top while a rehab window is live
-            (research §1.5 V3); the blocks below render null when idle */}
-        <RehabWidget state={rehabState} />
+        {/* Calendar (view toggle + week strip) sits at the top; the
+            notification blocks below it render null when idle and each can be
+            collapsed to its header line to save space (img-03 follow-up). */}
+        <PlannerBlock
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          selectedDow={selectedDow}
+          onDaySelect={handleDaySelect}
+        />
+        {/* One merged card per procedure in rehab (shield + acute lifestyle
+            restrictions in a single card; the two former cards would read as
+            needlessly anxious). Self-destructs when its window ends. */}
+        {rehabNotices.map((notice) => (
+          <RehabNoticeCard key={notice.key} notice={notice} />
+        ))}
         {profile?.goalNeedsConfirmation === true && (
           <GoalConfirmBanner
             goalLabel={GOAL_LABELS[profile.primaryGoal]}
@@ -528,21 +539,14 @@ export default function RoutinesScreen({ navigation }: Props) {
           />
         )}
         <SeasonalNoticeBanner />
-        <ClinicalRestrictionsBlock />
         <DuplicateSlotWarningInline
           routines={routines}
           products={products}
           onPressGroup={handlePressDuplicateGroup}
         />
-        <PlannerBlock
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          selectedDow={selectedDow}
-          onDaySelect={handleDaySelect}
-        />
       </View>
     ),
-    [viewMode, selectedDow, handleDaySelect, rehabState, routines, products, handlePressDuplicateGroup, profile, updateProfile, navigation],
+    [viewMode, selectedDow, handleDaySelect, rehabNotices, routines, products, handlePressDuplicateGroup, profile, updateProfile, navigation],
   );
 
   return (

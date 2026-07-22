@@ -16,11 +16,10 @@ import type { PreCleanseReminder } from '@/utils/routineEngine/preCleanseReminde
  * routine, so it never goes stale after a manual edit the way the
  * generation-time `stepNote` field can.
  *
- * Tone is "warning" (amber), not "info" — pre_cleanse steps are PM-only, and
- * "info"'s blue tint (`colors.statusInfoTint`) is the exact same token as the
- * Evening card's own background (`palette.cobaltTint`), so it would nearly
- * disappear there. Amber contrasts against both the Morning (pale yellow) and
- * Evening (pale blue) card colors.
+ * Tone is "info" (blue) — this is guidance, not an error, so it reads calmer
+ * than the amber rehab alarms. (It could once have vanished when the Evening
+ * accordion background was itself `palette.cobaltTint`, but that background is
+ * now white, so the blue tint reads clearly.)
  */
 export interface PreCleanseReminderCardProps {
   reminder: PreCleanseReminder;
@@ -29,8 +28,8 @@ export interface PreCleanseReminderCardProps {
 export function PreCleanseReminderCard({ reminder }: PreCleanseReminderCardProps) {
   return (
     <InlineAlert
-      tone="warning"
-      icon={<Feather name="alert-circle" size={14} color={colors.statusWarning} />}
+      tone="info"
+      icon={<Feather name="info" size={14} color={colors.statusInfo} />}
     >
       {`${reminder.productName} isn't followed by a cleanser — micellar water/makeup remover shouldn't stay on skin.`}
     </InlineAlert>
