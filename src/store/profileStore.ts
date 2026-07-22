@@ -38,6 +38,7 @@ const DEFAULT_PROFILE: UserProfile = {
   spfSensitivity: false,
   onboardingCompleted: false,
   individualDurationMonths: {},
+  contributionConsent: { granted: false, timestamp: null },
 };
 
 /**

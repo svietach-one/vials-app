@@ -29,6 +29,7 @@ import { useProfileStore } from '@/store/profileStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { searchCities } from '@/utils/citySearch';
+import { setContributionConsent } from '@/utils/contributionConsent';
 import type {
   CityLocation,
   SkinPhototype,
@@ -382,9 +383,25 @@ export default function ProfileScreen() {
                   size="sm"
                 />
               }
+              divider
+            />
+            <ListRow
+              title="Share my photos with Vials"
+              subtitle="Include your product photo in community contributions"
+              trailing={
+                <Switch
+                  checked={profile?.contributionConsent?.granted ?? false}
+                  onValueChange={(v) => updateProfile({ contributionConsent: setContributionConsent(v) })}
+                  accessibilityLabel="Share my photos with Vials"
+                  size="sm"
+                />
+              }
               divider={false}
             />
           </View>
+          <Text style={styles.settingsHint}>
+            Previously shared photos remain in the database.
+          </Text>
         </View>
 
         {/* ── Weather & Seasons ────────────────────────────────────────── */}
@@ -536,6 +553,11 @@ const styles = StyleSheet.create({
   },
 
   section: { gap: space[2] },
+
+  settingsHint: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
 
   cityHint: {
     ...typography.caption,

@@ -28,6 +28,7 @@ import { RoutineCalendarView } from '@/components/routine/RoutineCalendarView';
 import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineStepActionSheet } from '@/components/routine/RoutineStepActionSheet';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
+import { ContributionConsentMigrationBanner } from '@/components/routine/ContributionConsentMigrationBanner';
 import { GoalConfirmBanner } from '@/components/routine/GoalConfirmBanner';
 import { PhototypeConfirmBanner } from '@/components/routine/PhototypeConfirmBanner';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
@@ -175,6 +176,8 @@ export default function RoutinesScreen({ navigation }: Props) {
   const profile = useProfileStore((s) => s.profile);
   const updateProfile = useProfileStore((s) => s.updateProfile);
   const cycleType = useSettingsStore((s) => s.routineCycleType);
+  const dismissedBanners = useSettingsStore((s) => s.dismissedBanners);
+  const dismissBanner = useSettingsStore((s) => s.dismissBanner);
   const applicationStats = useTrackingStore((s) => s.applicationStats);
   const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
   const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
@@ -540,6 +543,13 @@ export default function RoutinesScreen({ navigation }: Props) {
             onAdjust={() => navigation.navigate('Profile' as never)}
           />
         )}
+        {profile?.contributionConsent?.timestamp === null &&
+          !(dismissedBanners ?? []).includes('contribution_consent_migration') && (
+            <ContributionConsentMigrationBanner
+              onGoToSettings={() => navigation.navigate('Profile' as never)}
+              onDismiss={() => dismissBanner('contribution_consent_migration')}
+            />
+          )}
         <SeasonalNoticeBanner />
         <DuplicateSlotWarningInline
           routines={routines}
@@ -548,7 +558,20 @@ export default function RoutinesScreen({ navigation }: Props) {
         />
       </View>
     ),
-    [viewMode, selectedDow, handleDaySelect, rehabNotices, routines, products, handlePressDuplicateGroup, profile, updateProfile, navigation],
+    [
+      viewMode,
+      selectedDow,
+      handleDaySelect,
+      rehabState,
+      routines,
+      products,
+      handlePressDuplicateGroup,
+      profile,
+      updateProfile,
+      navigation,
+      dismissedBanners,
+      dismissBanner,
+    ],
   );
 
   return (
