@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
+import { Button } from '@/components/ui/core/Button';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, space, typography } from '@/constants/tokens';
 
@@ -29,22 +30,12 @@ export function GoalConfirmBanner({ goalLabel, onConfirm, onAdjust }: GoalConfir
         <Text style={styles.goal}>{goalLabel}</Text>. Does that match what you want to focus on?
       </Text>
       <View style={styles.actions}>
-        <Pressable
-          onPress={onConfirm}
-          style={styles.action}
-          accessibilityRole="button"
-          accessibilityLabel="Confirm care goal"
-        >
-          <Text style={styles.actionText}>Confirm</Text>
-        </Pressable>
-        <Pressable
-          onPress={onAdjust}
-          style={styles.action}
-          accessibilityRole="button"
-          accessibilityLabel="Change care goal"
-        >
-          <Text style={styles.actionText}>Change</Text>
-        </Pressable>
+        <Button variant="textActive" size="sm" onPress={onConfirm} accessibilityLabel="Confirm care goal">
+          Confirm
+        </Button>
+        <Button variant="textActive" size="sm" onPress={onAdjust} accessibilityLabel="Change care goal">
+          Change
+        </Button>
       </View>
     </InlineAlert>
   );
@@ -63,13 +54,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: space[4],
     marginTop: space[2],
-  },
-  action: {
-    paddingVertical: space[1],
-  },
-  actionText: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.statusInfo,
   },
 });

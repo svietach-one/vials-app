@@ -234,14 +234,15 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           {routineLabel !== null ? routineLabel : 'Add to Routine'}
         </Button>
         {routineLabel !== null ? (
-          <Pressable
-            style={styles.removeLink}
+          <Button
+            variant="destructive"
+            size="sm"
+            fullWidth
             onPress={() => setRemoveSheetVisible(true)}
-            accessibilityRole="button"
             accessibilityLabel="Remove from routine"
           >
-            <Text style={styles.removeLinkText}>Remove from Routine</Text>
-          </Pressable>
+            Remove from Routine
+          </Button>
         ) : null}
       </View>
 
@@ -320,15 +321,6 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderDivider,
     backgroundColor: colors.bgScreen,
     gap: space[3],
-  },
-  removeLink: {
-    alignItems: 'center',
-    paddingVertical: space[2],
-  },
-  removeLinkText: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.statusError,
   },
   headerBlock: {
     gap: space[2],

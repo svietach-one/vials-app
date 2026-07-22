@@ -420,19 +420,17 @@ export default function RoutinesScreen({ navigation }: Props) {
             {/* Regenerate sits immediately left of "+", which stays rightmost
                 so adding a product is always a single tap (img-03). */}
             <IconButton
-              icon={<Feather name="refresh-cw" size={18} color={palette.plum} />}
+              icon={<Feather name="refresh-cw" size={18} color={colors.textPrimary} />}
               label="Regenerate routine"
               variant="ghost"
               size="sm"
-              round
               onPress={handleOpenDraftPreview}
             />
             <IconButton
-              icon={<Feather name="plus" size={18} color={palette.plum} />}
+              icon={<Feather name="plus" size={18} color={colors.textPrimary} />}
               label="Add product to routine"
               variant="ghost"
               size="sm"
-              round
               onPress={handleOpenAddSheet}
             />
           </View>
@@ -440,13 +438,16 @@ export default function RoutinesScreen({ navigation }: Props) {
       />
       {viewMode === 'calendar' ? (
         <View style={styles.calendarWrap}>
-          {/* Keep the sub-header so the user can toggle back to the list. */}
+          {/* Keep the sub-header so the user can toggle back to the list — the
+              week strip is hidden here since the month grid below already
+              shows every day (rendering both was a duplicate calendar). */}
           <View style={styles.calendarHeader}>
             <PlannerBlock
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               selectedDow={selectedDow}
               onDaySelect={handleDaySelect}
+              showWeekStrip={false}
             />
           </View>
           <RoutineCalendarView
@@ -623,9 +624,9 @@ function SectionHeader({ period, count, expanded, onToggle, onAdd }: SectionHead
           <Text style={sectionStyles.emptyText}>
             No steps for this {period === 'morning' ? 'morning' : 'evening'}.
           </Text>
-          <Pressable onPress={onAdd} accessibilityRole="button" hitSlop={8}>
-            <Text style={sectionStyles.emptyAction}>Add product</Text>
-          </Pressable>
+          <Button variant="textActive" size="sm" onPress={onAdd}>
+            Add product
+          </Button>
         </View>
       ) : null}
     </View>
@@ -661,11 +662,6 @@ const sectionStyles = StyleSheet.create({
   emptyText: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-  },
-  emptyAction: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: palette.bottleGreen,
   },
 });
 

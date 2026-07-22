@@ -231,14 +231,14 @@ export function DraftPreviewSheet({
                       <Text style={styles.pausedText}>{reasonText(item.reasonCode)}</Text>
                     </View>
                     {onOverride ? (
-                      <Pressable
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onPress={() => onOverride(item.productId)}
-                        accessibilityRole="button"
                         accessibilityLabel={`Add ${nameOf(item.productId)} anyway`}
-                        style={styles.overrideBtn}
                       >
-                        <Text style={styles.overrideBtnText}>Add anyway</Text>
-                      </Pressable>
+                        Add anyway
+                      </Button>
                     ) : null}
                   </View>
                 ))
@@ -545,18 +545,6 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   reserveName: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
-  },
-  overrideBtn: {
-    paddingHorizontal: space[3],
-    paddingVertical: space[2] - 2,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-  },
-  overrideBtnText: {
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
     color: colors.textPrimary,

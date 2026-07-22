@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
+import { Button } from '@/components/ui/core/Button';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 /**
@@ -62,15 +63,17 @@ export function DebugAccountSyncCard() {
       </Text>
 
       {status === 'idle' && (
-        <Pressable
-          style={styles.button}
+        <Button
+          variant="primary"
+          size="md"
+          fullWidth
+          icon={<Feather name="cloud" size={14} color={palette.white} />}
           onPress={handleSimulate}
-          accessibilityRole="button"
           accessibilityLabel="Simulate account sync"
+          style={styles.button}
         >
-          <Feather name="cloud" size={14} color={palette.white} />
-          <Text style={styles.buttonText}>Debug: Simulate Account Sync</Text>
-        </Pressable>
+          Debug: Simulate Account Sync
+        </Button>
       )}
 
       {status === 'loading' && (
@@ -92,14 +95,15 @@ export function DebugAccountSyncCard() {
             label="Last synced"
             value={new Date(data.lastSyncedAt).toLocaleTimeString()}
           />
-          <Pressable
-            style={styles.resetLink}
+          <Button
+            variant="textActive"
+            size="sm"
             onPress={handleReset}
-            accessibilityRole="button"
             accessibilityLabel="Reset simulated account sync"
+            style={styles.resetLink}
           >
-            <Text style={styles.resetLinkText}>Reset</Text>
-          </Pressable>
+            Reset
+          </Button>
         </View>
       )}
     </View>
@@ -122,18 +126,8 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[2],
     backgroundColor: colors.statusWarning,
-    borderRadius: radius.sm,
-    paddingVertical: space[3],
-  },
-  buttonText: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: palette.white,
+    borderColor: colors.statusWarning,
   },
   loadingRow: {
     flexDirection: 'row',
@@ -168,10 +162,5 @@ const styles = StyleSheet.create({
   resetLink: {
     alignSelf: 'flex-start',
     marginTop: space[2],
-  },
-  resetLinkText: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.statusError,
   },
 });

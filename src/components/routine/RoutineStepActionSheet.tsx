@@ -1,8 +1,9 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { ListRow } from '@/components/ui/core/ListRow';
+import { colors, radius, space } from '@/constants/tokens';
 import type { Product } from '@/types';
 
 /**
@@ -25,22 +26,18 @@ export interface RoutineStepActionSheetProps {
 interface RowProps {
   icon: React.ComponentProps<typeof Feather>['name'];
   label: string;
-  accessibilityLabel: string;
   onPress: () => void;
   divider?: boolean;
 }
 
-function SheetRow({ icon, label, accessibilityLabel, onPress, divider = true }: RowProps) {
+function SheetRow({ icon, label, onPress, divider = true }: RowProps) {
   return (
-    <Pressable
-      style={({ pressed }) => [styles.row, divider && styles.rowDivider, pressed && styles.rowPressed]}
+    <ListRow
+      leading={<Feather name={icon} size={18} color={colors.textPrimary} />}
+      title={label}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-    >
-      <Feather name={icon} size={18} color={colors.textPrimary} />
-      <Text style={styles.rowLabel}>{label}</Text>
-    </Pressable>
+      divider={divider}
+    />
   );
 }
 
@@ -76,25 +73,21 @@ export function RoutineStepActionSheet({
           <SheetRow
             icon="info"
             label="View product details"
-            accessibilityLabel="View product details"
             onPress={run(onViewDetails)}
           />
           <SheetRow
             icon="edit-2"
             label="Edit product"
-            accessibilityLabel="Edit product"
             onPress={run(onEdit)}
           />
           <SheetRow
             icon="minus-circle"
             label="Remove from routine"
-            accessibilityLabel="Remove from routine"
             onPress={run(onRemoveFromRoutine)}
           />
           <SheetRow
             icon="eye-off"
             label="Hide from routine"
-            accessibilityLabel="Hide from routine"
             onPress={run(onHide)}
             divider={false}
           />
@@ -114,6 +107,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgBase,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
+    paddingHorizontal: space[4],
     paddingBottom: space[8],
     paddingTop: space[3],
   },
@@ -124,23 +118,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.borderStrong,
     marginBottom: space[3],
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
-    paddingHorizontal: space[5],
-    paddingVertical: space[4],
-  },
-  rowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderDivider,
-  },
-  rowPressed: {
-    backgroundColor: colors.bgSubtle,
-  },
-  rowLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
   },
 });

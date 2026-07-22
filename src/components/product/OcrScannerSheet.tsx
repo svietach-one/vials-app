@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -11,6 +10,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { OcrEngineWebView } from '@/components/camera/OcrEngineWebView';
 import type { OcrEngineHandle } from '@/components/camera/OcrEngineWebView';
+import { Button } from '@/components/ui/core/Button';
 import { ocrTextCleaner } from '@/utils/ocrTextCleaner';
 import { colors, radius, space, typography } from '@/constants/tokens';
 
@@ -240,14 +240,14 @@ export function OcrScannerSheet({ visible, onClose, onResult }: OcrScannerSheetP
             <ActivityIndicator size="large" color={colors.textPrimary} style={styles.spinner} />
             <Text style={styles.cardTitle}>Processing photo…</Text>
             <Text style={styles.cardSub}>This may take 10–20 seconds</Text>
-            <Pressable
+            <Button
+              variant="ghost"
+              size="sm"
               onPress={handleCancelPress}
-              style={({ pressed }) => [styles.cancelBtn, pressed && styles.cancelBtnPressed]}
-              accessibilityRole="button"
               accessibilityLabel="Cancel OCR processing"
             >
-              <Text style={styles.cancelText}>Cancel</Text>
-            </Pressable>
+              Cancel
+            </Button>
           </View>
         </View>
       </Modal>
@@ -287,20 +287,5 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textSecondary,
     textAlign: 'center',
-  },
-  cancelBtn: {
-    marginTop: space[4],
-    paddingHorizontal: space[6],
-    paddingVertical: space[2] + 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunken,
-  },
-  cancelBtnPressed: {
-    backgroundColor: colors.borderDivider,
-  },
-  cancelText: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textSecondary,
   },
 });

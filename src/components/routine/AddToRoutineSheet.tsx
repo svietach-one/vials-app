@@ -12,6 +12,7 @@ import { Feather } from '@expo/vector-icons';
 
 import { Button } from '@/components/ui/core/Button';
 import { FilterChip } from '@/components/ui/core/FilterChip';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
 import { DuplicateSlotChoiceSheet } from '@/components/routine/DuplicateSlotChoiceSheet';
 import { ProductPickerCard } from '@/components/routine/ProductPickerCard';
@@ -342,15 +343,13 @@ function StepPick({
           <View style={styles.headerText}>
             <Text style={styles.title}>Add to routine</Text>
           </View>
-          <Pressable
+          <IconButton
+            icon={<Feather name="x" size={18} color={colors.textSecondary} />}
+            label="Close"
+            variant="secondary"
+            size="sm"
             onPress={onClose}
-            style={styles.closeBtn}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <Feather name="x" size={18} color={colors.textSecondary} />
-          </Pressable>
+          />
         </View>
 
         <View style={styles.searchSection}>
@@ -440,15 +439,13 @@ function StepSchedule({
   return (
     <>
       <View style={styles.header}>
-        <Pressable
+        <IconButton
+          icon={<Feather name="arrow-left" size={18} color={colors.textSecondary} />}
+          label="Back to product list"
+          variant="secondary"
+          size="sm"
           onPress={onBack}
-          style={styles.closeBtn}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Back to product list"
-        >
-          <Feather name="arrow-left" size={18} color={colors.textSecondary} />
-        </Pressable>
+        />
         <View style={[styles.headerText, styles.headerTextIndented]}>
           <Text style={styles.title} numberOfLines={1}>
             {pendingProduct.name}
@@ -573,15 +570,6 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunken,
-    flexShrink: 0,
   },
 
   // ── Step 1: fixed header block

@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { Modal, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Modal, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { NavigationContainer, NavigationIndependentTree } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { OnboardingStackParamList } from '@/navigation/AppNavigator';
 import FirstProductScreen from '@/screens/onboarding/FirstProductScreen';
@@ -88,15 +89,14 @@ export function DebugOnboardingPreview({ visible, onClose }: Props) {
               <Feather name="eye" size={12} color={palette.white} />
               <Text style={styles.badgeText}>DEBUG PREVIEW</Text>
             </View>
-            <Pressable
-              onPress={handleClose}
+            <IconButton
+              icon={<Feather name="x" size={16} color={palette.white} />}
+              label="Exit onboarding preview"
+              variant="ghost"
+              size="xs"
               style={styles.closeBtn}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Exit onboarding preview"
-            >
-              <Feather name="x" size={16} color={palette.white} />
-            </Pressable>
+              onPress={handleClose}
+            />
           </View>
         </SafeAreaView>
       </View>

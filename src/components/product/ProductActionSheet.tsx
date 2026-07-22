@@ -1,8 +1,10 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { Button } from '@/components/ui/core/Button';
+import { ListRow } from '@/components/ui/core/ListRow';
+import { colors, radius, space } from '@/constants/tokens';
 import type { Product } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -43,101 +45,77 @@ export function ProductActionSheet({
           <View style={styles.handle} />
 
           {/* Edit */}
-          <Pressable
-            style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+          <ListRow
+            leading={<Feather name="edit-2" size={18} color={colors.textPrimary} />}
+            title="Edit Product"
             onPress={() => {
               if (product) {
                 onEdit(product);
                 onClose();
               }
             }}
-            accessibilityRole="button"
-            accessibilityLabel="Edit product"
-          >
-            <Feather name="edit-2" size={18} color={colors.textPrimary} />
-            <Text style={styles.rowLabel}>Edit Product</Text>
-          </Pressable>
+          />
 
           {/* Add/Remove from routine */}
           {onAddToRoutine ? (
-            <Pressable
-              style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+            <ListRow
+              leading={<Feather name="plus-circle" size={18} color={colors.textPrimary} />}
+              title="Add to routine"
               onPress={() => {
                 if (product) {
                   onAddToRoutine(product);
                   onClose();
                 }
               }}
-              accessibilityRole="button"
-              accessibilityLabel="Add to routine"
-            >
-              <Feather name="plus-circle" size={18} color={colors.textPrimary} />
-              <Text style={styles.rowLabel}>Add to routine</Text>
-            </Pressable>
+            />
           ) : onRemoveFromRoutine ? (
-            <Pressable
-              style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+            <ListRow
+              leading={<Feather name="minus-circle" size={18} color={colors.textPrimary} />}
+              title="Remove from routine"
               onPress={() => {
                 if (product) {
                   onRemoveFromRoutine(product);
                   onClose();
                 }
               }}
-              accessibilityRole="button"
-              accessibilityLabel="Remove from routine"
-            >
-              <Feather name="minus-circle" size={18} color={colors.textPrimary} />
-              <Text style={styles.rowLabel}>Remove from routine</Text>
-            </Pressable>
+            />
           ) : null}
 
           {/* Hide/Show — independent of the routine row above */}
-          <Pressable
-            style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+          <ListRow
+            leading={
+              <Feather
+                name={product?.isHidden ? 'eye' : 'eye-off'}
+                size={18}
+                color={colors.textPrimary}
+              />
+            }
+            title={product?.isHidden ? 'Show Product' : 'Hide Product'}
             onPress={() => {
               if (product) {
                 onToggleHidden(product);
                 onClose();
               }
             }}
-            accessibilityRole="button"
-            accessibilityLabel={product?.isHidden ? 'Show product' : 'Hide product'}
-          >
-            <Feather
-              name={product?.isHidden ? 'eye' : 'eye-off'}
-              size={18}
-              color={colors.textPrimary}
-            />
-            <Text style={styles.rowLabel}>
-              {product?.isHidden ? 'Show Product' : 'Hide Product'}
-            </Text>
-          </Pressable>
+          />
 
           {/* Delete */}
-          <Pressable
-            style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+          <ListRow
+            leading={<Feather name="trash-2" size={18} color={colors.statusError} />}
+            title="Delete Product"
+            titleColor={colors.statusError}
             onPress={() => {
               if (product) {
                 onDelete(product);
                 onClose();
               }
             }}
-            accessibilityRole="button"
-            accessibilityLabel="Delete product"
-          >
-            <Feather name="trash-2" size={18} color={colors.statusError} />
-            <Text style={[styles.rowLabel, styles.rowLabelDestructive]}>Delete Product</Text>
-          </Pressable>
+          />
 
           {/* Cancel */}
-          <Pressable
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Cancel"
-          >
-            <Text style={[styles.rowLabel, styles.cancelLabel]}>Cancel</Text>
-          </Pressable>
+          <Button variant="ghost" size="lg" fullWidth onPress={onClose} style={styles.cancelBtn}>
+            Cancel
+          </Button>
         </View>
       </Pressable>
     </Modal>
@@ -168,34 +146,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: space[3],
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 56,
-    paddingVertical: space[2],
-    paddingHorizontal: space[1],
-    gap: space[3],
-    borderRadius: radius.sm,
-  },
-  rowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderDivider,
-    borderRadius: 0,
-  },
-  rowPressed: {
-    backgroundColor: colors.surfaceSunken,
-  },
-  rowLabel: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
-  },
-  rowLabelDestructive: {
-    color: colors.statusError,
-  },
-  cancelLabel: {
-    color: colors.textSecondary,
-    flex: 1,
-    textAlign: 'center',
+  cancelBtn: {
+    marginTop: space[2],
   },
 });

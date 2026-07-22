@@ -4,6 +4,7 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 
 import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
@@ -157,16 +158,17 @@ export function RoutineStepCard({
       </View>
 
       {onOverflowPress ? (
-        <TouchableOpacity
-          onPress={onOverflowPress}
-          activeOpacity={0.5}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel={`More actions for ${product.name}`}
+        <IconButton
+          icon={<Feather name="more-vertical" size={18} color={palette.zinc500} />}
+          label={`More actions for ${product.name}`}
+          variant="ghost"
+          size="sm"
           style={styles.overflowButton}
-        >
-          <Feather name="more-vertical" size={18} color={palette.zinc500} />
-        </TouchableOpacity>
+          onPress={(e) => {
+            e?.stopPropagation?.();
+            onOverflowPress();
+          }}
+        />
       ) : null}
     </View>
   );

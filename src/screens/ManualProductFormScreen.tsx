@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView,
   Linking,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -173,10 +172,16 @@ function InciField({ value, onChange, onDetect, onScan, ocrScanned }: InciFieldP
       />
 
       {value.trim().length > 5 ? (
-        <Pressable onPress={onDetect} style={s.detectRow} hitSlop={8} accessibilityRole="button" accessibilityLabel="Detect active ingredients from INCI text">
-          <Text style={s.detectLink}>Detect actives</Text>
-          <Feather name="arrow-right" size={14} color={palette.bottleGreen} />
-        </Pressable>
+        <Button
+          variant="textActive"
+          size="sm"
+          iconRight={<Feather name="arrow-right" size={14} color={palette.plum} />}
+          onPress={onDetect}
+          accessibilityLabel="Detect active ingredients from INCI text"
+          style={s.detectRow}
+        >
+          Detect actives
+        </Button>
       ) : null}
 
       <Button
@@ -385,9 +390,9 @@ function ShareStatus({
         <Text style={s.shareText}>
           Couldn&apos;t share this product. It&apos;s still saved on your shelf.
         </Text>
-        <Pressable onPress={onRetry} accessibilityRole="button" hitSlop={8}>
-          <Text style={s.shareRetry}>Try again</Text>
-        </Pressable>
+        <Button variant="textActive" size="sm" onPress={onRetry}>
+          Try again
+        </Button>
       </View>
     </View>
   );
@@ -702,13 +707,14 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
               tone="info"
               icon={<Feather name="external-link" size={16} color={colors.statusInfo} />}
               action={
-                <Pressable
+                <Button
+                  variant="textActive"
+                  size="sm"
                   onPress={() => Linking.openURL(corpusProductUrl)}
-                  accessibilityRole="button"
                   accessibilityLabel="Open product page"
                 >
-                  <Text style={s.productLinkAction}>Open</Text>
-                </Pressable>
+                  Open
+                </Button>
               }
             >
               Product page available
@@ -860,11 +866,6 @@ const BADGE_SIZE = 26;
 const s = StyleSheet.create({
   // Screen layout
   flex: { flex: 1 },
-  productLinkAction: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.statusInfo,
-  },
   safe: {
     flex: 1,
     backgroundColor: colors.bgScreen,
@@ -939,11 +940,6 @@ const s = StyleSheet.create({
     flexShrink: 1,
     gap: space[1],
   },
-  shareRetry: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: palette.bottleGreen,
-  },
 
   // Photo attach row
   photoRow: {
@@ -1015,15 +1011,7 @@ const s = StyleSheet.create({
     textAlignVertical: 'top',
   },
   detectRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     alignSelf: 'flex-end',
-    gap: space[1],
-  },
-  detectLink: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    color: palette.bottleGreen,
   },
 
   // PAO custom input

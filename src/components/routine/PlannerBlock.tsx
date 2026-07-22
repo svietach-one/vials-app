@@ -20,6 +20,12 @@ export interface PlannerBlockProps {
   /** Currently selected day of week (0 = Sun … 6 = Sat). */
   selectedDow: number;
   onDaySelect: (dow: number) => void;
+  /**
+   * Renders the Mo…Su week strip below the toggle. Default true (list view
+   * uses it to filter the day's steps). Calendar view passes false — its own
+   * month grid already shows every day, so the strip would just duplicate it.
+   */
+  showWeekStrip?: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -55,6 +61,7 @@ export function PlannerBlock({
   onViewModeChange,
   selectedDow,
   onDaySelect,
+  showWeekStrip = true,
 }: PlannerBlockProps) {
   const today = new Date();
   const weekStart = getWeekStart(today);
@@ -100,31 +107,33 @@ export function PlannerBlock({
       </View>
 
       {/* Mo … Su week strip — single active day, tapping changes selection */}
-      <View style={styles.dayRow}>
-        {DAY_CHIPS.map(({ dow, label }, index) => {
-          const active = selectedDow === dow;
-          const date = new Date(weekStart);
-          date.setDate(weekStart.getDate() + index);
-          return (
-            <Pressable
-              key={dow}
-              style={styles.dayColumn}
-              onPress={() => onDaySelect(dow)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={`${DAY_NAMES[dow]}, ${date.getDate()}${active ? ', selected' : ''}`}
-              hitSlop={4}
-            >
-              <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{label}</Text>
-              <View style={[styles.dayNumber, active && styles.dayNumberActive]}>
-                <Text style={[styles.dayNumberLabel, active && styles.dayNumberLabelActive]}>
-                  {date.getDate()}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
+      {showWeekStrip ? (
+        <View style={styles.dayRow}>
+          {DAY_CHIPS.map(({ dow, label }, index) => {
+            const active = selectedDow === dow;
+            const date = new Date(weekStart);
+            date.setDate(weekStart.getDate() + index);
+            return (
+              <Pressable
+                key={dow}
+                style={styles.dayColumn}
+                onPress={() => onDaySelect(dow)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`${DAY_NAMES[dow]}, ${date.getDate()}${active ? ', selected' : ''}`}
+                hitSlop={4}
+              >
+                <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>{label}</Text>
+                <View style={[styles.dayNumber, active && styles.dayNumberActive]}>
+                  <Text style={[styles.dayNumberLabel, active && styles.dayNumberLabelActive]}>
+                    {date.getDate()}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
     </View>
   );
 }

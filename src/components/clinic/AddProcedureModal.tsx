@@ -15,6 +15,7 @@ import { Feather } from '@expo/vector-icons';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Input } from '@/components/ui/forms/Input';
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
@@ -276,15 +277,13 @@ export function AddProcedureModal({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Log Procedure</Text>
-            <Pressable
+            <IconButton
+              icon={<Feather name="x" size={20} color={colors.textSecondary} />}
+              label="Close"
+              variant="secondary"
+              size="sm"
               onPress={onClose}
-              style={styles.closeBtn}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Feather name="x" size={20} color={colors.textSecondary} />
-            </Pressable>
+            />
           </View>
 
           <ScrollView
@@ -338,14 +337,14 @@ export function AddProcedureModal({
             <View style={styles.section}>
               <View style={styles.dateHeader}>
                 <Text style={styles.sectionLabel}>Date Performed</Text>
-                <Pressable
+                <Button
+                  variant="textActive"
+                  size="sm"
                   onPress={() => { setDateText(todayFormatted()); setDateError(null); }}
-                  hitSlop={8}
-                  accessibilityRole="button"
                   accessibilityLabel="Fill today's date"
                 >
-                  <Text style={styles.todayLink}>Today</Text>
-                </Pressable>
+                  Today
+                </Button>
               </View>
               <Input
                 value={dateText}

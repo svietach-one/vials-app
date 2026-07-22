@@ -2,7 +2,6 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProductRepository } from '@/hooks/useCorpusRepositories';
@@ -85,13 +85,18 @@ function ScanResultCard({ scanState, corpusResult, onAdd, onAddManually, onScanA
           ) : null}
         </View>
         <View style={styles.resultActions}>
-          <Pressable style={styles.addBtn} onPress={onAdd} accessibilityRole="button">
-            <Feather name="plus" size={16} color={palette.black} />
-            <Text style={styles.addBtnLabel}>Add to Catalog</Text>
-          </Pressable>
-          <Pressable style={styles.scanAgainBtn} onPress={onScanAgain} accessibilityRole="button">
-            <Text style={styles.scanAgainLabel}>Scan Again</Text>
-          </Pressable>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Feather name="plus" size={16} color={palette.plum} />}
+            onPress={onAdd}
+            style={styles.addBtn}
+          >
+            Add to Catalog
+          </Button>
+          <Button variant="primary" size="sm" onPress={onScanAgain} style={styles.scanAgainBtn}>
+            Scan Again
+          </Button>
         </View>
       </View>
     );
@@ -102,12 +107,12 @@ function ScanResultCard({ scanState, corpusResult, onAdd, onAddManually, onScanA
         <Text style={styles.resultName}>Product not found in database</Text>
         <Text style={styles.resultBrand}>You can still add it manually.</Text>
         <View style={styles.resultActions}>
-          <Pressable style={styles.addBtn} onPress={onAddManually} accessibilityRole="button">
-            <Text style={styles.addBtnLabel}>Add Manually</Text>
-          </Pressable>
-          <Pressable style={styles.scanAgainBtn} onPress={onScanAgain} accessibilityRole="button">
-            <Text style={styles.scanAgainLabel}>Scan Again</Text>
-          </Pressable>
+          <Button variant="secondary" size="sm" onPress={onAddManually} style={styles.addBtn}>
+            Add Manually
+          </Button>
+          <Button variant="primary" size="sm" onPress={onScanAgain} style={styles.scanAgainBtn}>
+            Scan Again
+          </Button>
         </View>
       </View>
     );
@@ -208,15 +213,14 @@ export default function BarcodeScannerScreen({ navigation }: Props) {
 
       {/* Close button */}
       <SafeAreaView style={styles.closeWrap} pointerEvents="box-none">
-        <Pressable
+        <IconButton
+          icon={<Feather name="x" size={20} color={palette.white} />}
+          label="Close scanner"
+          variant="ghost"
+          size="sm"
           style={styles.closeBtn}
           onPress={() => navigation.goBack()}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Close scanner"
-        >
-          <Feather name="x" size={20} color={palette.white} />
-        </Pressable>
+        />
       </SafeAreaView>
 
       <ScanResultCard
@@ -343,32 +347,14 @@ const styles = StyleSheet.create({
   },
   addBtn: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[2],
-    paddingVertical: space[3],
     borderRadius: radius.md,
     backgroundColor: palette.white,
-  },
-  addBtnLabel: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: palette.black,
+    borderColor: palette.white,
   },
   scanAgainBtn: {
-    paddingHorizontal: space[4],
-    paddingVertical: space[3],
     borderRadius: radius.md,
-    borderWidth: 1,
+    backgroundColor: 'transparent',
     borderColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scanAgainLabel: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: 'rgba(255,255,255,0.8)',
   },
 
   permWrap: {

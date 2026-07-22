@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { CalendarCell } from '@/components/routine/CalendarCell';
+import { Button } from '@/components/ui/core/Button';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { Product, Routine } from '@/types';
@@ -73,14 +74,9 @@ export function RoutineCalendarView({
       <View style={styles.emptyWrap}>
         <Feather name="calendar" size={28} color={colors.textTertiary} />
         <Text style={styles.emptyText}>No products scheduled this month.</Text>
-        <Pressable
-          onPress={onAddProduct}
-          accessibilityRole="button"
-          accessibilityLabel="Add product to routine"
-          hitSlop={8}
-        >
-          <Text style={styles.emptyAction}>Add product</Text>
-        </Pressable>
+        <Button variant="textActive" size="sm" onPress={onAddProduct} accessibilityLabel="Add product to routine">
+          Add product
+        </Button>
       </View>
     );
   }
@@ -261,7 +257,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   headerWeekday: {
-    ...typography.caption,
+    fontFamily: 'DMSans-Medium',
     fontSize: 10,
     lineHeight: 12,
     color: colors.textTertiary,
@@ -273,19 +269,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Today is monochrome-filled per the DS — never a semantic accent colour.
+  // Today matches PlannerBlock's week-strip active-day treatment (plum fill).
   headerDateBadgeToday: {
-    backgroundColor: palette.black,
+    backgroundColor: palette.plum,
   },
   headerDate: {
-    ...typography.caption,
+    fontFamily: 'DMSans-Medium',
     fontSize: 12,
     lineHeight: 14,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
   headerDateToday: {
-    color: colors.textOnDark,
-    fontFamily: 'DMSans-Medium',
+    color: palette.white,
+    fontFamily: 'DMSans-Bold',
   },
 
   cellRow: {
@@ -307,10 +303,5 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
-  },
-  emptyAction: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: palette.bottleGreen,
   },
 });

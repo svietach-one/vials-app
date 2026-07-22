@@ -154,7 +154,6 @@ export default function CatalogScreen({ navigation }: Props) {
             label="Add product"
             variant="ghost"
             size="sm"
-            round
             onPress={() => navigation.navigate('AddProductHub')}
           />
         }
