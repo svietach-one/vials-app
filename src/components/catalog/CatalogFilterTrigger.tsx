@@ -30,7 +30,8 @@ export function CatalogFilterTrigger({ activeFilterCount, onPress }: CatalogFilt
       }
       label={accessibilityLabel}
       variant="ghost"
-      size="md"
+      // Sized to sit beside the header's "+" action, which is sm too.
+      size="sm"
       onPress={onPress}
     />
   );
@@ -39,10 +40,12 @@ export function CatalogFilterTrigger({ activeFilterCount, onPress }: CatalogFilt
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  // Tucked into the glyph's top-right corner: (36px box − 18px icon) / 2 = 9,
+  // minus 3 so the dot overlaps the icon rather than floating off it.
   badge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 6,
+    right: 6,
     width: 8,
     height: 8,
     borderRadius: radius.pill,
