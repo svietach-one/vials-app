@@ -61,8 +61,8 @@ beforeEach(() => {
   mockRoutines = [];
 });
 
-describe('Story 2 AC2: a same-slot candidate renders inside a "Replace with" select', () => {
-  it('shows a "Replace with" label and a trigger defaulting to the recommended product', () => {
+describe('Story 2 AC2: a same-slot candidate renders inside the step card dropdown', () => {
+  it('starts collapsed and reveals the "Replace with" list only once the step card is tapped', () => {
     render(
       <DraftPreviewSheet
         visible
@@ -74,8 +74,11 @@ describe('Story 2 AC2: a same-slot candidate renders inside a "Replace with" sel
       />,
     );
 
+    expect(screen.queryByText('Replace with')).toBeNull();
+
+    fireEvent.press(screen.getByLabelText(`Replace ${CREAM_A.name}`));
+
     expect(screen.getByText('Replace with')).toBeTruthy();
-    expect(screen.getByLabelText(`Replace ${CREAM_A.name}`)).toBeTruthy();
   });
 
   it('never removes the alternative from the shelf or the plan — it stays a suggestion, not a mutation', () => {
@@ -96,7 +99,7 @@ describe('Story 2 AC2: a same-slot candidate renders inside a "Replace with" sel
     expect(plan.periods.morning.map((s) => s.productId)).toEqual([CREAM_A.id]);
   });
 
-  it('renders no "Replace with" select when the plan has no slotAlternatives', () => {
+  it('renders no dropdown affordance at all when the plan has no slotAlternatives', () => {
     const plan = makePlanWithAlternative({ slotAlternatives: [] });
     render(
       <DraftPreviewSheet
@@ -109,10 +112,12 @@ describe('Story 2 AC2: a same-slot candidate renders inside a "Replace with" sel
       />,
     );
     expect(screen.queryByText('Replace with')).toBeNull();
+    // The card is inert too — no expand target, so a chevron never lies.
+    expect(screen.queryByLabelText(`Replace ${CREAM_A.name}`)).toBeNull();
   });
 });
 
-describe('Story 2 AC2: opening the select lists every candidate with a reason fragment', () => {
+describe('Story 2 AC2: expanding a step card lists every candidate with a reason fragment', () => {
   it('lists the recommended product and the alternative, each with a reason', () => {
     render(
       <DraftPreviewSheet

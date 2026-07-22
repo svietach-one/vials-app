@@ -150,6 +150,48 @@ describe('Story 2 AC: Draft Preview renders the step list with the four commit a
   });
 });
 
+describe('screen-improvements: steps are numbered in the order they are applied', () => {
+  it('lists a period layering-ordered regardless of the order the plan arrays hold', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({
+          // Serum first in the array; cleanser must still render as step 1.
+          periods: {
+            morning: [
+              { productId: VITC.id, productType: 'serum', scheduledDays: [], slotIndex: getSlotIndex('serum'), score: 0, addedAt: '2026-01-01' },
+              { productId: CLEANSER.id, productType: 'cleanser', scheduledDays: [], slotIndex: getSlotIndex('cleanser'), score: 0, addedAt: '2026-01-01' },
+            ],
+            evening: [],
+          },
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    const categories = screen.getAllByText(/^(Cleanser|Serum)$/);
+    expect(categories.map((node) => node.props.children)).toEqual(['Cleanser', 'Serum']);
+  });
+
+  it('numbers each step by its position within its own period', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan()}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    // Morning has two steps (1, 2) and Evening restarts at 1.
+    expect(screen.getAllByText('1')).toHaveLength(2);
+    expect(screen.getAllByText('2')).toHaveLength(1);
+  });
+});
+
 describe('screen-improvements: each step reflects whether it changed from the saved routine', () => {
   it('tags a step "No change" when the admitted product is the same as the saved one', () => {
     mockRoutines = [
@@ -246,6 +288,52 @@ describe('Story 2 AC: each commit action invokes onCommit with the correct scope
 });
 
 describe('screen-improvements: the reserve list is a collapsed-by-default disclosure', () => {
+  it('explains the whole list once under the heading instead of per product', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({
+          periods: { morning: [], evening: [] },
+          reserve: [
+            { productId: VITC.id, reasonCode: 'not_needed_for_goals' },
+            { productId: RETINOID.id, reasonCode: 'not_needed_for_goals' },
+          ],
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByText('In reserve · 2 products'));
+
+    expect(screen.getByText(/don’t call for these products/)).toBeTruthy();
+    // The per-product repetition of the same sentence is gone.
+    expect(screen.queryByText(/don’t call for this product/)).toBeNull();
+  });
+
+  it('keeps a reason on the row when it says something the shared intro does not', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({
+          periods: { morning: [], evening: [] },
+          reserve: [
+            { productId: VITC.id, reasonCode: 'not_needed_for_goals' },
+            { productId: RETINOID.id, reasonCode: 'duplicate_function' },
+          ],
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByText('In reserve · 2 products'));
+
+    expect(screen.getByText(/Another product already covers this role/)).toBeTruthy();
+  });
+
   it('starts collapsed, showing only the heading with a product count', () => {
     render(
       <DraftPreviewSheet
@@ -264,7 +352,7 @@ describe('screen-improvements: the reserve list is a collapsed-by-default disclo
     expect(screen.queryByText('Vitamin C Serum')).toBeNull();
   });
 
-  it('expands to show reserved products and their reason text when tapped', () => {
+  it('expands to show the reserved products themselves when tapped', () => {
     render(
       <DraftPreviewSheet
         visible
@@ -281,8 +369,6 @@ describe('screen-improvements: the reserve list is a collapsed-by-default disclo
     fireEvent.press(screen.getByText('In reserve · 1 product'));
 
     expect(screen.getByText('Vitamin C Serum')).toBeTruthy();
-    // The dictionary text, not the raw code.
-    expect(screen.getByText(/don’t call for this product/)).toBeTruthy();
   });
 });
 

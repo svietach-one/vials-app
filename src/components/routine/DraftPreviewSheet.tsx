@@ -11,17 +11,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/feedback/Badge';
 import { Button } from '@/components/ui/core/Button';
+import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { Tag } from '@/components/ui/core/Tag';
-import { Select, type SelectOption, type SelectOptionTone } from '@/components/ui/forms/Select';
+import {
+  selectToneColor,
+  type SelectOption,
+  type SelectOptionTone,
+} from '@/components/ui/forms/Select';
 import { reasonText } from '@/constants/decisionReasons';
-import { colors, radius, shadow, space, typography } from '@/constants/tokens';
+import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { PlanCommitScope } from '@/domain/routinePlanActions';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
+import type { Product } from '@/types';
 import type { RoutinePlan } from '@/utils/routineEngine/generate';
 import { buildDraftSummaryLines } from '@/utils/routineEngine/planApply';
 import type { PlannedStep, SlotAlternative } from '@/utils/routineEngine/planTypes';
-import { getSlotIndex } from '@/utils/routineEngine/slotting';
+import { getSlotIndex, orderSteps } from '@/utils/routineEngine/slotting';
 import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -56,11 +63,15 @@ const SNAP_POINTS = ['88%'];
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
- * Draft Preview (Diff Mode, research §3): each step renders as a vertical
- * changed/unchanged stack (screen-improvements redesign — no more clipped
- * side-by-side Before|After columns), with at most three quiet summary lines
- * and the four-way commit scope. Nothing here writes — the commit callback
- * routes through routinePlanActions.
+ * Draft Preview (Diff Mode, research §3): Morning then Evening, each period a
+ * numbered list of steps in the order they are applied (layering order, not
+ * score order). Every step is one card — number + slot category on the left,
+ * product identity on the right — and a card with recorded same-slot
+ * candidates is a dropdown: tapping it expands the replacements inline
+ * instead of opening a separate Select modal.
+ *
+ * Nothing here writes — commits route through routinePlanActions and swaps
+ * bubble up to RoutinesScreen, which owns the uncommitted draft.
  */
 export function DraftPreviewSheet({
   visible,
@@ -105,8 +116,9 @@ export function DraftPreviewSheet({
 
   if (!plan) return null;
 
-  const nameOf = (productId: string | null) =>
-    (productId && products.find((p) => p.id === productId)?.name) ?? 'Unknown product';
+  const productOf = (productId: string | null): Product | undefined =>
+    (productId && products.find((p) => p.id === productId)) || undefined;
+  const nameOf = (productId: string | null) => productOf(productId)?.name ?? 'Unknown product';
   const summaryLines = buildDraftSummaryLines(plan, diff, products);
 
   // The currently-saved product occupying each layering slot, keyed by
@@ -177,19 +189,23 @@ export function DraftPreviewSheet({
 
         <PeriodSteps
           label="Morning"
+          period="morning"
           afterSteps={plan.periods.morning}
           oldSteps={oldStepsFor('morning')}
           alternativesBySlot={alternativesFor('morning')}
           nameOf={nameOf}
+          productOf={productOf}
           reasonForProduct={reasonForProduct}
           onSwapAlternative={onSwapAlternative}
         />
         <PeriodSteps
           label="Evening"
+          period="evening"
           afterSteps={plan.periods.evening}
           oldSteps={oldStepsFor('evening')}
           alternativesBySlot={alternativesFor('evening')}
           nameOf={nameOf}
+          productOf={productOf}
           reasonForProduct={reasonForProduct}
           onSwapAlternative={onSwapAlternative}
         />
@@ -223,12 +239,20 @@ export function DraftPreviewSheet({
               />
             </Pressable>
 
+            <Text style={styles.reserveIntro}>{reserveIntroText(plan.reserve)}</Text>
+
             {reserveExpanded
               ? plan.reserve.map((item) => (
                   <View key={item.productId} style={styles.reserveRow}>
                     <View style={styles.reserveTextWrap}>
                       <Text style={styles.reserveName}>{nameOf(item.productId)}</Text>
-                      <Text style={styles.pausedText}>{reasonText(item.reasonCode)}</Text>
+                      {/* Only a reason the shared intro does NOT already state:
+                          "kept in reserve because your goals don't call for it"
+                          is said once above, but "another product already covers
+                          this role" is specific to the row and must survive. */}
+                      {item.reasonCode === 'not_needed_for_goals' ? null : (
+                        <Text style={styles.pausedText}>{reasonText(item.reasonCode)}</Text>
+                      )}
                     </View>
                     {onOverride ? (
                       <Button
@@ -289,37 +313,77 @@ export function DraftPreviewSheet({
   );
 }
 
+/**
+ * One shared explanation for the whole reserve list, so the identical
+ * "your goals don't call for this product" sentence isn't repeated on every
+ * row. The goals clause is only claimed when at least one product actually
+ * landed in reserve for that reason — otherwise (all capped, all duplicates)
+ * the line states just the choice the user has.
+ */
+function reserveIntroText(reserve: RoutinePlan['reserve']): string {
+  const action = 'Keep them in reserve, or add any of them to your routine anyway.';
+  const forGoals = reserve.some((item) => item.reasonCode === 'not_needed_for_goals');
+  return forGoals ? `Your current goals don’t call for these products. ${action}` : action;
+}
+
 // ─── Period block ─────────────────────────────────────────────────────────────
 
 function PeriodSteps({
   label,
+  period,
   afterSteps,
   oldSteps,
   alternativesBySlot,
   nameOf,
+  productOf,
   reasonForProduct,
   onSwapAlternative,
 }: {
   label: string;
+  period: 'morning' | 'evening';
   afterSteps: PlannedStep[];
   oldSteps: Map<number, { productId: string }>;
   alternativesBySlot: Map<number, SlotAlternative>;
   nameOf: (productId: string | null) => string;
+  productOf: (productId: string | null) => Product | undefined;
   reasonForProduct: (productId: string) => string | null;
   onSwapAlternative?: (winnerProductId: string, chosenProductId: string) => void;
 }) {
+  const isMorning = period === 'morning';
+  // Application order, not score order: the list reads top-to-bottom exactly
+  // as the routine is performed. Re-sorted here rather than trusted from the
+  // plan, since a swap rewrites the draft after the engine ordered it.
+  const ordered = orderSteps(afterSteps);
+
   return (
     <View style={styles.periodBlock}>
-      <Text style={styles.periodLabel}>{label}</Text>
-      {afterSteps.length > 0 ? (
-        afterSteps.map((step) => (
-          <RoutineStepRow
+      <View style={styles.periodHeader}>
+        <View
+          style={[
+            styles.periodIconCircle,
+            { backgroundColor: isMorning ? palette.marigoldTint : palette.cobaltTint },
+          ]}
+        >
+          <Feather
+            name={isMorning ? 'sun' : 'moon'}
+            size={14}
+            color={isMorning ? palette.marigold : palette.cobalt}
+          />
+        </View>
+        <Text style={styles.periodLabel}>{label}</Text>
+      </View>
+
+      {ordered.length > 0 ? (
+        ordered.map((step, i) => (
+          <StepCard
             key={step.productId}
+            position={i + 1}
             step={step}
             oldStep={oldSteps.get(step.slotIndex)}
             reason={reasonForProduct(step.productId)}
             entry={alternativesBySlot.get(step.slotIndex)}
             nameOf={nameOf}
+            productOf={productOf}
             onSwapAlternative={onSwapAlternative}
           />
         ))
@@ -330,60 +394,154 @@ function PeriodSteps({
   );
 }
 
-// ─── One step: changed/unchanged stack + "Replace with" select ────────────────
+// ─── One step: numbered identity card that expands into its replacements ──────
 
-function RoutineStepRow({
+function StepCard({
+  position,
   step,
   oldStep,
   reason,
   entry,
   nameOf,
+  productOf,
   onSwapAlternative,
 }: {
+  position: number;
   step: PlannedStep;
   oldStep: { productId: string } | undefined;
   reason: string | null;
   entry: SlotAlternative | undefined;
   nameOf: (productId: string | null) => string;
+  productOf: (productId: string | null) => Product | undefined;
   onSwapAlternative?: (winnerProductId: string, chosenProductId: string) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   const isChanged = !oldStep || oldStep.productId !== step.productId;
+  const product = productOf(step.productId);
+  const name = nameOf(step.productId);
+  const typeLabel = PRODUCT_TYPE_LABELS[step.productType] ?? step.productType;
+  // Only a slot with recorded candidates is a dropdown; the rest are plain
+  // cards, so a chevron always means "there is something to choose here".
+  const isExpandable = !!entry;
 
   return (
     <View style={styles.stepCard}>
-      {isChanged && oldStep ? (
-        <>
-          <Text style={styles.oldName}>{nameOf(oldStep.productId)}</Text>
-          <Feather name="arrow-down" size={14} color={colors.textTertiary} style={styles.changeArrow} />
-        </>
-      ) : null}
+      <Pressable
+        style={styles.stepHeader}
+        onPress={isExpandable ? () => setExpanded((v) => !v) : undefined}
+        disabled={!isExpandable}
+        accessibilityRole={isExpandable ? 'button' : undefined}
+        accessibilityState={isExpandable ? { expanded } : undefined}
+        accessibilityLabel={isExpandable ? `Replace ${name}` : name}
+      >
+        <View style={styles.positionColumn}>
+          <Text style={styles.positionNumber}>{position}</Text>
+          <Text style={styles.positionLabel} numberOfLines={1}>
+            {typeLabel}
+          </Text>
+        </View>
 
-      <Text style={isChanged ? styles.newNameChanged : styles.newName}>{nameOf(step.productId)}</Text>
+        {product ? <ProductThumbnail product={product} size={56} /> : null}
 
-      {isChanged ? (
-        reason ? (
-          <Badge status="Cobalt" type="Light" style={styles.reasonBadge}>
-            {reason}
-          </Badge>
-        ) : null
-      ) : (
-        <Tag tone="neutral" style={styles.noChangeTag}>
-          No change
-        </Tag>
-      )}
+        <View style={styles.identity}>
+          {product?.brand ? (
+            <Text style={styles.brand} numberOfLines={1}>
+              {product.brand}
+            </Text>
+          ) : null}
+          <Text style={isChanged ? styles.nameChanged : styles.name} numberOfLines={2}>
+            {name}
+          </Text>
 
-      {entry ? (
-        <Select
-          label="Replace with"
-          value={step.productId}
-          options={buildStepOptions(entry, step.productId, oldStep, nameOf)}
-          onValueChange={(chosen) => onSwapAlternative?.(entry.winnerProductId, chosen)}
-          accessibilityLabel={`Replace ${nameOf(step.productId)}`}
-        />
+          {isChanged && oldStep ? (
+            <Text style={styles.oldName} numberOfLines={1}>
+              {nameOf(oldStep.productId)}
+            </Text>
+          ) : null}
+          {isChanged ? (
+            reason ? (
+              <Badge status="Cobalt" type="Light" style={styles.reasonBadge}>
+                {reason}
+              </Badge>
+            ) : null
+          ) : (
+            <Tag tone="neutral" style={styles.noChangeTag}>
+              No change
+            </Tag>
+          )}
+        </View>
+
+        {isExpandable ? (
+          <Feather
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={colors.textTertiary}
+          />
+        ) : null}
+      </Pressable>
+
+      {isExpandable && expanded && entry ? (
+        <View style={styles.dropdown}>
+          <Text style={styles.dropdownLabel}>Replace with</Text>
+          {buildStepOptions(entry, step.productId, oldStep, nameOf).map((option) => (
+            <ReplacementRow
+              key={option.value}
+              option={option}
+              product={productOf(option.value)}
+              selected={option.value === step.productId}
+              onPress={() => {
+                setExpanded(false);
+                onSwapAlternative?.(entry.winnerProductId, option.value);
+              }}
+            />
+          ))}
+        </View>
       ) : null}
     </View>
   );
 }
+
+/** One candidate inside an expanded step card. */
+function ReplacementRow({
+  option,
+  product,
+  selected,
+  onPress,
+}: {
+  option: SelectOption;
+  product: Product | undefined;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.optionRow, selected && styles.optionRowSelected]}
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={option.reason ? `${option.title} — ${option.reason}` : option.title}
+    >
+      {product ? <ProductThumbnail product={product} size={40} /> : null}
+      <View style={styles.optionText}>
+        <Text style={styles.optionTitle} numberOfLines={2}>
+          {option.title}
+        </Text>
+        {option.reason ? (
+          <Text
+            style={[styles.optionReason, { color: toneColorOf(option.tone) }]}
+            numberOfLines={1}
+          >
+            {option.reason}
+          </Text>
+        ) : null}
+      </View>
+      {selected ? <Feather name="check" size={18} color={colors.textPrimary} /> : null}
+    </Pressable>
+  );
+}
+
+const toneColorOf = (tone: SelectOptionTone | undefined) => selectToneColor[tone ?? 'neutral'];
 
 /**
  * Every candidate for one slot, deduplicated: the currently-admitted product
@@ -471,7 +629,21 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   periodBlock: {
-    gap: space[3],
+    gap: space[2],
+  },
+  periodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  // Same circle treatment as the Routines screen's period headers and My
+  // Shelf's sun/moon badges.
+  periodIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   periodLabel: {
     ...typography.label,
@@ -483,34 +655,105 @@ const styles = StyleSheet.create({
   },
 
   stepCard: {
-    gap: space[1],
-    padding: space[3],
     backgroundColor: colors.surfaceRaised,
     borderRadius: radius.md,
     ...shadow.sm,
+  },
+  stepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    padding: space[3],
+  },
+  // Fixed width so every card's product identity starts at the same x, however
+  // long the category label is.
+  positionColumn: {
+    width: 60,
+    alignItems: 'center',
+    gap: 2,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: colors.borderDivider,
+    paddingRight: space[2],
+  },
+  positionNumber: {
+    ...typography.h3,
+    color: colors.textPrimary,
+  },
+  positionLabel: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  identity: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  brand: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  name: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  nameChanged: {
+    ...typography.body,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
   },
   oldName: {
     ...typography.bodySmall,
     color: colors.textTertiary,
     textDecorationLine: 'line-through',
   },
-  changeArrow: {
-    marginVertical: 1,
-  },
-  newName: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  newNameChanged: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
-  },
   reasonBadge: {
     marginTop: space[1],
+    alignSelf: 'flex-start',
   },
   noChangeTag: {
     marginTop: space[1],
+    alignSelf: 'flex-start',
+  },
+
+  dropdown: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderDivider,
+    paddingHorizontal: space[3],
+    paddingTop: space[2],
+    paddingBottom: space[2],
+    gap: space[1],
+  },
+  dropdownLabel: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    paddingVertical: space[2],
+    paddingHorizontal: space[2],
+    borderRadius: radius.sm,
+  },
+  optionRowSelected: {
+    backgroundColor: colors.surfaceSunken,
+  },
+  optionText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  optionTitle: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
+  },
+  optionReason: {
+    ...typography.caption,
+    fontSize: 12,
   },
 
   pausedBlock: {
@@ -531,6 +774,11 @@ const styles = StyleSheet.create({
   reserveHeading: {
     ...typography.label,
     color: colors.textPrimary,
+  },
+  reserveIntro: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: space[1],
   },
   reserveRow: {
     flexDirection: 'row',
