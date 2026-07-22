@@ -44,6 +44,7 @@ export const palette = {
   cabernetTint: '#F8E9ED',
   redTint: '#F9E6E8',
   amberTint: '#FDF0E6',
+  marigoldTint: '#FCEFDB',
   bottleGreenTint: '#EBF4F1',
   cobaltTint: '#EBF0FA',
 

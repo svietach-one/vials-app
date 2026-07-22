@@ -108,8 +108,9 @@ export function RoutineStepCard({
 
   const mainRow = (
     <View style={styles.mainRow}>
-      {/* Leading product photo — placeholder when none */}
-      <ProductThumbnail product={product} size={88} />
+      {/* Leading product photo — placeholder when none, edge-to-edge with
+          the card's left/top/bottom (matches the shelf card) */}
+      <ProductThumbnail product={product} fill />
 
       {/* Content area */}
       <View style={styles.contentArea}>
@@ -214,23 +215,29 @@ export function RoutineStepCard({
   );
 
   // One root: tap navigates, long press hands the touch to the drag gesture.
+  // Shadow lives on the outer, non-clipping wrapper — `cardStyle` needs
+  // `overflow: 'hidden'` to clip the bleeding photo to the rounded corners,
+  // but overflow:hidden also clips the shadow itself (it renders outside the
+  // view's bounds), so the two can't share a node.
   return (
     <>
-      <TouchableOpacity
-        onPress={onCardPress}
-        onLongPress={onLongPress}
-        delayLongPress={200}
-        activeOpacity={onCardPress ? 0.92 : 1}
-        style={cardStyle}
-        accessibilityRole="button"
-        accessibilityLabel={`${product.name}, tap to view product detail`}
-        accessibilityHint={onLongPress ? 'Hold to reorder' : undefined}
-      >
-        {mainRow}
-        {conflictRow}
-        {adaptationRow}
-        {stepNoteRow}
-      </TouchableOpacity>
+      <View style={styles.cardShadow}>
+        <TouchableOpacity
+          onPress={onCardPress}
+          onLongPress={onLongPress}
+          delayLongPress={200}
+          activeOpacity={onCardPress ? 0.92 : 1}
+          style={cardStyle}
+          accessibilityRole="button"
+          accessibilityLabel={`${product.name}, tap to view product detail`}
+          accessibilityHint={onLongPress ? 'Hold to reorder' : undefined}
+        >
+          {mainRow}
+          {conflictRow}
+          {adaptationRow}
+          {stepNoteRow}
+        </TouchableOpacity>
+      </View>
       {attributionTooltip}
     </>
   );
@@ -261,19 +268,27 @@ const dragStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  // Shadow-only wrapper — see the comment at the JSX call site for why this
+  // can't be merged into `card`.
+  cardShadow: {
+    borderRadius: radius.sm,
+    backgroundColor: palette.white,
+    ...shadow.sm,
+  },
   card: {
     backgroundColor: palette.white,
     borderWidth: 1,
     borderColor: 'transparent',
     borderRadius: radius.sm,
-    paddingHorizontal: space[2],
-    paddingVertical: space[3],
-    ...shadow.sm,
+    overflow: 'hidden',
   },
   cardConflict: {
     borderColor: palette.amber,
   },
 
+  // No padding here — the leading photo bleeds flush to the row's
+  // left/top/bottom (see ProductThumbnail's `fill` mode). Vertical and
+  // trailing padding live on contentArea instead, around the text only.
   mainRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -284,12 +299,14 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: space[2],
+    paddingVertical: space[4],
+    paddingRight: space[3],
   },
 
   overflowButton: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: space[3],
+    right: space[2],
   },
 
   // Brand above the name, both left-aligned (matches the shelf card).
@@ -332,14 +349,14 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodySmall.lineHeight,
     includeFontPadding: false,
   },
+  // Neutral gray fill — matches the shelf card's active-badge treatment
+  // (one color for all actives on a light gray backing), no colored border.
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: palette.white,
+    backgroundColor: colors.surfaceSunken,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: palette.zinc300,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
