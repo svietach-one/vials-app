@@ -52,6 +52,7 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
+import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
 import { isScheduledOnDay } from '@/utils/routineSchedule';
 import {
   buildRoutineRows,
@@ -79,29 +80,84 @@ type Props = BottomTabScreenProps<RootTabParamList, 'Routines'>;
 type Period = 'morning' | 'evening';
 
 // ─── Period card colors (img-03 redesign) ──────────────────────────────────────
-// Morning and evening each render as their own tinted "dropdown card" — a
-// single hairline outline (not a blurred shadow) draws its boundary. Each
-// period is faked from several adjacent, separately-rendered flat-list rows
-// (header + steps) sharing one background color rather than one real nested
-// View, since the drag-safety design requires a single flat list. A blurred
-// shadow.sm was tried per-row first, but RN shadow blur radiates in every
-// direction from a view's own edge, not just outward from its offset — so
-// each row's shadow bled UPWARD onto the row painted immediately before it
-// (later siblings paint on top), showing as a visible seam under every
-// individual step card instead of one clean shadow around the whole group.
-// A border has no such blur-bleed and needs no elevation-based z-order trick,
-// so it's applied selectively per edge instead: top only on the header, left/
-// right on every row, bottom only on the last row — producing one continuous
-// outline with no seams.
-const PERIOD_CARD_BORDER_COLOR = 'rgba(9, 9, 11, 0.08)';
-const PERIOD_BG: Record<Period, string> = {
-  morning: palette.citronTint,
-  evening: palette.cobaltTint,
-};
+// Morning and evening each render as their own "dropdown card" faked from
+// several adjacent, separately-rendered flat-list rows (header + steps)
+// sharing one background color rather than one real nested View, since the
+// drag-safety design requires a single flat list.
+//
+// The card's OUTLINE (top + both sides + bottom) is drawn entirely by a
+// hairline border (PERIOD_CARD_BORDER_COLOR), applied per edge across the
+// separate rows: top on the header, left/right on every row, bottom on the
+// last element. A border doesn't blur or bleed, so it runs the full height
+// continuously with no seams and no cropping — the one thing a shadow can't
+// do here (a shadow only ever shows beside a view tall enough to cast it, so
+// short header/cap shadows left the tall middle of the card unshadowed and
+// looked cropped at top and bottom; per-row shadows instead bled onto
+// neighbors as seams — both dead ends tried before this).
+//
+// A single soft drop shadow (PERIOD_CARD_SHADOW) is added at the card's
+// BOTTOM edge ONLY, cast by whichever element is that true bottom edge:
+// - collapsed / expanded-but-empty: the header (it IS the whole card), via
+//   sectionStyles.shadowWrap applied only when isStandaloneCard;
+// - expanded with steps: styles.cardClosingCap, a short end-cap rendered
+//   AFTER the last step row (not wrapped around it — wrapping the tall row
+//   haloed all four of its sides and read as "this one product is boxed").
+// The shadow sits on an outer, background-less wrapper in both cases so iOS's
+// rounded/filled-layer render on the inner colored view can't clip it (an
+// earlier bare, childless 1px shadow view rendered unreliably — nothing for
+// the native layer to compute a shadow shape from). Both paths cast the same
+// PERIOD_CARD_SHADOW into the empty gap below, so the card reads identically
+// open or closed, and there is no top or mid-side shadow to look cropped.
+//
+// No shadow ever touches an interior row or wraps a product card — those get
+// only their own light gray outline (RoutineStepCard's `card` style).
+//
+// Morning and evening share ONE background color (PERIOD_CARD_BG) rather than
+// distinct tints — two hues read fine on their own, but clash badly the
+// moment an amber notification card (PreCleanseReminderCard) sits inside one
+// of them. The sun/moon header icons keep their own color (PERIOD_ICON_COLOR)
+// so the periods stay visually distinguishable at a glance.
+const PERIOD_CARD_BG = palette.boneDeep;
 const PERIOD_ICON_COLOR: Record<Period, string> = {
   morning: palette.citron,
   evening: palette.cobalt,
 };
+// Same circle treatment as the sun/moon overlay badges on My Shelf's
+// ProductShelfCard (circleBadge/circleBadgeSun/circleBadgeMoon).
+const PERIOD_ICON_BG: Record<Period, string> = {
+  morning: palette.citronTint,
+  evening: palette.cobaltTint,
+};
+// A shadow can only ever appear beside a view tall enough to cast it — the
+// header and the closing cap are both short, so their shadows only bleed
+// sideways across their own (short) height, leaving the middle of a tall,
+// multi-row card with no visible side shadow at all ("cropped" at the top
+// and bottom, missing in the middle). A hairline border has no such
+// limitation — it doesn't blur or bleed, so it can run the FULL height,
+// continuously, across every separately-rendered row. Left/right only (top
+// and bottom already read fine from the shadow) on sectionStyles.wrap,
+// styles.cardWrapper, and styles.cardClosingCapInner.
+const PERIOD_CARD_BORDER_COLOR = 'rgba(9, 9, 11, 0.08)';
+// `elevation: 0` is deliberate: Android's elevation reorders siblings by
+// value rather than paint order, which would let this shadow's layer draw
+// over a neighboring row and reproduce the exact seam bug this file already
+// fixed once — better to have no shadow on Android here than a broken one.
+//
+// The offset height (5) is >= the blur radius (4) ON PURPOSE — this makes the
+// shadow strictly DOWNWARD: the blur around the caster's top edge is centered
+// 5px down with a 4px radius, so it spans y∈[1,9] and never reaches above the
+// top edge (y=0). Without that, the blur haloed ~1px upward onto the white
+// card sitting above the closing cap, showing as a faint shadow strip over
+// the white. Everything above the caster's bottom edge is hidden behind the
+// caster's own opaque body, so only the true bottom shadow, in the gap below
+// the card, is ever visible.
+const PERIOD_CARD_SHADOW = {
+  shadowColor: palette.black,
+  shadowOffset: { width: 0, height: 5 },
+  shadowOpacity: 0.13,
+  shadowRadius: 4,
+  elevation: 0,
+} as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -378,45 +434,67 @@ export default function RoutinesScreen({ navigation }: Props) {
 
       if (!product) return null;
 
-      // Last step of its period rounds the card's bottom corners, closes the
-      // outline's bottom border, and adds the gap before the next period's
-      // card — the header opens the outline's top border (see
-      // PERIOD_CARD_BORDER_COLOR and SectionHeader).
+      // Last step of its period rounds the card's bottom corners and adds
+      // the gap before the next period's card.
       const index = getIndex();
       const nextRow = typeof index === 'number' ? rows[index + 1] : undefined;
       const isLastInPeriod = !nextRow || nextRow.kind === 'section';
 
       return (
         <ScaleDecorator>
-          <View
-            style={[
-              styles.cardWrapper,
-              { backgroundColor: PERIOD_BG[item.period] },
-              isLastInPeriod && styles.cardWrapperLast,
-            ]}
-          >
-            <RoutineStepCard
-              product={product}
-              onCardPress={() =>
-                navigation.navigate('My Shelf', {
-                  screen: 'ProductDetail',
-                  params: { productId: product.id },
-                })
-              }
-              conflictingProductName={conflictMap.get(step.id) ?? null}
-              adaptationWeek={adaptationWeeks.get(product.id) ?? null}
-              displayProductType={step.productType}
-              // Long-press anywhere on the card lifts it into drag — no
-              // separate edit mode to arm first (img-03).
-              onLongPress={drag}
-              onOverflowPress={() => openStepSheet(product, step.id, item.period)}
-            />
-            {/* Directly under the flagged makeup-remover/micellar-water
-                step's own row — not a page-level banner (see
-                findPreCleanseReminder). */}
-            {preCleanseReminder?.stepId === step.id ? (
-              <View style={styles.preCleanseReminderWrap}>
-                <PreCleanseReminderCard reminder={preCleanseReminder} />
+          <View>
+            <View
+              style={[
+                styles.cardWrapper,
+                { backgroundColor: PERIOD_CARD_BG },
+              ]}
+            >
+              <RoutineStepCard
+                product={product}
+                onCardPress={() =>
+                  navigation.navigate('My Shelf', {
+                    screen: 'ProductDetail',
+                    params: { productId: product.id },
+                  })
+                }
+                conflictingProductName={conflictMap.get(step.id) ?? null}
+                adaptationWeek={adaptationWeeks.get(product.id) ?? null}
+                // Older manually-added steps can carry a stale `cleanser`
+                // productType for what is actually a micellar water / makeup
+                // remover (reclassifyMakeupRemover only ran at generate-time
+                // historically) — reclassify from the current catalog record
+                // so the badge is honest regardless of which routine or when
+                // the step was created.
+                displayProductType={reclassifyMakeupRemover(product).productType}
+                // Long-press anywhere on the card lifts it into drag — no
+                // separate edit mode to arm first (img-03).
+                onLongPress={drag}
+                onOverflowPress={() => openStepSheet(product, step.id, item.period)}
+              />
+              {/* Directly under the flagged makeup-remover/micellar-water
+                  step's own row — not a page-level banner (see
+                  findPreCleanseReminder). */}
+              {preCleanseReminder?.stepId === step.id ? (
+                <View style={styles.preCleanseReminderWrap}>
+                  <PreCleanseReminderCard reminder={preCleanseReminder} />
+                </View>
+              ) : null}
+            </View>
+            {/* A short end-cap, not a wrapper around the whole row — wrapping
+                the entire (tall) product row in a shadow box makes the blur
+                radiate around all four sides of THAT row, reading as "this
+                one product card is boxed" rather than "the group ends here".
+                The cap's own height is small, so its shadow only haloes a
+                thin band, not the row's full height. Split the same way as
+                the header: an outer view with only the shadow, wrapping an
+                inner view with the real background + rounded corners — a
+                shadow cast by a fully empty, backgroundless view renders
+                unreliably on iOS (nothing for the native layer to compute a
+                shadow shape from), which is why an earlier version of this
+                cap (transparent, 1px, no children) looked cropped. */}
+            {isLastInPeriod ? (
+              <View style={styles.cardClosingCap}>
+                <View style={styles.cardClosingCapInner} />
               </View>
             ) : null}
           </View>
@@ -658,53 +736,69 @@ function SectionHeader({ period, count, expanded, onToggle, onAdd }: SectionHead
   const isStandaloneCard = !expanded || count === 0;
 
   return (
-    <View
-      style={[
-        sectionStyles.wrap,
-        { backgroundColor: PERIOD_BG[period] },
-        sectionStyles.roundTop,
-        isStandaloneCard && sectionStyles.roundBottom,
-        isStandaloneCard && sectionStyles.cardGap,
-      ]}
-    >
-      <Pressable
-        style={sectionStyles.header}
-        onPress={onToggle}
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        accessibilityLabel={`${title}, ${stepLabel}, ${expanded ? 'expanded' : 'collapsed'}`}
+    // Shadow lives on this OUTER view, and ONLY when this header is the card's
+    // true bottom edge (collapsed, or expanded-but-empty) — a bottom-only
+    // shadow cast into the empty gap below renders cleanly with no seam. When
+    // expanded with steps, the header is only the TOP of the card, so it casts
+    // no shadow (the closing cap does); the sides/top are drawn by the border
+    // instead, which — unlike a shadow — runs the full height with no cropping.
+    // The shadow sits on this outer view (no bg/radius of its own) so iOS's
+    // rounded/filled-layer render on the inner view can't clip it.
+    <View style={[isStandaloneCard && sectionStyles.shadowWrap, isStandaloneCard && sectionStyles.cardGap]}>
+      <View
+        style={[
+          sectionStyles.wrap,
+          { backgroundColor: PERIOD_CARD_BG },
+          sectionStyles.roundTop,
+          isStandaloneCard && sectionStyles.roundBottom,
+        ]}
       >
-        <View style={sectionStyles.headerLeft}>
+        <Pressable
+          style={sectionStyles.header}
+          onPress={onToggle}
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          accessibilityLabel={`${title}, ${stepLabel}, ${expanded ? 'expanded' : 'collapsed'}`}
+        >
+          <View style={sectionStyles.headerLeft}>
+            <View style={[sectionStyles.periodIconCircle, { backgroundColor: PERIOD_ICON_BG[period] }]}>
+              <Feather
+                name={period === 'morning' ? 'sun' : 'moon'}
+                size={14}
+                color={PERIOD_ICON_COLOR[period]}
+              />
+            </View>
+            <Text style={sectionStyles.title}>{title}</Text>
+            <Text style={sectionStyles.count}>· {stepLabel}</Text>
+          </View>
           <Feather
-            name={period === 'morning' ? 'sun' : 'moon'}
-            size={16}
-            color={PERIOD_ICON_COLOR[period]}
+            name={expanded ? 'chevron-down' : 'chevron-right'}
+            size={18}
+            color={colors.textSecondary}
           />
-          <Text style={sectionStyles.title}>{title}</Text>
-          <Text style={sectionStyles.count}>· {stepLabel}</Text>
-        </View>
-        <Feather
-          name={expanded ? 'chevron-down' : 'chevron-right'}
-          size={18}
-          color={colors.textSecondary}
-        />
-      </Pressable>
+        </Pressable>
 
-      {expanded && count === 0 ? (
-        <View style={sectionStyles.empty}>
-          <Text style={sectionStyles.emptyText}>
-            No steps for this {period === 'morning' ? 'morning' : 'evening'}.
-          </Text>
-          <Button variant="textActive" size="sm" onPress={onAdd}>
-            Add product
-          </Button>
-        </View>
-      ) : null}
+        {expanded && count === 0 ? (
+          <View style={sectionStyles.empty}>
+            <Text style={sectionStyles.emptyText}>
+              No steps for this {period === 'morning' ? 'morning' : 'evening'}.
+            </Text>
+            <Button variant="textActive" size="sm" onPress={onAdd}>
+              Add product
+            </Button>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 const sectionStyles = StyleSheet.create({
+  // Shadow only — no backgroundColor/borderRadius of its own, so it has
+  // nothing to clip the shadow it casts (see the render-time comment above).
+  shadowWrap: {
+    ...PERIOD_CARD_SHADOW,
+  },
   wrap: {
     paddingHorizontal: space[3],
     borderTopWidth: 1,
@@ -716,8 +810,8 @@ const sectionStyles = StyleSheet.create({
     borderTopLeftRadius: radius.md,
     borderTopRightRadius: radius.md,
   },
-  // Bottom border only when this header is the whole card (see
-  // isStandaloneCard) — otherwise a step row below applies it instead.
+  // Rounds AND closes the bottom when this header is the whole card (see
+  // isStandaloneCard) — otherwise a step row + cap below apply it instead.
   roundBottom: {
     borderBottomLeftRadius: radius.md,
     borderBottomRightRadius: radius.md,
@@ -738,6 +832,14 @@ const sectionStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[2],
+  },
+  // Matches ProductShelfCard's circleBadge (My Shelf sun/moon overlay badges).
+  periodIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     ...typography.body,
@@ -853,10 +955,11 @@ const styles = StyleSheet.create({
     gap: space[3],
   },
 
-  // Tinted background (set inline per period) continues the period card's
-  // color behind each step — the gap between product cards reads as a
-  // colored gutter rather than a break in the card. Only the LAST step of a
-  // period rounds the bottom corners and adds the gap to the next period.
+  // Shared background (set inline via PERIOD_CARD_BG) continues the period
+  // card's color behind each step — the gap between product cards reads as a
+  // colored gutter rather than a break in the card. The last step's own
+  // bottom stays square; cardClosingCap (below) supplies the rounded corners,
+  // the closing shadow, and the gap to the next period, all in one place.
   cardWrapper: {
     paddingHorizontal: space[3],
     paddingBottom: space[3],
@@ -864,14 +967,27 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderColor: PERIOD_CARD_BORDER_COLOR,
   },
-  // Bottom border only on the period's last step row — everywhere else the
-  // card's outline continues seamlessly into the next row (see the border-
-  // vs-shadow rationale on PERIOD_CARD_BORDER_COLOR above).
-  cardWrapperLast: {
+  // Outer: shadow only, no background — same reasoning as sectionStyles.
+  // shadowWrap. Short on purpose: a shadow this tall only haloes a thin
+  // band, not the whole (tall) product row above it.
+  cardClosingCap: {
+    height: 12,
+    marginBottom: space[4],
+    ...PERIOD_CARD_SHADOW,
+  },
+  // Inner: real background + the rounded corners — gives the outer view's
+  // shadow an actual opaque layer to compute from, unlike a bare transparent
+  // View, and visually reads as the same white card simply continuing down
+  // a little further before curving to a close.
+  cardClosingCapInner: {
+    flex: 1,
+    backgroundColor: PERIOD_CARD_BG,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: PERIOD_CARD_BORDER_COLOR,
     borderBottomLeftRadius: radius.md,
     borderBottomRightRadius: radius.md,
-    borderBottomWidth: 1,
-    marginBottom: space[4],
   },
   preCleanseReminderWrap: {
     marginTop: space[2],

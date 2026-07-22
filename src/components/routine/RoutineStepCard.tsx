@@ -198,7 +198,11 @@ export function RoutineStepCard({
 
   // One root: tap navigates, long press hands the touch to the drag gesture.
   // No shadow here — these cards sit inside a Morning/Evening accordion card
-  // that carries its own shadow, so the product cards inside stay flat.
+  // that carries its own shadow (see PERIOD_CARD_SHADOW in RoutinesScreen),
+  // so the product cards inside stay flat. Both this card and the accordion
+  // behind it are white, so a light gray outline (not a shadow) is what
+  // actually separates one product card from the next — Routines-tab only,
+  // this component has no other call site.
   return (
     <>
       <TouchableOpacity
@@ -248,7 +252,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: palette.white,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: colors.borderDivider,
     borderRadius: radius.sm,
     overflow: 'hidden',
   },

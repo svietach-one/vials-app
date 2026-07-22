@@ -14,6 +14,10 @@ export const palette = {
   white: '#FFFFFF',
   black: '#09090B',
   bone: '#FAF9F6',
+  // Routines screen's Morning/Evening accordion card background (shared by
+  // both periods) — plain white, relies on PERIOD_CARD_SHADOW for definition
+  // against the bone page background rather than a color difference.
+  boneDeep: '#FFFFFF',
 
   plum: '#4F1242',
   // Pressed state — one step lighter than plum, matching the zinc900→zinc800
