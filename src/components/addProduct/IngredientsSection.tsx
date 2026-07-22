@@ -17,6 +17,7 @@ import { Feather } from '@expo/vector-icons';
 import { CameraCaptureModal } from '@/components/camera/CameraCaptureModal';
 import { InciScanNotice } from '@/components/camera/InciScanNotice';
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { ACTIVE_INGREDIENT_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { AddProductDraft } from '@/types';
@@ -143,14 +144,13 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
               />
               <Text style={styles.rawToggleLabel}>Full INCI text (raw)</Text>
             </Pressable>
-            <Pressable
+            <IconButton
+              icon={<Feather name="x-circle" size={16} color={colors.textTertiary} />}
+              label="Clear INCI text"
+              variant="ghost"
+              size="sm"
               onPress={handleClearRaw}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Clear INCI text"
-            >
-              <Feather name="x-circle" size={16} color={colors.textTertiary} />
-            </Pressable>
+            />
           </View>
 
           {rawExpanded ? (
@@ -177,16 +177,18 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
             </Text>
           ) : null}
 
-          <Pressable
+          <Button
+            variant="ghost"
+            size="sm"
+            fullWidth
             onPress={() => {
               setIsReshoot(true);
               setCameraVisible(true);
             }}
-            accessibilityRole="button"
             accessibilityLabel="Add another shot"
           >
-            <Text style={styles.pasteLink}>Text didn&apos;t fit? Add another shot.</Text>
-          </Pressable>
+            Text didn&apos;t fit? Add another shot.
+          </Button>
 
           <Pressable
             onPress={() => setShowChecklist((v) => !v)}
@@ -233,13 +235,15 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
       ) : null}
 
       {!hasOcrData ? (
-        <Pressable
+        <Button
+          variant="ghost"
+          size="sm"
+          fullWidth
           onPress={() => setPasteVisible(true)}
-          accessibilityRole="button"
           accessibilityLabel="Paste full INCI text instead"
         >
-          <Text style={styles.pasteLink}>Paste full INCI text instead</Text>
-        </Pressable>
+          Paste full INCI text instead
+        </Button>
       ) : null}
 
       <InciScanNotice
@@ -322,14 +326,9 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
       {Platform.OS === 'ios' ? (
         <InputAccessoryView nativeID={INCI_KEYBOARD_ACCESSORY_ID}>
           <View style={styles.keyboardAccessory}>
-            <Pressable
-              onPress={() => Keyboard.dismiss()}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Done"
-            >
-              <Text style={styles.keyboardAccessoryDone}>Done</Text>
-            </Pressable>
+            <Button variant="textActive" size="sm" onPress={() => Keyboard.dismiss()}>
+              Done
+            </Button>
           </View>
         </InputAccessoryView>
       ) : null}
@@ -345,8 +344,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textTertiary,
     textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   chips: {
     flexDirection: 'row',
@@ -472,10 +469,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
-  },
-  keyboardAccessoryDone: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textLink,
   },
 });

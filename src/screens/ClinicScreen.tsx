@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
   FlatList,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import { ForecastTimeline } from '@/components/clinic/ForecastTimeline';
 import { ProcedureLifespanCard } from '@/components/clinic/ProcedureLifespanCard';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { AppHeader } from '@/components/ui/core/AppHeader';
+import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
@@ -36,15 +36,16 @@ function ClinicEmptyState({ onAdd }: { onAdd: () => void }) {
       <Text style={emptyStyles.body}>
         Log a cosmetic procedure to track its rehab window, effect lifespan, and ingredient safety rules.
       </Text>
-      <Pressable
+      <Button
+        variant="primary"
+        size="md"
+        icon={<Feather name="plus" size={16} color={palette.white} />}
         onPress={onAdd}
-        style={emptyStyles.cta}
-        accessibilityRole="button"
         accessibilityLabel="Log first procedure"
+        style={emptyStyles.cta}
       >
-        <Feather name="plus" size={16} color={palette.white} />
-        <Text style={emptyStyles.ctaLabel}>Log Procedure</Text>
-      </Pressable>
+        Log Procedure
+      </Button>
     </View>
   );
 }
@@ -68,19 +69,7 @@ const emptyStyles = StyleSheet.create({
     textAlign: 'center',
   },
   cta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    paddingHorizontal: space[5],
-    paddingVertical: space[3],
-    borderRadius: radius.md,
-    backgroundColor: palette.black,
     marginTop: space[2],
-  },
-  ctaLabel: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: palette.white,
   },
 });
 
@@ -142,7 +131,7 @@ export default function ClinicScreen({ navigation }: Props) {
         title="Clinic"
         rightAction={
           <IconButton
-            icon={<Feather name="plus" size={20} color={palette.black} />}
+            icon={<Feather name="plus" size={20} color={colors.textPrimary} />}
             label="Log procedure"
             variant="ghost"
             size="sm"
@@ -202,7 +191,7 @@ export default function ClinicScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgSubtle,
+    backgroundColor: colors.bgScreen,
   },
   list: {
     paddingHorizontal: space.gutterScreen,

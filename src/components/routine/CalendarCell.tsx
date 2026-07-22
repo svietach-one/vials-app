@@ -1,64 +1,90 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
-import { colors, palette } from '@/constants/tokens';
-import type { CalendarCellState } from '@/utils/calendarMatrix';
+import { colors, palette, radius } from '@/constants/tokens';
 
 /**
- * One (product, day) cell in the routine calendar (img-05). A square split by a
- * diagonal running top-right → bottom-left: the upper-left triangle is AM, the
- * lower-right is PM. A half is filled when that period is scheduled.
+ * One (product, day, period) cell in the routine calendar (img-05). Each
+ * product occupies two lanes — a morning lane and an evening lane — and this
+ * renders a single lane's day.
  *
- * Both halves use Cobalt — the palette's informational/calendar colour. AM and
- * PM are told apart by position, never by colour, so the grid carries no
- * accidental warning/safe semantics.
+ * A scheduled cell is a ringed circle carrying its period's icon: a marigold
+ * sun for morning, a cobalt moon for evening. An unscheduled cell keeps the
+ * circle but drops the icon and fades to a neutral ring, so scanning a row
+ * reads as "icon = on, hollow = off" rather than depending on colour alone.
  *
- * Pure and memoized: a cell is a function of (state, size) only, and a month
- * grid renders ~30 × 31 of them.
+ * Pure and memoized: a cell is a function of its props only, and a month grid
+ * renders ~2 × 30 × 31 of them.
  */
 
 export interface CalendarCellProps {
-  state: CalendarCellState;
+  period: 'am' | 'pm';
+  scheduled: boolean;
+  /** Column width. */
   size: number;
+  /** Lane height — one product row stacks two of these. */
+  height: number;
+  /**
+   * `legend` reuses the same marker outside the grid: no column separator, and
+   * a testID that never inflates the grid's cell counts.
+   */
+  variant?: 'grid' | 'legend';
 }
 
-function CalendarCellComponent({ state, size }: CalendarCellProps) {
-  const { am, pm } = state;
-  const isEmpty = !am && !pm;
-  const testID = isEmpty ? 'calendar-cell-empty' : `calendar-cell-${am ? 'am' : ''}${pm ? 'pm' : ''}`;
+const AM = {
+  icon: 'sun',
+  color: palette.marigold,
+  tint: palette.marigoldTint,
+} as const;
+
+const PM = {
+  icon: 'moon',
+  color: palette.cobalt,
+  tint: palette.cobaltTint,
+} as const;
+
+function CalendarCellComponent({
+  period,
+  scheduled,
+  size,
+  height,
+  variant = 'grid',
+}: CalendarCellProps) {
+  const spec = period === 'am' ? AM : PM;
+  const diameter = Math.min(size, height) - 8;
+  const testID =
+    variant === 'legend'
+      ? `calendar-legend-${scheduled ? period : 'empty'}`
+      : scheduled
+        ? `calendar-cell-${period}`
+        : 'calendar-cell-empty';
 
   return (
-    <View testID={testID} style={[styles.cell, { width: size, height: size }]}>
-      {/* An entirely unscheduled cell stays a plain bordered square — no
-          diagonal, so empty regions of the grid read as quiet space. */}
-      {isEmpty ? null : (
-        <>
-          {am ? (
-            <View
-              style={[
-                styles.triangle,
-                {
-                  borderTopWidth: size,
-                  borderRightWidth: size,
-                  borderTopColor: palette.cobalt,
-                },
-              ]}
-            />
-          ) : null}
-          {pm ? (
-            <View
-              style={[
-                styles.triangle,
-                {
-                  borderBottomWidth: size,
-                  borderLeftWidth: size,
-                  borderBottomColor: palette.cobalt,
-                },
-              ]}
-            />
-          ) : null}
-        </>
-      )}
+    <View
+      testID={testID}
+      style={[
+        styles.cell,
+        variant === 'grid' && styles.cellDivider,
+        { width: size, height },
+      ]}
+    >
+      <View
+        style={[
+          styles.dot,
+          {
+            width: diameter,
+            height: diameter,
+            borderRadius: radius.pill,
+            borderColor: scheduled ? spec.color : colors.borderStrong,
+            backgroundColor: scheduled ? spec.tint : 'transparent',
+          },
+        ]}
+      >
+        {scheduled ? (
+          <Feather name={spec.icon} size={Math.round(diameter * 0.55)} color={spec.color} />
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -67,24 +93,18 @@ export const CalendarCell = React.memo(CalendarCellComponent);
 
 const styles = StyleSheet.create({
   cell: {
-    // Column separator only — the row divider is drawn by the row itself, so
-    // it lines up with the frozen identity column's divider.
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderDivider,
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  /**
-   * CSS triangle technique: a zero-size box whose borders collapse into a
-   * right triangle. top+right fills the upper-left half; bottom+left fills the
-   * lower-right half. Cheaper and crisper on both platforms than an SVG or a
-   * rotated/transformed view.
-   */
-  triangle: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 0,
-    height: 0,
-    borderColor: 'transparent',
+  // Column separator only — the row divider is drawn by the product row, so it
+  // lines up with the frozen identity column's divider.
+  cellDivider: {
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: colors.borderDivider,
+  },
+  dot: {
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

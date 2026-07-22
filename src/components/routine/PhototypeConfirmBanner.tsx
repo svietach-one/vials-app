@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
+import { Button } from '@/components/ui/core/Button';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, space, typography } from '@/constants/tokens';
 
@@ -36,22 +37,12 @@ export function PhototypeConfirmBanner({
         answers. It guides sun-sensitivity and pigmentation safety — does it look right?
       </Text>
       <View style={styles.actions}>
-        <Pressable
-          onPress={onConfirm}
-          style={styles.action}
-          accessibilityRole="button"
-          accessibilityLabel="Confirm skin tone"
-        >
-          <Text style={styles.actionText}>Confirm</Text>
-        </Pressable>
-        <Pressable
-          onPress={onAdjust}
-          style={styles.action}
-          accessibilityRole="button"
-          accessibilityLabel="Change skin tone"
-        >
-          <Text style={styles.actionText}>Change</Text>
-        </Pressable>
+        <Button variant="textActive" size="sm" onPress={onConfirm} accessibilityLabel="Confirm skin tone">
+          Confirm
+        </Button>
+        <Button variant="textActive" size="sm" onPress={onAdjust} accessibilityLabel="Change skin tone">
+          Change
+        </Button>
       </View>
     </InlineAlert>
   );
@@ -70,13 +61,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: space[4],
     marginTop: space[2],
-  },
-  action: {
-    paddingVertical: space[1],
-  },
-  actionText: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.statusInfo,
   },
 });

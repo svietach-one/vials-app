@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
+import { IconButton } from '@/components/ui/core/IconButton';
 import { ACTIVE_INGREDIENT_LABELS } from '@/constants/labels';
 import { space, typography, radius } from '@/constants/tokens';
 import type { ActiveIngredientKey } from '@/types';
@@ -22,14 +23,13 @@ export function DetectedActiveChip({ activeKey, onRemove }: DetectedActiveChipPr
       <Text style={[styles.label, { color: group.color }]}>
         {ACTIVE_INGREDIENT_LABELS[activeKey]}
       </Text>
-      <Pressable
+      <IconButton
+        icon={<Feather name="x" size={14} color={group.color} />}
+        label={`Remove ${ACTIVE_INGREDIENT_LABELS[activeKey]}`}
+        variant="ghost"
+        size="xs"
         onPress={() => onRemove(activeKey)}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={`Remove ${ACTIVE_INGREDIENT_LABELS[activeKey]}`}
-      >
-        <Feather name="x" size={14} color={group.color} />
-      </Pressable>
+      />
     </View>
   );
 }

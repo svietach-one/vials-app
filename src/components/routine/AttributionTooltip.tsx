@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
+import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import { getAliasMicroCopy } from '@/utils/attributionLookup';
 import type { MatchedToken } from '@/utils/ingredientParser';
@@ -33,15 +34,14 @@ export function AttributionTooltip({ visible, onClose, displayName, matches }: A
           <Text style={styles.header} testID="attribution-tooltip-header">
             {displayName}
           </Text>
-          <Pressable
+          <IconButton
             testID="attribution-tooltip-close"
+            icon={<Feather name="x" size={18} color={colors.textSecondary} />}
+            label="Close"
+            variant="ghost"
+            size="sm"
             onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            hitSlop={space[2]}
-          >
-            <Feather name="x" size={18} color={colors.textSecondary} />
-          </Pressable>
+          />
         </View>
 
         {matches.length === 0 ? (

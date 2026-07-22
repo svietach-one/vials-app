@@ -97,7 +97,7 @@ export interface RoutinePlan {
  *  EVERY day `neededDays` requires — not merely "some overlap": a cleanser
  *  day-split away from the pre_cleanse step's own days doesn't actually follow
  *  it on the uncovered days, so partial overlap must read as "not covered". */
-function scheduleFullyCovers(coverDays: number[], neededDays: number[]): boolean {
+export function scheduleFullyCovers(coverDays: number[], neededDays: number[]): boolean {
   if (coverDays.length === 0) return true;
   if (neededDays.length === 0) return false;
   return neededDays.every((d) => coverDays.includes(d));

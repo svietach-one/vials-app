@@ -60,30 +60,6 @@ describe('Story 6 AC: RoutineStepCard renders the adaptation status line, not a 
   });
 });
 
-describe('pre_cleanse follow-up ruling: RoutineStepCard renders stepNote as a plain info line', () => {
-  it('shows the note text when stepNote is set', () => {
-    render(
-      <RoutineStepCard
-        product={makeProduct({ productType: 'makeup_remover' })}
-        stepNote="Follow with your cleanser — micellar water shouldn’t stay on skin."
-      />,
-    );
-    expect(
-      screen.getByText(/Follow with your cleanser — micellar water shouldn’t stay on skin\./),
-    ).toBeTruthy();
-  });
-
-  it('renders no note line when stepNote is absent', () => {
-    render(<RoutineStepCard product={makeProduct()} />);
-    expect(screen.queryByText(/Follow with your cleanser/)).toBeNull();
-  });
-
-  it('renders no note line when stepNote is explicitly null (no cleanser on shelf)', () => {
-    render(<RoutineStepCard product={makeProduct({ productType: 'makeup_remover' })} stepNote={null} />);
-    expect(screen.queryByText(/Follow with your cleanser/)).toBeNull();
-  });
-});
-
 describe('review follow-up (2026-07-20): badge reflects the resolved type, not the raw DB record', () => {
   // A mistyped "cleanser" reclassified to makeup_remover by the engine (the
   // pre_cleanse classification guard) is never persisted back to the catalog

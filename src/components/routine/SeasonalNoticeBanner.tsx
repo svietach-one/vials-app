@@ -1,7 +1,7 @@
 import React from 'react';
-import { Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
+import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors } from '@/constants/tokens';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -51,14 +51,13 @@ export function SeasonalNoticeBanner() {
       icon={<Feather name="sun" size={14} color={colors.statusInfo} />}
       title={SEASON_TITLE[season]}
       action={
-        <Pressable
+        <IconButton
+          icon={<Feather name="x" size={16} color={colors.statusInfo} />}
+          label="Dismiss seasonal tip"
+          variant="ghost"
+          size="xs"
           onPress={() => dismissBanner(bannerKey)}
-          hitSlop={8}
-          accessibilityLabel="Dismiss seasonal tip"
-          accessibilityRole="button"
-        >
-          <Feather name="x" size={16} color={colors.statusInfo} />
-        </Pressable>
+        />
       }
     >
       {SEASON_MESSAGE[season]}

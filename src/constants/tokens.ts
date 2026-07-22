@@ -13,6 +13,18 @@
 export const palette = {
   white: '#FFFFFF',
   black: '#09090B',
+  bone: '#FAF9F6',
+  // Routines screen's Morning/Evening accordion card background (shared by
+  // both periods) — plain white, relies on PERIOD_CARD_SHADOW for definition
+  // against the bone page background rather than a color difference.
+  boneDeep: '#FFFFFF',
+
+  plum: '#4F1242',
+  // Pressed state — one step lighter than plum, matching the zinc900→zinc800
+  // "+15 per channel" pressed relationship used elsewhere in this palette.
+  plumPressed: '#5E2151',
+  plumTint: '#E5DBE3',
+  plumLine: '#D8CBD5',
 
   zinc50: '#FAFAFA',
   zinc100: '#F4F4F5',
@@ -28,6 +40,8 @@ export const palette = {
   cabernet: '#800C2E',
   red: '#B40018',
   amber: '#A84C0E',
+  // Warm orange. Doubles as the "morning" accent everywhere a sun glyph
+  // appears: Routines period headers, My Shelf card badges, calendar lanes.
   marigold: '#EB970D',
   bottleGreen: '#0F4C3A',
   cobalt: '#1E3A8A',
@@ -36,6 +50,7 @@ export const palette = {
   cabernetTint: '#F8E9ED',
   redTint: '#F9E6E8',
   amberTint: '#FDF0E6',
+  marigoldTint: '#FCEFDB',
   bottleGreenTint: '#EBF4F1',
   cobaltTint: '#EBF0FA',
 
@@ -48,7 +63,10 @@ export const palette = {
 
 export const colors = {
   // Surfaces
+  // bgBase: white — the sheet/modal/tab-bar surface. Standalone screens use
+  // bgScreen (bone) instead; sheets stay white per design.
   bgBase: palette.white,
+  bgScreen: palette.bone,
   bgSubtle: palette.zinc50,
   surfaceCard: palette.white,
   surfaceRaised: palette.white,
@@ -182,8 +200,6 @@ export const typography = {
     fontFamily: SANS_MEDIUM,
     fontSize: 14,
     lineHeight: 20,
-    letterSpacing: 1.32,
-    textTransform: 'uppercase' as const,
   },
   caption: {
     fontFamily: SANS,

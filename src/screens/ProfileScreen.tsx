@@ -15,6 +15,8 @@ import { DebugAccountSyncCard } from '@/components/debug/DebugAccountSyncCard';
 import { DebugOnboardingPreview } from '@/components/debug/DebugOnboardingPreview';
 import { SkinProfileEditModal } from '@/components/profile/SkinProfileEditModal';
 import { AppHeader } from '@/components/ui/core/AppHeader';
+import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { ListRow } from '@/components/ui/core/ListRow';
 import { Input } from '@/components/ui/forms/Input';
@@ -199,14 +201,13 @@ function CityField({
       <View style={cityStyles.selectedRow}>
         <Feather name="map-pin" size={16} color={colors.textSecondary} />
         <Text style={cityStyles.selectedName}>{city.name}</Text>
-        <Pressable
+        <IconButton
+          icon={<Feather name="x" size={16} color={colors.textTertiary} />}
+          label="Clear city"
+          variant="ghost"
+          size="xs"
           onPress={onClear}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Clear city"
-        >
-          <Feather name="x" size={16} color={colors.textTertiary} />
-        </Pressable>
+        />
       </View>
     );
   }
@@ -318,16 +319,15 @@ export default function ProfileScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <SectionHeader title="Skin Profile" />
-            <Pressable
+            <Button
+              variant="textActive"
+              size="sm"
+              icon={<Feather name="edit-2" size={14} color={palette.plum} />}
               onPress={() => setEditModalVisible(true)}
-              style={styles.editBtn}
-              hitSlop={8}
-              accessibilityRole="button"
               accessibilityLabel="Edit skin profile"
             >
-              <Feather name="edit-2" size={14} color={palette.bottleGreen} />
-              <Text style={styles.editBtnText}>Edit</Text>
-            </Pressable>
+              Edit
+            </Button>
           </View>
           <ProfileSummary profile={profile} />
         </View>
@@ -496,7 +496,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgSubtle,
+    backgroundColor: colors.bgScreen,
   },
   scroll: { flex: 1 },
   content: {
@@ -524,18 +524,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: space[1],
-  },
-  editBtnText: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: palette.bottleGreen,
-  },
-
   statsRow: {
     flexDirection: 'row',
     backgroundColor: colors.surfaceCard,

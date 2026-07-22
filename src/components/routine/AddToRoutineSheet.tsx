@@ -12,12 +12,14 @@ import { Feather } from '@expo/vector-icons';
 
 import { Button } from '@/components/ui/core/Button';
 import { FilterChip } from '@/components/ui/core/FilterChip';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
 import { DuplicateSlotChoiceSheet } from '@/components/routine/DuplicateSlotChoiceSheet';
 import { ProductPickerCard } from '@/components/routine/ProductPickerCard';
 import { WeeklySchedulePicker } from '@/components/routine/WeeklySchedulePicker';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
+import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
 import { deriveProductSchedule } from '@/utils/routineLabel';
 import { getSlotCategoryLabel } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
@@ -122,14 +124,22 @@ export function AddToRoutineSheet({
   }, [visible]);
 
   function handleProductSelect(product: Product) {
+    // Read-time guard (same as generate.ts): a `cleanser`-typed product whose
+    // name reads as micellar water / makeup remover is a PM-only pre-cleanse
+    // step, never a standalone cleanse — resolve this once here so every
+    // downstream write (upsertProductStep, findSameSlotConflict,
+    // replaceProductStep) uses the corrected type instead of silently
+    // persisting a mislabeled Morning "Cleanser" step.
+    const resolved = reclassifyMakeupRemover(product);
+    const pmOnly = resolved.productType === 'makeup_remover';
     const existing = deriveProductSchedule(
       useRoutinesStore.getState().routines,
-      product.id,
+      resolved.id,
     );
     const isNew = !existing.morning && !existing.evening;
-    setPendingProduct(product);
-    setMorning(isNew ? activePeriod === 'morning' : existing.morning);
-    setEvening(isNew ? activePeriod === 'evening' : existing.evening);
+    setPendingProduct(resolved);
+    setMorning(pmOnly ? false : (isNew ? activePeriod === 'morning' : existing.morning));
+    setEvening(isNew ? (pmOnly ? true : activePeriod === 'evening') : existing.evening);
     setScheduledDays(existing.scheduledDays);
     setValidationError(null);
     setStep('schedule');
@@ -342,15 +352,13 @@ function StepPick({
           <View style={styles.headerText}>
             <Text style={styles.title}>Add to routine</Text>
           </View>
-          <Pressable
+          <IconButton
+            icon={<Feather name="x" size={18} color={colors.textSecondary} />}
+            label="Close"
+            variant="secondary"
+            size="sm"
             onPress={onClose}
-            style={styles.closeBtn}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <Feather name="x" size={18} color={colors.textSecondary} />
-          </Pressable>
+          />
         </View>
 
         <View style={styles.searchSection}>
@@ -437,18 +445,21 @@ function StepSchedule({
   onSave,
   insets,
 }: StepScheduleProps) {
+  // Micellar water / cleansing oil-balm / makeup remover is a PM-only
+  // pre-cleanse step — it doesn't rinse clean, so it never stands in for a
+  // Morning cleanse (see SKELETON_SLOTS comment in slotting.ts).
+  const morningDisabled = pendingProduct.productType === 'makeup_remover';
+
   return (
     <>
       <View style={styles.header}>
-        <Pressable
+        <IconButton
+          icon={<Feather name="arrow-left" size={18} color={colors.textSecondary} />}
+          label="Back to product list"
+          variant="secondary"
+          size="sm"
           onPress={onBack}
-          style={styles.closeBtn}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Back to product list"
-        >
-          <Feather name="arrow-left" size={18} color={colors.textSecondary} />
-        </Pressable>
+        />
         <View style={[styles.headerText, styles.headerTextIndented]}>
           <Text style={styles.title} numberOfLines={1}>
             {pendingProduct.name}
@@ -463,13 +474,14 @@ function StepSchedule({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>TIME OF DAY</Text>
+          <Text style={styles.sectionLabel}>Time of Day</Text>
           <View style={styles.chipRow}>
             <TimeChip
               icon="sun"
               label="Morning"
               active={morning}
               onPress={() => onMorningChange(!morning)}
+              disabled={morningDisabled}
             />
             <TimeChip
               icon="moon"
@@ -478,6 +490,11 @@ function StepSchedule({
               onPress={() => onEveningChange(!evening)}
             />
           </View>
+          {morningDisabled ? (
+            <Text style={styles.hintText}>
+              Micellar water and makeup removers are evening-only — always follow with a cleanser.
+            </Text>
+          ) : null}
         </View>
 
         {validationError ? (
@@ -487,7 +504,7 @@ function StepSchedule({
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>WEEKLY PLANNER</Text>
+          <Text style={styles.sectionLabel}>Weekly Planner</Text>
           <WeeklySchedulePicker scheduledDays={scheduledDays} onUpdate={onScheduledDaysChange} />
         </View>
       </BottomSheetScrollView>
@@ -511,18 +528,21 @@ function TimeChip({
   label,
   active,
   onPress,
+  disabled,
 }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   label: string;
   active: boolean;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
-      onPress={onPress}
-      style={[styles.timeChip, active && styles.timeChipActive]}
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
+      style={[styles.timeChip, active && styles.timeChipActive, disabled && styles.timeChipDisabled]}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: active }}
+      accessibilityState={{ checked: active, disabled }}
       accessibilityLabel={label}
     >
       <Feather
@@ -573,15 +593,6 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunken,
-    flexShrink: 0,
   },
 
   // ── Step 1: fixed header block
@@ -658,6 +669,9 @@ const styles = StyleSheet.create({
     backgroundColor: palette.black,
     borderColor: palette.black,
   },
+  timeChipDisabled: {
+    opacity: 0.4,
+  },
   timeChipLabel: {
     ...typography.body,
     fontFamily: 'DMSans-Medium',
@@ -665,6 +679,10 @@ const styles = StyleSheet.create({
   },
   timeChipLabelActive: {
     color: palette.white,
+  },
+  hintText: {
+    ...typography.caption,
+    color: colors.textTertiary,
   },
   errorBanner: {
     backgroundColor: colors.statusErrorTint,

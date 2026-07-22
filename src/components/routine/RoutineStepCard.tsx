@@ -4,6 +4,7 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 
 import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
@@ -53,12 +54,6 @@ export interface RoutineStepCardProps {
    */
   adaptationWeek?: number | null;
   /**
-   * Contextual instruction resolved at plan generation (e.g. the pre-cleanse
-   * follow-up: "Follow with your cleanser…"). Renders as a plain info line —
-   * not a warning, not a step of its own, no completion tracking.
-   */
-  stepNote?: string | null;
-  /**
    * The step's resolved productType (e.g. after the pre_cleanse
    * classification guard reclassifies a mistyped micellar water from
    * `cleanser` to `makeup_remover`). Drives the type badge instead of
@@ -79,7 +74,6 @@ export function RoutineStepCard({
   onLongPress,
   onOverflowPress,
   adaptationWeek,
-  stepNote,
   displayProductType,
 }: RoutineStepCardProps) {
   const hasConflict = !!conflictingProductName;
@@ -107,8 +101,9 @@ export function RoutineStepCard({
 
   const mainRow = (
     <View style={styles.mainRow}>
-      {/* Leading product photo — placeholder when none */}
-      <ProductThumbnail product={product} size={88} />
+      {/* Leading product photo — placeholder when none, edge-to-edge with
+          the card's left/top/bottom (matches the shelf card) */}
+      <ProductThumbnail product={product} fill />
 
       {/* Content area */}
       <View style={styles.contentArea}>
@@ -120,7 +115,8 @@ export function RoutineStepCard({
           <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
         </View>
 
-        {/* Bottom row: badges (left) + delete button in edit mode (right) */}
+        {/* Bottom row: badges only — overflow button moved to the top-right
+            corner, on the brand's line (see below) */}
         <View style={styles.bottomRow}>
           <View style={styles.badgesRow}>
             <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
@@ -152,20 +148,22 @@ export function RoutineStepCard({
               </Pressable>
             ) : null}
           </View>
-
-          {onOverflowPress ? (
-            <TouchableOpacity
-              onPress={onOverflowPress}
-              activeOpacity={0.5}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel={`More actions for ${product.name}`}
-            >
-              <Feather name="more-vertical" size={18} color={palette.zinc500} />
-            </TouchableOpacity>
-          ) : null}
         </View>
       </View>
+
+      {onOverflowPress ? (
+        <IconButton
+          icon={<Feather name="more-vertical" size={18} color={palette.zinc500} />}
+          label={`More actions for ${product.name}`}
+          variant="ghost"
+          size="sm"
+          style={styles.overflowButton}
+          onPress={(e) => {
+            e?.stopPropagation?.();
+            onOverflowPress();
+          }}
+        />
+      ) : null}
     </View>
   );
 
@@ -189,17 +187,6 @@ export function RoutineStepCard({
       </View>
     ) : null;
 
-  // Plain info line — not a warning, not a step of its own (pre_cleanse
-  // follow-up ruling). Shares the adaptationRow divider styling since both
-  // are informational, non-actionable status lines under the card.
-  const stepNoteRow = stepNote ? (
-    <View style={styles.adaptationRow}>
-      <Text style={styles.adaptationText} numberOfLines={2}>
-        {stepNote}
-      </Text>
-    </View>
-  ) : null;
-
   const attributionTooltip = (
     <AttributionTooltip
       visible={attributionVisible}
@@ -210,6 +197,12 @@ export function RoutineStepCard({
   );
 
   // One root: tap navigates, long press hands the touch to the drag gesture.
+  // No shadow here — these cards sit inside a Morning/Evening accordion card
+  // that carries its own shadow (see PERIOD_CARD_SHADOW in RoutinesScreen),
+  // so the product cards inside stay flat. Both this card and the accordion
+  // behind it are white, so a light gray outline (not a shadow) is what
+  // actually separates one product card from the next — Routines-tab only,
+  // this component has no other call site.
   return (
     <>
       <TouchableOpacity
@@ -225,7 +218,6 @@ export function RoutineStepCard({
         {mainRow}
         {conflictRow}
         {adaptationRow}
-        {stepNoteRow}
       </TouchableOpacity>
       {attributionTooltip}
     </>
@@ -260,15 +252,17 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: palette.white,
     borderWidth: 1,
-    borderColor: palette.zinc200,
+    borderColor: colors.borderDivider,
     borderRadius: radius.sm,
-    paddingHorizontal: space[2],
-    paddingVertical: space[3],
+    overflow: 'hidden',
   },
   cardConflict: {
     borderColor: palette.amber,
   },
 
+  // No padding here — the leading photo bleeds flush to the row's
+  // left/top/bottom (see ProductThumbnail's `fill` mode). Vertical and
+  // trailing padding live on contentArea instead, around the text only.
   mainRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -279,11 +273,22 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: space[2],
+    paddingVertical: space[4],
+    paddingRight: space[3],
+  },
+
+  overflowButton: {
+    position: 'absolute',
+    top: space[3],
+    right: space[2],
   },
 
   // Brand above the name, both left-aligned (matches the shelf card).
+  // Right padding reserves room for the overflow button, which shares
+  // this line but sits outside contentArea's flow (absolute, top-right).
   topRow: {
     gap: 2,
+    paddingRight: space[8],
   },
   productName: {
     ...typography.body,
@@ -318,14 +323,14 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodySmall.lineHeight,
     includeFontPadding: false,
   },
+  // Neutral gray fill — matches the shelf card's active-badge treatment
+  // (one color for all actives on a light gray backing), no colored border.
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: palette.white,
+    backgroundColor: colors.surfaceSunken,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: palette.zinc300,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },

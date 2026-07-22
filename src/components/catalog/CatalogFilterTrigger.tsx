@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { colors, radius, space } from '@/constants/tokens';
+import { IconButton } from '@/components/ui/core/IconButton';
+import { colors, radius } from '@/constants/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -20,32 +21,31 @@ export function CatalogFilterTrigger({ activeFilterCount, onPress }: CatalogFilt
     : 'Open filters';
 
   return (
-    <Pressable
+    <IconButton
+      icon={
+        <>
+          <Feather name="sliders" size={18} color={colors.textPrimary} />
+          {hasActiveFilters ? <View testID="filter-trigger-badge" style={styles.badge} /> : null}
+        </>
+      }
+      label={accessibilityLabel}
+      variant="ghost"
+      // Sized to sit beside the header's "+" action, which is sm too.
+      size="sm"
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      hitSlop={8}
-      style={styles.trigger}
-    >
-      <Feather name="sliders" size={18} color={colors.textPrimary} />
-      {hasActiveFilters ? <View testID="filter-trigger-badge" style={styles.badge} /> : null}
-    </Pressable>
+    />
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  trigger: {
-    width: space.hitMin,
-    height: space.hitMin,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // Tucked into the glyph's top-right corner: (36px box − 18px icon) / 2 = 9,
+  // minus 3 so the dot overlaps the icon rather than floating off it.
   badge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 6,
+    right: 6,
     width: 8,
     height: 8,
     borderRadius: radius.pill,

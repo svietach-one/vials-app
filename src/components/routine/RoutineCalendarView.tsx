@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { CalendarCell } from '@/components/routine/CalendarCell';
+import { Button } from '@/components/ui/core/Button';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { Product, Routine } from '@/types';
@@ -10,7 +11,9 @@ import { buildCalendarMatrix, type CalendarRow } from '@/utils/calendarMatrix';
 
 /**
  * Read-only month overview of the routine (img-05). Rows are products, columns
- * are days; each cell's diagonal halves show AM/PM scheduling.
+ * are days; every product row stacks two lanes — a morning lane of sun icons
+ * above an evening lane of moon icons — so AM and PM are read by icon rather
+ * than by which half of a cell is filled.
  *
  * **Frozen first column without scroll syncing.** React Native has no sticky
  * columns, and the usual workaround (two vertical ScrollViews kept in step via
@@ -22,7 +25,8 @@ import { buildCalendarMatrix, type CalendarRow } from '@/utils/calendarMatrix';
  */
 
 const CELL_SIZE = 36;
-const ROW_HEIGHT = 56;
+const LANE_HEIGHT = 34;
+const ROW_HEIGHT = LANE_HEIGHT * 2;
 const IDENTITY_WIDTH = 148;
 const HEADER_HEIGHT = 44;
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -73,14 +77,9 @@ export function RoutineCalendarView({
       <View style={styles.emptyWrap}>
         <Feather name="calendar" size={28} color={colors.textTertiary} />
         <Text style={styles.emptyText}>No products scheduled this month.</Text>
-        <Pressable
-          onPress={onAddProduct}
-          accessibilityRole="button"
-          accessibilityLabel="Add product to routine"
-          hitSlop={8}
-        >
-          <Text style={styles.emptyAction}>Add product</Text>
-        </Pressable>
+        <Button variant="textActive" size="sm" onPress={onAddProduct} accessibilityLabel="Add product to routine">
+          Add product
+        </Button>
       </View>
     );
   }
@@ -98,8 +97,13 @@ export function RoutineCalendarView({
           {/* Frozen identity column — outside the horizontal scroll */}
           <View style={styles.identityColumn}>
             <View style={styles.identityHeaderSpacer} />
-            {matrix.rows.map((row) => (
-              <IdentityCell key={row.product.id} row={row} onPress={onProductPress} />
+            {matrix.rows.map((row, i) => (
+              <IdentityCell
+                key={row.product.id}
+                row={row}
+                isLast={i === matrix.rows.length - 1}
+                onPress={onProductPress}
+              />
             ))}
           </View>
 
@@ -116,17 +120,71 @@ export function RoutineCalendarView({
                 month={matrix.month}
                 todayIndex={todayIndex}
               />
-              {matrix.rows.map((row) => (
-                <View key={row.product.id} style={styles.cellRow}>
-                  {row.cells.map((cell, i) => (
-                    <CalendarCell key={i} state={cell} size={CELL_SIZE} />
-                  ))}
+              {matrix.rows.map((row, rowIndex) => (
+                <View
+                  key={row.product.id}
+                  style={[
+                    styles.productRow,
+                    rowIndex === matrix.rows.length - 1 && styles.productRowLast,
+                  ]}
+                >
+                  <View style={styles.laneRow}>
+                    {row.cells.map((cell, i) => (
+                      <CalendarCell
+                        key={i}
+                        period="am"
+                        scheduled={cell.am}
+                        size={CELL_SIZE}
+                        height={LANE_HEIGHT}
+                      />
+                    ))}
+                  </View>
+                  <View style={styles.laneRow}>
+                    {row.cells.map((cell, i) => (
+                      <CalendarCell
+                        key={i}
+                        period="pm"
+                        scheduled={cell.pm}
+                        size={CELL_SIZE}
+                        height={LANE_HEIGHT}
+                      />
+                    ))}
+                  </View>
                 </View>
               ))}
             </View>
           </ScrollView>
         </View>
+
+        <Legend />
       </ScrollView>
+    </View>
+  );
+}
+
+// ─── Legend ───────────────────────────────────────────────────────────────────
+
+function Legend() {
+  return (
+    <View style={styles.legend}>
+      <LegendItem period="am" label="Morning" />
+      <LegendItem period="pm" label="Evening" />
+      <LegendItem label="Not scheduled" />
+    </View>
+  );
+}
+
+function LegendItem({ period, label }: { period?: 'am' | 'pm'; label: string }) {
+  return (
+    <View style={styles.legendItem}>
+      <CalendarCell
+        variant="legend"
+        period={period ?? 'am'}
+        scheduled={period !== undefined}
+        size={LANE_HEIGHT}
+        height={LANE_HEIGHT}
+      />
+      <Text style={styles.legendLabel}>{label}</Text>
     </View>
   );
 }
@@ -135,15 +193,17 @@ export function RoutineCalendarView({
 
 function IdentityCell({
   row,
+  isLast,
   onPress,
 }: {
   row: CalendarRow;
+  isLast: boolean;
   onPress: (p: Product) => void;
 }) {
   const { product } = row;
   return (
     <Pressable
-      style={styles.identityCell}
+      style={[styles.identityCell, isLast && styles.identityCellLast]}
       onPress={() => onPress(product)}
       accessibilityRole="button"
       accessibilityLabel={`${product.name}, open actions`}
@@ -210,18 +270,25 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontFamily: 'DMSans-Medium',
     color: colors.textPrimary,
-    paddingHorizontal: space.gutterScreen,
+    // Matches the grid card's own horizontal inset.
+    paddingHorizontal: space[4],
     paddingBottom: space[3],
   },
   grid: {
     flexDirection: 'row',
+    marginHorizontal: space[4],
+    borderWidth: 1,
+    borderColor: colors.borderDivider,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceCard,
+    overflow: 'hidden',
   },
 
   identityColumn: {
     width: IDENTITY_WIDTH,
     borderRightWidth: 1,
-    borderRightColor: colors.borderStrong,
-    backgroundColor: colors.bgBase,
+    borderRightColor: colors.borderDivider,
+    backgroundColor: colors.surfaceCard,
   },
   identityHeaderSpacer: {
     height: HEADER_HEIGHT,
@@ -234,6 +301,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[3],
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderDivider,
+  },
+  identityCellLast: {
+    borderBottomWidth: 0,
   },
   identityText: {
     flex: 1,
@@ -261,7 +331,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   headerWeekday: {
-    ...typography.caption,
+    fontFamily: 'DMSans-Medium',
     fontSize: 10,
     lineHeight: 12,
     color: colors.textTertiary,
@@ -273,29 +343,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Today is monochrome-filled per the DS — never a semantic accent colour.
+  // Today matches PlannerBlock's week-strip active-day treatment (plum fill).
   headerDateBadgeToday: {
-    backgroundColor: palette.black,
+    backgroundColor: palette.plum,
   },
   headerDate: {
-    ...typography.caption,
+    fontFamily: 'DMSans-Medium',
     fontSize: 12,
     lineHeight: 14,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
   headerDateToday: {
-    color: colors.textOnDark,
-    fontFamily: 'DMSans-Medium',
+    color: palette.white,
+    fontFamily: 'DMSans-Bold',
   },
 
-  cellRow: {
-    flexDirection: 'row',
+  // One product = two stacked lanes (morning above evening). The row divider
+  // lives here, not on the cell, so it aligns with the frozen identity
+  // column's divider at the same y.
+  productRow: {
     height: ROW_HEIGHT,
-    alignItems: 'center',
-    // Row divider lives here, not on the cell, so it aligns with the frozen
-    // identity column's divider at the same y.
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderDivider,
+  },
+  productRowLast: {
+    borderBottomWidth: 0,
+  },
+  laneRow: {
+    flexDirection: 'row',
+    height: LANE_HEIGHT,
+    alignItems: 'center',
+  },
+
+  legend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: space[4],
+    paddingHorizontal: space[4],
+    paddingTop: space[4],
+    paddingBottom: space[2],
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+  },
+  legendLabel: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.textSecondary,
   },
 
   emptyWrap: {
@@ -307,10 +405,5 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
-  },
-  emptyAction: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: palette.bottleGreen,
   },
 });

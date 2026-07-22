@@ -275,7 +275,7 @@ function SelectChip({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bgSubtle },
+  safe: { flex: 1, backgroundColor: colors.bgScreen },
   flex: { flex: 1 },
   scroll: { flex: 1 },
   content: {

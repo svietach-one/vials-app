@@ -24,7 +24,7 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import { ProductShelfCard } from '@/components/product/ProductShelfCard';
-import { palette } from '@/constants/tokens';
+import { colors, palette } from '@/constants/tokens';
 import {
   makeProduct,
   makeDefaultShelfCardProps,
@@ -93,52 +93,61 @@ function renderCard(overrides: Partial<ReturnType<typeof makeDefaultShelfCardPro
 
 // ── Story 1: Routine-member display ───────────────────────────────────────────
 
-describe('Story 1 — Routine-member display', () => {
-  it('shows calendar icon and schedule label when product is in a routine', () => {
-    renderCard({ isInRoutine: true, scheduleLabel: 'Mon • Wed • Sat' });
-    expect(screen.getByText('Mon • Wed • Sat')).toBeTruthy();
-  });
-
-  it('shows only the sun icon when usageTime is morning', () => {
+describe('Story 1 — Routine-member display (superseded 2026-07-22: icons moved onto the photo)', () => {
+  it('shows only the sun icon (over the photo) when usageTime is morning', () => {
     renderCard({ isInRoutine: true, usageTime: 'morning' });
     expect(screen.getByTestId('icon-sun')).toBeTruthy();
     expect(screen.queryByTestId('icon-moon')).toBeNull();
   });
 
-  it('shows only the moon icon when usageTime is evening', () => {
+  it('shows only the moon icon (over the photo) when usageTime is evening', () => {
     renderCard({ isInRoutine: true, usageTime: 'evening' });
     expect(screen.getByTestId('icon-moon')).toBeTruthy();
     expect(screen.queryByTestId('icon-sun')).toBeNull();
   });
 
-  it('shows both moon and sun icons when usageTime is both', () => {
+  it('shows both moon and sun icons (over the photo) when usageTime is both', () => {
     renderCard({ isInRoutine: true, usageTime: 'both' });
     expect(screen.getByTestId('icon-moon')).toBeTruthy();
     expect(screen.getByTestId('icon-sun')).toBeTruthy();
   });
 
-  it('does not show "Hidden from routine" when product is in a routine', () => {
+  it('does not show the "hidden from routine" icon when product is in a routine', () => {
     renderCard({ isInRoutine: true });
-    expect(screen.queryByText('Hidden from routine')).toBeNull();
+    expect(screen.queryByTestId('icon-hidden-from-routine')).toBeNull();
+  });
+
+  it('renders the sun icon on an orange-on-light-yellow circle', () => {
+    renderCard({ isInRoutine: true, usageTime: 'morning' });
+    const circle = flattenStyle(screen.getByTestId('icon-sun').props.style);
+    expect(circle.backgroundColor).toBe(palette.marigoldTint);
+  });
+
+  it('renders the moon icon on a blue-on-light-blue circle', () => {
+    renderCard({ isInRoutine: true, usageTime: 'evening' });
+    const circle = flattenStyle(screen.getByTestId('icon-moon').props.style);
+    expect(circle.backgroundColor).toBe(palette.cobaltTint);
   });
 });
 
 // ── Story 2: Non-routine display ──────────────────────────────────────────────
 
-describe('Story 2 — Non-routine / hidden display', () => {
-  it('shows "Hidden from routine" label when product is not in a routine', () => {
+describe('Story 2 — Non-routine / hidden display (superseded 2026-07-22: icon moved onto the photo)', () => {
+  it('shows the "hidden from routine" icon (over the photo) when product is not in a routine', () => {
     renderCard({ isInRoutine: false });
-    expect(screen.getByText('Hidden from routine')).toBeTruthy();
+    expect(screen.getByTestId('icon-hidden-from-routine')).toBeTruthy();
   });
 
-  it('does not show the calendar icon when product is not in a routine', () => {
+  it('renders the "hidden from routine" icon on a dark-gray-on-light-gray circle', () => {
     renderCard({ isInRoutine: false });
-    expect(screen.queryByTestId('icon-calendar')).toBeNull();
+    const circle = flattenStyle(screen.getByTestId('icon-hidden-from-routine').props.style);
+    expect(circle.backgroundColor).toBe(palette.zinc100);
   });
 
-  it('does not show the schedule day label when product is not in a routine', () => {
-    renderCard({ isInRoutine: false, scheduleLabel: 'Mon • Wed • Sat' });
-    expect(screen.queryByText('Mon • Wed • Sat')).toBeNull();
+  it('does not show the sun/moon icons when product is not in a routine', () => {
+    renderCard({ isInRoutine: false });
+    expect(screen.queryByTestId('icon-sun')).toBeNull();
+    expect(screen.queryByTestId('icon-moon')).toBeNull();
   });
 });
 
@@ -280,14 +289,12 @@ describe('Layout stability — elements stay present when title is long', () => 
     expect(screen.getByLabelText(/more actions/i)).toBeTruthy();
   });
 
-  it('routine status middle row is present and unchanged when title wraps', () => {
+  it('sun/moon overlay icons are present and unchanged when title wraps', () => {
     renderCard({
       product: makeProduct({ name: longName }),
       isInRoutine: true,
-      scheduleLabel: 'Mon • Wed • Sat',
       usageTime: 'both',
     });
-    expect(screen.getByText('Mon • Wed • Sat')).toBeTruthy();
     expect(screen.getByTestId('icon-moon')).toBeTruthy();
     expect(screen.getByTestId('icon-sun')).toBeTruthy();
   });
@@ -350,52 +357,29 @@ describe('Multi-active badges — Story 1: every active renders', () => {
   });
 });
 
-// ── Story 2: Distinguish active categories by color ───────────────────────────
+// ── Story 2: Actives share one uniform neutral color (superseded 2026-07-22 — see below) ──
 
-describe('Multi-active badges — Story 2: category colors', () => {
-  it('renders an exfoliant/treatment-acid active (bha) in the amber category color', () => {
+describe('Multi-active badges — Story 2: uniform neutral color', () => {
+  it('renders every active badge with the same neutral gray fill, regardless of category', () => {
     renderCard({ product: makeSingleActiveProduct('bha') });
+    const bhaBadge = flattenStyle(screen.getByTestId('active-badge-bha').props.style);
 
-    const badge = screen.getByTestId('active-badge-bha');
-    const label = screen.getByText('BHA');
-    expect(flattenStyle(badge.props.style).borderColor).toBe(palette.amberLine);
-    expect(flattenStyle(label.props.style).color).toBe(palette.amber);
-  });
-
-  it('renders a vitamin C active (vitamin_c_derivative) in the amber category color too', () => {
-    renderCard({ product: makeSingleActiveProduct('vitamin_c_derivative') });
-
-    const badge = screen.getByTestId('active-badge-vitamin_c_derivative');
-    const label = screen.getByText('Vitamin C (Derivative)');
-    expect(flattenStyle(badge.props.style).borderColor).toBe(palette.amberLine);
-    expect(flattenStyle(label.props.style).color).toBe(palette.amber);
-  });
-
-  it('renders a soothing/brightening active (niacinamide) in the bottle-green category color', () => {
     renderCard({ product: makeSingleActiveProduct('niacinamide') });
+    const niacinamideBadge = flattenStyle(screen.getByTestId('active-badge-niacinamide').props.style);
 
-    const badge = screen.getByTestId('active-badge-niacinamide');
-    const label = screen.getByText('Niacinamide');
-    expect(flattenStyle(badge.props.style).borderColor).toBe(palette.bottleGreenLine);
-    expect(flattenStyle(label.props.style).color).toBe(palette.bottleGreen);
-  });
-
-  it('renders a hydrating/barrier active (ceramides) in the cobalt category color', () => {
     renderCard({ product: makeSingleActiveProduct('ceramides') });
+    const ceramidesBadge = flattenStyle(screen.getByTestId('active-badge-ceramides').props.style);
 
-    const badge = screen.getByTestId('active-badge-ceramides');
-    const label = screen.getByText('Ceramides');
-    expect(flattenStyle(badge.props.style).borderColor).toBe(palette.cobaltLine);
-    expect(flattenStyle(label.props.style).color).toBe(palette.cobalt);
+    expect(bhaBadge.backgroundColor).toBe(colors.surfaceSunken);
+    expect(niacinamideBadge.backgroundColor).toBe(colors.surfaceSunken);
+    expect(ceramidesBadge.backgroundColor).toBe(colors.surfaceSunken);
   });
 
-  it('renders an active outside all three buckets (spf_filters) with the existing neutral zinc/black look', () => {
+  it('renders an active outside all category buckets (spf_filters) with the same neutral fill too', () => {
     renderCard({ product: makeSingleActiveProduct('spf_filters') });
 
-    const badge = screen.getByTestId('active-badge-spf_filters');
-    const label = screen.getByText('UV Filters (SPF)');
-    expect(flattenStyle(badge.props.style).borderColor).toBe(palette.zinc300);
-    expect(flattenStyle(label.props.style).color).toBe(palette.black);
+    const badge = flattenStyle(screen.getByTestId('active-badge-spf_filters').props.style);
+    expect(badge.backgroundColor).toBe(colors.surfaceSunken);
   });
 });
 
@@ -414,8 +398,7 @@ describe('Multi-active badges — Story 3: type badge vs. active badge styling',
 
   it('never gives the active badge the same solid-fill recipe as the type badge, even in the same hue family', () => {
     // "mask" type badge is amber (palette.amberTint solid fill); "bha" active
-    // badge is also amber-family (exfoliant) — this is the exact same-hue
-    // collision called out in the tech design's Assumptions section.
+    // badge is neutral gray — the two recipes must never collide.
     const product = makeProduct({ productType: 'mask', activeTags: ['bha'], activeIngredients: [] });
     renderCard({ product });
 
@@ -425,35 +408,70 @@ describe('Multi-active badges — Story 3: type badge vs. active badge styling',
     const typeStyle = flattenStyle(typeBadgeContainer?.props.style);
     const activeStyle = flattenStyle(activeBadgeContainer.props.style);
 
-    // Type badge: solid amber tint fill, no meaningful border color assertion needed here.
+    // Type badge: solid amber tint fill.
     expect(typeStyle.backgroundColor).toBe(palette.amberTint);
-    // Active badge: outlined recipe — must NOT reuse the type badge's solid fill,
-    // and must carry a colored border instead.
+    // Active badge: neutral gray fill — must NOT reuse the type badge's amber fill.
     expect(activeStyle.backgroundColor).not.toBe(palette.amberTint);
-    expect(activeStyle.borderColor).toBe(palette.amberLine);
+    expect(activeStyle.backgroundColor).toBe(colors.surfaceSunken);
   });
 });
 
-// ── Story 4: Cards with many actives stay fully readable ─────────────────────
+// ── Story 4: Cards with many actives collapse the rest into "+N" ─────────────
+// (superseded 2026-07-22: no more fixed cap of 3 — pills must never render
+// partially cut off, and there's no live layout measurement to check actual
+// fit against, so the rule is estimated-width-based: try the first 2 actives,
+// then 1. Critically, whenever there's a hidden remainder, the trailing "+N"
+// badge's own width must ALSO fit the budget — two badges that would fit on
+// their own can still force a fall back to 1 once the "+N" that follows them
+// is accounted for. Whatever doesn't make it in rolls into that "+N" badge —
+// still visible on the product's own detail page.)
 
-describe('Multi-active badges — Story 4: many actives, no "+N" overflow', () => {
-  it('renders all 4 badges for a 4-active product with no badge hidden', () => {
+describe('Multi-active badges — Story 4: "+N" overflow (superseded 2026-07-22)', () => {
+  it('falls back to 1 badge plus "+N" when a 4-active product would otherwise need to also fit an overflow badge', () => {
+    // "BHA" + "Niacinamide" alone would fit as 2 badges, but once the
+    // trailing "+N" badge (needed since there are 4 actives total) is
+    // budgeted for too, they no longer fit together — so this shows just 1.
     renderCard({ product: makeFourActiveProduct() });
 
     expect(screen.getByTestId('active-badge-bha')).toBeTruthy();
+    expect(screen.queryByTestId('active-badge-niacinamide')).toBeNull();
+    expect(screen.queryByTestId('active-badge-ceramides')).toBeNull();
+    expect(screen.queryByTestId('active-badge-spf_filters')).toBeNull();
+    expect(screen.queryAllByTestId(/^active-badge-(?!overflow)/)).toHaveLength(1);
+    expect(screen.getByTestId('active-badge-overflow')).toBeTruthy();
+    expect(screen.getByText('+3')).toBeTruthy();
+  });
+
+  it('shows no overflow badge when there are only 2 actives and both fit', () => {
+    renderCard({ product: makeMultiActiveProduct() });
+
+    expect(screen.getByTestId('active-badge-bha')).toBeTruthy();
     expect(screen.getByTestId('active-badge-niacinamide')).toBeTruthy();
-    expect(screen.getByTestId('active-badge-ceramides')).toBeTruthy();
-    expect(screen.getByTestId('active-badge-spf_filters')).toBeTruthy();
-    expect(screen.queryAllByTestId(/^active-badge-/)).toHaveLength(4);
+    expect(screen.queryByTestId('active-badge-overflow')).toBeNull();
   });
 
-  it('never shows a "+N" or similar numeric overflow indicator, regardless of active count', () => {
-    renderCard({ product: makeFourActiveProduct() });
+  it('falls back to showing just 1 badge when the first 2 combined labels are too long to fit', () => {
+    const product = makeProduct({
+      activeTags: ['vitamin_c_derivative', 'spf_filters'],
+      activeIngredients: [],
+    });
+    renderCard({ product });
 
-    expect(screen.queryAllByText(/\+\s*\d+/)).toHaveLength(0);
+    expect(screen.getByTestId('active-badge-vitamin_c_derivative')).toBeTruthy();
+    expect(screen.queryByTestId('active-badge-spf_filters')).toBeNull();
+    expect(screen.queryAllByTestId(/^active-badge-(?!overflow)/)).toHaveLength(1);
+    expect(screen.getByTestId('active-badge-overflow')).toBeTruthy();
+    expect(screen.getByText('+1')).toBeTruthy();
   });
 
-  it('keeps the overflow ("more actions") button present and tappable when the badge row is at its widest', () => {
+  it('never truncates a rendered active badge label', () => {
+    renderCard({ product: makeMultiActiveProduct() });
+
+    expect(screen.getByText('BHA')).toBeTruthy();
+    expect(screen.getByText('Niacinamide')).toBeTruthy();
+  });
+
+  it('keeps the overflow ("more actions") button present and tappable alongside a "+N" active-overflow badge', () => {
     renderCard({ product: makeFourActiveProduct(), isInRoutine: true });
 
     const overflowButton = screen.getByLabelText(/more actions/i);
@@ -461,5 +479,17 @@ describe('Multi-active badges — Story 4: many actives, no "+N" overflow', () =
 
     fireEvent.press(overflowButton);
     expect(screen.getByText('Edit Product')).toBeTruthy();
+  });
+});
+
+// ── Story 5: Uniform card size regardless of actives ─────────────────────────
+
+describe('Multi-active badges — Story 5: uniform card size (added 2026-07-22)', () => {
+  it('keeps the actives row present (reserving its height) even with zero actives', () => {
+    const product = makeProduct({ activeTags: [], activeIngredients: [] });
+    renderCard({ product });
+
+    const activesRow = screen.getByTestId('shelf-card-actives-row');
+    expect(flattenStyle(activesRow.props.style).minHeight).toBeGreaterThan(0);
   });
 });

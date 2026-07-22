@@ -65,9 +65,8 @@ jest.mock('react-native-draggable-flatlist', () => {
 jest.mock('@/components/routine/AddToRoutineSheet', () => ({ AddToRoutineSheet: () => null }));
 jest.mock('@/components/routine/DraftPreviewSheet', () => ({ DraftPreviewSheet: () => null }));
 jest.mock('@/components/routine/RemoveStepModal', () => ({ RemoveStepModal: () => null }));
-jest.mock('@/components/routine/ClinicalRestrictionsBlock', () => ({ ClinicalRestrictionsBlock: () => null }));
 jest.mock('@/components/routine/SeasonalNoticeBanner', () => ({ SeasonalNoticeBanner: () => null }));
-jest.mock('@/components/routine/RehabWidget', () => ({ RehabWidget: () => null }));
+jest.mock('@/components/routine/RehabNoticeCard', () => ({ RehabNoticeCard: () => null }));
 jest.mock('@/components/routine/PlannerBlock', () => ({ PlannerBlock: () => null }));
 jest.mock('@/components/routine/RoutineStepCard', () => ({ RoutineStepCard: () => null }));
 

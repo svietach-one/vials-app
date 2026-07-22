@@ -247,7 +247,5 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textTertiary,
     textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
 });

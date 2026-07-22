@@ -17,6 +17,8 @@ import { colors, space, typography } from '@/constants/tokens';
 export interface ListRowProps {
   leading?: React.ReactNode;
   title: string;
+  /** Overrides the title's default text color (e.g. a destructive row). */
+  titleColor?: string;
   subtitle?: string | null;
   trailing?: React.ReactNode;
   /** Renders a trailing chevron icon. */
@@ -32,6 +34,7 @@ export interface ListRowProps {
 export function ListRow({
   leading,
   title,
+  titleColor,
   subtitle,
   trailing,
   chevron = false,
@@ -47,7 +50,7 @@ export function ListRow({
       {leading ? <View style={styles.leadingSlot}>{leading}</View> : null}
 
       <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={[styles.title, titleColor ? { color: titleColor } : null]} numberOfLines={1}>
           {title}
         </Text>
         {subtitle ? (

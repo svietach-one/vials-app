@@ -176,7 +176,7 @@ function RoutineBlock({ view, products }: { view: DailyRoutineView; products: Pr
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bgSubtle },
+  safe: { flex: 1, backgroundColor: colors.bgScreen },
   scroll: { flex: 1 },
   content: {
     paddingHorizontal: space.gutterScreen,

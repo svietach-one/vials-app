@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -18,6 +17,7 @@ import { Feather } from '@expo/vector-icons';
 import { OcrEngineWebView } from '@/components/camera/OcrEngineWebView';
 import type { OcrEngineHandle } from '@/components/camera/OcrEngineWebView';
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { CaptureMode, CaptureResult } from '@/types';
@@ -124,22 +124,19 @@ function BarcodeCaptureModal({ mode, visible, onClose, onCapture }: CameraCaptur
           Camera unavailable. Enter the barcode below or use manual entry.
         </Text>
         {permissionDenied && permission?.canAskAgain && !cameraFailed ? (
-          <Pressable
-            style={styles.fallbackBtn}
-            onPress={() => void requestPermission()}
-            accessibilityRole="button"
-          >
-            <Text style={styles.fallbackBtnLabel}>Allow Camera Access</Text>
-          </Pressable>
+          <Button variant="primary" size="md" onPress={() => void requestPermission()} style={styles.fallbackBtn}>
+            Allow Camera Access
+          </Button>
         ) : null}
-        <Pressable
-          style={styles.fallbackBtn}
+        <Button
+          variant="primary"
+          size="md"
           onPress={onClose}
-          accessibilityRole="button"
           accessibilityLabel="Close and use manual entry"
+          style={styles.fallbackBtn}
         >
-          <Text style={styles.fallbackBtnLabel}>Use Manual Entry</Text>
-        </Pressable>
+          Use Manual Entry
+        </Button>
       </View>
     );
   }
@@ -194,15 +191,14 @@ function BarcodeCaptureModal({ mode, visible, onClose, onCapture }: CameraCaptur
           the "close button stops working" bug.
         */}
         <SafeAreaView style={styles.closeWrap} pointerEvents="box-none">
-          <Pressable
+          <IconButton
+            icon={<Feather name="x" size={20} color={palette.white} />}
+            label="Close camera"
+            variant="ghost"
+            size="sm"
             style={styles.closeBtn}
             onPress={onClose}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Close camera"
-          >
-            <Feather name="x" size={20} color={palette.white} />
-          </Pressable>
+          />
         </SafeAreaView>
 
         {/* Manual entry — always available, not only after a failed scan. */}
@@ -471,12 +467,8 @@ const styles = StyleSheet.create({
   closeBtn: {
     marginTop: space[4],
     marginRight: space[4],
-    width: 36,
-    height: 36,
     borderRadius: radius.pill,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   manualWrap: {
@@ -527,10 +519,6 @@ const styles = StyleSheet.create({
     paddingVertical: space[3],
     borderRadius: radius.pill,
     backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  fallbackBtnLabel: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: palette.white,
+    borderColor: 'transparent',
   },
 });

@@ -15,6 +15,7 @@ import { Feather } from '@expo/vector-icons';
 import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
 import { GoalSelector } from '@/components/profile/GoalSelector';
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
@@ -132,15 +133,13 @@ export function SkinProfileEditModal({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Edit Skin Profile</Text>
-            <Pressable
+            <IconButton
+              icon={<Feather name="x" size={20} color={colors.textSecondary} />}
+              label="Close"
+              variant="secondary"
+              size="sm"
               onPress={onClose}
-              style={styles.closeBtn}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Feather name="x" size={20} color={colors.textSecondary} />
-            </Pressable>
+            />
           </View>
 
           <ScrollView
@@ -309,14 +308,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontFamily: 'DMSans-Medium',
     color: colors.textPrimary,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunken,
   },
   scroll: { flex: 1 },
   content: {

@@ -13,6 +13,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import type { Product, Routine } from '@/types';
 import type { RoutinePlan } from '@/utils/routineEngine/generate';
+import { getSlotIndex } from '@/utils/routineEngine/slotting';
 import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
 
 jest.mock('react-native-safe-area-context', () =>
@@ -107,8 +108,8 @@ beforeEach(() => {
   mockRoutines = [];
 });
 
-describe('Story 2 AC: Draft Preview renders a Before -> After layout with the four commit actions', () => {
-  it('renders Morning/Evening Before->After columns, the paused row, and all four scope actions', () => {
+describe('Story 2 AC: Draft Preview renders the step list with the four commit actions', () => {
+  it('renders Morning/Evening step groups, the paused row, and all four scope actions', () => {
     render(
       <DraftPreviewSheet
         visible
@@ -149,6 +150,111 @@ describe('Story 2 AC: Draft Preview renders a Before -> After layout with the fo
   });
 });
 
+describe('screen-improvements: steps are numbered in the order they are applied', () => {
+  it('lists a period layering-ordered regardless of the order the plan arrays hold', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({
+          // Serum first in the array; cleanser must still render as step 1.
+          periods: {
+            morning: [
+              { productId: VITC.id, productType: 'serum', scheduledDays: [], slotIndex: getSlotIndex('serum'), score: 0, addedAt: '2026-01-01' },
+              { productId: CLEANSER.id, productType: 'cleanser', scheduledDays: [], slotIndex: getSlotIndex('cleanser'), score: 0, addedAt: '2026-01-01' },
+            ],
+            evening: [],
+          },
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    const categories = screen.getAllByText(/^(Cleanser|Serum)$/);
+    expect(categories.map((node) => node.props.children)).toEqual(['Cleanser', 'Serum']);
+  });
+
+  it('numbers each step by its position within its own period', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan()}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    // Morning has two steps (1, 2) and Evening restarts at 1.
+    expect(screen.getAllByText('1')).toHaveLength(2);
+    expect(screen.getAllByText('2')).toHaveLength(1);
+  });
+});
+
+describe('screen-improvements: each step reflects whether it changed from the saved routine', () => {
+  it('tags a step "No change" when the admitted product is the same as the saved one', () => {
+    mockRoutines = [
+      {
+        id: 'routine-am',
+        name: 'Morning',
+        timeOfDay: 'morning',
+        steps: [{ id: 's1', productType: 'cleanser', productId: CLEANSER.id, hidden: false, scheduledDays: [] }],
+      },
+    ];
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({
+          periods: {
+            morning: [
+              { productId: CLEANSER.id, productType: 'cleanser', scheduledDays: [], slotIndex: getSlotIndex('cleanser'), score: 0, addedAt: '2026-01-01' },
+            ],
+            evening: [],
+          },
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Gentle Cleanser')).toBeTruthy();
+    expect(screen.getByText('No change')).toBeTruthy();
+  });
+
+  it('shows the old product struck through above the new one when the slot changed', () => {
+    mockRoutines = [
+      {
+        id: 'routine-am',
+        name: 'Morning',
+        timeOfDay: 'morning',
+        steps: [{ id: 's1', productType: 'serum', productId: RETINOID.id, hidden: false, scheduledDays: [] }],
+      },
+    ];
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({
+          periods: {
+            morning: [
+              { productId: VITC.id, productType: 'serum', scheduledDays: [], slotIndex: getSlotIndex('serum'), score: 0, addedAt: '2026-01-01' },
+            ],
+            evening: [],
+          },
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Retinol Night Cream')).toBeTruthy();
+    expect(screen.getByText('Vitamin C Serum')).toBeTruthy();
+    expect(screen.queryByText('No change')).toBeNull();
+  });
+});
+
 describe('Story 2 AC: each commit action invokes onCommit with the correct scope', () => {
   it('"Save for Morning & Evening" commits scope "both"', () => {
     const onCommit = jest.fn();
@@ -181,13 +287,58 @@ describe('Story 2 AC: each commit action invokes onCommit with the correct scope
   });
 });
 
-describe('phase-07: reserve rows show the reason and an override action', () => {
-  it('renders each reserved product with its human reason text', () => {
+describe('screen-improvements: the reserve list is a collapsed-by-default disclosure', () => {
+  it('explains the whole list once under the heading instead of per product', () => {
     render(
       <DraftPreviewSheet
         visible
         onClose={jest.fn()}
-        // VITC not in the morning period here, so it appears only in reserve.
+        plan={makePlan({
+          periods: { morning: [], evening: [] },
+          reserve: [
+            { productId: VITC.id, reasonCode: 'not_needed_for_goals' },
+            { productId: RETINOID.id, reasonCode: 'not_needed_for_goals' },
+          ],
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByText('In reserve · 2 products'));
+
+    expect(screen.getByText(/don’t call for these products/)).toBeTruthy();
+    // The per-product repetition of the same sentence is gone.
+    expect(screen.queryByText(/don’t call for this product/)).toBeNull();
+  });
+
+  it('keeps a reason on the row when it says something the shared intro does not', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({
+          periods: { morning: [], evening: [] },
+          reserve: [
+            { productId: VITC.id, reasonCode: 'not_needed_for_goals' },
+            { productId: RETINOID.id, reasonCode: 'duplicate_function' },
+          ],
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByText('In reserve · 2 products'));
+
+    expect(screen.getByText(/Another product already covers this role/)).toBeTruthy();
+  });
+
+  it('starts collapsed, showing only the heading with a product count', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
         plan={makePlan({
           periods: { morning: [], evening: [] },
           reserve: [{ productId: VITC.id, reasonCode: 'not_needed_for_goals' }],
@@ -197,12 +348,31 @@ describe('phase-07: reserve rows show the reason and an override action', () => 
       />,
     );
 
-    expect(screen.getByText('In reserve')).toBeTruthy();
-    expect(screen.getByText('Vitamin C Serum')).toBeTruthy();
-    // The dictionary text, not the raw code.
-    expect(screen.getByText(/don’t call for this product/)).toBeTruthy();
+    expect(screen.getByText('In reserve · 1 product')).toBeTruthy();
+    expect(screen.queryByText('Vitamin C Serum')).toBeNull();
   });
 
+  it('expands to show the reserved products themselves when tapped', () => {
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({
+          periods: { morning: [], evening: [] },
+          reserve: [{ productId: VITC.id, reasonCode: 'not_needed_for_goals' }],
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByText('In reserve · 1 product'));
+
+    expect(screen.getByText('Vitamin C Serum')).toBeTruthy();
+  });
+});
+
+describe('phase-07: reserve rows show the reason and an override action', () => {
   it('shows a frozen pair-rule product with its reason text (not a rule id)', () => {
     render(
       <DraftPreviewSheet
@@ -233,6 +403,7 @@ describe('phase-07: reserve rows show the reason and an override action', () => 
       />,
     );
 
+    fireEvent.press(screen.getByText('In reserve · 1 product'));
     fireEvent.press(screen.getByLabelText('Add Vitamin C Serum anyway'));
     expect(onOverride).toHaveBeenCalledWith(VITC.id);
   });
@@ -248,6 +419,7 @@ describe('phase-07: reserve rows show the reason and an override action', () => 
       />,
     );
 
+    fireEvent.press(screen.getByText('In reserve · 1 product'));
     expect(screen.queryByLabelText('Add Vitamin C Serum anyway')).toBeNull();
   });
 });
