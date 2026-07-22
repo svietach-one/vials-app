@@ -40,10 +40,9 @@ export const palette = {
   cabernet: '#800C2E',
   red: '#B40018',
   amber: '#A84C0E',
+  // Warm orange. Doubles as the "morning" accent everywhere a sun glyph
+  // appears: Routines period headers, My Shelf card badges, calendar lanes.
   marigold: '#EB970D',
-  // Cool yellow — distinct from marigold's warm orange-yellow. Used for the
-  // Routines screen's Morning card icon accent.
-  citron: '#A69300',
   bottleGreen: '#0F4C3A',
   cobalt: '#1E3A8A',
 
@@ -52,8 +51,6 @@ export const palette = {
   redTint: '#F9E6E8',
   amberTint: '#FDF0E6',
   marigoldTint: '#FCEFDB',
-  // Very light cream-yellow — Routines screen's Morning card background.
-  citronTint: '#FBF7E3',
   bottleGreenTint: '#EBF4F1',
   cobaltTint: '#EBF0FA',
 

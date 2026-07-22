@@ -115,16 +115,18 @@ type Period = 'morning' | 'evening';
 // distinct tints — two hues read fine on their own, but clash badly the
 // moment an amber notification card (PreCleanseReminderCard) sits inside one
 // of them. The sun/moon header icons keep their own color (PERIOD_ICON_COLOR)
-// so the periods stay visually distinguishable at a glance.
+// so the periods stay visually distinguishable at a glance: marigold sun on a
+// light-orange disc, cobalt moon on a light-blue one — the same pairing the
+// calendar lanes and My Shelf badges use.
 const PERIOD_CARD_BG = palette.boneDeep;
 const PERIOD_ICON_COLOR: Record<Period, string> = {
-  morning: palette.citron,
+  morning: palette.marigold,
   evening: palette.cobalt,
 };
 // Same circle treatment as the sun/moon overlay badges on My Shelf's
 // ProductShelfCard (circleBadge/circleBadgeSun/circleBadgeMoon).
 const PERIOD_ICON_BG: Record<Period, string> = {
-  morning: palette.citronTint,
+  morning: palette.marigoldTint,
   evening: palette.cobaltTint,
 };
 // A shadow can only ever appear beside a view tall enough to cast it — the
