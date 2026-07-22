@@ -93,11 +93,13 @@ describe('RoutineCalendarView', () => {
 
   it('renders a cell for every day of the month', () => {
     renderView();
-    // July has 31 days; an every-day AM schedule fills them all.
+    // July has 31 days; an every-day AM schedule fills the whole morning lane,
+    // and the evening lane stays empty for all 31 days.
     expect(screen.getAllByTestId('calendar-cell-am')).toHaveLength(31);
+    expect(screen.getAllByTestId('calendar-cell-empty')).toHaveLength(31);
   });
 
-  it('marks AM and PM halves independently', () => {
+  it('marks the morning and evening lanes independently', () => {
     renderView({
       // Mondays AM, Tuesdays PM.
       routines: makeRoutines(
@@ -109,11 +111,11 @@ describe('RoutineCalendarView', () => {
     // July 2026 has 4 Mondays and 4 Tuesdays.
     expect(screen.getAllByTestId('calendar-cell-am')).toHaveLength(4);
     expect(screen.getAllByTestId('calendar-cell-pm')).toHaveLength(4);
-    // The remaining 23 days are unscheduled.
-    expect(screen.getAllByTestId('calendar-cell-empty')).toHaveLength(23);
+    // Both lanes are unscheduled on the remaining days: 27 + 27.
+    expect(screen.getAllByTestId('calendar-cell-empty')).toHaveLength(54);
   });
 
-  it('renders a combined cell when a product runs morning and evening the same day', () => {
+  it('fills both lanes when a product runs morning and evening the same day', () => {
     renderView({
       routines: makeRoutines(
         [makeStep({ id: 'a', scheduledDays: [1] })],
@@ -121,7 +123,30 @@ describe('RoutineCalendarView', () => {
       ),
     });
 
-    expect(screen.getAllByTestId('calendar-cell-ampm')).toHaveLength(4);
+    expect(screen.getAllByTestId('calendar-cell-am')).toHaveLength(4);
+    expect(screen.getAllByTestId('calendar-cell-pm')).toHaveLength(4);
+  });
+
+  it('uses sun and moon icons for the two lanes', () => {
+    renderView({
+      routines: makeRoutines(
+        [makeStep({ id: 'a', scheduledDays: [1] })],
+        [makeStep({ id: 'b', scheduledDays: [2] })],
+      ),
+    });
+
+    // 4 grid cells + 1 legend marker per period.
+    expect(screen.getAllByTestId('feather-icon-sun')).toHaveLength(5);
+    expect(screen.getAllByTestId('feather-icon-moon')).toHaveLength(5);
+  });
+
+  it('explains the icons in a legend', () => {
+    renderView();
+
+    expect(screen.getByText('Morning')).toBeTruthy();
+    expect(screen.getByText('Evening')).toBeTruthy();
+    expect(screen.getByText('Not scheduled')).toBeTruthy();
+    expect(screen.getByTestId('calendar-legend-empty')).toBeTruthy();
   });
 
   it('highlights today when viewing the current month', () => {
