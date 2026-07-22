@@ -227,8 +227,32 @@ This document defines the complete functional requirements and behavior specific
 * The server processes the OCR string using fuzzy trigram search (`pg_trgm`), returning the top 20 most relevant matches, even if the text contains typos.
 * If `GET /api/v1/products/search` or `/lookup` returns an empty array, the app presents a *"Product Not Found. Add Manually"* button.
 * Clicking it transitions the user to `ProductForm`, which is pre-filled with whatever text the OCR camera managed to extract (e.g., the recognized brand and name), minimizing typing friction.
-* Saving the manual form adds the product to the user's shelf instantly (local-first), while queuing a background request to the global database.
-* When saved manually, the newly created item instantly appears in the local `catalogStore` with `source: 'manual'`, while a copy is dispatched to the server via `POST /api/v1/products/suggest` with `status: 'pending'` for admin review.
+* Saving the manual form adds the product to the user's shelf instantly (local-first), while the contribution is written to the shared database as a separate, awaited step. — ✅ **BUILT** (2026-07-19).
+* When saved manually, the newly created item instantly appears in the local `catalogStore`, while a copy is written to the `vials-contributions` Turso database with `status = 'pending_review'` for manual review. Any attached photo travels as an EXIF-stripped `photo_blob` (~1200px JPEG) in the same row. — ✅ **BUILT** (2026-07-19). Note: **not** `POST /api/v1/products/suggest` — there is no Vials API; the client writes to the contributions database directly.
+* The share outcome is reported honestly and distinctly: shared (with photo), shared (text only), unavailable in this build, or failed with a manual retry. A failure never affects the local shelf save and is never presented as success. — ✅ **BUILT** (2026-07-19).
+
+> **Implementation note (2026-07-19) — US-3 is delivered at self-moderated MVP
+> scope.** Contributions are written straight into a second Turso database
+> (`vials-contributions`), separate from the read-only product corpus. There is
+> no API server, no object storage, and no moderation dashboard.
+>
+> **Moderation is manual and self-served:** a human reviews
+> `status = 'pending_review'` rows over direct SQL and INSERTs approved ones
+> into the corpus (queries in `docs/database/contributions_schema.sql`). There
+> is deliberately **no automated moderation workflow** and no staffing
+> commitment at this scope — PRD §6's moderation-queue item is closed as
+> resolved-for-MVP rather than open.
+>
+> Deliberately **not** built at this scope: a moderation UI, retry/offline
+> queueing for the contribution write (a failure surfaces and the user retries
+> by hand), and any server component.
+>
+> Known limitations, accepted: the write token ships in the app bundle and is
+> extractable — scoped as narrowly as Turso allows (`contributions:data_add`,
+> INSERT-only on one table) but with no server-side rate limiting; and sharing
+> is unavailable in builds without the libSQL native module (Expo Go,
+> bundled-corpus), where the UI says so explicitly. See
+> `docs/tasks/product-images/BLOCKERS.md` → RESOLUTION.
 
 > **Implementation note (2026-07-07):** Barcode and text search are built,
 > but on a different architecture than described above — there is no Vials

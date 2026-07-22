@@ -1,10 +1,7 @@
 import type { Routine } from '@/types';
+import { isScheduledOnDay } from '@/utils/routineSchedule';
 
 export type RoutineStatusResult = 'morning' | 'evening' | 'both' | 'none';
-
-function isScheduledForDay(scheduledDays: number[], dayOfWeek: number): boolean {
-  return scheduledDays.length === 0 || scheduledDays.includes(dayOfWeek);
-}
 
 function isActiveStep(productId: string, step: { productId: string | null; hidden?: boolean; scheduledDays: number[] }, dayOfWeek: number): boolean {
   return (
@@ -12,7 +9,7 @@ function isActiveStep(productId: string, step: { productId: string | null; hidde
     step.productId !== undefined &&
     step.productId === productId &&
     !step.hidden &&
-    isScheduledForDay(step.scheduledDays, dayOfWeek)
+    isScheduledOnDay(step.scheduledDays, dayOfWeek)
   );
 }
 

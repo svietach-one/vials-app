@@ -4,6 +4,22 @@ Author: planner-agent
 Jira: N/A (kebab-case task slug per agent-layer-protocol.md: `multi-active-badges`)
 Status: DRAFT
 
+## Revision — 2026-07-22 (screen-improvements card redesign)
+The `ProductShelfCard` redesign (edge-to-edge photo, uniform active-badge
+style) supersedes two decisions below:
+- **Story 2 (category colors)**: active badges no longer color-code by
+  function. All actives now render with one neutral fill (the shared
+  `Badge` component, `Default`/`Light`: `colors.surfaceSunken` background),
+  matching the type badge's "distinct recipe, not distinct hue" goal via a
+  flat-vs-tint contrast instead of an outlined-vs-filled one.
+- **Story 4 (wrap, not truncate)**: the badge row no longer wraps to a
+  second line. It shows a fixed cap (`MAX_VISIBLE_ACTIVE_BADGES = 3`) and
+  rolls any remainder into a trailing "+N" badge, the same cap-then-"+N"
+  convention already used by `AddProductScreen.tsx`'s actives summary.
+
+`tests/product-shelf-card/ProductShelfCard.test.tsx`'s "Story 2" and "Story 4"
+multi-active-badges describe blocks were updated to match.
+
 ## AI-SDLC Flags
 ```
 backend_layer:  false

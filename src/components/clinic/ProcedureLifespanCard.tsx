@@ -9,6 +9,7 @@ import { Feather } from '@expo/vector-icons';
 
 import { Input } from '@/components/ui/forms/Input';
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { UserProcedureLog } from '@/types';
 import {
@@ -138,9 +139,13 @@ function FadingInteractivePrompt({
           >
             Confirm
           </Button>
-          <Pressable onPress={() => setShowDuration(false)} hitSlop={8}>
-            <Feather name="x" size={16} color={colors.textTertiary} />
-          </Pressable>
+          <IconButton
+            icon={<Feather name="x" size={16} color={colors.textTertiary} />}
+            label="Cancel custom duration entry"
+            variant="ghost"
+            size="xs"
+            onPress={() => setShowDuration(false)}
+          />
         </View>
       </View>
     );
@@ -288,15 +293,14 @@ export function ProcedureLifespanCard({ proc, onUpdate, onRemove }: ProcedureLif
           <View style={[cardStyles.badge, { backgroundColor: cfg.bg }]}>
             <Text style={[cardStyles.badgeText, { color: cfg.text }]}>{cfg.label}</Text>
           </View>
-          <Pressable
-            onPress={onRemove}
+          <IconButton
+            icon={<Feather name="trash-2" size={14} color={colors.textTertiary} />}
+            label={`Remove ${procName}`}
+            variant="ghost"
+            size="xs"
             style={cardStyles.removeBtn}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={`Remove ${procName}`}
-          >
-            <Feather name="trash-2" size={14} color={colors.textTertiary} />
-          </Pressable>
+            onPress={onRemove}
+          />
         </View>
       </View>
 
@@ -313,16 +317,16 @@ export function ProcedureLifespanCard({ proc, onUpdate, onRemove }: ProcedureLif
 
       {/* Archive link — for active/completed cards */}
       {(status === 'active' || status === 'completed') ? (
-        <Pressable
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<Feather name="archive" size={12} color={palette.plum} />}
           onPress={() => onUpdate({ status: 'archived' })}
-          style={cardStyles.archiveLink}
-          hitSlop={8}
-          accessibilityRole="button"
           accessibilityLabel={`Archive ${procName}`}
+          style={cardStyles.archiveLink}
         >
-          <Feather name="archive" size={12} color={colors.textTertiary} />
-          <Text style={cardStyles.archiveLinkText}>Archive</Text>
-        </Pressable>
+          Archive
+        </Button>
       ) : null}
     </View>
   );
@@ -386,13 +390,6 @@ const cardStyles = StyleSheet.create({
     color: colors.textSecondary,
   },
   archiveLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
     alignSelf: 'flex-start',
-  },
-  archiveLinkText: {
-    ...typography.caption,
-    color: colors.textTertiary,
   },
 });

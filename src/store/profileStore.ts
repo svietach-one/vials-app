@@ -31,9 +31,14 @@ const DEFAULT_PROFILE: UserProfile = {
   fitzpatrick: null,
   city: null,
   concerns: [],
+  primaryGoal: 'maintenance',
+  secondaryGoal: null,
+  goalNeedsConfirmation: false,
+  phototypeNeedsConfirmation: false,
   spfSensitivity: false,
   onboardingCompleted: false,
   individualDurationMonths: {},
+  contributionConsent: { granted: false, timestamp: null },
 };
 
 /**

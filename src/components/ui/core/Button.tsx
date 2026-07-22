@@ -118,12 +118,12 @@ const sizeLabel = StyleSheet.create({
 // Variant: container — resting state
 const variantContainer = StyleSheet.create({
   primary: {
-    backgroundColor: palette.zinc900,
-    borderColor: palette.zinc900,
+    backgroundColor: palette.plum,
+    borderColor: palette.plum,
   },
   secondary: {
     backgroundColor: 'transparent',
-    borderColor: palette.zinc900,
+    borderColor: palette.plum,
   },
   ghost: {
     backgroundColor: 'transparent',
@@ -142,19 +142,19 @@ const variantContainer = StyleSheet.create({
 // Variant: container — pressed state
 const variantContainerPressed = StyleSheet.create({
   primary: {
-    backgroundColor: palette.zinc800,
-    borderColor: palette.zinc800,
+    backgroundColor: palette.plumPressed,
+    borderColor: palette.plumPressed,
   },
   secondary: {
-    backgroundColor: palette.zinc100,
-    borderColor: palette.zinc900,
+    backgroundColor: palette.plumTint,
+    borderColor: palette.plum,
   },
   ghost: {
-    backgroundColor: palette.zinc100,
+    backgroundColor: palette.plumTint,
     borderColor: 'transparent',
   },
   textActive: {
-    backgroundColor: palette.zinc100,
+    backgroundColor: palette.plumTint,
     borderColor: 'transparent',
   },
   destructive: {
@@ -190,9 +190,9 @@ const variantContainerDisabled = StyleSheet.create({
 // Variant: label — resting color
 const variantLabel = StyleSheet.create({
   primary: { color: palette.white },
-  secondary: { color: palette.zinc900 },
-  ghost: { color: palette.zinc900 },
-  textActive: { color: palette.bottleGreen },
+  secondary: { color: palette.plum },
+  ghost: { color: palette.plum },
+  textActive: { color: palette.plum },
   destructive: { color: palette.red },
 });
 

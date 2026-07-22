@@ -13,6 +13,7 @@ import {
   collectPrioritizeTargets,
   type PrioritizeTarget,
 } from '@/utils/routineEngine/mandates';
+import type { DecisionReasonCode } from '@/constants/decisionReasons';
 import type {
   DecisionLogEntry,
   FrozenItem,
@@ -54,6 +55,18 @@ export interface ResolveInput {
   concerns: SkinConcern[];
   /** Per-product adaptation caps (adaptation.ts); absent = no adapting products. */
   adaptationLimits?: Map<string, AdaptationLimit>;
+  /** Per-product tolerability 0|0.5|1.0 (phase-05); absent = all 0 (V2 scoring). */
+  tolerability?: Map<string, number>;
+  /**
+   * Skeleton selection (phase-04): per-period candidate id sets + treatment
+   * frequency caps. generate ALWAYS passes it; absent means raw admission
+   * over every product — kept for unit tests that exercise the ladder/cap
+   * machinery directly.
+   */
+  selection?: {
+    periodCandidates: Record<Period, Set<string>>;
+    treatmentCaps: Map<string, AdaptationLimit>;
+  };
 }
 
 export interface ResolveResult {
@@ -79,7 +92,10 @@ export interface AdmittedEntry {
 
 interface Violation {
   partner: AdmittedEntry;
+  /** Rule registry id — provenance only (phase-07). */
   ruleId: string;
+  /** User-facing decision reason code (phase-07), distinct from ruleId. */
+  reasonCode: DecisionReasonCode;
   severity: 'avoid' | 'caution';
   resolutions: ResolutionStrategy[];
 }
@@ -113,9 +129,13 @@ function clampToLimit(days: number[], maxDaysPerWeek: number): number[] {
 // ─── Scoring ────────────────────────────────────────────────────────────────
 
 /**
- * Admission score (research §1.1): prioritize ("SOS") boost dominates, then
- * goal match against the user's concerns, then potency. Ties break on
- * addedAt (newer first) then id — fully stable. Exported so substitute
+ * Admission score (V2.1 phase-04 §4.4): prioritize ("SOS") boost dominates,
+ * then Step-0 goal rank, then tolerability (reserved at 0 until Phase 5 feeds
+ * the usage-anchored value), then the V2 concern match, then potency. Bands
+ * are disjoint (goalRank ≤ ~12 ⇒ ≤ 12000; tolerability 0|100|200;
+ * concernHits ≤ 90; potency ≤ 8), and the concernHits-over-potency relative
+ * order is unchanged from V2 so goal-less inputs rank identically. Ties break
+ * on addedAt (newer first) then id — fully stable. Exported so substitute
  * ranking uses the exact same scale as admission.
  */
 export function scoreCandidate(
@@ -124,6 +144,8 @@ export function scoreCandidate(
   period: Period,
   concerns: SkinConcern[],
   prioritize: PrioritizeTarget[],
+  treatmentClassRanking: readonly string[] = [],
+  tolerability = 0,
 ): number {
   const classConcerns = new Set<SkinConcern>();
   for (const { key } of facts.classes) {
@@ -142,7 +164,19 @@ export function scoreCandidate(
       matchesRuleTargets(product.productType, facts, p.targets),
   );
 
-  return (boosted ? 1000 : 0) + concernHits * 100 + potency * 10;
+  // Highest-ranked matching class wins; not ranked = 0.
+  let goalRank = 0;
+  for (const { key } of facts.classes) {
+    const index = treatmentClassRanking.indexOf(key);
+    if (index !== -1) goalRank = Math.max(goalRank, treatmentClassRanking.length - index);
+  }
+
+  // tolerability is 0 | 0.5 | 1.0 (phase-05 §5.3); *200 gives the reserved
+  // 0 | 100 | 200 band, so an adapted product outranks a new one of the same
+  // class without crossing the goalRank band.
+  return (
+    (boosted ? 100000 : 0) + goalRank * 1000 + tolerability * 200 + concernHits * 10 + potency * 2
+  );
 }
 
 function compareCandidates(a: Candidate, b: Candidate): number {
@@ -222,39 +256,49 @@ function findPairViolations(
       const orientation = matchOrientation(rule, facts, partner.facts);
       if (!orientation) continue;
       if (rule.scope !== 'anywhere' && !daysOverlap(days, partner.step.scheduledDays)) continue;
-      out.push({ partner, ruleId: rule.id, ...applyExceptions(rule, orientation, facts, partner.facts) });
+      out.push({
+        partner,
+        ruleId: rule.id,
+        reasonCode: rule.reasonCode,
+        ...applyExceptions(rule, orientation, facts, partner.facts),
+      });
       break; // first matching rule per partner keeps causes single and stable
     }
   }
   return out;
 }
 
-/** Stacking-cap violations (maxPerPeriod / sharedCapWith) as avoid-level events. */
+/** Leave-on carrier of a strong active — the unit the cumulative cap counts. */
+function isStrongCarrierFacts(facts: ProductFacts): boolean {
+  return facts.properties.irritancy >= 3 && !facts.rinseOff;
+}
+
+/**
+ * Cumulative-exposure violations (V2.1 phase-04, report §7 — replaces the
+ * per-class stacking caps, which no class declares anymore): at most one
+ * leave-on strong-class carrier per period ON ANY GIVEN DAY. Day-overlap
+ * scoping keeps the classic day-separated pattern legal (retinoid 5 nights +
+ * AHA Tue/Sat), for user-saved routines via validate as much as for
+ * admission — the ladder's separate_days-first resolutions depend on it.
+ * Mild classes and rinse-off carriers are exempt by definition.
+ */
 function findCapViolations(facts: ProductFacts, days: number[], admitted: AdmittedEntry[]): Violation[] {
-  for (const cls of facts.classes) {
-    const stacking = ACTIVES_RULESET.classes[cls.key]?.stacking;
-    if (!stacking) continue;
-    const group = new Set([cls.key, ...(stacking.sharedCapWith ?? [])]);
-    const partners = admitted.filter(
-      (a) =>
-        daysOverlap(days, a.step.scheduledDays) &&
-        a.facts.classes.some((c) => group.has(c.key)),
-    );
-    if (partners.length >= stacking.maxPerPeriod) {
-      return partners.map((partner) => ({
-        partner,
-        ruleId: `stacking_cap_${cls.key}`,
-        severity: 'avoid' as const,
-        resolutions: ['separate_days', 'freeze_lower_priority'] as ResolutionStrategy[],
-      }));
-    }
-  }
-  return [];
+  if (!isStrongCarrierFacts(facts)) return [];
+  return admitted
+    .filter((a) => isStrongCarrierFacts(a.facts) && daysOverlap(days, a.step.scheduledDays))
+    .map((partner) => ({
+      partner,
+      ruleId: 'cumulative_active_cap',
+      reasonCode: 'cumulative_active_cap',
+      severity: 'avoid' as const,
+      resolutions: ['separate_days', 'freeze_lower_priority'] as ResolutionStrategy[],
+    }));
 }
 
 /** A violation reported to callers outside the admission loop (validate/substitute). */
 export interface ViolationSummary {
   ruleId: string;
+  reasonCode: DecisionReasonCode;
   severity: 'avoid' | 'caution';
 }
 
@@ -273,7 +317,7 @@ export function findViolationsAgainst(
   return [
     ...findPairViolations(facts, days, admitted, pairRules),
     ...findCapViolations(facts, days, admitted),
-  ].map((v) => ({ ruleId: v.ruleId, severity: v.severity }));
+  ].map((v) => ({ ruleId: v.ruleId, reasonCode: v.reasonCode, severity: v.severity }));
 }
 
 // ─── Resolution ladder ──────────────────────────────────────────────────────
@@ -325,6 +369,10 @@ function makeStep(candidate: Candidate, days: number[]): PlannedStep {
     slotIndex: getSlotIndex(candidate.product.productType),
     score: candidate.score,
     addedAt: candidate.product.addedAt,
+    // Explicit null (not left undefined) so the field is stable across the
+    // determinism property test's deep-equal comparison; generate.ts may
+    // overwrite it for a pre_cleanse step once the resolved PM period is known.
+    stepNote: null,
   };
 }
 
@@ -378,6 +426,7 @@ function resolveByDaySplit(
       productId: split.shrink.partner.step.productId,
       period,
       ruleId: primary.ruleId,
+      reasonCode: primary.reasonCode,
       detail: 'shrunk to complement days',
     });
   }
@@ -386,6 +435,7 @@ function resolveByDaySplit(
     productId: candidate.product.id,
     period,
     ruleId: primary.ruleId,
+    reasonCode: primary.reasonCode,
   });
   return { kind: 'admitted', step: makeStep(candidate, split.xDays) };
 }
@@ -407,10 +457,16 @@ function walkResolutionLadder(
   const primary = violations.find((v) => v.severity === 'avoid') ?? violations[0];
   const frozen: AdmitOutcome = {
     kind: 'frozen',
-    item: { productId: product.id, reasonCode: primary.ruleId, ruleId: primary.ruleId },
+    item: { productId: product.id, reasonCode: primary.reasonCode, ruleId: primary.ruleId },
   };
   const keepWithNote = (): AdmitOutcome => {
-    decisions.push({ action: 'keep_with_note', productId: product.id, period, ruleId: primary.ruleId });
+    decisions.push({
+      action: 'keep_with_note',
+      productId: product.id,
+      period,
+      ruleId: primary.ruleId,
+      reasonCode: primary.reasonCode,
+    });
     return { kind: 'admitted', step: makeStep(candidate, days) };
   };
 
@@ -480,19 +536,26 @@ function tryAdmit(
 
 function buildPools(input: ResolveInput, prioritize: PrioritizeTarget[]): Record<Period, Candidate[]> {
   const pools: Record<Period, Candidate[]> = { am: [], pm: [] };
+  const ranking = input.context.treatmentClassRanking;
   for (const product of input.products) {
     const facts = input.facts.get(product.id);
     if (!facts) continue;
     const allowed = periodsForProduct(product.productType, facts);
     if (allowed.length === 0) continue;
 
-    const targets = isTreatment(facts) ? [preferredPeriodFor(facts, allowed)] : allowed;
+    let targets = isTreatment(facts) ? [preferredPeriodFor(facts, allowed)] : allowed;
+    // Skeleton intersection: the selection stage has already assigned each
+    // candidate its period(s); everything else was reserved and never pools.
+    if (input.selection) {
+      targets = targets.filter((p) => input.selection?.periodCandidates[p].has(product.id));
+    }
+    const tol = input.tolerability?.get(product.id) ?? 0;
     for (const period of targets) {
       pools[period].push({
         product,
         facts,
         relocated: false,
-        score: scoreCandidate(product, facts, period, input.concerns, prioritize),
+        score: scoreCandidate(product, facts, period, input.concerns, prioritize, ranking, tol),
       });
     }
   }
@@ -595,7 +658,7 @@ function retryRelocatedInAm(candidate: Candidate, run: ResolveRun): void {
     recordSlotLoser(run, 'am', retry.step);
     return;
   }
-  const item =
+  const item: FrozenItem =
     retry.kind === 'frozen'
       ? retry.item
       : { productId: candidate.product.id, reasonCode: 'relocation_rejected' };
@@ -612,7 +675,15 @@ export function resolvePeriods(input: ResolveInput): ResolveResult {
   const prioritize = collectPrioritizeTargets(input.context);
   const limits = collectLimits(input.context);
   const pairRules = input.context.effectiveRuleset.pairRules;
-  const adaptationLimits = input.adaptationLimits ?? new Map<string, AdaptationLimit>();
+  // Adaptation caps merge with skeleton treatment caps, strictest-wins — a
+  // phase-1 retinoid at 2/wk beats the reclassified 4/wk and vice versa.
+  const adaptationLimits = new Map(input.adaptationLimits ?? []);
+  for (const [productId, cap] of input.selection?.treatmentCaps ?? []) {
+    const existing = adaptationLimits.get(productId);
+    if (!existing || cap.maxDaysPerWeek < existing.maxDaysPerWeek) {
+      adaptationLimits.set(productId, cap);
+    }
+  }
   const run: ResolveRun = {
     admitted: { am: [], pm: [] },
     frozen: [],
@@ -627,7 +698,15 @@ export function resolvePeriods(input: ResolveInput): ResolveResult {
     pools.pm.push({
       ...candidate,
       relocated: true,
-      score: scoreCandidate(candidate.product, candidate.facts, 'pm', input.concerns, prioritize),
+      score: scoreCandidate(
+        candidate.product,
+        candidate.facts,
+        'pm',
+        input.concerns,
+        prioritize,
+        input.context.treatmentClassRanking,
+        input.tolerability?.get(candidate.product.id) ?? 0,
+      ),
     });
   });
   runPeriodPass('pm', pools.pm, run, (candidate) => retryRelocatedInAm(candidate, run));

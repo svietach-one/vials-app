@@ -81,7 +81,7 @@ describe('buildStepsFromPlan', () => {
   it('keeps a pinned step frozen by a pair rule (no expiry) — pins beat preferences', () => {
     const existing = [makeStep('pinned', { userPinned: true })];
     const frozen: FrozenItem[] = [
-      { productId: 'pinned', reasonCode: 'rule_retinol_aha', ruleId: 'rule_retinol_aha' },
+      { productId: 'pinned', reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha' },
     ];
     const steps = buildStepsFromPlan([], existing, frozen, makeIdFactory());
     expect(steps.map((s) => s.productId)).toEqual(['pinned']);
@@ -129,6 +129,7 @@ describe('buildDraftSummaryLines', () => {
       generatedFor: '2026-07-05',
       periods: { morning: [], evening: [] },
       frozen: [],
+      reserve: [],
       placeholders: [],
       decisions: [],
       ...overrides,
@@ -149,6 +150,7 @@ describe('buildDraftSummaryLines', () => {
   it('summarizes paused products with the short unfreeze date', () => {
     const plan = makePlan({
       frozen: [{ productId: 'aha', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-17' }],
+      reserve: [],
     });
     const lines = buildDraftSummaryLines(plan, [], products);
     expect(lines).toContain('1 product paused until Jul 17');
@@ -156,7 +158,8 @@ describe('buildDraftSummaryLines', () => {
 
   it('narrates pair-rule freezes (no expiry) instead of letting products vanish silently', () => {
     const plan = makePlan({
-      frozen: [{ productId: 'aha', reasonCode: 'rule_retinol_aha', ruleId: 'rule_retinol_aha' }],
+      frozen: [{ productId: 'aha', reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha' }],
+      reserve: [],
     });
     const lines = buildDraftSummaryLines(plan, [], products);
     expect(lines).toContain('Glycolic Toner set aside to avoid a conflict');
@@ -177,7 +180,8 @@ describe('buildDraftSummaryLines', () => {
         { action: 'day_split', productId: 'aha' },
         { action: 'day_split', productId: 'ret' },
       ],
-      frozen: [{ productId: 'vitc', reasonCode: 'x', until: '2026-07-20' }],
+      frozen: [{ productId: 'vitc', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-20' }],
+      reserve: [],
     });
     const diff: PlanDiffEntry[] = [
       { productId: 'vitc', kind: 'moved', from: 'evening', to: 'morning' },
@@ -212,6 +216,7 @@ function makeBasePlan(overrides: Partial<RoutinePlan> = {}): RoutinePlan {
       evening: [],
     },
     frozen: [],
+    reserve: [],
     placeholders: [],
     decisions: [],
     slotAlternatives: [makeSlotAlternative()],
@@ -267,5 +272,44 @@ describe('applySlotAlternativeSwap', () => {
   it('returns the plan unchanged when the winner is no longer present in its period', () => {
     const plan = makeBasePlan({ periods: { morning: [], evening: [] } });
     expect(applySlotAlternativeSwap(plan, 'winner', 'alt-1')).toBe(plan);
+  });
+
+  it('supports swapping back to the original winner after swapping to an alternative', () => {
+    const winnerStep = makePlanned('winner', { slotIndex: 6, addedAt: '2026-01-01' });
+    const plan = makeBasePlan({
+      periods: { morning: [winnerStep], evening: [] },
+    });
+
+    const afterSwap = applySlotAlternativeSwap(plan, 'winner', 'alt-1');
+    expect(afterSwap.periods.morning.map((s) => s.productId)).toEqual(['alt-1']);
+
+    // The "winnerProductId" key stays the entry's stable identity — the caller
+    // (Draft Preview's Select) always passes it, never the currently-admitted
+    // product id, so the slot is still locatable here.
+    const afterRevert = applySlotAlternativeSwap(afterSwap, 'winner', 'winner');
+    expect(afterRevert.periods.morning.map((s) => s.productId)).toEqual(['winner']);
+    expect(afterRevert.periods.morning[0]).toBe(winnerStep);
+  });
+
+  it('keeps every displaced candidate selectable across more than one swap', () => {
+    const plan = makeBasePlan({
+      periods: { morning: [makePlanned('winner', { slotIndex: 6 })], evening: [] },
+      slotAlternatives: [
+        makeSlotAlternative({ alternatives: [makePlanned('alt-1'), makePlanned('alt-2')] }),
+      ],
+    });
+
+    const step1 = applySlotAlternativeSwap(plan, 'winner', 'alt-1');
+    expect(step1.periods.morning.map((s) => s.productId)).toEqual(['alt-1']);
+
+    // From alt-1, swap directly to alt-2 — the winner and alt-1 must both
+    // remain recorded as candidates for a future re-selection.
+    const step2 = applySlotAlternativeSwap(step1, 'winner', 'alt-2');
+    expect(step2.periods.morning.map((s) => s.productId)).toEqual(['alt-2']);
+    const remainingIds = (step2.slotAlternatives ?? [])[0].alternatives.map((s) => s.productId);
+    expect(remainingIds.sort()).toEqual(['alt-1', 'winner']);
+
+    const step3 = applySlotAlternativeSwap(step2, 'winner', 'alt-1');
+    expect(step3.periods.morning.map((s) => s.productId)).toEqual(['alt-1']);
   });
 });

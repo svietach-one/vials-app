@@ -149,14 +149,19 @@ export default function CatalogScreen({ navigation }: Props) {
       <AppHeader
         title="My Shelf"
         rightAction={
-          <IconButton
-            icon={<Feather name="plus" size={20} color={colors.textPrimary} />}
-            label="Add product"
-            variant="ghost"
-            size="sm"
-            round
-            onPress={() => navigation.navigate('AddProductHub')}
-          />
+          <View style={styles.headerActions}>
+            <CatalogFilterTrigger
+              activeFilterCount={activeFilterCount}
+              onPress={() => setSheetOpen(true)}
+            />
+            <IconButton
+              icon={<Feather name="plus" size={20} color={colors.textPrimary} />}
+              label="Add product"
+              variant="ghost"
+              size="sm"
+              onPress={() => navigation.navigate('AddProductHub')}
+            />
+          </View>
         }
       />
       <FlatList
@@ -172,21 +177,17 @@ export default function CatalogScreen({ navigation }: Props) {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
           <View style={styles.searchWrap}>
-            <View style={styles.searchRow}>
-              <Input
-                icon={<Feather name="search" size={15} color={colors.textTertiary} />}
-                value={filterState.searchQuery}
-                onChangeText={(t) => setFilterState((s) => ({ ...s, searchQuery: t }))}
-                placeholder="Search by name, brand or ingredient…"
-                clearButtonMode="while-editing"
-                returnKeyType="search"
-                containerStyle={styles.searchInputFlex}
-              />
-              <CatalogFilterTrigger
-                activeFilterCount={activeFilterCount}
-                onPress={() => setSheetOpen(true)}
-              />
-            </View>
+            {/* Full-width — the filter trigger it used to share this row with
+                now lives in the header, beside "+". */}
+            <Input
+              icon={<Feather name="search" size={15} color={colors.textTertiary} />}
+              value={filterState.searchQuery}
+              onChangeText={(t) => setFilterState((s) => ({ ...s, searchQuery: t }))}
+              placeholder="Search by name, brand or ingredient…"
+              clearButtonMode="while-editing"
+              returnKeyType="search"
+              containerStyle={styles.searchInputFlex}
+            />
           </View>
         }
         ListEmptyComponent={
@@ -217,7 +218,6 @@ export default function CatalogScreen({ navigation }: Props) {
       <FilterSheet
         visible={sheetOpen}
         initialState={filterState}
-        products={products}
         onApply={setFilterState}
         onClose={() => setSheetOpen(false)}
       />
@@ -230,7 +230,11 @@ export default function CatalogScreen({ navigation }: Props) {
 function RoutineBadge({ status }: { status: RoutineStatusResult }) {
   if (status === 'none') return null;
   const label =
-    status === 'both' ? 'AM · PM' : status === 'morning' ? 'AM' : 'PM';
+    status === 'both'
+      ? 'Morning · Evening'
+      : status === 'morning'
+        ? 'Morning'
+        : 'Evening';
   return <Badge status="Default" type="Light">{label}</Badge>;
 }
 
@@ -313,19 +317,20 @@ function CatalogEmptyState({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgSubtle,
+    backgroundColor: colors.bgScreen,
   },
   searchWrap: {
     paddingTop: space[4],
     paddingBottom: space[3],
   },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.gapInline,
-  },
   searchInputFlex: {
     flex: 1,
+    alignSelf: 'stretch',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
   },
   listContent: {
     paddingHorizontal: space.gutterScreen,

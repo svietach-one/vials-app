@@ -1,9 +1,10 @@
 import {
   ACTIVES_RULESET,
+  resolveIrritancy,
   type Period,
   type Potency,
 } from '@/constants/rulesets/rulesetTypes';
-import type { ActiveIngredientKey, Product } from '@/types';
+import type { ActiveIngredientKey, Product, ProductType } from '@/types';
 import {
   normalizeActiveKey,
   parseActiveIngredientDetails,
@@ -31,7 +32,11 @@ export interface ProductFactClass {
   source: 'tag' | 'parse';
 }
 
-/** OR-merge of class boolean properties; irritancy is the max across classes. */
+/**
+ * OR-merge of class boolean properties; irritancy is the max across classes,
+ * each class resolved at its own attributed potency (a retinol and a tretinoin
+ * are not equally irritating — see rulesetTypes.resolveIrritancy).
+ */
 export interface AggregatedProperties {
   photosensitizing: boolean;
   exfoliating: boolean;
@@ -48,9 +53,24 @@ export interface ProductFacts {
   properties: AggregatedProperties;
   /** Intersection of every class's allowedPeriods ∩ product.usageTime. */
   allowedPeriods: Period[];
+  /**
+   * Washed off rather than left on the skin, derived from productType. A
+   * rinse-off carrier of a strong active does not consume cumulative exposure
+   * (the contact time is seconds, not hours) — consumed by the Phase 4
+   * cumulative cap; unused until then.
+   */
+  rinseOff: boolean;
   /** Hard gate input: !isHidden && !paoExpired. */
   eligible: boolean;
 }
+
+/**
+ * Only these two product types are unambiguously washed off. `peeling` and
+ * `mask` are deliberately excluded: peel gels rinse but peel pads do not, and
+ * sleeping masks are leave-on — do-no-harm means an ambiguous product consumes
+ * the cumulative cap rather than escaping it (tech design Assumption 3).
+ */
+const RINSE_OFF_TYPES: readonly ProductType[] = ['cleanser', 'makeup_remover'];
 
 const EMPTY_PROPERTIES: AggregatedProperties = {
   photosensitizing: false,
@@ -66,6 +86,16 @@ const USAGE_TIME_PERIODS: Record<Product['usageTime'], Period[]> = {
   morning: ['am'],
   evening: ['pm'],
   both: ['am', 'pm'],
+};
+
+/**
+ * Product types whose SAFE default period is narrower than the usageTime band.
+ * makeup_remover (micellar/oil/balm) is a PM-only pre-cleanse: the safe
+ * behavior is the default, not an opt-in. Applies only when usageTime is left
+ * at 'both' (unset) — an explicit per-product 'morning'/'evening' still wins.
+ */
+const DEFAULT_PERIOD_BY_TYPE: Partial<Record<ProductType, Period[]>> = {
+  makeup_remover: ['pm'],
 };
 
 /** Conservative default for wizard-confirmed classes without INCI evidence. */
@@ -122,11 +152,12 @@ function attributeClasses(product: Product): ProductFactClass[] {
 function aggregateProperties(
   classes: ProductFactClass[],
   usageTime: Product['usageTime'],
+  productType: ProductType,
 ): { properties: AggregatedProperties; allowedPeriods: Period[] } {
   const properties: AggregatedProperties = { ...EMPTY_PROPERTIES };
   let allowedPeriods: Period[] = ['am', 'pm'];
 
-  for (const { key } of classes) {
+  for (const { key, potency } of classes) {
     const cls = ACTIVES_RULESET.classes[key];
     const p = cls.properties;
     properties.photosensitizing ||= p.photosensitizing === true;
@@ -135,12 +166,15 @@ function aggregateProperties(
     properties.lowPh ||= p.lowPh === true;
     properties.spf ||= p.spf === true;
     properties.massageRequired ||= p.massageRequired === true;
-    properties.irritancy = Math.max(properties.irritancy, p.irritancy ?? 0);
+    properties.irritancy = Math.max(properties.irritancy, resolveIrritancy(p, potency));
     allowedPeriods = allowedPeriods.filter((period) => cls.allowedPeriods.includes(period));
   }
-  allowedPeriods = allowedPeriods.filter((period) =>
-    USAGE_TIME_PERIODS[usageTime].includes(period),
-  );
+  // usageTime narrows the band; when left unset ('both'), a type-level safe
+  // default (e.g. makeup_remover → pm) applies instead of the full am+pm.
+  const typeDefault = DEFAULT_PERIOD_BY_TYPE[productType];
+  const usageBand =
+    usageTime === 'both' && typeDefault ? typeDefault : USAGE_TIME_PERIODS[usageTime];
+  allowedPeriods = allowedPeriods.filter((period) => usageBand.includes(period));
 
   return { properties, allowedPeriods };
 }
@@ -152,13 +186,18 @@ function aggregateProperties(
  */
 export function buildProductFacts(product: Product, now: Date = new Date()): ProductFacts {
   const classes = attributeClasses(product);
-  const { properties, allowedPeriods } = aggregateProperties(classes, product.usageTime);
+  const { properties, allowedPeriods } = aggregateProperties(
+    classes,
+    product.usageTime,
+    product.productType,
+  );
 
   return {
     productId: product.id,
     classes,
     properties,
     allowedPeriods,
+    rinseOff: RINSE_OFF_TYPES.includes(product.productType),
     eligible: product.isHidden !== true && !isPaoExpired(product, now),
   };
 }

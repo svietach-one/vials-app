@@ -1,5 +1,5 @@
-import { INGREDIENT_CONFLICT_RULES } from '../../constants/conflictRulesDb';
 import type { ActiveIngredientKey, ConflictRule } from '../../types';
+import { matchPairRule } from '../conflictEngine';
 import { normalizeActiveKey } from '../ingredientParser';
 
 /**
@@ -8,23 +8,18 @@ import { normalizeActiveKey } from '../ingredientParser';
  * later in Routine Hub against actual scheduled days (US-09); this just
  * tells the user the product carries interacting actives so they schedule
  * thoughtfully.
+ *
+ * Matching is delegated to ConflictEngine's matchPairRule so this preview and
+ * the real check can never disagree about what conflicts.
  */
 export function findIntraProductConflicts(keys: ActiveIngredientKey[]): ConflictRule[] {
   const canonical = [...new Set(keys.map(normalizeActiveKey))];
   const hits: ConflictRule[] = [];
 
-  for (const rule of INGREDIENT_CONFLICT_RULES) {
-    for (let i = 0; i < canonical.length; i++) {
-      for (let j = i + 1; j < canonical.length; j++) {
-        const a = canonical[i];
-        const b = canonical[j];
-        if (
-          (rule.itemA === a && rule.itemB === b) ||
-          (rule.itemA === b && rule.itemB === a)
-        ) {
-          hits.push(rule);
-        }
-      }
+  for (let i = 0; i < canonical.length; i++) {
+    for (let j = i + 1; j < canonical.length; j++) {
+      const rule = matchPairRule(canonical[i], canonical[j]);
+      if (rule) hits.push(rule);
     }
   }
 

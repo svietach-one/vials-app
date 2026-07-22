@@ -13,7 +13,16 @@ describe('detectCategory', () => {
   it('detects cleanser including wash and cleanzer spellings', () => {
     expect(detectCategory('Foaming Facial Cleanser')).toBe('cleanser');
     expect(detectCategory('Gentle Face Wash')).toBe('cleanser');
-    expect(detectCategory('Micellar Cleanzer')).toBe('cleanser');
+    expect(detectCategory('Gentle Foaming Cleanzer')).toBe('cleanser');
+  });
+
+  it('detects makeup removers (micellar / oil / balm) ahead of the cleanser rule', () => {
+    // Pre-cleanse products — surfactant-based makeup/SPF removers that do not
+    // rinse clean. Must classify apart from a gentle rinse-off cleanser.
+    expect(detectCategory('Micellar Cleansing Water')).toBe('makeup_remover');
+    expect(detectCategory('Deep Cleansing Oil')).toBe('makeup_remover');
+    expect(detectCategory('Melting Cleansing Balm')).toBe('makeup_remover');
+    expect(detectCategory('Bi-Phase Makeup Remover')).toBe('makeup_remover');
   });
 
   it('detects toner including tonic wording', () => {
@@ -48,5 +57,31 @@ describe('detectCategory', () => {
   it('resolves ambiguous labels by first match wins', () => {
     // 'serum' pattern precedes 'spf' in CATEGORY_PATTERNS.
     expect(detectCategory('Sunscreen Serum SPF 30')).toBe('serum');
+  });
+
+  it('detects French category terms', () => {
+    expect(detectCategory('Sérum Éclat')).toBe('serum');
+    expect(detectCategory('Crème Hydratante Visage')).toBe('moisturizer');
+    expect(detectCategory('Gel Nettoyant Doux')).toBe('cleanser');
+    expect(detectCategory('Eau Tonique Apaisante')).toBe('toner');
+    expect(detectCategory('Écran Solaire Invisible')).toBe('spf');
+    expect(detectCategory('Masque Purifiant')).toBe('mask');
+    expect(detectCategory('Huile Démaquillante')).toBe('makeup_remover');
+    expect(detectCategory('Gommage Corps')).toBe('peeling');
+  });
+
+  it('detects Polish category terms', () => {
+    expect(detectCategory('Krem na dzień')).toBe('moisturizer');
+    expect(detectCategory('Balsam nawilżający do ciała')).toBe('moisturizer');
+    expect(detectCategory('Żel myjący do twarzy')).toBe('cleanser');
+    expect(detectCategory('Tonik łagodzący')).toBe('toner');
+    expect(detectCategory('Emulsja przeciwsłoneczna SPF 50')).toBe('spf');
+    expect(detectCategory('Maska glinkowa')).toBe('mask');
+    expect(detectCategory('Olejek do demakijażu')).toBe('oil');
+    expect(detectCategory('Płatki złuszczające')).toBe('peeling');
+  });
+
+  it('matches Polish diacritics case-insensitively', () => {
+    expect(detectCategory('KREM NAWILŻAJĄCY')).toBe('moisturizer');
   });
 });

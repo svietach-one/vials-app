@@ -86,22 +86,17 @@
  *     suite only asserts the WIRING (screen calls rankSlotGroup, passes its result
  *     + routineId straight through to the sheet).
  *
- * ── SlotAlternativeRow (Story 2, FE-10) ───────────────────────────────────
- *   props: { winnerProductName, alternativeProductName, onSwap }
- *   - Renders visible text containing `Also on your shelf: ${alternativeProductName}`.
- *   - A Pressable swap action, accessibilityLabel={`Swap to ${alternativeProductName}`},
- *     calling onSwap with no arguments (the parent already knows which alternative
- *     this row represents via closure).
- *
- * ── DraftPreviewSheet wiring (Story 2, FE-10) ─────────────────────────────
- *   - New prop: `onSwapAlternative(winnerProductId: string, chosenProductId: string): void`.
- *   - For every entry in `plan.slotAlternatives` whose `period` matches a rendered
- *     After-column step, one SlotAlternativeRow is rendered per recorded alternative,
- *     directly under that step's After-column name.
- *   - Pressing a SlotAlternativeRow's swap action calls
- *     onSwapAlternative(entry.winnerProductId, alternative.productId) — the sheet
- *     itself never calls applySlotAlternativeSwap directly; per tech design §1,
- *     RoutinesScreen owns rewriting the still-uncommitted draft.
+ * ── DraftPreviewSheet wiring (Story 2, screen-improvements redesign) ──────
+ *   - Prop: `onSwapAlternative(winnerProductId: string, chosenProductId: string): void`.
+ *   - For every entry in `plan.slotAlternatives` whose `period`/`slotIndex` matches
+ *     a rendered step, that step renders a "Replace with" Select listing every
+ *     candidate (current, recommended, keep-current, from-reserve — deduplicated).
+ *   - Choosing an option calls onSwapAlternative(entry.winnerProductId,
+ *     chosenProductId) — `winnerProductId` is always the entry's stable identity
+ *     key, never the currently-admitted product, so re-selection keeps working
+ *     after the first swap. The sheet itself never calls applySlotAlternativeSwap
+ *     directly; per tech design §1, RoutinesScreen owns rewriting the still-
+ *     uncommitted draft.
  * ───────────────────────────────────────────────────────────────────────────
  */
 
@@ -117,7 +112,6 @@ import type { PlannedStep, SlotAlternative } from '@/utils/routineEngine/planTyp
 import type { DuplicateSlotChoiceSheetProps } from '@/components/routine/DuplicateSlotChoiceSheet';
 import type { DuplicateSlotWarningInlineProps } from '@/components/routine/DuplicateSlotWarningInline';
 import type { DuplicateSlotResolutionSheetProps } from '@/components/routine/DuplicateSlotResolutionSheet';
-import type { SlotAlternativeRowProps } from '@/components/routine/SlotAlternativeRow';
 
 // ─── Product factory ──────────────────────────────────────────────────────────
 
@@ -224,19 +218,6 @@ export function makeDuplicateSlotResolutionSheetProps(
   };
 }
 
-// ─── Story 2: SlotAlternativeRow prop factory ────────────────────────────────
-
-export function makeSlotAlternativeRowProps(
-  overrides: Partial<SlotAlternativeRowProps> = {},
-): SlotAlternativeRowProps {
-  return {
-    winnerProductName: CREAM_A.name,
-    alternativeProductName: CREAM_B.name,
-    onSwap: () => {},
-    ...overrides,
-  };
-}
-
 // ─── Story 2: RoutinePlan + SlotAlternative factories ────────────────────────
 
 export function makePlannedStep(overrides: Partial<PlannedStep> = {}): PlannedStep {
@@ -278,6 +259,7 @@ export function makePlanWithAlternative(
       evening: [],
     },
     frozen: [],
+    reserve: [],
     placeholders: [],
     decisions: [],
     slotAlternatives: [makeSlotAlternative()],

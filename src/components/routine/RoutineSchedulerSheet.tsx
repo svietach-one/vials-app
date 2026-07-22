@@ -102,7 +102,7 @@ export function RoutineSchedulerSheet({
     >
       {/* Section 1: Time of Day */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>TIME OF DAY</Text>
+        <Text style={styles.sectionLabel}>Time of Day</Text>
         <View style={styles.chipRow}>
           <TimeChip
             icon="sun"
@@ -127,7 +127,7 @@ export function RoutineSchedulerSheet({
 
       {/* Section 2: Weekly Planner */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>WEEKLY PLANNER</Text>
+        <Text style={styles.sectionLabel}>Weekly Planner</Text>
         <WeeklySchedulePicker scheduledDays={scheduledDays} onUpdate={setScheduledDays} />
       </View>
 
@@ -145,26 +145,14 @@ export function RoutineSchedulerSheet({
       {(onHide || onRemove) ? (
         <View style={styles.destructiveActions}>
           {onHide ? (
-            <Pressable
-              onPress={() => { onClose(); onHide(); }}
-              style={styles.destructiveLink}
-              accessibilityRole="button"
-              hitSlop={8}
-            >
-              <Text style={styles.destructiveLinkText}>Hide product</Text>
-            </Pressable>
+            <Button variant="ghost" size="sm" onPress={() => { onClose(); onHide(); }}>
+              Hide product
+            </Button>
           ) : null}
           {onRemove ? (
-            <Pressable
-              onPress={() => { onClose(); onRemove(); }}
-              style={styles.destructiveLink}
-              accessibilityRole="button"
-              hitSlop={8}
-            >
-              <Text style={[styles.destructiveLinkText, styles.destructiveLinkTextDanger]}>
-                Remove from routine
-              </Text>
-            </Pressable>
+            <Button variant="destructive" size="sm" onPress={() => { onClose(); onRemove(); }}>
+              Remove from routine
+            </Button>
           ) : null}
         </View>
       ) : null}
@@ -277,15 +265,5 @@ const styles = StyleSheet.create({
     gap: space[5],
     marginTop: space[4],
     paddingBottom: space[2],
-  },
-  destructiveLink: {
-    paddingVertical: space[1],
-  },
-  destructiveLinkText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  destructiveLinkTextDanger: {
-    color: colors.statusError,
   },
 });

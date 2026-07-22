@@ -1,4 +1,5 @@
 import {
+  ACTIVES_RULESET,
   SEASONS_RULESET,
   type Period,
   type RuleTargets,
@@ -6,6 +7,7 @@ import {
   type SeasonRule,
 } from '@/constants/rulesets/rulesetTypes';
 import type { RoutineContext, DerivedLimit } from '@/utils/routineEngine/context';
+import type { DecisionReasonCode } from '@/constants/decisionReasons';
 import type {
   DecisionLogEntry,
   PlaceholderSlot,
@@ -41,7 +43,7 @@ export function collectLimits(context: RoutineContext): DerivedLimit[] {
 export interface PrioritizeTarget {
   targets: RuleTargets;
   period?: Period;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
 }
 
 /** All prioritize actions in force: clinical (rehab recovery) + seasonal. */
@@ -63,7 +65,7 @@ export function collectPrioritizeTargets(context: RoutineContext): PrioritizeTar
 export interface RequireMandate {
   period: Period;
   targets: RuleTargets;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
   nonSkippable: boolean;
   /** Finding severity when unmet, from the source rule's declaration. */
   severity: 'avoid' | 'caution';
@@ -107,7 +109,32 @@ export function collectRequireMandates(context: RoutineContext): RequireMandate[
       planContainsProperty: mandate.condition?.planContainsProperty,
     }));
 
-  return [...clinical, ...seasonal, ...phototype];
+  // Base mandates (actives.json `mandates`): always in force, independent of
+  // phototype, season, and clinical state — e.g. SPF whenever the plan carries
+  // a photosensitizer, for every user (spec phase-02 §2.1). Read directly from
+  // the ruleset like the seasonal source above. A `goalIn` condition matches
+  // the user's primary OR secondary goal (phase-03 §3.3) and is resolved here
+  // — unlike planContainsProperty it does not depend on the admitted plan.
+  const base: RequireMandate[] = (ACTIVES_RULESET.mandates ?? [])
+    .filter((mandate) => mandate.then.action === 'require' && mandate.then.targets)
+    .filter((mandate) => {
+      const goalIn = mandate.if?.goalIn;
+      if (!goalIn) return true;
+      return (
+        goalIn.includes(context.goals.primary) ||
+        (context.goals.secondary !== null && goalIn.includes(context.goals.secondary))
+      );
+    })
+    .map((mandate) => ({
+      period: mandate.then.period ?? 'am',
+      targets: mandate.then.targets as RuleTargets,
+      reasonCode: mandate.reasonCode,
+      nonSkippable: mandate.nonSkippable ?? false,
+      severity: mandate.severity ?? ('caution' as const),
+      planContainsProperty: mandate.if?.planContainsProperty,
+    }));
+
+  return [...clinical, ...seasonal, ...phototype, ...base];
 }
 
 export interface MandateResult {

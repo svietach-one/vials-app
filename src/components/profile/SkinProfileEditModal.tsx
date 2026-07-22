@@ -13,13 +13,16 @@ import {
 import { Feather } from '@expo/vector-icons';
 
 import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
+import { GoalSelector } from '@/components/profile/GoalSelector';
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type {
   FitzpatrickType,
   SkinConcern,
+  SkinGoal,
   SkinType,
   UserProfile,
 } from '@/types';
@@ -74,6 +77,8 @@ export function SkinProfileEditModal({
   const [skinType, setSkinType] = useState<SkinType | null>(null);
   const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(null);
   const [concerns, setConcerns] = useState<SkinConcern[]>([]);
+  const [primaryGoal, setPrimaryGoal] = useState<SkinGoal>('maintenance');
+  const [secondaryGoal, setSecondaryGoal] = useState<SkinGoal | null>(null);
   const [spfSensitivity, setSpfSensitivity] = useState(false);
 
   // Pre-fill from current profile on open
@@ -84,6 +89,8 @@ export function SkinProfileEditModal({
     setSkinType(profile?.skinType ?? null);
     setFitzpatrick(profile?.fitzpatrick ?? null);
     setConcerns(profile?.concerns ?? []);
+    setPrimaryGoal(profile?.primaryGoal ?? 'maintenance');
+    setSecondaryGoal(profile?.secondaryGoal ?? null);
     setSpfSensitivity(profile?.spfSensitivity ?? false);
   }, [visible, profile]);
 
@@ -101,6 +108,12 @@ export function SkinProfileEditModal({
       skinType,
       fitzpatrick,
       concerns,
+      primaryGoal,
+      secondaryGoal,
+      // Saving from the editor IS the user choosing — no confirmation owed
+      goalNeedsConfirmation: false,
+      // Choosing on the 6-card selector IS confirming the skin tone.
+      phototypeNeedsConfirmation: false,
       spfSensitivity,
     });
   }
@@ -120,15 +133,13 @@ export function SkinProfileEditModal({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Edit Skin Profile</Text>
-            <Pressable
+            <IconButton
+              icon={<Feather name="x" size={20} color={colors.textSecondary} />}
+              label="Close"
+              variant="secondary"
+              size="sm"
               onPress={onClose}
-              style={styles.closeBtn}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Feather name="x" size={20} color={colors.textSecondary} />
-            </Pressable>
+            />
           </View>
 
           <ScrollView
@@ -232,6 +243,23 @@ export function SkinProfileEditModal({
               </View>
             </View>
 
+            {/* Care goals (V2.1 Step 0) */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Care Goals</Text>
+              <Text style={styles.fieldHint}>
+                Pick up to two. Routines are built around your primary goal; leave empty for
+                maintenance care.
+              </Text>
+              <GoalSelector
+                primaryGoal={primaryGoal}
+                secondaryGoal={secondaryGoal}
+                onChange={(primary, secondary) => {
+                  setPrimaryGoal(primary);
+                  setSecondaryGoal(secondary);
+                }}
+              />
+            </View>
+
             {/* SPF sensitivity */}
             <View style={styles.switchRow}>
               <View style={styles.switchContent}>
@@ -281,14 +309,6 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans-Medium',
     color: colors.textPrimary,
   },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunken,
-  },
   scroll: { flex: 1 },
   content: {
     paddingHorizontal: space.gutterScreen,
@@ -301,6 +321,10 @@ const styles = StyleSheet.create({
   fieldLabel: {
     ...typography.label,
     color: colors.textPrimary,
+  },
+  fieldHint: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   chipRow: {
     flexDirection: 'row',

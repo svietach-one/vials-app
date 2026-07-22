@@ -45,16 +45,45 @@ export function periodsForProduct(productType: ProductType, facts: ProductFacts)
 }
 
 /**
- * True when the product is a single-placement "treatment": it carries active
- * classes with real irritation/photosensitivity/pH constraints, so generating
- * it into both periods would double exposure. Benign actives (hydrators,
- * barrier repair — irritancy 0) render in every allowed period like any
- * ordinary product.
+ * The build-order skeleton (V2.1 phase-04 §4.1): which product types may fill
+ * each structural slot. Treatment is not listed — it is selected by class
+ * ranking, not by format. Types outside this map and outside the treatment
+ * ranking do not enter a generated routine at all (minimalism).
+ *
+ * `pre_cleanse` (micellar water, cleansing oils/balms) is a distinct PM-only
+ * step ordered BEFORE `cleanser` (the double-cleanse pattern). It is a
+ * surfactant-based makeup/SPF remover, NOT a standalone cleanse: a makeup
+ * remover never satisfies the cleanse slot, and its presence triggers a
+ * follow-up gentle-cleanser requirement (see `pre_cleanse_requires_followup`).
+ * The AM skeleton has no pre_cleanse slot — makeup_remover defaults to PM.
+ */
+export const SKELETON_SLOTS = {
+  pre_cleanse: ['makeup_remover'],
+  cleanser: ['cleanser'],
+  moisturizer: ['moisturizer', 'cream', 'lotion'],
+  spf: ['spf'],
+} as const satisfies Record<string, readonly ProductType[]>;
+
+export type SkeletonSlotName = keyof typeof SKELETON_SLOTS;
+
+/** The structural slot a product type can fill, if any. */
+export function structuralSlotFor(productType: ProductType): SkeletonSlotName | null {
+  for (const [slot, types] of Object.entries(SKELETON_SLOTS)) {
+    if ((types as readonly ProductType[]).includes(productType)) return slot as SkeletonSlotName;
+  }
+  return null;
+}
+
+/**
+ * True when the product is a single-placement "treatment" under the
+ * cumulative rule: a leave-on carrier of a strong active (irritancy >= 3).
+ * Tightened in phase-04 from the V2 `irritancy >= 1` boundary — mild
+ * bioactives (peptides, niacinamide, vitamin C derivatives) carry no
+ * cumulative restriction and may render in every allowed period, per the
+ * 2026-07-17 directive (report §7).
  */
 export function isTreatment(facts: ProductFacts): boolean {
-  if (facts.classes.length === 0) return false;
-  const p = facts.properties;
-  return p.irritancy >= 1 || p.photosensitizing || p.lowPh || p.spf;
+  return facts.properties.irritancy >= 3 && !facts.rinseOff;
 }
 
 /**

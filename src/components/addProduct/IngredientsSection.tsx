@@ -1,10 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  InputAccessoryView,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { CameraCaptureModal } from '@/components/camera/CameraCaptureModal';
 import { InciScanNotice } from '@/components/camera/InciScanNotice';
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { ACTIVE_INGREDIENT_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { AddProductDraft } from '@/types';
@@ -22,10 +35,20 @@ export interface IngredientsSectionProps {
 }
 
 /**
+ * Multiline TextInputs never submit on Return (it inserts a newline
+ * instead), so iOS shows no way to dismiss the keyboard from the keyboard
+ * itself. Both raw-INCI text fields share one accessory bar with an
+ * explicit Done button (iOS-only — InputAccessoryView has no Android
+ * equivalent; the hardware/gesture back action already dismisses there).
+ */
+const INCI_KEYBOARD_ACCESSORY_ID = 'inci-raw-text-keyboard-accessory';
+
+/**
  * Section 3 — actives via INCI OCR, pasted text, or the manual checklist.
  * Optional by design: zero checked/detected actives is a valid final state.
- * The INCI camera is reachable ONLY through InciScanNotice ("Got it, scan
- * now") — never launch CameraCaptureModal mode="inci" from anywhere else.
+ * A FIRST scan is reachable ONLY through InciScanNotice ("Got it, scan
+ * now"); the multi-shot "Add another shot" re-scan intentionally skips the
+ * notice — it's the same scanning process for the same product.
  */
 export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps) {
   const [noticeVisible, setNoticeVisible] = useState(false);
@@ -34,10 +57,19 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
   const [pasteText, setPasteText] = useState('');
   const [rawExpanded, setRawExpanded] = useState(false);
   const [rawText, setRawText] = useState(draft.inciRaw ?? '');
+  // Whether the open camera is an additive re-shoot (long ingredient lists).
+  const [isReshoot, setIsReshoot] = useState(false);
+  // Manual checklist stays reachable after any OCR result (even garbled
+  // text with zero matches) — and never hides the raw text.
+  const [showChecklist, setShowChecklist] = useState(false);
+  const [stripNote, setStripNote] = useState(false);
 
-  // Keep the editable raw block in sync when OCR/paste replaces the text.
+  // Keep the editable raw block in sync when OCR/paste replaces the text,
+  // and surface a fresh result expanded — the user must immediately see
+  // what was actually scanned.
   useEffect(() => {
     setRawText(draft.inciRaw ?? '');
+    if (draft.inciRaw !== null) setRawExpanded(true);
   }, [draft.inciRaw]);
 
   function applyInciText(text: string) {
@@ -48,6 +80,24 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
     });
   }
 
+  function handleInciCapture(capturedText: string, hadNonLatin: boolean) {
+    setCameraVisible(false);
+    setStripNote(hadNonLatin);
+    if (isReshoot && draft.inciRaw !== null) {
+      // Multi-shot: concatenate onto the existing text — parseInciText
+      // already splits the whole string on commas, so no parser changes.
+      applyInciText(`${draft.inciRaw}, ${capturedText}`);
+    } else {
+      applyInciText(capturedText);
+    }
+    setIsReshoot(false);
+  }
+
+  function handleClearRaw() {
+    setStripNote(false);
+    dispatch({ type: 'CLEAR_INCI_RAW' });
+  }
+
   const conflictHits = findIntraProductConflicts(draft.activeIngredientKeys);
   const hasOcrData = draft.inciRaw !== null;
 
@@ -56,8 +106,8 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
       <ScanTile
         icon="file-text"
         label="Scan INCI list"
-        caption="The full ingredients list on the back of the packaging"
         onPress={() => setNoticeVisible(true)}
+        compact
       />
 
       <Text style={styles.divider}>or check known actives</Text>
@@ -80,19 +130,28 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
             </Text>
           )}
 
-          <Pressable
-            style={styles.rawToggle}
-            onPress={() => setRawExpanded((v) => !v)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: rawExpanded }}
-          >
-            <Feather
-              name={rawExpanded ? 'chevron-down' : 'chevron-right'}
-              size={16}
-              color={colors.textSecondary}
+          <View style={styles.rawHeader}>
+            <Pressable
+              style={styles.rawToggle}
+              onPress={() => setRawExpanded((v) => !v)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: rawExpanded }}
+            >
+              <Feather
+                name={rawExpanded ? 'chevron-down' : 'chevron-right'}
+                size={16}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.rawToggleLabel}>Full INCI text (raw)</Text>
+            </Pressable>
+            <IconButton
+              icon={<Feather name="x-circle" size={16} color={colors.textTertiary} />}
+              label="Clear INCI text"
+              variant="ghost"
+              size="sm"
+              onPress={handleClearRaw}
             />
-            <Text style={styles.rawToggleLabel}>Full INCI text (raw)</Text>
-          </Pressable>
+          </View>
 
           {rawExpanded ? (
             <TextInput
@@ -106,6 +165,46 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
               multiline
               style={styles.rawInput}
               accessibilityLabel="Full INCI text"
+              inputAccessoryViewID={
+                Platform.OS === 'ios' ? INCI_KEYBOARD_ACCESSORY_ID : undefined
+              }
+            />
+          ) : null}
+
+          {stripNote ? (
+            <Text style={styles.stripNote}>
+              Some non-Latin characters were removed — check the list looks right.
+            </Text>
+          ) : null}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            fullWidth
+            onPress={() => {
+              setIsReshoot(true);
+              setCameraVisible(true);
+            }}
+            accessibilityLabel="Add another shot"
+          >
+            Text didn&apos;t fit? Add another shot.
+          </Button>
+
+          <Pressable
+            onPress={() => setShowChecklist((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel="Choose actives manually"
+            accessibilityState={{ expanded: showChecklist }}
+          >
+            <Text style={styles.pasteLink}>
+              {showChecklist ? 'Hide manual checklist' : 'Choose actives manually'}
+            </Text>
+          </Pressable>
+
+          {showChecklist ? (
+            <ActivesChecklist
+              selectedKeys={draft.activeIngredientKeys}
+              onToggle={(key) => dispatch({ type: 'TOGGLE_ACTIVE_KEY', key })}
             />
           ) : null}
         </>
@@ -136,13 +235,15 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
       ) : null}
 
       {!hasOcrData ? (
-        <Pressable
+        <Button
+          variant="ghost"
+          size="sm"
+          fullWidth
           onPress={() => setPasteVisible(true)}
-          accessibilityRole="button"
           accessibilityLabel="Paste full INCI text instead"
         >
-          <Text style={styles.pasteLink}>Paste full INCI text instead</Text>
-        </Pressable>
+          Paste full INCI text instead
+        </Button>
       ) : null}
 
       <InciScanNotice
@@ -157,10 +258,12 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
       <CameraCaptureModal
         mode="inci"
         visible={cameraVisible}
-        onClose={() => setCameraVisible(false)}
-        onCapture={(result) => {
+        onClose={() => {
           setCameraVisible(false);
-          if (result.mode === 'inci') applyInciText(result.rawText);
+          setIsReshoot(false);
+        }}
+        onCapture={(result) => {
+          if (result.mode === 'inci') handleInciCapture(result.rawText, result.hadNonLatin);
         }}
       />
 
@@ -171,42 +274,64 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
         statusBarTranslucent
         onRequestClose={() => setPasteVisible(false)}
       >
-        <View style={styles.pasteBackdrop}>
-          <View style={styles.pasteCard}>
-            <Text style={styles.pasteTitle}>Paste INCI text</Text>
-            <Text style={styles.pasteHint}>
-              Paste the original Latin-character ingredients list, not a translation.
-            </Text>
-            <TextInput
-              value={pasteText}
-              onChangeText={setPasteText}
-              multiline
-              placeholder="Aqua, Glycerin, Niacinamide, …"
-              placeholderTextColor={colors.textTertiary}
-              style={styles.pasteInput}
-              accessibilityLabel="Pasted INCI text"
-            />
-            <View style={styles.pasteActions}>
-              <Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                onPress={() => {
-                  const text = pasteText.trim();
-                  setPasteVisible(false);
-                  setPasteText('');
-                  if (text) applyInciText(text);
-                }}
-              >
-                Parse ingredients
-              </Button>
-              <Button variant="ghost" size="lg" fullWidth onPress={() => setPasteVisible(false)}>
-                Cancel
-              </Button>
+        <KeyboardAvoidingView
+          style={styles.pasteBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            contentContainerStyle={styles.pasteScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.pasteCard}>
+              <Text style={styles.pasteTitle}>Paste INCI text</Text>
+              <Text style={styles.pasteHint}>
+                Paste the original Latin-character ingredients list, not a translation.
+              </Text>
+              <TextInput
+                value={pasteText}
+                onChangeText={setPasteText}
+                multiline
+                placeholder="Aqua, Glycerin, Niacinamide, …"
+                placeholderTextColor={colors.textTertiary}
+                style={styles.pasteInput}
+                accessibilityLabel="Pasted INCI text"
+                inputAccessoryViewID={
+                  Platform.OS === 'ios' ? INCI_KEYBOARD_ACCESSORY_ID : undefined
+                }
+              />
+              <View style={styles.pasteActions}>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  onPress={() => {
+                    const text = pasteText.trim();
+                    setPasteVisible(false);
+                    setPasteText('');
+                    if (text) applyInciText(text);
+                  }}
+                >
+                  Parse ingredients
+                </Button>
+                <Button variant="ghost" size="lg" fullWidth onPress={() => setPasteVisible(false)}>
+                  Cancel
+                </Button>
+              </View>
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
+
+      {Platform.OS === 'ios' ? (
+        <InputAccessoryView nativeID={INCI_KEYBOARD_ACCESSORY_ID}>
+          <View style={styles.keyboardAccessory}>
+            <Button variant="textActive" size="sm" onPress={() => Keyboard.dismiss()}>
+              Done
+            </Button>
+          </View>
+        </InputAccessoryView>
+      ) : null}
     </View>
   );
 }
@@ -219,8 +344,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textTertiary,
     textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   chips: {
     flexDirection: 'row',
@@ -231,10 +354,19 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textSecondary,
   },
+  rawHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   rawToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[1],
+  },
+  stripNote: {
+    ...typography.caption,
+    color: palette.amber,
   },
   rawToggleLabel: {
     ...typography.bodySmall,
@@ -287,9 +419,13 @@ const styles = StyleSheet.create({
   pasteBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(9, 9, 11, 0.6)',
+  },
+  pasteScrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.gutterScreen,
+    paddingVertical: space[6],
   },
   pasteCard: {
     width: '100%',
@@ -314,10 +450,24 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: space[3],
     minHeight: 120,
+    // Capped so a very long pasted list scrolls inside the field itself
+    // instead of growing the card past the screen (that unbounded growth,
+    // combined with no outer scroll, was what stranded the Parse/Cancel
+    // buttons below the keyboard).
+    maxHeight: 240,
     textAlignVertical: 'top',
     backgroundColor: colors.surfaceRaised,
   },
   pasteActions: {
     gap: space[2],
+  },
+  keyboardAccessory: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: space[4],
+    paddingVertical: space[2],
+    backgroundColor: colors.surfaceRaised,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
   },
 });

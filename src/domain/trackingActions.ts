@@ -53,9 +53,15 @@ export function performDailyCheckIn(now: Date = new Date()): { advanced: boolean
     if (existing) {
       byId.set(productId, { ...existing, count: existing.count + 1, lastAppliedDate: today });
     } else {
-      const product = products.find((p) => p.id === productId);
-      const seed = product ? virtualApplicationCount(product.addedAt, now) : 0;
-      byId.set(productId, { productId, count: seed + 1, lastAppliedDate: today });
+      // First check-in: seed the count from the usage anchor (phase-05), not
+      // the shelf-add date, and record today as the first application.
+      const seed = virtualApplicationCount(tracking.firstScheduledDates[productId], now);
+      byId.set(productId, {
+        productId,
+        count: seed + 1,
+        lastAppliedDate: today,
+        firstAppliedDate: today,
+      });
     }
   }
   const nextStats: ProductApplicationStats[] = [...byId.values()];

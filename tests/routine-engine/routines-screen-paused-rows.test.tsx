@@ -58,9 +58,8 @@ jest.mock('react-native-draggable-flatlist', () => {
 jest.mock('@/components/routine/AddToRoutineSheet', () => ({ AddToRoutineSheet: () => null }));
 jest.mock('@/components/routine/DraftPreviewSheet', () => ({ DraftPreviewSheet: () => null }));
 jest.mock('@/components/routine/RemoveStepModal', () => ({ RemoveStepModal: () => null }));
-jest.mock('@/components/routine/ClinicalRestrictionsBlock', () => ({ ClinicalRestrictionsBlock: () => null }));
 jest.mock('@/components/routine/SeasonalNoticeBanner', () => ({ SeasonalNoticeBanner: () => null }));
-jest.mock('@/components/routine/RehabWidget', () => ({ RehabWidget: () => null }));
+jest.mock('@/components/routine/RehabNoticeCard', () => ({ RehabNoticeCard: () => null }));
 
 jest.mock('@/components/routine/PlannerBlock', () => {
   const { Pressable } = require('react-native');
@@ -187,7 +186,8 @@ describe('Story 3 AC: an in-window custom_default match renders as a dimmed "Pau
     ];
 
     renderScreen();
-    fireEvent.press(screen.getByTestId('switch-to-evening'));
+    // img-03: both periods render together, so there is no period to switch to —
+    // the paused row lives in the footer regardless of accordion state.
 
     // Not a normal draggable step card...
     expect(screen.queryByLabelText('AHA Resurfacing Serum')).toBeNull();

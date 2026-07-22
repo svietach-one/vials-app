@@ -9,9 +9,15 @@ import type {
   UserProfile,
 } from '@/types';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
-import { getCyclePhaseForTonight, type CyclePhase } from '@/utils/routineEngine/cycleState';
+import {
+  DYNAMIC_UNAVAILABLE_REASON,
+  isDynamicCyclingAvailable,
+  resolveCyclePhase,
+  type CyclePhase,
+} from '@/utils/routineEngine/cycleState';
 import { buildShelfFacts, type ProductFacts } from '@/utils/routineEngine/productFacts';
 import { matchesRuleTargets } from '@/utils/routineEngine/targeting';
+import { isScheduledOnDay } from '@/utils/routineSchedule';
 import { getSkincareDateString } from '@/utils/timeHelpers';
 
 /**
@@ -62,7 +68,7 @@ export interface DailyRoutineView {
 }
 
 function isScheduledOn(step: RoutineStep, dayOfWeek: number): boolean {
-  return step.scheduledDays.length === 0 || step.scheduledDays.includes(dayOfWeek);
+  return isScheduledOnDay(step.scheduledDays, dayOfWeek);
 }
 
 /** Cycle classes attributed to a product (e.g. 'retinoid', 'exfoliant'). */
@@ -84,6 +90,72 @@ function matchesPhase(cycleClasses: Set<string>, phase: CyclePhase): boolean {
   if (phase === 'exfoliation') return cycleClasses.has('exfoliant');
   if (phase === 'retinoid') return cycleClasses.has('retinoid');
   return false;
+}
+
+/**
+ * Cycle classes with at least one product usable tonight (V2.1 phase-06 §6.1).
+ * "Usable" = eligible (not hidden, not PAO-expired) AND not clinically frozen
+ * tonight, so a PAO-expired or frozen retinoid never keeps retinoid night
+ * alive. Drives resolveCyclePhase / isDynamicCyclingAvailable.
+ */
+export function availableCycleClasses(
+  products: Product[],
+  facts: Map<string, ProductFacts>,
+  freezeRules: ProjectionContext['freezeRules'],
+  dayOfWeek: number,
+): Set<string> {
+  const available = new Set<string>();
+  for (const product of products) {
+    const f = facts.get(product.id);
+    if (!f || !f.eligible) continue;
+    const frozen = freezeRules.some((rule) => matchesRuleTargets(product.productType, f, rule.targets));
+    if (frozen) continue;
+    for (const cls of cycleClassesOf(f)) available.add(cls);
+  }
+  return available;
+}
+
+/** Resolved tonight's dynamic-cycle status for the Today phase card. */
+export interface DynamicCycleStatus {
+  phase: CyclePhase;
+  available: boolean;
+  /** DYNAMIC_UNAVAILABLE_REASON when neither cycle class is on the shelf, else null. */
+  reasonCode: string | null;
+}
+
+/**
+ * Resolves tonight's cycle phase against the shelf and reports whether dynamic
+ * cycling has anything to cycle (V2.1 phase-06). Pure; the Today screen reads
+ * this instead of the raw getCyclePhaseForTonight.
+ */
+export function getDynamicCycleStatus(
+  products: Product[],
+  input: DailyViewInput,
+): DynamicCycleStatus {
+  const now = input.now ?? new Date();
+  if (!input.cycle || input.cycle.type !== 'dynamic') {
+    return { phase: 'recovery', available: false, reasonCode: null };
+  }
+  const facts = buildShelfFacts(products, now);
+  const context = buildRoutineContext({
+    procedures: input.procedures,
+    profile: { fitzpatrick: input.profile.fitzpatrick },
+    seasonMask: input.seasonMask,
+    now,
+  });
+  const freezeRules = context.procedureRules.filter((rule) => rule.action === 'freeze');
+  const available = availableCycleClasses(
+    products,
+    facts,
+    freezeRules,
+    new Date(getSkincareDateString(now)).getUTCDay(),
+  );
+  const isAvailable = isDynamicCyclingAvailable(available);
+  return {
+    phase: resolveCyclePhase(input.cycle.state, available),
+    available: isAvailable,
+    reasonCode: isAvailable ? null : DYNAMIC_UNAVAILABLE_REASON,
+  };
 }
 
 /** Everything one routine projection needs, derived once per call. */
@@ -154,14 +226,28 @@ export function getDailyView(
     now,
   });
 
+  const facts = buildShelfFacts(products, now);
+  const freezeRules = context.procedureRules.filter((rule) => rule.action === 'freeze');
+  const dayOfWeek = new Date(date).getUTCDay();
+
+  // phase-06: the rendered dynamic phase is resolved against shelf composition
+  // — a retinoid/exfoliation night with no usable product degrades to recovery
+  // rather than showing an empty night.
+  const dynamicPhase =
+    input.cycle?.type === 'dynamic'
+      ? resolveCyclePhase(
+          input.cycle.state,
+          availableCycleClasses(products, facts, freezeRules, dayOfWeek),
+        )
+      : null;
+
   const ctx: ProjectionContext = {
     date,
-    dayOfWeek: new Date(date).getUTCDay(),
-    facts: buildShelfFacts(products, now),
+    dayOfWeek,
+    facts,
     productById: new Map(products.map((p) => [p.id, p])),
-    freezeRules: context.procedureRules.filter((rule) => rule.action === 'freeze'),
-    dynamicPhase:
-      input.cycle?.type === 'dynamic' ? getCyclePhaseForTonight(input.cycle.state) : null,
+    freezeRules,
+    dynamicPhase,
   };
 
   return routines.map((routine) => projectRoutine(routine, ctx));

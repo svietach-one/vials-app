@@ -55,6 +55,15 @@ function makeInput(products: Product[], overrides: Partial<EngineInput> = {}): E
   };
 }
 
+/**
+ * phase-04: generatePlan builds minimal goal-driven routines — a goal-less
+ * (maintenance) profile reserves every active. Tests that exercise actives
+ * THROUGH generation pass a goal matching their fixture; tests that target
+ * post-generation logic (substitution) hand-build the plan instead.
+ */
+const AGING = { fitzpatrick: null, concerns: [], primaryGoal: 'aging' as const };
+const ACNE = { fitzpatrick: null, concerns: [], primaryGoal: 'acne' as const };
+
 const PEEL: UserProcedureLog = {
   id: 'proc-1',
   procedureKey: 'chemical_peel_deep',
@@ -75,9 +84,9 @@ describe('generatePlan', () => {
     const cleanser = makeProduct({ productType: 'cleanser' });
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
-    const plan = generatePlan(makeInput([cleanser, retinoid, vitC]));
+    const plan = generatePlan(makeInput([cleanser, retinoid, vitC], { profile: AGING }));
 
-    expect(plan.rulesetVersion).toBe('2026-07-04');
+    expect(plan.rulesetVersion).toBe('2026-07-17');
     expect(plan.generatedFor).toBe('2026-07-04');
     expect(plan.periods.morning.map((s) => s.productId)).toEqual([cleanser.id, vitC.id]);
     expect(plan.periods.evening.map((s) => s.productId)).toEqual([cleanser.id, retinoid.id]);
@@ -112,7 +121,7 @@ describe('generatePlan', () => {
   it('caps a freshly added retinoid at 2 nights/week via adaptation (virtual count)', () => {
     // Added 3 days ago → virtual count 0 → phase 1 → maxDaysPerWeek 2
     const fresh = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-07-01' });
-    const plan = generatePlan(makeInput([fresh]));
+    const plan = generatePlan(makeInput([fresh], { profile: AGING }));
 
     const step = plan.periods.evening.find((s) => s.productId === fresh.id);
     expect(step?.scheduledDays).toEqual([2, 6]);
@@ -127,9 +136,10 @@ describe('generatePlan', () => {
     const fresh = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-07-01' });
     const plan = generatePlan(
       makeInput([fresh], {
+        profile: AGING,
         tracking: {
           cycleType: 'dynamic',
-          applicationStats: [{ productId: fresh.id, count: 9, lastAppliedDate: '2026-07-03' }],
+          applicationStats: [{ productId: fresh.id, count: 9, lastAppliedDate: '2026-07-03', firstAppliedDate: null }],
         },
       }),
     );
@@ -171,24 +181,44 @@ describe('validateRoutines', () => {
   it('does not flag day-separated steps of a conflicting pair', () => {
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const aha = makeProduct({ activeTags: ['aha'] });
+    // AM SPF satisfies the (phase-02) unconditional photosensitizer mandate,
+    // keeping this fixture a complete routine so the zero-findings assertion
+    // stays strict and the test keeps measuring day separation alone.
+    const spf = makeProduct({ productType: 'spf', usageTime: 'morning' });
     const routines = [
+      makeRoutine('morning', [makeStep(spf)]),
       makeRoutine('evening', [
         makeStep(retinoid, { scheduledDays: [0, 1, 3, 4, 5] }),
         makeStep(aha, { scheduledDays: [2, 6] }),
       ]),
     ];
-    const result = validateRoutines(routines, makeInput([retinoid, aha]));
+    const result = validateRoutines(routines, makeInput([retinoid, aha, spf]));
     expect(result.findings).toHaveLength(0);
     expect(result.hasBlockingFindings).toBe(false);
   });
 
-  it('reports caution (non-blocking) for the vitamin C + niacinamide pair', () => {
+  it('reports caution (non-blocking) for the vitamin C + copper peptides pair', () => {
+    // Was vitamin C + niacinamide until 2026-07-17, when that pair became
+    // compatible (spec phase-01 §1.4). vitC pure + copper peptides is the
+    // replacement caution pair: acidic vitC oxidises the copper complex.
+    const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
+    const copper = makeProduct({ activeTags: ['copper_peptides'] });
+    const routines = [makeRoutine('morning', [makeStep(vitC), makeStep(copper)])];
+    const result = validateRoutines(routines, makeInput([vitC, copper]));
+
+    expect(result.findings[0].severity).toBe('caution');
+    expect(result.hasBlockingFindings).toBe(false);
+  });
+
+  it('reports no finding for the vitamin C + niacinamide pair', () => {
+    // Regression lock: the low-pH myth is retired, in the engine's validate
+    // path as well as ConflictEngine's. See conflictEngine.test.ts.
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
     const niacinamide = makeProduct({ activeTags: ['niacinamide'] });
     const routines = [makeRoutine('morning', [makeStep(vitC), makeStep(niacinamide)])];
     const result = validateRoutines(routines, makeInput([vitC, niacinamide]));
 
-    expect(result.findings[0].severity).toBe('caution');
+    expect(result.findings).toHaveLength(0);
     expect(result.hasBlockingFindings).toBe(false);
   });
 
@@ -228,11 +258,13 @@ describe('validateRoutines', () => {
   });
 
   it('diffs the proposed plan against the saved state (added and moved)', () => {
-    // Saved: vitC in the evening. Proposed: vitC moves to am; cleanser appears in both.
+    // Saved: vitC in the evening. Proposed: vitC moves to am; cleanser appears
+    // in both. The aging goal makes vitC the proposed AM treatment (phase-04:
+    // a maintenance profile would reserve it → 'removed', not 'moved').
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
     const cleanser = makeProduct({ productType: 'cleanser' });
     const routines = [makeRoutine('evening', [makeStep(vitC)])];
-    const result = validateRoutines(routines, makeInput([vitC, cleanser]));
+    const result = validateRoutines(routines, makeInput([vitC, cleanser], { profile: AGING }));
 
     expect(result.diff).toEqual(
       expect.arrayContaining([
@@ -258,7 +290,8 @@ describe('findSubstitute', () => {
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const niacinamide = makeProduct({ activeTags: ['niacinamide'], usageTime: 'evening' });
     const input = makeInput([retinoid, niacinamide]);
-    const plan = generatePlan(makeInput([retinoid])); // plan holds only the retinoid
+    // acne goal: the retinoid is the PM treatment (maintenance would reserve it)
+    const plan = generatePlan(makeInput([retinoid], { profile: ACNE }));
 
     const result = findSubstitute(plan, 'evening', retinoid.id, input);
     expect(result?.productId).toBe(niacinamide.id);
@@ -276,8 +309,25 @@ describe('findSubstitute', () => {
     const ceramide = makeProduct({ activeTags: ['ceramides'] });
     const aha = makeProduct({ activeTags: ['aha'] });
     const panthenol = makeProduct({ activeTags: ['panthenol'], usageTime: 'evening' });
-    const planInput = makeInput([retinoid, ceramide]);
-    const plan = generatePlan(planInput);
+    // Hand-built plan: no single goal generates retinoid + ceramide together
+    // under phase-04 minimalism (ceramides rank only in goals whose
+    // barrier_repair modifier excludes retinoids). findSubstitute operates on
+    // any plan — this test targets substitution, not generation.
+    const plan: ReturnType<typeof generatePlan> = {
+      rulesetVersion: 'test',
+      generatedFor: '2026-07-04',
+      periods: {
+        morning: [],
+        evening: [
+          { productId: retinoid.id, productType: 'toner', scheduledDays: [], slotIndex: 3, score: 0, addedAt: retinoid.addedAt },
+          { productId: ceramide.id, productType: 'serum', scheduledDays: [], slotIndex: 6, score: 0, addedAt: ceramide.addedAt },
+        ],
+      },
+      frozen: [],
+      reserve: [],
+      placeholders: [],
+      decisions: [],
+    };
 
     const result = findSubstitute(
       plan,
@@ -291,7 +341,9 @@ describe('findSubstitute', () => {
   it('enforces the layering slot — a toner is never offered for a serum step', () => {
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const toner = makeProduct({ productType: 'toner', usageTime: 'evening' });
-    const plan = generatePlan(makeInput([retinoid]));
+    // acne goal so the retinoid is actually in the plan — a maintenance plan
+    // would be empty and this assertion would pass vacuously (phase-04).
+    const plan = generatePlan(makeInput([retinoid], { profile: ACNE }));
 
     const result = findSubstitute(plan, 'evening', retinoid.id, makeInput([retinoid, toner]));
     expect(result).toBeNull();

@@ -52,7 +52,7 @@ export function ActivesChecklist({ selectedKeys, onToggle }: ActivesChecklistPro
         <View key={group.label} style={styles.group}>
           <View style={styles.groupHeader}>
             <View style={[styles.dot, { backgroundColor: group.color }]} />
-            <Text style={styles.groupLabel}>{group.label.toUpperCase()}</Text>
+            <Text style={styles.groupLabel}>{group.label}</Text>
           </View>
           <View style={styles.chips}>
             {group.keys.map((key) => (
@@ -92,7 +92,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontFamily: 'DMSans-Medium',
     color: colors.textSecondary,
-    letterSpacing: 0.5,
   },
   chips: {
     flexDirection: 'row',

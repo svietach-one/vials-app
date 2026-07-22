@@ -26,7 +26,7 @@ export type {
   PlannedStep,
   SlotAlternative,
 } from './planTypes';
-export { buildRehabWidgetState, applyRehabFilter, getRehabDays } from './rehabFilter';
+export { buildRehabNotices, getRehabDays } from './rehabFilter';
 export { migrateProfile, migrateProducts, migrateRoutines } from './migrations';
 export {
   CYCLE_PHASES,

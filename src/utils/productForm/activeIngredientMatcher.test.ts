@@ -6,10 +6,13 @@ describe('parseInciText', () => {
       'Aqua, Glycerin, Niacinamide, Retinol, Salicylic Acid, Glycolic Acid',
     );
 
+    // glycerin_class since phase-03: glycerin at position 2 clears the
+    // requireWithinPosition gate — in a concentration-ordered list that IS a
+    // top humectant, exactly what the gate exists to distinguish.
     expect(keys).toEqual(
-      expect.arrayContaining(['niacinamide', 'retinoid', 'bha', 'aha']),
+      expect.arrayContaining(['niacinamide', 'retinoid', 'bha', 'aha', 'glycerin_class']),
     );
-    expect(keys).toHaveLength(4);
+    expect(keys).toHaveLength(5);
   });
 
   it('classifies ethyl ascorbic acid as a derivative, not pure vitamin C', () => {

@@ -1,10 +1,12 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
+  Alert,
+  KeyboardAvoidingView,
   Modal,
-  Pressable,
+  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -14,8 +16,16 @@ import { Feather } from '@expo/vector-icons';
 
 import { OcrEngineWebView } from '@/components/camera/OcrEngineWebView';
 import type { OcrEngineHandle } from '@/components/camera/OcrEngineWebView';
-import { palette, radius, space, typography } from '@/constants/tokens';
+import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
+import { Input } from '@/components/ui/forms/Input';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { CaptureMode, CaptureResult } from '@/types';
+import { ocrTextCleaner } from '@/utils/ocrTextCleaner';
+import {
+  manualBarcodeError,
+  normalizeManualBarcode,
+} from '@/utils/productForm/barcodeValidation';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,78 +36,53 @@ export interface CameraCaptureModalProps {
   onCapture: (result: CaptureResult) => void;
 }
 
-const HELPER_COPY: Record<CaptureMode, string> = {
-  label: 'Focus camera on the brand and product name',
-  barcode: 'Point at the barcode on the box',
-  inci: 'Align the ingredients list inside the frame',
-};
-
-const OCR_TIMEOUT_MS = 10_000;
-
-// ─── Pulsing "Reading…" indicator ─────────────────────────────────────────────
-
-function ReadingIndicator() {
-  const pulse = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 0.25, duration: 550, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 550, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse]);
-
-  return (
-    <View style={styles.readingWrap}>
-      <Animated.View style={[styles.readingDot, { opacity: pulse }]} />
-      <Text style={styles.readingLabel}>Reading…</Text>
-    </View>
-  );
+/**
+ * The single reusable capture entry point for the Add Product flow, split
+ * by capture mechanism:
+ *
+ * - `barcode` — live in-app decoder modal (real-time scanning suits a fixed
+ *   rectangular frame), plus a manual digit-entry fallback.
+ * - `label` / `inci` — the system camera via expo-image-picker, full frame,
+ *   NO crop step: iOS's `allowsEditing` crop box is a fixed square that
+ *   packaging (tall bottles, wide INCI blocks) fits badly, so the user just
+ *   fills the frame with the label instead. Background noise in the full
+ *   frame is handled downstream — the engine downscales the photo and drops
+ *   low-confidence/undersized words (ocrNoiseFilter.ts) before any text
+ *   reaches the form.
+ *
+ * Data leaves ONLY through `onCapture` — this component never touches the
+ * form reducer.
+ */
+export function CameraCaptureModal(props: CameraCaptureModalProps) {
+  if (props.mode === 'barcode') return <BarcodeCaptureModal {...props} />;
+  return <OcrPhotoFlow {...props} />;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ═══ Barcode: live in-app scanner modal ═══════════════════════════════════════
 
-/**
- * The single reusable full-screen capture modal for the Add Product flow.
- * `mode` selects the pipeline: live barcode decoding, or photo → shared
- * Tesseract OCR engine for label/INCI text. Data leaves ONLY through
- * `onCapture` — this component never touches the form reducer.
- *
- * Note: the codebase has no live text-frame OCR pipeline (OCR is photo-based
- * Tesseract in a WebView, shared with OcrScannerSheet), so label/inci modes
- * use a shutter button instead of continuous stable-block detection.
- */
-export function CameraCaptureModal({ mode, visible, onClose, onCapture }: CameraCaptureModalProps) {
+/** How long unsuccessful scanning runs before the "way out" hint appears. */
+const TROUBLE_HINT_MS = 9_000;
+
+function BarcodeCaptureModal({ mode, visible, onClose, onCapture }: CameraCaptureModalProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraFailed, setCameraFailed] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [ocrFailed, setOcrFailed] = useState(false);
+  const [showTroubleHint, setShowTroubleHint] = useState(false);
+  const [manualText, setManualText] = useState('');
+  const [manualError, setManualError] = useState<string | null>(null);
 
-  const cameraRef = useRef<CameraView>(null);
-  const engineRef = useRef<OcrEngineHandle>(null);
-  // Cooldown so a decoded barcode fires onCapture exactly once per open.
+  // Cooldown so a decode (or manual submit) fires onCapture exactly once per open.
   const locked = useRef(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const isOcrMode = mode === 'label' || mode === 'inci';
-
-  function clearOcrTimeout() {
-    if (timeoutRef.current !== null) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }
 
   useEffect(() => {
     if (!visible) return;
     // Fresh state on every open.
     locked.current = false;
-    setProcessing(false);
-    setOcrFailed(false);
     setCameraFailed(false);
+    setShowTroubleHint(false);
+    setManualText('');
+    setManualError(null);
+    const hintTimer = setTimeout(() => setShowTroubleHint(true), TROUBLE_HINT_MS);
+    return () => clearTimeout(hintTimer);
   }, [visible]);
 
   useEffect(() => {
@@ -106,186 +91,320 @@ export function CameraCaptureModal({ mode, visible, onClose, onCapture }: Camera
     }
   }, [visible, permission, requestPermission]);
 
-  // Clear the timeout if the component unmounts mid-scan.
-  useEffect(() => () => clearOcrTimeout(), []);
-
-  // ── Barcode pipeline ───────────────────────────────────────────────────────
-  // Bound only in barcode mode (mode is fixed for the lifetime of an open
-  // modal, so this never toggles mid-session); the lock ref guarantees a
-  // single onCapture per open.
-
   const handleBarcodeScan = useCallback(
     ({ data }: { data: string }) => {
-      if (locked.current || mode !== 'barcode') return;
+      if (locked.current) return;
       locked.current = true;
       onCapture({ mode: 'barcode', code: data });
     },
-    [mode, onCapture],
+    [onCapture],
   );
 
-  // ── OCR pipeline (label / inci) ────────────────────────────────────────────
-
-  async function handleShutter() {
-    if (processing || locked.current) return;
-    setOcrFailed(false);
-    setProcessing(true);
-    clearOcrTimeout();
-    timeoutRef.current = setTimeout(handleOcrError, OCR_TIMEOUT_MS);
-
-    try {
-      const photo = await cameraRef.current?.takePictureAsync({ base64: true, quality: 0.5 });
-      if (!photo?.base64) {
-        handleOcrError();
-        return;
-      }
-      engineRef.current?.processImage(photo.base64);
-    } catch {
-      handleOcrError();
-    }
-  }
-
-  function handleOcrText(rawText: string) {
-    clearOcrTimeout();
-    setProcessing(false);
-    if (!rawText.trim()) {
-      setOcrFailed(true);
+  function handleManualSubmit() {
+    const error = manualBarcodeError(manualText);
+    if (error) {
+      setManualError(error);
       return;
     }
-    if (locked.current) return;
+    const code = normalizeManualBarcode(manualText);
+    if (code === null || locked.current) return;
     locked.current = true;
-    onCapture(mode === 'label' ? { mode: 'label', rawText } : { mode: 'inci', rawText });
+    // Same exit as a live decode: the parent section owns the dispatch.
+    onCapture({ mode: 'barcode', code });
   }
-
-  function handleOcrError() {
-    clearOcrTimeout();
-    engineRef.current?.clearPending();
-    setProcessing(false);
-    setOcrFailed(true);
-  }
-
-  function handleClose() {
-    clearOcrTimeout();
-    engineRef.current?.clearPending();
-    onClose();
-  }
-
-  // ── Render helpers ─────────────────────────────────────────────────────────
 
   const permissionDenied = permission !== null && !permission.granted;
-  const showFallback = cameraFailed || (permissionDenied && !permission.canAskAgain);
+  const showFallback = cameraFailed || permissionDenied;
 
-  function renderBody() {
-    if (permission === null) {
-      return (
-        <View style={styles.centerFill}>
-          <ActivityIndicator color={palette.white} />
-        </View>
-      );
-    }
+  function renderFallback() {
+    return (
+      <View style={styles.centerFill}>
+        <Feather name="camera-off" size={32} color="rgba(255,255,255,0.6)" />
+        <Text style={styles.fallbackText}>
+          Camera unavailable. Enter the barcode below or use manual entry.
+        </Text>
+        {permissionDenied && permission?.canAskAgain && !cameraFailed ? (
+          <Button variant="primary" size="md" onPress={() => void requestPermission()} style={styles.fallbackBtn}>
+            Allow Camera Access
+          </Button>
+        ) : null}
+        <Button
+          variant="primary"
+          size="md"
+          onPress={onClose}
+          accessibilityLabel="Close and use manual entry"
+          style={styles.fallbackBtn}
+        >
+          Use Manual Entry
+        </Button>
+      </View>
+    );
+  }
 
-    if (showFallback || permissionDenied) {
-      return (
-        <View style={styles.centerFill}>
-          <Feather name="camera-off" size={32} color="rgba(255,255,255,0.6)" />
-          <Text style={styles.fallbackText}>Camera unavailable. Use manual entry instead.</Text>
-          {permissionDenied && permission.canAskAgain && !cameraFailed ? (
-            <Pressable
-              style={styles.fallbackBtn}
-              onPress={() => void requestPermission()}
-              accessibilityRole="button"
-            >
-              <Text style={styles.fallbackBtnLabel}>Allow Camera Access</Text>
-            </Pressable>
-          ) : null}
-          <Pressable
-            style={styles.fallbackBtn}
-            onPress={handleClose}
-            accessibilityRole="button"
-            accessibilityLabel="Close and use manual entry"
-          >
-            <Text style={styles.fallbackBtnLabel}>Use Manual Entry</Text>
-          </Pressable>
-        </View>
-      );
-    }
-
+  function renderScanner() {
     return (
       <>
         <CameraView
-          ref={cameraRef}
           style={StyleSheet.absoluteFill}
           facing="back"
           onMountError={() => setCameraFailed(true)}
           barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
-          onBarcodeScanned={mode === 'barcode' ? handleBarcodeScan : undefined}
+          onBarcodeScanned={handleBarcodeScan}
         />
-
         {/* Viewfinder overlay: four L-shaped corner marks, not a full border */}
         <View style={styles.overlay} pointerEvents="none">
-          <View style={[styles.viewfinder, mode === 'barcode' && styles.viewfinderBarcode]}>
+          <View style={styles.viewfinder}>
             <View style={[styles.corner, styles.cornerTL]} />
             <View style={[styles.corner, styles.cornerTR]} />
             <View style={[styles.corner, styles.cornerBL]} />
             <View style={[styles.corner, styles.cornerBR]} />
           </View>
-          <Text style={styles.hint}>{HELPER_COPY[mode]}</Text>
-          {processing ? <ReadingIndicator /> : null}
-        </View>
-
-        {ocrFailed ? (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>
-              Could not read the text. Try again, or close and use manual entry.
+          <Text style={styles.hint}>Point at the barcode on the box</Text>
+          {showTroubleHint ? (
+            <Text style={styles.troubleHint}>
+              Having trouble scanning? Enter the barcode below, or close.
             </Text>
-          </View>
-        ) : null}
-
-        {isOcrMode ? (
-          <View style={styles.shutterWrap} pointerEvents="box-none">
-            <Pressable
-              style={({ pressed }) => [styles.shutterBtn, pressed && styles.shutterBtnPressed]}
-              onPress={() => void handleShutter()}
-              disabled={processing}
-              accessibilityRole="button"
-              accessibilityLabel="Capture photo"
-            >
-              <View style={styles.shutterInner} />
-            </Pressable>
-          </View>
-        ) : null}
+          ) : null}
+        </View>
       </>
     );
   }
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={handleClose}
-    >
+    <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.fullscreen}>
-        {renderBody()}
+        {permission === null ? (
+          <View style={styles.centerFill}>
+            <ActivityIndicator color={palette.white} />
+          </View>
+        ) : showFallback ? (
+          renderFallback()
+        ) : (
+          renderScanner()
+        )}
 
-        {/* Shared OCR engine — kept outside renderBody's error branches so the
-            Tesseract worker survives transient error states while visible. */}
-        {isOcrMode ? (
-          <OcrEngineWebView ref={engineRef} onResult={handleOcrText} onError={handleOcrError} />
-        ) : null}
-
+        {/*
+          Close control: the button sits in NORMAL flow inside the SafeAreaView.
+          The previous absolute-positioned button inside a height-collapsed
+          absolute wrapper put the touch target outside its parent's bounds on
+          devices with small/zero top insets, so taps were silently dropped —
+          the "close button stops working" bug.
+        */}
         <SafeAreaView style={styles.closeWrap} pointerEvents="box-none">
-          <Pressable
+          <IconButton
+            icon={<Feather name="x" size={20} color={palette.white} />}
+            label="Close camera"
+            variant="ghost"
+            size="sm"
             style={styles.closeBtn}
-            onPress={handleClose}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Close camera"
-          >
-            <Feather name="x" size={20} color={palette.white} />
-          </Pressable>
+            onPress={onClose}
+          />
         </SafeAreaView>
+
+        {/* Manual entry — always available, not only after a failed scan. */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.manualWrap}
+          pointerEvents="box-none"
+        >
+          <SafeAreaView pointerEvents="box-none">
+            <View style={styles.manualCard}>
+              <Text style={styles.manualHint}>Can&apos;t scan? Enter the barcode manually.</Text>
+              <Input
+                value={manualText}
+                onChangeText={(text) => {
+                  setManualText(text);
+                  if (manualError) setManualError(null);
+                }}
+                keyboardType="number-pad"
+                maxLength={13}
+                placeholder="12 or 13 digits"
+                error={manualError}
+                returnKeyType="done"
+                onSubmitEditing={handleManualSubmit}
+                accessibilityLabel="Barcode digits"
+              />
+              <Button variant="primary" size="lg" fullWidth onPress={handleManualSubmit}>
+                Use this barcode
+              </Button>
+            </View>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
+  );
+}
+
+// ═══ Label / INCI: system camera or gallery photo → shared OCR engine ═════════
+
+const OCR_TIMEOUT_MS = 10_000;
+/** High JPEG quality: 0.5 compression on small INCI print measurably hurt Tesseract. */
+const PHOTO_QUALITY = 0.85;
+
+const PICKER_TITLE: Record<Exclude<CaptureMode, 'barcode'>, string> = {
+  label: 'Scan Front Label',
+  inci: 'Scan Ingredient List',
+};
+
+function OcrPhotoFlow({ mode, visible, onClose, onCapture }: CameraCaptureModalProps) {
+  // Drives the full-screen "Reading…" overlay; set before any OCR work starts.
+  const [loading, setLoading] = useState(false);
+
+  // The shared Tesseract engine buffers images until its worker is ready.
+  const engineRef = useRef<OcrEngineHandle>(null);
+  // Fail-safe: if loading stays true for >10s we auto-reset and surface an error.
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearScanTimeout() {
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }
+
+  function startScanTimeout() {
+    clearScanTimeout();
+    timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = null;
+      setLoading(false);
+      engineRef.current?.clearPending();
+      Alert.alert('Error', 'Scanner timed out. Please try again.', [
+        { text: 'OK', onPress: onClose },
+      ]);
+    }, OCR_TIMEOUT_MS);
+  }
+
+  useEffect(() => {
+    if (!visible) {
+      clearScanTimeout();
+      setLoading(false);
+      // The engine's worker readiness survives visibility toggles; only a
+      // queued image must be dropped.
+      engineRef.current?.clearPending();
+      return;
+    }
+    showPickerAlert();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  // Clear the timeout if the component is unmounted while a scan is in progress.
+  useEffect(() => () => clearScanTimeout(), []);
+
+  function showPickerAlert() {
+    Alert.alert(PICKER_TITLE[mode === 'barcode' ? 'label' : mode], undefined, [
+      { text: 'Take Photo', onPress: () => void handleCamera() },
+      { text: 'Choose from Gallery', onPress: () => void handleGallery() },
+      { text: 'Cancel', style: 'cancel', onPress: onClose },
+    ]);
+  }
+
+  async function handleCamera() {
+    const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+    if (!granted) {
+      Alert.alert(
+        'Camera Access Needed',
+        'Enable camera access in Settings to take a photo of the packaging.',
+        [{ text: 'OK', onPress: onClose }],
+      );
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: PHOTO_QUALITY,
+      base64: true,
+    });
+    if (result.canceled) {
+      onClose();
+      return;
+    }
+    handlePickedImage(result.assets[0]?.base64 ?? null);
+  }
+
+  async function handleGallery() {
+    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!granted) {
+      Alert.alert(
+        'Photo Access Needed',
+        'Enable photo library access in Settings > Vials to choose an image.',
+        [{ text: 'OK', onPress: onClose }],
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: PHOTO_QUALITY,
+      base64: true,
+    });
+    if (result.canceled) {
+      onClose();
+      return;
+    }
+    handlePickedImage(result.assets[0]?.base64 ?? null);
+  }
+
+  function handlePickedImage(base64: string | null | undefined) {
+    if (!base64) {
+      onClose();
+      return;
+    }
+    // ▶ Show the loading overlay IMMEDIATELY, before any OCR work.
+    setLoading(true);
+    startScanTimeout();
+    engineRef.current?.processImage(base64);
+  }
+
+  function handleOcrText(rawText: string) {
+    clearScanTimeout();
+    setLoading(false);
+
+    if (mode === 'label') {
+      // Keep Tesseract's line breaks: the line-assignment chips downstream
+      // need them. Per-line cleanup happens in splitLabelLines — the full
+      // ocrTextCleaner is INCI-specific (flattens newlines to commas and
+      // strips accented brand-name letters).
+      if (!rawText.trim()) {
+        showOcrError();
+        return;
+      }
+      onCapture({ mode: 'label', rawText });
+      return;
+    }
+
+    const { cleanedText, hadNonLatin } = ocrTextCleaner(rawText);
+    if (!cleanedText.trim()) {
+      showOcrError();
+      return;
+    }
+    onCapture({ mode: 'inci', rawText: cleanedText, hadNonLatin });
+  }
+
+  function showOcrError() {
+    clearScanTimeout();
+    setLoading(false);
+    engineRef.current?.clearPending();
+    Alert.alert('Scan Failed', 'Could not read the text. Try again, or use manual entry.', [
+      { text: 'Try Again', onPress: showPickerAlert },
+      { text: 'Cancel', style: 'cancel', onPress: onClose },
+    ]);
+  }
+
+  // The engine WebView is kept mounted for the whole time the flow is open —
+  // unmounting destroys the Tesseract worker and forces a fresh CDN download.
+  if (!visible) return null;
+
+  return (
+    <>
+      <OcrEngineWebView ref={engineRef} onResult={handleOcrText} onError={showOcrError} />
+
+      {/* Loading overlay while the system picker hands off to Tesseract. */}
+      <Modal visible={loading} transparent statusBarTranslucent animationType="fade">
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={colors.textPrimary} />
+            <Text style={styles.loadingLabel}>Reading text…</Text>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -311,13 +430,9 @@ const styles = StyleSheet.create({
     gap: space[4],
   },
   viewfinder: {
-    width: 280,
-    height: 220,
-    position: 'relative',
-  },
-  viewfinderBarcode: {
     width: 260,
     height: 160,
+    position: 'relative',
   },
   corner: {
     position: 'absolute',
@@ -335,64 +450,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: space.gutterScreen,
   },
-
-  readingWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: radius.pill,
-    paddingHorizontal: space[4],
-    paddingVertical: space[2],
-  },
-  readingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: palette.marigold,
-  },
-  readingLabel: {
-    ...typography.bodySmall,
-    color: palette.white,
-  },
-
-  errorCard: {
-    position: 'absolute',
-    bottom: 140,
-    left: space.gutterScreen,
-    right: space.gutterScreen,
-    backgroundColor: 'rgba(9,9,11,0.88)',
-    borderRadius: radius.xl,
-    padding: space[4],
-  },
-  errorText: {
+  troubleHint: {
     ...typography.bodySmall,
     color: palette.white,
     textAlign: 'center',
-  },
-
-  shutterWrap: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  shutterBtn: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 4,
-    borderColor: palette.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shutterBtnPressed: { opacity: 0.7 },
-  shutterInner: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: palette.white,
+    paddingHorizontal: space.gutterScreen,
   },
 
   closeWrap: {
@@ -400,17 +462,51 @@ const styles = StyleSheet.create({
     top: 0,
     right: 0,
     left: 0,
+    alignItems: 'flex-end',
   },
   closeBtn: {
-    position: 'absolute',
-    top: space[4],
-    right: space[4],
-    width: 36,
-    height: 36,
+    marginTop: space[4],
+    marginRight: space[4],
     borderRadius: radius.pill,
     backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+
+  manualWrap: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  manualCard: {
+    backgroundColor: colors.bgBase,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: space[4],
+    gap: space[3],
+  },
+  manualHint: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
+  },
+
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(9, 9, 11, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loadingCard: {
+    backgroundColor: colors.bgBase,
+    borderRadius: radius.xl,
+    paddingHorizontal: space[8],
+    paddingVertical: space[6],
+    alignItems: 'center',
+    gap: space[3],
+  },
+  loadingLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
   },
 
   fallbackText: {
@@ -423,10 +519,6 @@ const styles = StyleSheet.create({
     paddingVertical: space[3],
     borderRadius: radius.pill,
     backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  fallbackBtnLabel: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: palette.white,
+    borderColor: 'transparent',
   },
 });

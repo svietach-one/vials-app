@@ -1,5 +1,7 @@
--- Vials corpus DB (vials_corpus) — schema v2
+-- Vials corpus DB (vials_corpus) — schema v2.1
 -- Load into Turso: turso db shell vials-corpus < corpus_schema.sql
+-- v2.1 adds products.url / products.name_lacin and reindexes products_fts
+-- on both columns — see docs/tech-design/vials-db-schema-v2.1-changes.md
 
 PRAGMA foreign_keys = ON;
 
@@ -43,13 +45,16 @@ CREATE TABLE IF NOT EXISTS products (
   source       TEXT NOT NULL,
   rating       REAL,
   rating_count INTEGER NOT NULL DEFAULT 0,
+  url          TEXT,                             -- product page URL (vials_seed only; NULL for obf_import) — v2.1
+  name_lacin   TEXT,                              -- latin transliteration of name (vials_seed only) — v2.1
   updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_products_barcode ON products (barcode) WHERE barcode IS NOT NULL;
 CREATE INDEX IF NOT EXISTS        idx_products_source  ON products (source);
 
+-- v2.1: reindexed on both search_norm and name_lacin (was search_norm only).
 CREATE VIRTUAL TABLE IF NOT EXISTS products_fts USING fts5(
-  search_norm,
+  search_norm, name_lacin,
   content='products', content_rowid='id',
   tokenize='trigram'
 );

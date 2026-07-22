@@ -3,8 +3,8 @@
  *
  * Covers:
  *   AC-11 Corpus search input is rendered with focus hint
- *   AC-12 Typing < 3 chars does not trigger a search
- *   AC-13 Typing >= 3 chars (after 600 ms debounce) triggers ProductRepository.search
+ *   AC-12 Typing an empty query does not trigger a search
+ *   AC-13 Typing >= 1 char (after 200 ms debounce) triggers ProductRepository.search
  *   AC-14 Corpus results render as pressable rows (name + brand)
  *   AC-15 Tapping a result navigates to ManualProductForm with a corpus prefill
  *   AC-16 Zero-results state shows "No results for…" text and an "Add Manually" button
@@ -136,16 +136,9 @@ describe('AC-11: corpus search input is rendered', () => {
   });
 });
 
-// ── AC-12: Short queries do not trigger search ────────────────────────────────
+// ── AC-12: Empty query does not trigger search ─────────────────────────────────
 
-describe('AC-12: typing fewer than 3 chars does not trigger a corpus search', () => {
-  it('should not call search when query is 2 chars', async () => {
-    renderScreen();
-    fireEvent.changeText(screen.getByTestId('hub-search-input'), 'ab');
-    act(() => jest.runAllTimers());
-    expect(mockSearch).not.toHaveBeenCalled();
-  });
-
+describe('AC-12: typing an empty query does not trigger a corpus search', () => {
   it('should not call search when query is empty', async () => {
     renderScreen();
     fireEvent.changeText(screen.getByTestId('hub-search-input'), '');
@@ -154,24 +147,51 @@ describe('AC-12: typing fewer than 3 chars does not trigger a corpus search', ()
   });
 });
 
-// ── AC-13: Debounced search after >= 3 chars ──────────────────────────────────
+// ── AC-13: Debounced search from the first character ──────────────────────────
 
-describe('AC-13: search is triggered after 600 ms debounce when query >= 3 chars', () => {
+describe('AC-13: search is triggered after 200 ms debounce as soon as query >= 1 char', () => {
   it('should call search with the trimmed query after debounce', async () => {
     mockSearch.mockResolvedValue([CORPUS_RESULT]);
     renderScreen();
     fireEvent.changeText(screen.getByTestId('hub-search-input'), 'Vitamin C');
-    act(() => jest.advanceTimersByTime(600));
+    act(() => jest.advanceTimersByTime(200));
     await waitFor(() => {
       expect(mockSearch).toHaveBeenCalledWith('Vitamin C');
     });
   });
 
-  it('should NOT call search before the 600 ms window elapses', async () => {
+  it('should NOT call search before the 200 ms window elapses', async () => {
     renderScreen();
     fireEvent.changeText(screen.getByTestId('hub-search-input'), 'Vitamin C');
-    act(() => jest.advanceTimersByTime(300));
+    act(() => jest.advanceTimersByTime(100));
     expect(mockSearch).not.toHaveBeenCalled();
+  });
+
+  it('should call search after a single character is typed', async () => {
+    mockSearch.mockResolvedValue([]);
+    renderScreen();
+    fireEvent.changeText(screen.getByTestId('hub-search-input'), 'v');
+    act(() => jest.advanceTimersByTime(200));
+    await waitFor(() => {
+      expect(mockSearch).toHaveBeenCalledWith('v');
+    });
+  });
+
+  it('should re-query with each additional character as the user keeps typing', async () => {
+    mockSearch.mockResolvedValue([]);
+    renderScreen();
+    const input = screen.getByTestId('hub-search-input');
+    fireEvent.changeText(input, 'v');
+    act(() => jest.advanceTimersByTime(200));
+    fireEvent.changeText(input, 'vi');
+    act(() => jest.advanceTimersByTime(200));
+    fireEvent.changeText(input, 'vit');
+    act(() => jest.advanceTimersByTime(200));
+    await waitFor(() => {
+      expect(mockSearch).toHaveBeenNthCalledWith(1, 'v');
+      expect(mockSearch).toHaveBeenNthCalledWith(2, 'vi');
+      expect(mockSearch).toHaveBeenNthCalledWith(3, 'vit');
+    });
   });
 });
 
@@ -236,6 +256,23 @@ describe('AC-16: zero results state shows hint text and manual fallback', () => 
     await waitFor(() => {
       expect(screen.getByText('Add Manually')).toBeTruthy();
     });
+  });
+
+  it('should not show a stale not-found state for text typed after an empty result, before the next debounce fires', async () => {
+    mockSearch.mockResolvedValueOnce([]);
+    renderScreen();
+    const input = screen.getByTestId('hub-search-input');
+    fireEvent.changeText(input, 'x');
+    act(() => jest.advanceTimersByTime(200));
+    await waitFor(() => {
+      expect(screen.getByText('No results for "x"')).toBeTruthy();
+    });
+
+    // Continue typing immediately, before the next 200ms debounce elapses.
+    // searchResults/searching still reflect the completed 'x' search, so the
+    // hint must not claim 'xy' has already been searched.
+    fireEvent.changeText(input, 'xy');
+    expect(screen.queryByText('No results for "xy"')).toBeNull();
   });
 
   it('should navigate to the accordion AddProduct screen when "Add Manually" is pressed in zero-results state', async () => {

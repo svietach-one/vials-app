@@ -59,3 +59,26 @@ describe('Story 6 AC: RoutineStepCard renders the adaptation status line, not a 
     expect(screen.queryByText(/Adaptation Phase/)).toBeNull();
   });
 });
+
+describe('review follow-up (2026-07-20): badge reflects the resolved type, not the raw DB record', () => {
+  // A mistyped "cleanser" reclassified to makeup_remover by the engine (the
+  // pre_cleanse classification guard) is never persisted back to the catalog
+  // — reclassification is derived, not stored. Without displayProductType the
+  // card would show a "Cleanser" badge directly above an "Add a gentle
+  // cleanser" placeholder, which reads as self-contradictory.
+  it('renders the displayProductType badge/label when it differs from product.productType', () => {
+    render(
+      <RoutineStepCard
+        product={makeProduct({ name: 'Micellar Cleansing Water', productType: 'cleanser' })}
+        displayProductType="makeup_remover"
+      />,
+    );
+    expect(screen.getByText('Makeup Remover')).toBeTruthy();
+    expect(screen.queryByText('Cleanser')).toBeNull();
+  });
+
+  it('falls back to product.productType when displayProductType is absent', () => {
+    render(<RoutineStepCard product={makeProduct({ productType: 'cleanser' })} />);
+    expect(screen.getByText('Cleanser')).toBeTruthy();
+  });
+});

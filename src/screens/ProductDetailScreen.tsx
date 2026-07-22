@@ -234,14 +234,15 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           {routineLabel !== null ? routineLabel : 'Add to Routine'}
         </Button>
         {routineLabel !== null ? (
-          <Pressable
-            style={styles.removeLink}
+          <Button
+            variant="destructive"
+            size="sm"
+            fullWidth
             onPress={() => setRemoveSheetVisible(true)}
-            accessibilityRole="button"
             accessibilityLabel="Remove from routine"
           >
-            <Text style={styles.removeLinkText}>Remove from Routine</Text>
-          </Pressable>
+            Remove from Routine
+          </Button>
         ) : null}
       </View>
 
@@ -299,7 +300,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgSubtle,
+    backgroundColor: colors.bgScreen,
   },
   notFoundWrap: {
     flex: 1,
@@ -318,17 +319,8 @@ const styles = StyleSheet.create({
     paddingVertical: space[4],
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
-    backgroundColor: colors.bgSubtle,
+    backgroundColor: colors.bgScreen,
     gap: space[3],
-  },
-  removeLink: {
-    alignItems: 'center',
-    paddingVertical: space[2],
-  },
-  removeLinkText: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.statusError,
   },
   headerBlock: {
     gap: space[2],
@@ -336,8 +328,6 @@ const styles = StyleSheet.create({
   brand: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   productName: {
     ...typography.h2,

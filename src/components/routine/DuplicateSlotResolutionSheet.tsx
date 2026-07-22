@@ -3,6 +3,7 @@ import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, radius, shadow, space, typography } from '@/constants/tokens';
 import { useRoutinesStore } from '@/store/routinesStore';
 import type { Product } from '@/types';
@@ -74,15 +75,14 @@ export function DuplicateSlotResolutionSheet({
                     <Text style={styles.recommendedTag}>Recommended</Text>
                   ) : null}
                 </View>
-                <Pressable
-                  onPress={() => handleRemove(product)}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${product.name}`}
+                <IconButton
+                  icon={<Feather name="trash-2" size={16} color={colors.statusError} />}
+                  label={`Remove ${product.name}`}
+                  variant="ghost"
+                  size="xs"
                   style={styles.removeBtn}
-                >
-                  <Feather name="trash-2" size={16} color={colors.statusError} />
-                </Pressable>
+                  onPress={() => handleRemove(product)}
+                />
               </View>
             ))}
           </View>

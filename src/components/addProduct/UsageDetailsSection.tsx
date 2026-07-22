@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { FilterChip } from '@/components/ui/core/FilterChip';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { Switch } from '@/components/ui/forms/Switch';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import type { AddProductDraft } from '@/types';
@@ -87,26 +88,28 @@ export function UsageDetailsSection({ draft, dispatch }: UsageDetailsSectionProp
           >
             Last week
           </FilterChip>
-          <Pressable
+          <IconButton
+            icon={
+              <Feather
+                name="calendar"
+                size={14}
+                color={
+                  customDateVisible || (!isQuickDate && draft.openedDate !== null)
+                    ? colors.textOnDark
+                    : colors.textSecondary
+                }
+              />
+            }
+            label="Pick a custom opening date"
+            size="xs"
+            round
             onPress={() => setCustomDateVisible((v) => !v)}
-            accessibilityRole="button"
-            accessibilityLabel="Pick a custom opening date"
             style={[
               styles.iconChip,
               (customDateVisible || (!isQuickDate && draft.openedDate !== null)) &&
                 styles.iconChipSelected,
             ]}
-          >
-            <Feather
-              name="calendar"
-              size={14}
-              color={
-                customDateVisible || (!isQuickDate && draft.openedDate !== null)
-                  ? colors.textOnDark
-                  : colors.textSecondary
-              }
-            />
-          </Pressable>
+          />
         </View>
       ) : null}
 

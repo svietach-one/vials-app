@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 
 import { CameraCaptureModal } from '@/components/camera/CameraCaptureModal';
 import { Button } from '@/components/ui/core/Button';
+import { COMMUNITY_CONTRIBUTION_ENABLED } from '@/constants/featureFlags';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { AddProductDraft } from '@/types';
@@ -37,7 +38,8 @@ export function BarcodeSection({ draft, dispatch }: BarcodeSectionProps) {
   function handleCapture(code: string) {
     setCameraVisible(false);
     dispatch({ type: 'SET_BARCODE', value: code });
-    incrementCommunityContribution();
+    // Only count it when a contribution can actually happen.
+    if (COMMUNITY_CONTRIBUTION_ENABLED) incrementCommunityContribution();
     setJustScanned(true);
     collapseTimer.current = setTimeout(() => {
       // Section 2 is expanded at this point, so toggling section 3 both
@@ -51,11 +53,14 @@ export function BarcodeSection({ draft, dispatch }: BarcodeSectionProps) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.framing}>
-        Help the community find this product — scanning the barcode lets other users add it in
-        one tap.
+        {COMMUNITY_CONTRIBUTION_ENABLED
+          ? 'Help the community find this product — scanning the barcode lets other users add it in one tap.'
+          : 'Scanning the barcode saves it with this product, so you can find it again quickly.'}
       </Text>
 
-      {contributionCount > 0 ? (
+      {/* The counter counts community contributions — meaningless (and untrue)
+          while nothing is submitted anywhere. */}
+      {COMMUNITY_CONTRIBUTION_ENABLED && contributionCount > 0 ? (
         <Text style={styles.counter}>
           You&apos;ve helped verify {contributionCount}{' '}
           {contributionCount === 1 ? 'product' : 'products'}
@@ -67,7 +72,9 @@ export function BarcodeSection({ draft, dispatch }: BarcodeSectionProps) {
           <Feather name="check-circle" size={18} color={palette.bottleGreen} />
           <View style={styles.confirmationText}>
             <Text style={styles.confirmationCode}>{draft.barcode}</Text>
-            <Text style={styles.confirmationLabel}>Community contribution saved</Text>
+            <Text style={styles.confirmationLabel}>
+              {COMMUNITY_CONTRIBUTION_ENABLED ? 'Community contribution saved' : 'Barcode saved'}
+            </Text>
           </View>
         </View>
       ) : (
@@ -83,6 +90,7 @@ export function BarcodeSection({ draft, dispatch }: BarcodeSectionProps) {
             icon="maximize"
             label={draft.barcode !== null ? 'Scan again' : 'Scan barcode'}
             onPress={() => setCameraVisible(true)}
+            compact
           />
 
           <Button

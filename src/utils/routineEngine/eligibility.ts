@@ -1,4 +1,5 @@
 import type { Product } from '@/types';
+import type { DecisionReasonCode } from '@/constants/decisionReasons';
 import type { RoutineContext } from '@/utils/routineEngine/context';
 import type { ProductFacts } from '@/utils/routineEngine/productFacts';
 import { periodsForProduct } from '@/utils/routineEngine/slotting';
@@ -19,7 +20,7 @@ export type EligibilityGate =
 export interface EligibilityRejection {
   productId: string;
   gate: EligibilityGate;
-  reasonCode: string;
+  reasonCode: DecisionReasonCode;
   /** Skincare date the gate expires — clinical freezes only. */
   until?: string;
 }

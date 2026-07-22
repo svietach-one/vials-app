@@ -70,7 +70,7 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
       notes: null,
       openedDate: null,
       paoMonths: null,
-      source: item.obfId ? 'obf_import' : 'user_local',
+      source: item.source === 'obf_import' ? 'obf_import' : 'user_local',
     };
     addProduct(product);
     completeOnboarding();
@@ -143,6 +143,11 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
                       <Text style={styles.resultName} numberOfLines={1}>
                         {item.name}
                       </Text>
+                      {item.nameLacin ? (
+                        <Text style={styles.resultNameLacin} numberOfLines={1}>
+                          {item.nameLacin}
+                        </Text>
+                      ) : null}
                       {item.brand ? (
                         <Text style={styles.resultBrand} numberOfLines={1}>
                           {item.brand}
@@ -183,7 +188,7 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bgSubtle },
+  safe: { flex: 1, backgroundColor: colors.bgScreen },
   flex: { flex: 1 },
 
   header: {
@@ -232,6 +237,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   resultBrand: { ...typography.bodySmall, color: colors.textSecondary },
+  resultNameLacin: { ...typography.caption, color: colors.textTertiary },
 
   emptyState: {
     marginTop: space[10],

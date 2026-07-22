@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   BottomSheetBackdrop,
@@ -10,23 +10,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/core/Button';
 import { FilterChip } from '@/components/ui/core/FilterChip';
-import { applyFilters } from '@/screens/CatalogScreen';
 import { colors, radius, space, typography } from '@/constants/tokens';
-import { FUNCTIONAL_BENEFIT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { CATALOG_FILTER_DEFAULT } from '@/types';
-import type {
-  CatalogFilterState,
-  CategoryFilter,
-  FunctionalBenefit,
-  Product,
-  ProductType,
-} from '@/types';
+import type { CatalogFilterState, CategoryFilter, ProductType } from '@/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PRODUCT_CATEGORIES = Object.keys(PRODUCT_TYPE_LABELS) as ProductType[];
 const CATEGORIES: CategoryFilter[] = ['All', ...PRODUCT_CATEGORIES];
-const BENEFITS = Object.keys(FUNCTIONAL_BENEFIT_LABELS) as FunctionalBenefit[];
 
 const SNAP_POINTS = ['75%'];
 
@@ -39,14 +31,13 @@ function categoryLabel(cat: CategoryFilter): string {
 export interface FilterSheetProps {
   visible: boolean;
   initialState: CatalogFilterState;
-  products: Product[];
   onApply: (next: CatalogFilterState) => void;
   onClose: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function FilterSheet({ visible, initialState, products, onApply, onClose }: FilterSheetProps) {
+export function FilterSheet({ visible, initialState, onApply, onClose }: FilterSheetProps) {
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheetModal>(null);
   const wasPresented = useRef(false);
@@ -66,28 +57,11 @@ export function FilterSheet({ visible, initialState, products, onApply, onClose 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  const matchCount = useMemo(
-    () => applyFilters(products, draftState).length,
-    [products, draftState],
-  );
-
   function handleCategoryPress(cat: CategoryFilter) {
     setDraftState((s) => ({
       ...s,
       selectedCategory: cat !== 'All' && cat === s.selectedCategory ? 'All' : cat,
     }));
-  }
-
-  function handleBenefitToggle(benefit: FunctionalBenefit) {
-    setDraftState((s) => {
-      const isSelected = s.selectedBenefits.includes(benefit);
-      return {
-        ...s,
-        selectedBenefits: isSelected
-          ? s.selectedBenefits.filter((b) => b !== benefit)
-          : [...s.selectedBenefits, benefit],
-      };
-    });
   }
 
   function handleClearAll() {
@@ -140,22 +114,6 @@ export function FilterSheet({ visible, initialState, products, onApply, onClose 
             </FilterChip>
           ))}
         </View>
-
-        <View style={styles.divider} />
-
-        <Text style={styles.sectionLabel}>Benefits</Text>
-        <View style={styles.chipWrap}>
-          {BENEFITS.map((benefit) => (
-            <FilterChip
-              key={benefit}
-              selected={draftState.selectedBenefits.includes(benefit)}
-              onPress={() => handleBenefitToggle(benefit)}
-              accessibilityLabel={`Filter by ${FUNCTIONAL_BENEFIT_LABELS[benefit]}`}
-            >
-              {FUNCTIONAL_BENEFIT_LABELS[benefit]}
-            </FilterChip>
-          ))}
-        </View>
       </BottomSheetScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + space[3] }]}>
@@ -163,7 +121,7 @@ export function FilterSheet({ visible, initialState, products, onApply, onClose 
           Clear All
         </Button>
         <Button size="lg" onPress={handleApply} style={styles.footerBtn}>
-          {`Apply Filters (${matchCount} products)`}
+          Apply Filters
         </Button>
       </View>
     </BottomSheetModal>
@@ -196,11 +154,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: space[2],
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.borderDivider,
-    marginVertical: space[5],
   },
   footer: {
     flexDirection: 'row',

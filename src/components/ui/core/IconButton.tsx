@@ -7,12 +7,12 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radius } from '@/constants/tokens';
+import { colors, palette, radius } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type IconButtonVariant = 'ghost' | 'secondary' | 'filled';
-export type IconButtonSize = 'sm' | 'md' | 'lg';
+export type IconButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 export interface IconButtonProps extends Omit<PressableProps, 'style'> {
   icon: React.ReactNode;
@@ -27,7 +27,11 @@ export interface IconButtonProps extends Omit<PressableProps, 'style'> {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DIMS: Record<IconButtonSize, number> = { sm: 36, md: 44, lg: 52 };
+// `xs` sits below the 44px minimum tap target on purpose — it exists for
+// icon glyphs embedded inside an already-compact chip/badge (e.g. a 32px
+// pill's remove control) where the visual box must match the chip's own
+// size. The hitSlop expansion below still pads the touch area to 44px.
+const DIMS: Record<IconButtonSize, number> = { xs: 32, sm: 36, md: 44, lg: 52 };
 const MIN_TARGET = 44; // px — WCAG / HIG minimum tap target
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -93,8 +97,8 @@ const variantStyles = StyleSheet.create({
     borderColor: colors.borderStrong,
   },
   filled: {
-    backgroundColor: colors.controlFill,
-    borderColor: colors.controlFill,
+    backgroundColor: palette.plum,
+    borderColor: palette.plum,
   },
 });
 
@@ -108,7 +112,7 @@ const variantPressedStyles = StyleSheet.create({
     borderColor: colors.borderStrong,
   },
   filled: {
-    backgroundColor: colors.controlFillHover,
-    borderColor: colors.controlFillHover,
+    backgroundColor: palette.plumPressed,
+    borderColor: palette.plumPressed,
   },
 });

@@ -13,8 +13,12 @@ import { useProfileStore } from '@/store/profileStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
-import { getCyclePhaseForTonight, isCheckedInToday } from '@/utils/routineEngine/cycleState';
-import { getDailyView, type DailyRoutineView } from '@/utils/routineEngine/dailyView';
+import { isCheckedInToday } from '@/utils/routineEngine/cycleState';
+import {
+  getDailyView,
+  getDynamicCycleStatus,
+  type DailyRoutineView,
+} from '@/utils/routineEngine/dailyView';
 import type { Product } from '@/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -38,20 +42,31 @@ export default function TodayScreen() {
   // Bumps after a check-in so the memoized view recomputes immediately
   const [checkInTick, setCheckInTick] = useState(0);
 
+  const dynamicInput = useMemo(
+    () => ({
+      procedures,
+      profile: { fitzpatrick: profile?.fitzpatrick ?? null },
+      seasonMask: getActiveSeasonMask(),
+      ...(cycleType === 'dynamic'
+        ? { cycle: { type: cycleType, state: cycleState } }
+        : {}),
+    }),
+    [procedures, profile, cycleType, cycleState],
+  );
+
   const views = useMemo(
-    () =>
-      getDailyView(routines, products, {
-        procedures,
-        profile: { fitzpatrick: profile?.fitzpatrick ?? null },
-        seasonMask: getActiveSeasonMask(),
-        ...(cycleType === 'dynamic' ? { cycle: { type: cycleType, state: cycleState } } : {}),
-      }),
-    [routines, products, procedures, profile, cycleType, cycleState, checkInTick],
+    () => getDailyView(routines, products, dynamicInput),
+    [routines, products, dynamicInput, checkInTick],
   );
 
   const isDynamic = cycleType === 'dynamic';
   const checkedIn = isCheckedInToday(cycleState);
-  const tonightPhase = getCyclePhaseForTonight(cycleState);
+  // phase-06: tonight's phase resolved against the shelf; recovery when the
+  // scheduled active is absent, and a "paused" notice when nothing cycles.
+  const cycleStatus = useMemo(
+    () => getDynamicCycleStatus(products, dynamicInput),
+    [products, dynamicInput],
+  );
 
   function handleCheckIn() {
     performDailyCheckIn();
@@ -67,10 +82,20 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
       >
         {isDynamic ? (
-          <View style={styles.phaseCard}>
-            <Feather name="moon" size={16} color={colors.textSecondary} />
-            <Text style={styles.phaseText}>{CYCLE_PHASE_LABELS[tonightPhase]}</Text>
-          </View>
+          cycleStatus.available ? (
+            <View style={styles.phaseCard}>
+              <Feather name="moon" size={16} color={colors.textSecondary} />
+              <Text style={styles.phaseText}>{CYCLE_PHASE_LABELS[cycleStatus.phase]}</Text>
+            </View>
+          ) : (
+            <View style={styles.phaseCard}>
+              <Feather name="alert-circle" size={16} color={colors.textSecondary} />
+              <Text style={styles.phaseText}>
+                Skin cycling is paused — add an exfoliant or retinoid to your shelf, or switch
+                back to fixed days in Profile.
+              </Text>
+            </View>
+          )
         ) : null}
 
         {views.map((view) => (
@@ -151,7 +176,7 @@ function RoutineBlock({ view, products }: { view: DailyRoutineView; products: Pr
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bgSubtle },
+  safe: { flex: 1, backgroundColor: colors.bgScreen },
   scroll: { flex: 1 },
   content: {
     paddingHorizontal: space.gutterScreen,

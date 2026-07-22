@@ -32,14 +32,16 @@ export default function AddProductHubScreen({ navigation }: Props) {
   const [searching, setSearching] = useState(false);
   const productRepository = useProductRepository();
 
-  // Debounce
+  // Debounce — fires from the first character so the dropdown adapts live
+  // as the user types (short queries fall back to a substring match in
+  // ProductRepository.search, since trigram FTS needs 3+ chars per token).
   useEffect(() => {
-    if (searchText.trim().length < 3) {
+    if (searchText.trim().length < 1) {
       setSearchResults([]);
       setDebouncedQuery('');
       return;
     }
-    const t = setTimeout(() => setDebouncedQuery(searchText.trim()), 600);
+    const t = setTimeout(() => setDebouncedQuery(searchText.trim()), 200);
     return () => clearTimeout(t);
   }, [searchText]);
 
@@ -60,8 +62,16 @@ export default function AddProductHubScreen({ navigation }: Props) {
     return () => { cancelled = true; };
   }, [debouncedQuery, productRepository]);
 
-  const hasTypedEnough = searchText.trim().length >= 3;
-  const showNotFound = hasTypedEnough && !searching && searchResults.length === 0;
+  const hasTypedEnough = searchText.trim().length >= 1;
+  // Guard against showing "not found" for text the user hasn't finished
+  // typing yet: while a debounce is pending, debouncedQuery still holds the
+  // *previous* query, so searchResults/searching are stale relative to the
+  // live searchText until the two match again.
+  const showNotFound =
+    hasTypedEnough &&
+    !searching &&
+    searchResults.length === 0 &&
+    debouncedQuery === searchText.trim();
   const showObfAttribution = searchResults.some((p) => p.source === 'obf_import');
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -125,6 +135,11 @@ export default function AddProductHubScreen({ navigation }: Props) {
                     <Text style={styles.resultName} numberOfLines={1}>
                       {item.name}
                     </Text>
+                    {item.nameLacin ? (
+                      <Text style={styles.resultNameLacin} numberOfLines={1}>
+                        {item.nameLacin}
+                      </Text>
+                    ) : null}
                     {item.brand ? (
                       <Text style={styles.resultBrand} numberOfLines={1}>
                         {item.brand}
@@ -215,7 +230,7 @@ export default function AddProductHubScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bgSubtle,
+    backgroundColor: colors.bgScreen,
   },
   content: {
     paddingHorizontal: space.gutterScreen,
@@ -273,6 +288,10 @@ const styles = StyleSheet.create({
   resultBrand: {
     ...typography.bodySmall,
     color: colors.textSecondary,
+  },
+  resultNameLacin: {
+    ...typography.caption,
+    color: colors.textTertiary,
   },
   notFoundWrap: {
     gap: space[3],

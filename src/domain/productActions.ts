@@ -1,3 +1,4 @@
+import { deleteProductPhoto } from '@/services/productImage';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 
@@ -9,7 +10,8 @@ import { useRoutinesStore } from '@/store/routinesStore';
 
 /**
  * Deletes a product from the catalog and cascades the removal:
- * every routine step referencing it is purged (PRD US-08.1).
+ * every routine step referencing it is purged (PRD US-08.1), and any
+ * device-local photo copies + pending upload are cleaned up (img-01).
  */
 export function deleteProductCascade(productId: string): void {
   const { routines, removeProductStep } = useRoutinesStore.getState();
@@ -21,4 +23,7 @@ export function deleteProductCascade(productId: string): void {
   }
 
   useProductsStore.getState().removeProduct(productId);
+
+  // Fire-and-forget: photo cleanup never blocks or fails the delete.
+  void deleteProductPhoto(productId);
 }

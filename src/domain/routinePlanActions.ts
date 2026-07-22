@@ -9,6 +9,7 @@ import { generateId } from '@/utils/generateId';
 import { generatePlan, type EngineInput, type RoutinePlan } from '@/utils/routineEngine/generate';
 import { buildStepsFromPlan } from '@/utils/routineEngine/planApply';
 import { validateRoutines, type ValidationResult } from '@/utils/routineEngine/validate';
+import { getSkincareDateString } from '@/utils/timeHelpers';
 
 /**
  * Draft Preview save path (research §3): the ONLY write path from a generated
@@ -18,6 +19,38 @@ import { validateRoutines, type ValidationResult } from '@/utils/routineEngine/v
 
 /** Which routines a Draft Preview commit writes (research §3 commit scopes). */
 export type PlanCommitScope = 'both' | 'am' | 'pm';
+
+/**
+ * Deterministic key for override validity (V2.1 phase-07): an override applies
+ * only while the shelf composition and goals are unchanged. Sorted product ids
+ * make it order-independent; the goals bound the treatment ranking.
+ */
+export function computeOverrideHash(
+  productIds: string[],
+  primaryGoal: string,
+  secondaryGoal: string | null,
+): string {
+  return `${[...productIds].sort().join(',')}|${primaryGoal}|${secondaryGoal ?? ''}`;
+}
+
+/** Current shelf/goal override hash from the live stores. */
+export function currentOverrideHash(): string {
+  const profile = useProfileStore.getState().profile;
+  return computeOverrideHash(
+    useProductsStore.getState().products.map((p) => p.id),
+    profile?.primaryGoal ?? 'maintenance',
+    profile?.secondaryGoal ?? null,
+  );
+}
+
+/**
+ * The override ids still valid for the current shelf/goal — [] when the stored
+ * hash no longer matches (invalidation on a shelf or goal change).
+ */
+export function activeOverrides(): string[] {
+  const tracking = useTrackingStore.getState();
+  return tracking.overrideHash === currentOverrideHash() ? tracking.overrides : [];
+}
 
 /** Assembles the engine input from the hydrated stores. */
 export function buildEngineInputFromStores(now: Date = new Date()): EngineInput {
@@ -29,12 +62,19 @@ export function buildEngineInputFromStores(now: Date = new Date()): EngineInput 
     profile: {
       fitzpatrick: profile?.fitzpatrick ?? null,
       concerns: profile?.concerns ?? [],
+      // Goals drive Step-0 treatment selection (phase-03/04). Without these the
+      // engine would treat every user as maintenance and reserve all actives.
+      primaryGoal: profile?.primaryGoal ?? 'maintenance',
+      secondaryGoal: profile?.secondaryGoal ?? null,
     },
     seasonMask: getActiveSeasonMask(now),
     tracking: {
       cycleType: useSettingsStore.getState().routineCycleType,
       applicationStats: tracking.applicationStats,
+      firstScheduledDates: tracking.firstScheduledDates,
     },
+    // Only overrides still valid for the current shelf/goal reach the engine.
+    userOverrides: activeOverrides(),
     now,
   };
 }
@@ -56,16 +96,29 @@ export function validateCurrentRoutines(now: Date = new Date()): ValidationResul
  * Optimize strip (never a modal). Pinned and hidden steps survive per
  * buildStepsFromPlan.
  */
-export function applyRoutinePlan(plan: RoutinePlan, scope: PlanCommitScope): void {
+export function applyRoutinePlan(
+  plan: RoutinePlan,
+  scope: PlanCommitScope,
+  now: Date = new Date(),
+): void {
   const { routines, updateRoutine } = useRoutinesStore.getState();
+  const committedProductIds: string[] = [];
 
   for (const routine of routines) {
     const period = routine.timeOfDay === 'morning' ? 'am' : 'pm';
     if (scope !== 'both' && scope !== period) continue;
 
     const planned = period === 'am' ? plan.periods.morning : plan.periods.evening;
+    committedProductIds.push(...planned.map((s) => s.productId));
     updateRoutine(routine.id, {
       steps: buildStepsFromPlan(planned, routine.steps, plan.frozen, generateId),
     });
   }
+
+  // Usage anchor (phase-05): a product's first appearance in a SAVED plan
+  // starts its adaptation clock. Idempotent — an existing anchor is never
+  // moved, so re-saving never resets a product's phase.
+  useTrackingStore
+    .getState()
+    .recordFirstScheduled(committedProductIds, getSkincareDateString(now));
 }

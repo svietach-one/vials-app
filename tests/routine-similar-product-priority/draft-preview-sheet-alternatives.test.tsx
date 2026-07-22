@@ -1,15 +1,11 @@
 /**
- * Integration tests — Story 2 AC2 (sheet wiring): DraftPreviewSheet renders a
- * SlotAlternativeRow per recorded `plan.slotAlternatives` entry, and bubbles
- * a swap decision up to the caller instead of mutating the plan itself.
+ * Integration tests — Story 2 AC2 (sheet wiring), screen-improvements
+ * redesign: DraftPreviewSheet renders a "Replace with" Select per recorded
+ * `plan.slotAlternatives` entry, listing every candidate (current, engine
+ * recommendation, reserve alternatives) and bubbling the chosen one up to
+ * the caller instead of mutating the plan itself.
  * Spec: docs/specs/2026-07-11-routine-similar-product-priority.md §4 Story 2
  * Tech design: docs/tech-design/routine-similar-product-priority.md (FE-3, FE-10)
- *
- * `RoutinePlan.slotAlternatives` (FE-3) and the `onSwapAlternative` prop
- * (FE-10) do not exist yet — this file (and fixtures.ts's
- * makePlanWithAlternative) fails to typecheck/resolve until they land.
- * Expected (tests-first). Mocking follows
- * tests/routine-engine/draft-preview-sheet.test.tsx's established playbook.
  */
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
@@ -65,8 +61,8 @@ beforeEach(() => {
   mockRoutines = [];
 });
 
-describe('Story 2 AC2: a non-admitted same-slot product renders as a visible, swappable alternative', () => {
-  it('shows "Also on your shelf: <alternative>" under the admitted winner in the Morning After column', () => {
+describe('Story 2 AC2: a same-slot candidate renders inside the step card dropdown', () => {
+  it('starts collapsed and reveals the "Replace with" list only once the step card is tapped', () => {
     render(
       <DraftPreviewSheet
         visible
@@ -78,8 +74,11 @@ describe('Story 2 AC2: a non-admitted same-slot product renders as a visible, sw
       />,
     );
 
-    expect(screen.getAllByText(CREAM_A.name).length).toBeGreaterThan(0);
-    expect(screen.getByText(`Also on your shelf: ${CREAM_B.name}`)).toBeTruthy();
+    expect(screen.queryByText('Replace with')).toBeNull();
+
+    fireEvent.press(screen.getByLabelText(`Replace ${CREAM_A.name}`));
+
+    expect(screen.getByText('Replace with')).toBeTruthy();
   });
 
   it('never removes the alternative from the shelf or the plan — it stays a suggestion, not a mutation', () => {
@@ -95,12 +94,12 @@ describe('Story 2 AC2: a non-admitted same-slot product renders as a visible, sw
       />,
     );
 
-    // The winner is still the one shown as admitted in the After column;
-    // nothing about the plan's own periods array is touched by rendering.
+    // The winner is still the one shown as admitted; nothing about the
+    // plan's own periods array is touched by rendering.
     expect(plan.periods.morning.map((s) => s.productId)).toEqual([CREAM_A.id]);
   });
 
-  it('renders no SlotAlternativeRow when the plan has no slotAlternatives', () => {
+  it('renders no dropdown affordance at all when the plan has no slotAlternatives', () => {
     const plan = makePlanWithAlternative({ slotAlternatives: [] });
     render(
       <DraftPreviewSheet
@@ -112,32 +111,32 @@ describe('Story 2 AC2: a non-admitted same-slot product renders as a visible, sw
         onSwapAlternative={jest.fn()}
       />,
     );
-    expect(screen.queryByText(/Also on your shelf/)).toBeNull();
+    expect(screen.queryByText('Replace with')).toBeNull();
+    // The card is inert too — no expand target, so a chevron never lies.
+    expect(screen.queryByLabelText(`Replace ${CREAM_A.name}`)).toBeNull();
   });
 });
 
-describe('Story 2 AC2: the one-tap swap action bubbles up to the caller', () => {
-  it('calls onSwapAlternative(winnerProductId, alternativeProductId) and does not call onCommit', () => {
-    const onSwapAlternative = jest.fn();
-    const onCommit = jest.fn();
+describe('Story 2 AC2: expanding a step card lists every candidate with a reason fragment', () => {
+  it('lists the recommended product and the alternative, each with a reason', () => {
     render(
       <DraftPreviewSheet
         visible
         onClose={jest.fn()}
         plan={makePlanWithAlternative()}
         diff={NO_DIFF}
-        onCommit={onCommit}
-        onSwapAlternative={onSwapAlternative}
+        onCommit={jest.fn()}
+        onSwapAlternative={jest.fn()}
       />,
     );
 
-    fireEvent.press(screen.getByLabelText(`Swap to ${CREAM_B.name}`));
+    fireEvent.press(screen.getByLabelText(`Replace ${CREAM_A.name}`));
 
-    expect(onSwapAlternative).toHaveBeenCalledWith(CREAM_A.id, CREAM_B.id);
-    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(`${CREAM_A.name} — recommended`)).toBeTruthy();
+    expect(screen.getByLabelText(`${CREAM_B.name} — from reserve`)).toBeTruthy();
   });
 
-  it('renders one row per alternative when a slot has more than one non-admitted competitor', () => {
+  it('lists one option per candidate when a slot has more than one non-admitted competitor', () => {
     const secondAlternative = { ...CREAM_B, id: 'p-cream-c', name: 'Third Moisturizer' };
     mockProducts = [CREAM_A, CREAM_B, secondAlternative];
     const plan = makePlanWithAlternative({
@@ -162,7 +161,32 @@ describe('Story 2 AC2: the one-tap swap action bubbles up to the caller', () => 
       />,
     );
 
-    expect(screen.getByText(`Also on your shelf: ${CREAM_B.name}`)).toBeTruthy();
-    expect(screen.getByText(`Also on your shelf: ${secondAlternative.name}`)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText(`Replace ${CREAM_A.name}`));
+
+    expect(screen.getByLabelText(`${CREAM_B.name} — from reserve`)).toBeTruthy();
+    expect(screen.getByLabelText(`${secondAlternative.name} — from reserve`)).toBeTruthy();
+  });
+});
+
+describe('Story 2 AC2: choosing a candidate bubbles the decision up to the caller', () => {
+  it('calls onSwapAlternative(winnerProductId, chosenProductId) and does not call onCommit', () => {
+    const onSwapAlternative = jest.fn();
+    const onCommit = jest.fn();
+    render(
+      <DraftPreviewSheet
+        visible
+        onClose={jest.fn()}
+        plan={makePlanWithAlternative()}
+        diff={NO_DIFF}
+        onCommit={onCommit}
+        onSwapAlternative={onSwapAlternative}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText(`Replace ${CREAM_A.name}`));
+    fireEvent.press(screen.getByLabelText(`${CREAM_B.name} — from reserve`));
+
+    expect(onSwapAlternative).toHaveBeenCalledWith(CREAM_A.id, CREAM_B.id);
+    expect(onCommit).not.toHaveBeenCalled();
   });
 });

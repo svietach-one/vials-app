@@ -321,17 +321,16 @@ describe('FE13-CS-3: reopening the sheet after a commit shows that committed sel
 
 // ── FE13-CS-4: Apply narrows the visible shelf list ───────────────────────────
 
-describe('FE13-CS-4: selecting a Product Type + benefit and tapping Apply narrows the visible shelf list', () => {
-  it('should show only the serum with a matching benefit tag after Apply', async () => {
+describe('FE13-CS-4: selecting a Product Type and tapping Apply narrows the visible shelf list', () => {
+  it('should show only serums after Apply', async () => {
     renderScreen();
     fireEvent.press(screen.getByLabelText('Open filters'));
     fireEvent.press(screen.getByLabelText('Filter by Serum'));
-    fireEvent.press(screen.getByLabelText('Filter by Exfoliation'));
     fireEvent.press(screen.getByText(/Apply Filters/));
 
     await waitFor(() => {
       expect(screen.getByText('Retinoid Renewal Serum')).toBeTruthy();
-      expect(screen.queryByText('Niacinamide 10% Serum')).toBeNull();
+      expect(screen.getByText('Niacinamide 10% Serum')).toBeTruthy();
       expect(screen.queryByText('Hyaluronic Acid Moisturizer')).toBeNull();
     });
   });

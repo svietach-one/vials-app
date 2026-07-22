@@ -18,9 +18,12 @@ export type ActiveIngredientKey =
   | 'benzoyl_peroxide'
   | 'azelaic_acid'
   | 'copper_peptides'
+  | 'peptide_signal'
+  | 'peptide_neuro'
   | 'spf_filters'
   | 'ceramides'
   | 'hyaluronic_acid'
+  | 'glycerin_class'
   | 'panthenol'
   | 'cica'
   // Legacy (pre-ruleset persisted tags, normalized on read)
@@ -133,6 +136,21 @@ export type SkinConcern =
   | 'pores'
   | 'dark_spots';
 
+/**
+ * The user's care goal — what the routine is built FOR (V2.1 pipeline
+ * Step 0). Distinct from {@link SkinConcern}: concerns are symptoms the user
+ * reports; a goal is the single treatment direction the engine optimizes.
+ * 'maintenance' means no problem to solve — the treatment slot stays empty.
+ */
+export type SkinGoal =
+  | 'acne'
+  | 'pigmentation'
+  | 'aging'
+  | 'dehydration'
+  | 'barrier_repair'
+  | 'oil_control'
+  | 'maintenance';
+
 export interface UserProfile {
   id: string;
   gender: 'female' | 'male' | null;
@@ -152,10 +170,41 @@ export interface UserProfile {
   /** Selected city for weather-driven season masks; null until the user picks one. */
   city: CityLocation | null;
   concerns: SkinConcern[];
+  /**
+   * Primary care goal driving treatment selection (V2.1 Step 0). Defaults to
+   * 'maintenance'; heuristically derived from concerns for pre-goal profiles.
+   */
+  primaryGoal: SkinGoal;
+  /** Optional second goal; at most 2 goals total. */
+  secondaryGoal: SkinGoal | null;
+  /** True when goals were derived rather than user-chosen — one-time confirm prompt. */
+  goalNeedsConfirmation: boolean;
+  /**
+   * True when `fitzpatrick` was auto-derived from a grouped phototype during a
+   * migration rather than chosen on the 6-card selector (V2.1 phase-08) — a
+   * one-time "confirm your skin tone" prompt. The engine keeps using the
+   * conservatively-derived value until confirmed.
+   */
+  phototypeNeedsConfirmation: boolean;
   spfSensitivity: boolean;
   onboardingCompleted: boolean;
   /** Per-procedure duration overrides set when the user confirms actual fading. */
   individualDurationMonths: Partial<Record<CosmeticProcedureKey, number>>;
+  /**
+   * Whether the user has agreed to include their product photo in community
+   * contributions (GDPR Art. 7(4) consent), and when that choice was last
+   * made. `timestamp === null` means the choice predates this feature
+   * (migrated install) and the user has never been asked. See
+   * `src/utils/contributionConsent.ts` for the gating helper.
+   */
+  contributionConsent: ContributionConsent;
+}
+
+/** Consent to share a product photo in community contributions (schema v4). */
+export interface ContributionConsent {
+  granted: boolean;
+  /** ISO timestamp of the last choice, or null if never explicitly made. */
+  timestamp: string | null;
 }
 
 // ─── Products ─────────────────────────────────────────────────────────────────
@@ -227,7 +276,20 @@ export interface Product {
    * lets the user reclassify it as a derivative. Absence is treated as false.
    */
   vitaminCAutoMigrated?: boolean;
+  /**
+   * Device-local, user-attached product photo — a `file://` path inside the
+   * app document directory (img-01). Distinct from {@link imageUrl}, which is
+   * server-owned and round-trips on sync. This path is meaningless off-device
+   * and MUST NEVER enter an outbound payload: a contribution carries photo
+   * BYTES (EXIF-stripped, see renderContributionBlob), never a device path.
+   * Same local-only firewall as openedDate / paoMonths. Absent on records
+   * saved before this field.
+   *
+   * Render precedence everywhere: `localImageUri ?? imageUrl ?? <placeholder>`.
+   */
+  localImageUri?: string | null;
 }
+
 
 // ─── Routine target ───────────────────────────────────────────────────────────
 
@@ -252,6 +314,13 @@ export interface RoutineStep {
    * treated as false.
    */
   userPinned?: boolean;
+  /**
+   * Contextual instruction attached at plan generation (e.g. a pre-cleanse
+   * step followed by a cleanser) — not a step type, no completion tracking of
+   * its own. `null`/absent = no note. Set on save from `PlannedStep.stepNote`;
+   * manual edits leave it as-is until the next regeneration overwrites it.
+   */
+  stepNote?: string | null;
 }
 
 export interface Routine {
@@ -297,21 +366,27 @@ export interface ClinicalConflictResult {
   suggestion: string;
 }
 
-// ─── Routine engine: rehab shield widget ──────────────────────────────────────
+// ─── Routine engine: rehab notice ─────────────────────────────────────────────
 
 /**
- * State of the top-anchored rehabilitation widget on the Routines screen.
- * Derived per render from procedure logs — never persisted. Null when no
- * procedure has remaining rehab days (long-term effects like an active Botox
- * cycle never produce a widget; they live on the Clinic timeline only).
+ * One merged rehab notification card (Routines screen). Consolidates the old
+ * separate rehab shield + lifestyle-restrictions cards into a single card per
+ * procedure — two cards about the same procedure read as needlessly anxious.
+ * Procedures sharing identical restrictions AND timeframe are merged into one
+ * notice (procedureName joined with " + "). `restrictions` is populated only
+ * during the acute (disrupted) phase and drops to [] once the barrier is
+ * merely sensitive, so the card's body shrinks as the relevance passes.
+ * Derived per render from procedure logs; never persisted.
  */
-export interface RehabWidgetState {
+export interface RehabNotice {
+  /** Stable list key — the merged procedures' ids joined with "+". */
+  key: string;
   procedureName: string;
   /** 1-based day inside the rehab window. */
   currentDay: number;
   totalDays: number;
   barrierStatus: 'disrupted' | 'sensitive';
-  affectedZones: TreatmentZone[];
+  restrictions: string[];
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
@@ -349,6 +424,12 @@ export interface ProductApplicationStats {
   count: number;
   /** Skincare date of the last counted application. */
   lastAppliedDate: string;
+  /**
+   * Skincare date of the FIRST counted application (V2.1 phase-05 usage
+   * anchor). Null for pre-phase-5 stats; the virtual count then anchors on the
+   * product's first scheduled date instead of its shelf-add date.
+   */
+  firstAppliedDate: string | null;
 }
 
 export interface AppSettings {
@@ -413,6 +494,12 @@ export interface AddProductDraft {
   inciRaw: string | null; // full raw text, present only if OCR/paste used
   activeIngredientKeys: ActiveIngredientKey[]; // deduped
   ingredientsSource: 'ocr' | 'checklist' | 'mixed';
+  /**
+   * Subset of activeIngredientKeys that came from OCR/paste parsing, so
+   * clearing the raw text removes exactly these and preserves manual
+   * checklist picks. Pruned when the user removes a key by hand.
+   */
+  ocrDerivedKeys: ActiveIngredientKey[];
 
   // Section 4 — usage details. LOCAL ONLY. Never leaves the device.
   isOpened: boolean;
@@ -433,7 +520,8 @@ export interface AddProductDraft {
 export type CaptureResult =
   | { mode: 'label'; rawText: string }
   | { mode: 'barcode'; code: string }
-  | { mode: 'inci'; rawText: string };
+  /** hadNonLatin: ocrTextCleaner stripped a significant non-Latin share. */
+  | { mode: 'inci'; rawText: string; hadNonLatin: boolean };
 
 /**
  * Background-suggest payload. Structurally distinct from Product —

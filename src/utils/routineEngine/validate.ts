@@ -101,7 +101,7 @@ function findPairFindings(
         const rule = ruleById.get(violation.ruleId);
         findings.push({
           severity: violation.severity,
-          reasonCode: violation.ruleId,
+          reasonCode: violation.reasonCode,
           ruleId: violation.ruleId,
           productIds: [partner.step.productId, current.step.productId],
           routineId: current.routineId,

@@ -33,7 +33,19 @@ describe('matchesRuleTargets', () => {
   });
 
   it('evaluates comparator strings against numeric properties', () => {
-    const { productType, facts } = makeFacts({ activeTags: ['retinoid'] }); // irritancy 3
+    // A wizard-tagged retinoid carries no INCI evidence, so it takes the
+    // conservative 'high' potency default -> irritancyByPotency.high = 4.
+    const { productType, facts } = makeFacts({ activeTags: ['retinoid'] });
+    expect(matchesRuleTargets(productType, facts, { properties: { irritancy: '>=4' } })).toBe(true);
+    expect(matchesRuleTargets(productType, facts, { properties: { irritancy: '>=5' } })).toBe(false);
+  });
+
+  it('evaluates a potency-resolved irritancy below the tagged default', () => {
+    // Retinyl palmitate is low-potency retinoid -> irritancyByPotency.low = 3.
+    const { productType, facts } = makeFacts({
+      activeTags: ['retinoid'],
+      fullIngredientText: 'Aqua, Retinyl Palmitate, Glycerin',
+    });
     expect(matchesRuleTargets(productType, facts, { properties: { irritancy: '>=3' } })).toBe(true);
     expect(matchesRuleTargets(productType, facts, { properties: { irritancy: '>=4' } })).toBe(false);
   });

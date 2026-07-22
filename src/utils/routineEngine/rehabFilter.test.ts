@@ -1,15 +1,8 @@
 import {
-  applyRehabFilter,
-  buildRehabWidgetState,
+  buildRehabNotices,
   getRehabDays,
 } from '@/utils/routineEngine/rehabFilter';
-import type {
-  ActiveIngredientKey,
-  Product,
-  RehabWidgetState,
-  Routine,
-  UserProcedureLog,
-} from '@/types';
+import type { UserProcedureLog } from '@/types';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -26,46 +19,6 @@ function makeProcedure(overrides: Partial<UserProcedureLog> = {}): UserProcedure
   };
 }
 
-function makeProduct(id: string, keys: ActiveIngredientKey[]): Product {
-  return {
-    id,
-    name: `Product ${id}`,
-    brand: null,
-    productType: 'serum',
-    imageUrl: null,
-    activeIngredients: keys.map((key) => ({ key, displayName: key })),
-    fullIngredientText: null,
-    usageTime: 'both',
-    openBeautyFactsId: null,
-    addedAt: '2026-06-01',
-    notes: null,
-    openedDate: null,
-    paoMonths: null,
-  };
-}
-
-function makeRoutine(productIds: (string | null)[]): Routine {
-  return {
-    id: 'routine-pm',
-    name: 'Evening',
-    timeOfDay: 'evening',
-    steps: productIds.map((productId, i) => ({
-      id: `step-${i}`,
-      productType: 'serum',
-      productId,
-      hidden: false,
-      scheduledDays: [],
-    })),
-  };
-}
-
-const PRODUCTS: Product[] = [
-  makeProduct('retinol-serum', ['retinol']),
-  makeProduct('aha-toner', ['aha']),
-  makeProduct('moisturizer', []),
-  makeProduct('niacinamide-serum', ['niacinamide']),
-];
-
 // ─── getRehabDays ─────────────────────────────────────────────────────────────
 
 describe('getRehabDays', () => {
@@ -80,156 +33,126 @@ describe('getRehabDays', () => {
   });
 });
 
-// ─── buildRehabWidgetState ────────────────────────────────────────────────────
+// ─── buildRehabNotices ────────────────────────────────────────────────────────
 
-describe('buildRehabWidgetState', () => {
-  it('returns null when no procedures are logged', () => {
-    expect(buildRehabWidgetState([], new Date('2026-07-04T12:00:00Z'))).toBeNull();
+describe('buildRehabNotices', () => {
+  it('returns no notices when nothing is in a rehab window', () => {
+    expect(buildRehabNotices([], new Date('2026-07-04T12:00:00Z'))).toEqual([]);
   });
 
-  it('returns widget state with 1-based day counter inside the rehab window', () => {
-    const state = buildRehabWidgetState(
-      [makeProcedure({ datePerformed: '2026-07-01', customRehabDays: 7 })],
-      new Date('2026-07-03T12:00:00Z'),
-    );
-
-    expect(state).toEqual<RehabWidgetState>({
-      procedureName: 'Home peel',
-      currentDay: 3,
-      totalDays: 7,
-      barrierStatus: 'disrupted',
-      affectedZones: ['face'],
+  it('emits one notice per procedure with the acute restrictions during the disrupted phase', () => {
+    // Botox rehab = 7 days; disrupted while currentDay <= ceil(7/2) = 4.
+    const botox = makeProcedure({
+      id: 'b1',
+      procedureKey: 'botox',
+      customName: undefined,
+      customRehabDays: undefined,
+      datePerformed: '2026-07-01',
     });
+
+    const notices = buildRehabNotices([botox], new Date('2026-07-02T12:00:00Z')); // day 2
+
+    expect(notices).toHaveLength(1);
+    expect(notices[0].procedureName).toBe('Botox / Dysport');
+    expect(notices[0].currentDay).toBe(2);
+    expect(notices[0].barrierStatus).toBe('disrupted');
+    expect(notices[0].restrictions).toContain('Stay upright for 4 hours');
   });
 
-  it('reports barrier as sensitive in the second half of the window', () => {
-    const state = buildRehabWidgetState(
-      [makeProcedure({ datePerformed: '2026-07-01', customRehabDays: 7 })],
-      new Date('2026-07-06T12:00:00Z'),
-    );
+  it('drops the restrictions once the barrier is only sensitive (second half of the window)', () => {
+    const botox = makeProcedure({
+      id: 'b1',
+      procedureKey: 'botox',
+      customName: undefined,
+      customRehabDays: undefined,
+      datePerformed: '2026-07-01',
+    });
 
-    expect(state?.currentDay).toBe(6);
-    expect(state?.barrierStatus).toBe('sensitive');
+    const notices = buildRehabNotices([botox], new Date('2026-07-06T12:00:00Z')); // day 6 of 7
+
+    expect(notices).toHaveLength(1);
+    expect(notices[0].barrierStatus).toBe('sensitive');
+    expect(notices[0].restrictions).toEqual([]);
   });
 
-  it('self-destructs on day Y + 1 after the rehab window ends', () => {
-    const procedures = [makeProcedure({ datePerformed: '2026-07-01', customRehabDays: 7 })];
+  it('keeps two different procedures as two separate notices (one per procedure)', () => {
+    const botox = makeProcedure({
+      id: 'b1',
+      procedureKey: 'botox',
+      customName: undefined,
+      customRehabDays: undefined,
+      datePerformed: '2026-07-01',
+    });
+    const fillers = makeProcedure({
+      id: 'f1',
+      procedureKey: 'fillers',
+      customName: undefined,
+      customRehabDays: undefined,
+      datePerformed: '2026-07-01',
+    });
 
-    const lastDay = buildRehabWidgetState(procedures, new Date('2026-07-07T12:00:00Z'));
-    const dayAfter = buildRehabWidgetState(procedures, new Date('2026-07-08T12:00:00Z'));
+    const notices = buildRehabNotices([botox, fillers], new Date('2026-07-02T12:00:00Z'));
 
-    expect(lastDay?.currentDay).toBe(7);
-    expect(dayAfter).toBeNull();
+    expect(notices).toHaveLength(2);
+    expect(notices.map((n) => n.procedureName).sort()).toEqual(['Botox / Dysport', 'Dermal Fillers']);
   });
 
-  it('returns null for long-term procedures whose rehab window is over (Botox month 2)', () => {
-    const state = buildRehabWidgetState(
-      [makeProcedure({ procedureKey: 'botox', datePerformed: '2026-05-01' })],
-      new Date('2026-07-04T12:00:00Z'),
-    );
+  it('merges procedures that share identical restrictions and timeframe into one notice', () => {
+    const botoxA = makeProcedure({
+      id: 'a',
+      procedureKey: 'botox',
+      customName: undefined,
+      customRehabDays: undefined,
+      datePerformed: '2026-07-01',
+    });
+    const botoxB = makeProcedure({
+      id: 'b',
+      procedureKey: 'botox',
+      customName: undefined,
+      customRehabDays: undefined,
+      datePerformed: '2026-07-01',
+    });
 
-    expect(state).toBeNull();
+    const notices = buildRehabNotices([botoxA, botoxB], new Date('2026-07-02T12:00:00Z'));
+
+    expect(notices).toHaveLength(1);
+    expect(notices[0].key).toBe('a+b');
+    expect(notices[0].procedureName).toBe('Botox / Dysport');
   });
 
-  it('returns null for Light Care presets (0 rehab days) and archived procedures', () => {
-    const now = new Date('2026-07-02T12:00:00Z');
+  it('does NOT merge two different procedures that share a window length once both are in the sensitive phase', () => {
+    // fillers and smas_lifting both have a 14-day window. Past day 7 both are
+    // sensitive with empty restrictions, so without procedureKey in the merge
+    // signature they would wrongly fuse into one "Dermal Fillers + SMAS
+    // Lifting" card.
+    const fillers = makeProcedure({
+      id: 'f1',
+      procedureKey: 'fillers',
+      customName: undefined,
+      customRehabDays: undefined,
+      datePerformed: '2026-07-01',
+    });
+    const smas = makeProcedure({
+      id: 's1',
+      procedureKey: 'smas_lifting',
+      customName: undefined,
+      customRehabDays: undefined,
+      datePerformed: '2026-07-01',
+    });
 
-    expect(
-      buildRehabWidgetState([makeProcedure({ customRehabDays: 0 })], now),
-    ).toBeNull();
-    expect(
-      buildRehabWidgetState([makeProcedure({ status: 'archived' })], now),
-    ).toBeNull();
+    const notices = buildRehabNotices([fillers, smas], new Date('2026-07-08T12:00:00Z')); // day 8 of 14
+
+    expect(notices).toHaveLength(2);
+    expect(notices.every((n) => n.barrierStatus === 'sensitive')).toBe(true);
+    expect(notices.map((n) => n.procedureName).sort()).toEqual(['Dermal Fillers', 'SMAS Lifting']);
   });
 
-  it('picks the window ending last when rehab windows overlap', () => {
-    const state = buildRehabWidgetState(
-      [
-        makeProcedure({ id: 'a', customName: 'Short', datePerformed: '2026-07-01', customRehabDays: 3 }),
-        makeProcedure({ id: 'b', customName: 'Long', datePerformed: '2026-07-02', customRehabDays: 7 }),
-      ],
-      new Date('2026-07-03T12:00:00Z'),
-    );
+  it('never attaches clinical restrictions to a custom procedure', () => {
+    // makeProcedure defaults to a custom procedure in its acute phase (day 1).
+    const notices = buildRehabNotices([makeProcedure()], new Date('2026-07-01T12:00:00Z'));
 
-    expect(state?.procedureName).toBe('Long');
-  });
-
-  it('carries the procedure affectedZones and defaults to face when absent', () => {
-    const now = new Date('2026-07-02T12:00:00Z');
-
-    const neckOnly = buildRehabWidgetState(
-      [makeProcedure({ affectedZones: ['neck'] })],
-      now,
-    );
-    const unspecified = buildRehabWidgetState([makeProcedure()], now);
-
-    expect(neckOnly?.affectedZones).toEqual(['neck']);
-    expect(unspecified?.affectedZones).toEqual(['face']);
-  });
-});
-
-// ─── applyRehabFilter ─────────────────────────────────────────────────────────
-
-const FACE_REHAB: RehabWidgetState = {
-  procedureName: 'Home peel',
-  currentDay: 2,
-  totalDays: 7,
-  barrierStatus: 'disrupted',
-  affectedZones: ['face'],
-};
-
-describe('applyRehabFilter', () => {
-  it('returns the same routine reference when there is no active rehab', () => {
-    const routine = makeRoutine(['retinol-serum', 'moisturizer']);
-
-    expect(applyRehabFilter(routine, null, PRODUCTS)).toBe(routine);
-  });
-
-  it('masks photosensitizing and exfoliating steps during face rehab', () => {
-    const routine = makeRoutine(['retinol-serum', 'aha-toner', 'moisturizer', 'niacinamide-serum']);
-
-    const filtered = applyRehabFilter(routine, FACE_REHAB, PRODUCTS);
-
-    expect(filtered.steps.map((s) => s.productId)).toEqual([
-      'moisturizer',
-      'niacinamide-serum',
-    ]);
-  });
-
-  it('leaves the face routine unaffected when rehab covers only the neck', () => {
-    const routine = makeRoutine(['retinol-serum', 'aha-toner']);
-    const neckRehab: RehabWidgetState = { ...FACE_REHAB, affectedZones: ['neck'] };
-
-    expect(applyRehabFilter(routine, neckRehab, PRODUCTS)).toBe(routine);
-  });
-
-  it('keeps empty-slot steps and steps whose product is missing from the catalog', () => {
-    const routine = makeRoutine([null, 'deleted-product', 'moisturizer']);
-
-    const filtered = applyRehabFilter(routine, FACE_REHAB, PRODUCTS);
-
-    expect(filtered.steps).toHaveLength(3);
-  });
-
-  it('does not mutate the input routine', () => {
-    const routine = makeRoutine(['retinol-serum', 'moisturizer']);
-
-    applyRehabFilter(routine, FACE_REHAB, PRODUCTS);
-
-    expect(routine.steps).toHaveLength(2);
-  });
-
-  it('masks a product whose restricted active is confirmed only via wizard activeTags', () => {
-    // Regression for the qa-lead 2026-07-04 finding: activeTags are
-    // authoritative and must drive the rehab mask like every other consumer.
-    const tagOnly: Product = {
-      ...makeProduct('tag-only-retinoid', []),
-      activeTags: ['retinoid'],
-    };
-    const routine = makeRoutine(['tag-only-retinoid', 'moisturizer']);
-
-    const filtered = applyRehabFilter(routine, FACE_REHAB, [...PRODUCTS, tagOnly]);
-
-    expect(filtered.steps.map((s) => s.productId)).toEqual(['moisturizer']);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].barrierStatus).toBe('disrupted');
+    expect(notices[0].restrictions).toEqual([]);
   });
 });
