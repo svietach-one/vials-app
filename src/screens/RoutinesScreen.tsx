@@ -22,6 +22,7 @@ import {
 } from '@/components/routine/DuplicateSlotWarningInline';
 import { GenerateCard } from '@/components/routine/GenerateCard';
 import { OptimizeStrip } from '@/components/routine/OptimizeStrip';
+import { PreCleanseReminderCard } from '@/components/routine/PreCleanseReminderCard';
 import { PlannerBlock, type RoutineViewMode } from '@/components/routine/PlannerBlock';
 import { RehabWidget } from '@/components/routine/RehabWidget';
 import { RoutineCalendarView } from '@/components/routine/RoutineCalendarView';
@@ -66,6 +67,7 @@ import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { getDailyView, type FrozenStepView } from '@/utils/routineEngine/dailyView';
 import { rankSlotGroup } from '@/utils/routineEngine/duplicateSlot';
 import { applySlotAlternativeSwap } from '@/utils/routineEngine/planApply';
+import { findPreCleanseReminder } from '@/utils/routineEngine/preCleanseReminder';
 import { buildProductFacts, buildShelfFacts } from '@/utils/routineEngine/productFacts';
 import { buildRehabWidgetState } from '@/utils/routineEngine/rehabFilter';
 import type { ValidationResult } from '@/utils/routineEngine/validate';
@@ -75,6 +77,31 @@ import type { Product, RoutineStep } from '@/types';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Routines'>;
 type Period = 'morning' | 'evening';
+
+// ─── Period card colors (img-03 redesign) ──────────────────────────────────────
+// Morning and evening each render as their own tinted "dropdown card" — a
+// single hairline outline (not a blurred shadow) draws its boundary. Each
+// period is faked from several adjacent, separately-rendered flat-list rows
+// (header + steps) sharing one background color rather than one real nested
+// View, since the drag-safety design requires a single flat list. A blurred
+// shadow.sm was tried per-row first, but RN shadow blur radiates in every
+// direction from a view's own edge, not just outward from its offset — so
+// each row's shadow bled UPWARD onto the row painted immediately before it
+// (later siblings paint on top), showing as a visible seam under every
+// individual step card instead of one clean shadow around the whole group.
+// A border has no such blur-bleed and needs no elevation-based z-order trick,
+// so it's applied selectively per edge instead: top only on the header, left/
+// right on every row, bottom only on the last row — producing one continuous
+// outline with no seams.
+const PERIOD_CARD_BORDER_COLOR = 'rgba(9, 9, 11, 0.08)';
+const PERIOD_BG: Record<Period, string> = {
+  morning: palette.citronTint,
+  evening: palette.cobaltTint,
+};
+const PERIOD_ICON_COLOR: Record<Period, string> = {
+  morning: palette.citron,
+  evening: palette.cobalt,
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -279,6 +306,14 @@ export default function RoutinesScreen({ navigation }: Props) {
     [amSteps, pmSteps, expanded],
   );
 
+  // Computed once here (not inside PreCleanseReminderCard) so renderItem can
+  // match reminder.stepId against each step it renders and place the card
+  // directly under that specific step's own row.
+  const preCleanseReminder = useMemo(
+    () => findPreCleanseReminder(routines, products),
+    [routines, products],
+  );
+
   function handleDragEnd(reorderedRows: RoutineRow[]) {
     const resolved = resolveDragResult(reorderedRows);
     // Cross-section drop (AM↔PM) — out of scope, so keep the previous order.
@@ -323,7 +358,7 @@ export default function RoutinesScreen({ navigation }: Props) {
   }
 
   const renderItem = useCallback(
-    ({ item, drag, isActive: _isActive }: RenderItemParams<RoutineRow>) => {
+    ({ item, getIndex, drag, isActive: _isActive }: RenderItemParams<RoutineRow>) => {
       if (item.kind === 'section') {
         return (
           <SectionHeader
@@ -343,9 +378,23 @@ export default function RoutinesScreen({ navigation }: Props) {
 
       if (!product) return null;
 
+      // Last step of its period rounds the card's bottom corners, closes the
+      // outline's bottom border, and adds the gap before the next period's
+      // card — the header opens the outline's top border (see
+      // PERIOD_CARD_BORDER_COLOR and SectionHeader).
+      const index = getIndex();
+      const nextRow = typeof index === 'number' ? rows[index + 1] : undefined;
+      const isLastInPeriod = !nextRow || nextRow.kind === 'section';
+
       return (
         <ScaleDecorator>
-          <View style={styles.cardWrapper}>
+          <View
+            style={[
+              styles.cardWrapper,
+              { backgroundColor: PERIOD_BG[item.period] },
+              isLastInPeriod && styles.cardWrapperLast,
+            ]}
+          >
             <RoutineStepCard
               product={product}
               onCardPress={() =>
@@ -356,19 +405,26 @@ export default function RoutinesScreen({ navigation }: Props) {
               }
               conflictingProductName={conflictMap.get(step.id) ?? null}
               adaptationWeek={adaptationWeeks.get(product.id) ?? null}
-              stepNote={step.stepNote ?? null}
               displayProductType={step.productType}
               // Long-press anywhere on the card lifts it into drag — no
               // separate edit mode to arm first (img-03).
               onLongPress={drag}
               onOverflowPress={() => openStepSheet(product, step.id, item.period)}
             />
+            {/* Directly under the flagged makeup-remover/micellar-water
+                step's own row — not a page-level banner (see
+                findPreCleanseReminder). */}
+            {preCleanseReminder?.stepId === step.id ? (
+              <View style={styles.preCleanseReminderWrap}>
+                <PreCleanseReminderCard reminder={preCleanseReminder} />
+              </View>
+            ) : null}
           </View>
         </ScaleDecorator>
       );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- openStepSheet reads routines from the closure below
-    [conflictMap, adaptationWeeks, products, navigation, toggleSection, handleOpenAddSheet, morningRoutine, eveningRoutine],
+    [conflictMap, adaptationWeeks, products, navigation, toggleSection, handleOpenAddSheet, morningRoutine, eveningRoutine, rows, preCleanseReminder],
   );
 
   const allFrozen = useMemo(() => [...frozenRows.values()].flat(), [frozenRows]);
@@ -595,9 +651,22 @@ interface SectionHeaderProps {
 function SectionHeader({ period, count, expanded, onToggle, onAdd }: SectionHeaderProps) {
   const title = period === 'morning' ? 'Morning' : 'Evening';
   const stepLabel = `${count} ${count === 1 ? 'step' : 'steps'}`;
+  // Collapsed, or expanded-but-empty: this header IS the whole card (no step
+  // rows follow it), so it rounds all four corners itself. Otherwise it's
+  // only the top of the card — the last step row rounds the bottom (see
+  // renderItem's isLastInPeriod).
+  const isStandaloneCard = !expanded || count === 0;
 
   return (
-    <View style={sectionStyles.wrap}>
+    <View
+      style={[
+        sectionStyles.wrap,
+        { backgroundColor: PERIOD_BG[period] },
+        sectionStyles.roundTop,
+        isStandaloneCard && sectionStyles.roundBottom,
+        isStandaloneCard && sectionStyles.cardGap,
+      ]}
+    >
       <Pressable
         style={sectionStyles.header}
         onPress={onToggle}
@@ -605,18 +674,20 @@ function SectionHeader({ period, count, expanded, onToggle, onAdd }: SectionHead
         accessibilityState={{ expanded }}
         accessibilityLabel={`${title}, ${stepLabel}, ${expanded ? 'expanded' : 'collapsed'}`}
       >
+        <View style={sectionStyles.headerLeft}>
+          <Feather
+            name={period === 'morning' ? 'sun' : 'moon'}
+            size={16}
+            color={PERIOD_ICON_COLOR[period]}
+          />
+          <Text style={sectionStyles.title}>{title}</Text>
+          <Text style={sectionStyles.count}>· {stepLabel}</Text>
+        </View>
         <Feather
           name={expanded ? 'chevron-down' : 'chevron-right'}
           size={18}
           color={colors.textSecondary}
         />
-        <Feather
-          name={period === 'morning' ? 'sun' : 'moon'}
-          size={16}
-          color={colors.textSecondary}
-        />
-        <Text style={sectionStyles.title}>{title}</Text>
-        <Text style={sectionStyles.count}>· {stepLabel}</Text>
       </Pressable>
 
       {expanded && count === 0 ? (
@@ -635,13 +706,38 @@ function SectionHeader({ period, count, expanded, onToggle, onAdd }: SectionHead
 
 const sectionStyles = StyleSheet.create({
   wrap: {
-    marginBottom: space[3],
+    paddingHorizontal: space[3],
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: PERIOD_CARD_BORDER_COLOR,
+  },
+  roundTop: {
+    borderTopLeftRadius: radius.md,
+    borderTopRightRadius: radius.md,
+  },
+  // Bottom border only when this header is the whole card (see
+  // isStandaloneCard) — otherwise a step row below applies it instead.
+  roundBottom: {
+    borderBottomLeftRadius: radius.md,
+    borderBottomRightRadius: radius.md,
+    borderBottomWidth: 1,
+  },
+  // Gap before the NEXT period's card — only applied when this card ends
+  // right here (collapsed or empty); otherwise the last step row applies it.
+  cardGap: {
+    marginBottom: space[4],
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[2],
+    justifyContent: 'space-between',
     paddingVertical: space[2],
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
   },
   title: {
     ...typography.body,
@@ -757,8 +853,28 @@ const styles = StyleSheet.create({
     gap: space[3],
   },
 
+  // Tinted background (set inline per period) continues the period card's
+  // color behind each step — the gap between product cards reads as a
+  // colored gutter rather than a break in the card. Only the LAST step of a
+  // period rounds the bottom corners and adds the gap to the next period.
   cardWrapper: {
-    marginBottom: space[3],
+    paddingHorizontal: space[3],
+    paddingBottom: space[3],
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: PERIOD_CARD_BORDER_COLOR,
+  },
+  // Bottom border only on the period's last step row — everywhere else the
+  // card's outline continues seamlessly into the next row (see the border-
+  // vs-shadow rationale on PERIOD_CARD_BORDER_COLOR above).
+  cardWrapperLast: {
+    borderBottomLeftRadius: radius.md,
+    borderBottomRightRadius: radius.md,
+    borderBottomWidth: 1,
+    marginBottom: space[4],
+  },
+  preCleanseReminderWrap: {
+    marginTop: space[2],
   },
 
   headerActions: {

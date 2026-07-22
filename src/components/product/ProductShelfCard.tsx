@@ -150,7 +150,7 @@ export function ProductShelfCard({
                   <>
                     {(usageTime === 'morning' || usageTime === 'both') ? (
                       <View testID="icon-sun" style={[styles.circleBadge, styles.circleBadgeSun]}>
-                        <Feather name="sun" size={14} color={palette.marigold} />
+                        <Feather name="sun" size={14} color={palette.citron} />
                       </View>
                     ) : null}
                     {(usageTime === 'evening' || usageTime === 'both') ? (
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   circleBadgeSun: {
-    backgroundColor: palette.marigoldTint,
+    backgroundColor: palette.citronTint,
   },
   circleBadgeMoon: {
     backgroundColor: palette.cobaltTint,

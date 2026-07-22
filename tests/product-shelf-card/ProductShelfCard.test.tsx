@@ -120,7 +120,7 @@ describe('Story 1 — Routine-member display (superseded 2026-07-22: icons moved
   it('renders the sun icon on an orange-on-light-yellow circle', () => {
     renderCard({ isInRoutine: true, usageTime: 'morning' });
     const circle = flattenStyle(screen.getByTestId('icon-sun').props.style);
-    expect(circle.backgroundColor).toBe(palette.marigoldTint);
+    expect(circle.backgroundColor).toBe(palette.citronTint);
   });
 
   it('renders the moon icon on a blue-on-light-blue circle', () => {

@@ -7,7 +7,7 @@ import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
-import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
 import type { Product, ProductType } from '@/types';
 
@@ -54,12 +54,6 @@ export interface RoutineStepCardProps {
    */
   adaptationWeek?: number | null;
   /**
-   * Contextual instruction resolved at plan generation (e.g. the pre-cleanse
-   * follow-up: "Follow with your cleanser…"). Renders as a plain info line —
-   * not a warning, not a step of its own, no completion tracking.
-   */
-  stepNote?: string | null;
-  /**
    * The step's resolved productType (e.g. after the pre_cleanse
    * classification guard reclassifies a mistyped micellar water from
    * `cleanser` to `makeup_remover`). Drives the type badge instead of
@@ -80,7 +74,6 @@ export function RoutineStepCard({
   onLongPress,
   onOverflowPress,
   adaptationWeek,
-  stepNote,
   displayProductType,
 }: RoutineStepCardProps) {
   const hasConflict = !!conflictingProductName;
@@ -194,17 +187,6 @@ export function RoutineStepCard({
       </View>
     ) : null;
 
-  // Plain info line — not a warning, not a step of its own (pre_cleanse
-  // follow-up ruling). Shares the adaptationRow divider styling since both
-  // are informational, non-actionable status lines under the card.
-  const stepNoteRow = stepNote ? (
-    <View style={styles.adaptationRow}>
-      <Text style={styles.adaptationText} numberOfLines={2}>
-        {stepNote}
-      </Text>
-    </View>
-  ) : null;
-
   const attributionTooltip = (
     <AttributionTooltip
       visible={attributionVisible}
@@ -215,29 +197,24 @@ export function RoutineStepCard({
   );
 
   // One root: tap navigates, long press hands the touch to the drag gesture.
-  // Shadow lives on the outer, non-clipping wrapper — `cardStyle` needs
-  // `overflow: 'hidden'` to clip the bleeding photo to the rounded corners,
-  // but overflow:hidden also clips the shadow itself (it renders outside the
-  // view's bounds), so the two can't share a node.
+  // No shadow here — these cards sit inside a Morning/Evening accordion card
+  // that carries its own shadow, so the product cards inside stay flat.
   return (
     <>
-      <View style={styles.cardShadow}>
-        <TouchableOpacity
-          onPress={onCardPress}
-          onLongPress={onLongPress}
-          delayLongPress={200}
-          activeOpacity={onCardPress ? 0.92 : 1}
-          style={cardStyle}
-          accessibilityRole="button"
-          accessibilityLabel={`${product.name}, tap to view product detail`}
-          accessibilityHint={onLongPress ? 'Hold to reorder' : undefined}
-        >
-          {mainRow}
-          {conflictRow}
-          {adaptationRow}
-          {stepNoteRow}
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        onPress={onCardPress}
+        onLongPress={onLongPress}
+        delayLongPress={200}
+        activeOpacity={onCardPress ? 0.92 : 1}
+        style={cardStyle}
+        accessibilityRole="button"
+        accessibilityLabel={`${product.name}, tap to view product detail`}
+        accessibilityHint={onLongPress ? 'Hold to reorder' : undefined}
+      >
+        {mainRow}
+        {conflictRow}
+        {adaptationRow}
+      </TouchableOpacity>
       {attributionTooltip}
     </>
   );
@@ -268,13 +245,6 @@ const dragStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  // Shadow-only wrapper — see the comment at the JSX call site for why this
-  // can't be merged into `card`.
-  cardShadow: {
-    borderRadius: radius.sm,
-    backgroundColor: palette.white,
-    ...shadow.sm,
-  },
   card: {
     backgroundColor: palette.white,
     borderWidth: 1,
