@@ -562,7 +562,7 @@ export default function RoutinesScreen({ navigation }: Props) {
       viewMode,
       selectedDow,
       handleDaySelect,
-      rehabState,
+      rehabNotices,
       routines,
       products,
       handlePressDuplicateGroup,
