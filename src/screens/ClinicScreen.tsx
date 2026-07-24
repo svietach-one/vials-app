@@ -264,6 +264,7 @@ const styles = StyleSheet.create({
   },
   controls: {
     paddingHorizontal: space.gutterScreen,
+    paddingTop: space[6],
     paddingBottom: space[3],
     gap: space[2],
   },

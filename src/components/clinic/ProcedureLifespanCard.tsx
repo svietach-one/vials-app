@@ -10,6 +10,7 @@ import { Feather } from '@expo/vector-icons';
 import { Input } from '@/components/ui/forms/Input';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { CLINIC_FADING_PROMPT_ENABLED } from '@/constants/featureFlags';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { CosmeticProcedureKey, UserProcedureLog } from '@/types';
 import {
@@ -332,8 +333,8 @@ export function ProcedureLifespanCard({ proc, onUpdate, onOpenMenu }: ProcedureL
       {/* Time label */}
       <Text style={cardStyles.timeLabel}>{getTimeLabel(proc, status, now)}</Text>
 
-      {/* Fading prompt — only when actively fading and not yet 3x deferred */}
-      {status === 'fading' ? (
+      {/* Fading prompt — feature-flagged off pending the feedback-flow decision */}
+      {status === 'fading' && CLINIC_FADING_PROMPT_ENABLED ? (
         <FadingInteractivePrompt proc={proc} procName={procName} onUpdate={onUpdate} />
       ) : null}
 
