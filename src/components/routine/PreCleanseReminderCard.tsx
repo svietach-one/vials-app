@@ -1,5 +1,5 @@
 import React from 'react';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors } from '@/constants/tokens';
@@ -29,7 +29,7 @@ export function PreCleanseReminderCard({ reminder }: PreCleanseReminderCardProps
   return (
     <InlineAlert
       tone="info"
-      icon={<Feather name="info" size={14} color={colors.statusInfo} />}
+      icon={<Icon name="info" size={14} color={colors.statusInfo} />}
     >
       {`${reminder.productName} isn't followed by a cleanser — micellar water/makeup remover shouldn't stay on skin.`}
     </InlineAlert>

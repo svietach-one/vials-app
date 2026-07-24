@@ -7,7 +7,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
 import { palette } from '@/constants/tokens';
 
@@ -23,7 +23,7 @@ export interface TabButtonProps extends Omit<PressableProps, 'style'> {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const MODE_CONFIG: Record<TabButtonMode, { label: string; icon: React.ComponentProps<typeof Feather>['name'] }> = {
+const MODE_CONFIG: Record<TabButtonMode, { label: string; icon: IconName }> = {
   morning: { label: 'Morning', icon: 'sun' },
   evening: { label: 'Evening', icon: 'moon' },
 };
@@ -56,7 +56,7 @@ export function TabButton({
       accessibilityLabel={label}
       hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
     >
-      <Feather
+      <Icon
         name={icon}
         size={20}
         color={disabled ? palette.zinc300 : active ? palette.white : palette.zinc400}

@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AppHeader } from '@/components/ui/core/AppHeader';
@@ -58,7 +58,7 @@ export default function ProcedureDetailScreen({ route, navigation }: Props) {
 
   const backButton = (
     <IconButton
-      icon={<Feather name="arrow-left" size={20} color={colors.textPrimary} />}
+      icon={<Icon name="arrow-left" size={20} color={colors.textPrimary} />}
       label="Back"
       variant="ghost"
       size="sm"

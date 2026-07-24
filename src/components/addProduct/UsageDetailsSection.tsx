@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -90,7 +90,7 @@ export function UsageDetailsSection({ draft, dispatch }: UsageDetailsSectionProp
           </FilterChip>
           <IconButton
             icon={
-              <Feather
+              <Icon
                 name="calendar"
                 size={14}
                 color={
@@ -127,7 +127,7 @@ export function UsageDetailsSection({ draft, dispatch }: UsageDetailsSectionProp
       ) : null}
 
       <View style={styles.paoHeader}>
-        <Feather name="clock" size={14} color={colors.textSecondary} />
+        <Icon name="clock" size={14} color={colors.textSecondary} />
         <Text style={styles.rowCaption}>
           Period after opening — look for the open jar symbol on the packaging.
         </Text>

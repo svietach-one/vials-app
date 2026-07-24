@@ -63,11 +63,11 @@ jest.mock('@react-navigation/native-stack', () => ({
 
 // ── Icon mock ─────────────────────────────────────────────────────────────────
 
-jest.mock('@expo/vector-icons', () => {
+jest.mock('@/components/ui/Icon', () => {
   const { View } = require('react-native');
   return {
-    Feather: ({ name, testID }: { name: string; testID?: string }) => (
-      <View testID={testID ?? `feather-icon-${name}`} />
+    Icon: ({ name, testID }: { name: string; testID?: string }) => (
+      <View testID={testID ?? `icon-${name}`} />
     ),
   };
 });

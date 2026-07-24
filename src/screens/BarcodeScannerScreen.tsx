@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '@/components/ui/core/Button';
@@ -35,7 +35,7 @@ function CameraPermissionScreen({ permission, onRequest, onBack }: CameraPermiss
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.permWrap}>
-        <Feather name="camera-off" size={32} color={colors.textTertiary} />
+        <Icon name="camera-off" size={32} color={colors.textTertiary} />
         <Text style={styles.permTitle}>Camera access needed</Text>
         <Text style={styles.permBody}>
           Allow camera access to scan product barcodes and look them up in Open Beauty Facts.
@@ -88,7 +88,7 @@ function ScanResultCard({ scanState, corpusResult, onAdd, onAddManually, onScanA
           <Button
             variant="secondary"
             size="sm"
-            icon={<Feather name="plus" size={16} color={palette.plum} />}
+            icon={<Icon name="plus" size={16} color={palette.plum} />}
             onPress={onAdd}
             style={styles.addBtn}
           >
@@ -214,7 +214,7 @@ export default function BarcodeScannerScreen({ navigation }: Props) {
       {/* Close button */}
       <SafeAreaView style={styles.closeWrap} pointerEvents="box-none">
         <IconButton
-          icon={<Feather name="x" size={20} color={palette.white} />}
+          icon={<Icon name="x" size={20} color={palette.white} />}
           label="Close scanner"
           variant="ghost"
           size="sm"

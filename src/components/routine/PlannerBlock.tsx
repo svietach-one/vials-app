@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 
@@ -78,7 +78,7 @@ export function PlannerBlock({
           accessibilityLabel="List view"
           hitSlop={4}
         >
-          <Feather
+          <Icon
             name="list"
             size={16}
             color={viewMode === 'list' ? palette.white : colors.textSecondary}
@@ -95,7 +95,7 @@ export function PlannerBlock({
           accessibilityLabel="Calendar view"
           hitSlop={4}
         >
-          <Feather
+          <Icon
             name="calendar"
             size={16}
             color={viewMode === 'calendar' ? palette.white : colors.textSecondary}

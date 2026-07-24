@@ -9,7 +9,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, radius, space } from '@/constants/tokens';
@@ -87,7 +87,7 @@ export function BottomSheet({
               </Text>
               <View style={styles.headerClose}>
                 <IconButton
-                  icon={<Feather name="x" size={18} color={colors.textSecondary} />}
+                  icon={<Icon name="x" size={18} color={colors.textSecondary} />}
                   label="Close"
                   variant="ghost"
                   size="sm"

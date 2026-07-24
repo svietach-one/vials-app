@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -100,7 +100,7 @@ export function ReplaceStepSheet({ target, onClose, productOf, onSelect }: Repla
                   {`Select ${target.categoryLabel}`}
                 </Text>
                 <IconButton
-                  icon={<Feather name="x" size={18} color={colors.textSecondary} />}
+                  icon={<Icon name="x" size={18} color={colors.textSecondary} />}
                   label="Close"
                   variant="secondary"
                   size="sm"
@@ -186,7 +186,7 @@ function OptionRow({
       accessibilityLabel={option.reason ? `${option.title} — ${option.reason}` : option.title}
     >
       <View style={[styles.radio, selected && styles.radioSelected]}>
-        {selected ? <Feather name="check" size={13} color={colors.bgBase} /> : null}
+        {selected ? <Icon name="check" size={13} color={colors.bgBase} /> : null}
       </View>
 
       {product ? <ProductThumbnail product={product} size={52} /> : null}

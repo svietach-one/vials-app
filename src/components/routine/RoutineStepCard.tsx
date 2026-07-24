@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -135,14 +135,14 @@ export function RoutineStepCard({
                 {/* Compact routine surface: a lightning glyph signals "has
                     actives" — full biomarker tags live on the shelf card only.
                     The glyph stays tappable so INCI attribution is preserved. */}
-                <Feather name="zap" size={12} color={palette.zinc600} />
+                <Icon name="zap" size={12} color={palette.zinc600} />
                 {showAliasIcon ? (
                   <View
                     testID={`active-badge-alias-icon-${activeKey}`}
                     accessibilityLabel="Detected via regional ingredient name"
                     style={styles.aliasIconWrap}
                   >
-                    <Feather name="globe" size={10} color={palette.zinc500} />
+                    <Icon name="globe" size={10} color={palette.zinc500} />
                   </View>
                 ) : null}
               </Pressable>
@@ -153,7 +153,7 @@ export function RoutineStepCard({
 
       {onOverflowPress ? (
         <IconButton
-          icon={<Feather name="more-vertical" size={18} color={palette.zinc500} />}
+          icon={<Icon name="more-vertical" size={18} color={palette.zinc500} />}
           label={`More actions for ${product.name}`}
           variant="ghost"
           size="sm"
@@ -169,7 +169,7 @@ export function RoutineStepCard({
 
   const conflictRow = hasConflict ? (
     <View style={styles.conflictRow}>
-      <Feather name="alert-triangle" size={11} color={palette.amber} />
+      <Icon name="alert-triangle" size={11} color={palette.amber} />
       <Text style={styles.conflictText} numberOfLines={1}>
         Conflicts with {conflictingProductName}
       </Text>

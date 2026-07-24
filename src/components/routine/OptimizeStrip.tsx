@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { colors, radius, space, typography } from '@/constants/tokens';
 
@@ -29,7 +29,7 @@ export function OptimizeStrip({ hasFindings, onPress }: OptimizeStripProps) {
       ]}
     >
       <View style={styles.labelRow}>
-        <Feather
+        <Icon
           name="refresh-cw"
           size={14}
           color={hasFindings ? colors.statusWarning : colors.textPrimary}
@@ -40,7 +40,7 @@ export function OptimizeStrip({ hasFindings, onPress }: OptimizeStripProps) {
       </View>
       {hasFindings ? (
         <View style={styles.badge}>
-          <Feather name="alert-triangle" size={13} color={colors.statusWarning} />
+          <Icon name="alert-triangle" size={13} color={colors.statusWarning} />
           <Text style={styles.badgeText}>Suggestions available</Text>
         </View>
       ) : null}

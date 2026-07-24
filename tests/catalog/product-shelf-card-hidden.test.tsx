@@ -17,16 +17,16 @@
  *   - testID="shelf-card-content" on the wrapper View containing name / brand /
  *     badges / schedule-or-hidden row. That wrapper must get style opacity: 0.4
  *     when product.isHidden is true, and normal (non-0.4) opacity otherwise.
- *   - An eye-off Feather icon rendered inside that content wrapper when
- *     product.isHidden is true (asserted here via the mocked Feather's
- *     testID="feather-icon-eye-off").
+ *   - An eye-off icon rendered inside that content wrapper when
+ *     product.isHidden is true (asserted here via the mocked Icon's
+ *     testID="icon-eye-off").
  *   - The overflow ("more actions") IconButton must stay outside the dimmed
  *     wrapper, at all times enabled and pressable, regardless of isHidden.
  *
  * AC-P1  Hidden product (isHidden: true) -> content wrapper has opacity 0.4
  * AC-P2  Visible product (isHidden: false) -> content wrapper does NOT have opacity 0.4
  * AC-P3  Legacy product (isHidden: undefined) -> treated as visible, no dimming
- * AC-P4  Hidden product -> eye-off Feather icon renders inside the content area
+ * AC-P4  Hidden product -> eye-off icon renders inside the content area
  * AC-P5  Visible product -> no eye-off icon renders
  * AC-P6  Hidden product -> overflow ("more actions") button remains enabled
  * AC-P7  Hidden product -> pressing the overflow button still opens the action sheet
@@ -52,11 +52,11 @@ jest.mock('@/utils/routineLabel', () => ({
   formatRoutineLabel: jest.fn(),
 }));
 
-jest.mock('@expo/vector-icons', () => {
+jest.mock('@/components/ui/Icon', () => {
   const { View } = require('react-native');
   return {
-    Feather: ({ name, testID }: { name: string; testID?: string }) => (
-      <View testID={testID ?? `feather-icon-${name}`} />
+    Icon: ({ name, testID }: { name: string; testID?: string }) => (
+      <View testID={testID ?? `icon-${name}`} />
     ),
   };
 });
@@ -107,16 +107,16 @@ describe('AC-P3: legacy product (isHidden undefined) is treated as visible', () 
 // ── AC-P4 / AC-P5 — eye-off badge ─────────────────────────────────────────────
 
 describe('AC-P4: eye-off icon renders inside the content area for hidden products', () => {
-  it('should render the eye-off Feather icon when isHidden is true', () => {
+  it('should render the eye-off icon when isHidden is true', () => {
     renderCard({ product: makeProduct({ isHidden: true }) });
-    expect(screen.getByTestId('feather-icon-eye-off')).toBeTruthy();
+    expect(screen.getByTestId('icon-eye-off')).toBeTruthy();
   });
 });
 
 describe('AC-P5: no eye-off icon for visible products', () => {
-  it('should NOT render the eye-off Feather icon when isHidden is false', () => {
+  it('should NOT render the eye-off icon when isHidden is false', () => {
     renderCard({ product: makeProduct({ isHidden: false }) });
-    expect(screen.queryByTestId('feather-icon-eye-off')).toBeNull();
+    expect(screen.queryByTestId('icon-eye-off')).toBeNull();
   });
 });
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
 import { ListRow } from '@/components/ui/core/ListRow';
@@ -44,7 +44,7 @@ export function ProcedureActionSheet({
 
           {/* Details — edit date / add a note on a dedicated page */}
           <ListRow
-            leading={<Feather name="edit-2" size={18} color={colors.textPrimary} />}
+            leading={<Icon name="edit-2" size={18} color={colors.textPrimary} />}
             title="Details"
             onPress={() => {
               if (proc) {
@@ -57,7 +57,7 @@ export function ProcedureActionSheet({
           {/* Move to history — archive out of the Active tab */}
           {!isArchived ? (
             <ListRow
-              leading={<Feather name="archive" size={18} color={colors.textPrimary} />}
+              leading={<Icon name="archive" size={18} color={colors.textPrimary} />}
               title="Move to history"
               onPress={() => {
                 if (proc) {
@@ -70,7 +70,7 @@ export function ProcedureActionSheet({
 
           {/* Delete */}
           <ListRow
-            leading={<Feather name="trash-2" size={18} color={colors.statusError} />}
+            leading={<Icon name="trash-2" size={18} color={colors.statusError} />}
             title="Delete"
             titleColor={colors.statusError}
             onPress={() => {

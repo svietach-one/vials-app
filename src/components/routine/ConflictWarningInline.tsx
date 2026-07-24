@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, space } from '@/constants/tokens';
@@ -40,7 +40,7 @@ export function ConflictWarningInline({ routines, products }: ConflictWarningInl
         <InlineAlert
           key={c.rule.id}
           tone="warning"
-          icon={<Feather name="alert-triangle" size={14} color={colors.statusWarningAccent} />}
+          icon={<Icon name="alert-triangle" size={14} color={colors.statusWarningAccent} />}
           title="Ingredient conflict"
         >
           {`${c.rule.explanation}\n\n${c.rule.suggestion}`}

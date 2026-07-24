@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, radius } from '@/constants/tokens';
@@ -24,7 +24,7 @@ export function CatalogFilterTrigger({ activeFilterCount, onPress }: CatalogFilt
     <IconButton
       icon={
         <>
-          <Feather name="sliders" size={18} color={colors.textPrimary} />
+          <Icon name="sliders" size={18} color={colors.textPrimary} />
           {hasActiveFilters ? <View testID="filter-trigger-badge" style={styles.badge} /> : null}
         </>
       }

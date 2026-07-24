@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
 import { ListRow } from '@/components/ui/core/ListRow';
@@ -46,7 +46,7 @@ export function ProductActionSheet({
 
           {/* Edit */}
           <ListRow
-            leading={<Feather name="edit-2" size={18} color={colors.textPrimary} />}
+            leading={<Icon name="edit-2" size={18} color={colors.textPrimary} />}
             title="Edit Product"
             onPress={() => {
               if (product) {
@@ -59,7 +59,7 @@ export function ProductActionSheet({
           {/* Add/Remove from routine */}
           {onAddToRoutine ? (
             <ListRow
-              leading={<Feather name="plus-circle" size={18} color={colors.textPrimary} />}
+              leading={<Icon name="plus-circle" size={18} color={colors.textPrimary} />}
               title="Add to routine"
               onPress={() => {
                 if (product) {
@@ -70,7 +70,7 @@ export function ProductActionSheet({
             />
           ) : onRemoveFromRoutine ? (
             <ListRow
-              leading={<Feather name="minus-circle" size={18} color={colors.textPrimary} />}
+              leading={<Icon name="minus-circle" size={18} color={colors.textPrimary} />}
               title="Remove from routine"
               onPress={() => {
                 if (product) {
@@ -84,7 +84,7 @@ export function ProductActionSheet({
           {/* Hide/Show — independent of the routine row above */}
           <ListRow
             leading={
-              <Feather
+              <Icon
                 name={product?.isHidden ? 'eye' : 'eye-off'}
                 size={18}
                 color={colors.textPrimary}
@@ -101,7 +101,7 @@ export function ProductActionSheet({
 
           {/* Delete */}
           <ListRow
-            leading={<Feather name="trash-2" size={18} color={colors.statusError} />}
+            leading={<Icon name="trash-2" size={18} color={colors.statusError} />}
             title="Delete Product"
             titleColor={colors.statusError}
             onPress={() => {

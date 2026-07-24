@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import {
   NestableDraggableFlatList,
   NestableScrollContainer,
@@ -479,14 +479,14 @@ export default function RoutinesScreen({ navigation }: Props) {
             {/* Regenerate sits immediately left of "+", which stays rightmost
                 so adding a product is always a single tap (img-03). */}
             <IconButton
-              icon={<Feather name="refresh-cw" size={18} color={colors.textPrimary} />}
+              icon={<Icon name="refresh-cw" size={18} color={colors.textPrimary} />}
               label="Regenerate routine"
               variant="ghost"
               size="sm"
               onPress={handleOpenDraftPreview}
             />
             <IconButton
-              icon={<Feather name="plus" size={18} color={colors.textPrimary} />}
+              icon={<Icon name="plus" size={18} color={colors.textPrimary} />}
               label="Add product to routine"
               variant="ghost"
               size="sm"
@@ -561,7 +561,7 @@ export default function RoutinesScreen({ navigation }: Props) {
             variant="textActive"
             size="md"
             fullWidth
-            icon={<Feather name="plus" size={16} color={palette.plum} />}
+            icon={<Icon name="plus" size={16} color={palette.plum} />}
             onPress={handleOpenAddSheet}
             accessibilityLabel="Add product to routine"
           >
@@ -694,7 +694,7 @@ function PeriodCard({
       >
         <View style={periodCardStyles.headerLeft}>
           <View style={[periodCardStyles.periodIconCircle, { backgroundColor: PERIOD_ICON_BG[period] }]}>
-            <Feather
+            <Icon
               name={period === 'morning' ? 'sun' : 'moon'}
               size={14}
               color={PERIOD_ICON_COLOR[period]}
@@ -703,7 +703,7 @@ function PeriodCard({
           <Text style={periodCardStyles.title}>{title}</Text>
           <Text style={periodCardStyles.count}>· {stepLabel}</Text>
         </View>
-        <Feather
+        <Icon
           name={expanded ? 'chevron-down' : 'chevron-right'}
           size={18}
           color={colors.textSecondary}
@@ -805,7 +805,7 @@ function PausedSteps({ frozen, products }: { frozen: FrozenStepView[]; products:
         const name = products.find((p) => p.id === item.productId)?.name ?? 'Product';
         return (
           <View key={item.stepId} style={pausedStyles.row}>
-            <Feather name="pause-circle" size={14} color={colors.textTertiary} />
+            <Icon name="pause-circle" size={14} color={colors.textTertiary} />
             <Text style={pausedStyles.text} numberOfLines={1}>
               {name} — paused until {item.until}
             </Text>

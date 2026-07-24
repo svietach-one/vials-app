@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
 import { colors, radius, shadow, space, typography } from '@/constants/tokens';
@@ -19,7 +19,7 @@ export function GenerateCard({ onGenerate, onAddManually }: GenerateCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.iconWrap}>
-        <Feather name="layers" size={24} color={colors.textSecondary} />
+        <Icon name="layers" size={24} color={colors.textSecondary} />
       </View>
       <Text style={styles.title}>Build your routine</Text>
       <Text style={styles.subtitle}>
@@ -31,7 +31,7 @@ export function GenerateCard({ onGenerate, onAddManually }: GenerateCardProps) {
           variant="primary"
           size="md"
           fullWidth
-          icon={<Feather name="zap" size={16} color={colors.controlOn} />}
+          icon={<Icon name="zap" size={16} color={colors.controlOn} />}
           onPress={onGenerate}
           accessibilityLabel="Generate Routine"
         >

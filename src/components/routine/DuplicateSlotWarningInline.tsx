@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { getSlotCategoryLabelPlural } from '@/constants/labels';
@@ -78,7 +78,7 @@ export function DuplicateSlotWarningInline({ routines, products, onPressGroup }:
         >
           <InlineAlert
             tone="info"
-            icon={<Feather name="layers" size={14} color={colors.statusInfo} />}
+            icon={<Icon name="layers" size={14} color={colors.statusInfo} />}
           >
             {row.message}
           </InlineAlert>

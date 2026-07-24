@@ -4,7 +4,7 @@ import {
   BottomSheetModal,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/ui/core/AppHeader';
@@ -173,7 +173,7 @@ export function DraftPreviewScreen({
           title="Routine Draft"
           leftAction={
             <IconButton
-              icon={<Feather name="arrow-left" size={18} color={colors.textPrimary} />}
+              icon={<Icon name="arrow-left" size={18} color={colors.textPrimary} />}
               label="Back"
               variant="ghost"
               size="sm"
@@ -191,7 +191,7 @@ export function DraftPreviewScreen({
           <View style={styles.summary}>
             {summaryLines.map((line) => (
               <View key={line} style={styles.summaryRow}>
-                <Feather name="check" size={14} color={colors.statusSafe} />
+                <Icon name="check" size={14} color={colors.statusSafe} />
                 <Text style={styles.summaryText}>{line}</Text>
               </View>
             ))}
@@ -243,7 +243,7 @@ export function DraftPreviewScreen({
               <Text style={styles.reserveHeading}>
                 {`In reserve · ${plan.reserve.length} product${plan.reserve.length === 1 ? '' : 's'}`}
               </Text>
-              <Feather
+              <Icon
                 name={reserveExpanded ? 'chevron-up' : 'chevron-down'}
                 size={18}
                 color={colors.textTertiary}
@@ -382,7 +382,7 @@ function PeriodSteps({
             { backgroundColor: isMorning ? palette.marigoldTint : palette.cobaltTint },
           ]}
         >
-          <Feather
+          <Icon
             name={isMorning ? 'sun' : 'moon'}
             size={14}
             color={isMorning ? palette.marigold : palette.cobalt}
@@ -501,7 +501,7 @@ function StepCard({
             accessibilityLabel={`Change ${name}`}
           >
             <Text style={styles.changeLabel}>Change</Text>
-            <Feather name="chevron-right" size={18} color={palette.plum} />
+            <Icon name="chevron-right" size={18} color={palette.plum} />
           </Pressable>
         ) : null}
       </View>

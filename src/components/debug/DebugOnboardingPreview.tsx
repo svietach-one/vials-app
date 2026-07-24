@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Modal, SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { NavigationContainer, NavigationIndependentTree } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -86,11 +86,11 @@ export function DebugOnboardingPreview({ visible, onClose }: Props) {
         <SafeAreaView style={styles.overlay} pointerEvents="box-none">
           <View style={styles.badgeRow} pointerEvents="box-none">
             <View style={styles.badge}>
-              <Feather name="eye" size={12} color={palette.white} />
+              <Icon name="eye" size={12} color={palette.white} />
               <Text style={styles.badgeText}>Debug Preview</Text>
             </View>
             <IconButton
-              icon={<Feather name="x" size={16} color={palette.white} />}
+              icon={<Icon name="x" size={16} color={palette.white} />}
               label="Exit onboarding preview"
               variant="ghost"
               size="xs"

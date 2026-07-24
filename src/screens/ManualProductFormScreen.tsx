@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
@@ -139,7 +139,7 @@ function InciField({ value, onChange, onDetect, onScan, ocrScanned }: InciFieldP
       <InlineAlert
         tone={ocrScanned ? 'warning' : 'info'}
         icon={
-          <Feather
+          <Icon
             name={ocrScanned ? 'alert-triangle' : 'info'}
             size={16}
             color={ocrScanned ? colors.statusWarningAccent : colors.statusInfo}
@@ -177,7 +177,7 @@ function InciField({ value, onChange, onDetect, onScan, ocrScanned }: InciFieldP
         <Button
           variant="textActive"
           size="sm"
-          iconRight={<Feather name="arrow-right" size={14} color={palette.plum} />}
+          iconRight={<Icon name="arrow-right" size={14} color={palette.plum} />}
           onPress={onDetect}
           accessibilityLabel="Detect active ingredients from INCI text"
           style={s.detectRow}
@@ -190,7 +190,7 @@ function InciField({ value, onChange, onDetect, onScan, ocrScanned }: InciFieldP
         variant="secondary"
         size="md"
         fullWidth
-        icon={<Feather name="camera" size={16} color={colors.textPrimary} />}
+        icon={<Icon name="camera" size={16} color={colors.textPrimary} />}
         onPress={onScan}
       >
         Scan Ingredients Text
@@ -364,7 +364,7 @@ function ShareStatus({
   if (result.status === 'success') {
     return (
       <View style={s.shareRow} testID="share-status-success">
-        <Feather name="check-circle" size={16} color={palette.bottleGreen} />
+        <Icon name="check-circle" size={16} color={palette.bottleGreen} />
         <Text style={s.shareText}>
           {result.withPhoto
             ? 'Shared for review, with your photo.'
@@ -377,7 +377,7 @@ function ShareStatus({
   if (result.status === 'unavailable') {
     return (
       <View style={s.shareRow} testID="share-status-unavailable">
-        <Feather name="info" size={16} color={colors.statusInfo} />
+        <Icon name="info" size={16} color={colors.statusInfo} />
         <Text style={s.shareText}>
           Sharing isn&apos;t available in this build. Your product is saved on this device.
         </Text>
@@ -387,7 +387,7 @@ function ShareStatus({
 
   return (
     <View style={s.shareRow} testID="share-status-error">
-      <Feather name="alert-triangle" size={16} color={colors.statusWarningAccent} />
+      <Icon name="alert-triangle" size={16} color={colors.statusWarningAccent} />
       <View style={s.shareErrorBody}>
         <Text style={s.shareText}>
           Couldn&apos;t share this product. It&apos;s still saved on your shelf.
@@ -682,7 +682,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
           title={isEditMode ? 'Edit Product' : 'Add Product'}
           leftAction={
             <IconButton
-              icon={<Feather name="arrow-left" size={20} color={colors.textPrimary} />}
+              icon={<Icon name="arrow-left" size={20} color={colors.textPrimary} />}
               label="Back"
               variant="ghost"
               size="sm"
@@ -701,7 +701,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
           {showObfAttribution ? (
             <InlineAlert
               tone="info"
-              icon={<Feather name="info" size={16} color={colors.statusInfo} />}
+              icon={<Icon name="info" size={16} color={colors.statusInfo} />}
             >
               Product data from Open Beauty Facts (ODbL)
             </InlineAlert>
@@ -710,7 +710,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
           {corpusProductUrl ? (
             <InlineAlert
               tone="info"
-              icon={<Feather name="external-link" size={16} color={colors.statusInfo} />}
+              icon={<Icon name="external-link" size={16} color={colors.statusInfo} />}
               action={
                 <Button
                   variant="textActive"
@@ -738,7 +738,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
                   <Button
                     variant="secondary"
                     size="sm"
-                    icon={<Feather name="camera" size={16} color={colors.textPrimary} />}
+                    icon={<Icon name="camera" size={16} color={colors.textPrimary} />}
                     onPress={handlePhotoPress}
                   >
                     {localImageUri ? 'Change photo' : 'Add photo'}

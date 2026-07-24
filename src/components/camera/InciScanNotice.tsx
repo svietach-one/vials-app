@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
 import { colors, radius, space, typography } from '@/constants/tokens';
@@ -36,7 +36,7 @@ export function InciScanNotice({ visible, onScan, onUseChecklist }: InciScanNoti
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <View style={styles.iconWrap}>
-            <Feather name="globe" size={22} color={colors.textPrimary} />
+            <Icon name="globe" size={22} color={colors.textPrimary} />
           </View>
 
           <Text style={styles.heading}>Scan the original ingredients list</Text>

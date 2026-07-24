@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
@@ -66,7 +66,7 @@ export function LabelLinePicker({
               accessibilityState={{ selected: assigned !== undefined, expanded: open }}
             >
               {assigned !== undefined ? (
-                <Feather
+                <Icon
                   name="check"
                   size={14}
                   color={open ? palette.bottleGreen : colors.textSecondary}
@@ -113,7 +113,7 @@ export function LabelLinePicker({
               accessibilityRole="button"
               accessibilityLabel={`Dismiss suggestion ${suggestion}`}
             >
-              <Feather name="x" size={16} color={colors.textTertiary} />
+              <Icon name="x" size={16} color={colors.textTertiary} />
             </Pressable>
           </View>
         );

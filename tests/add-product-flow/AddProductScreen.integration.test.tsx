@@ -25,6 +25,20 @@ jest.mock('@/components/camera/CameraCaptureModal', () => ({
   CameraCaptureModal: () => null,
 }));
 
+// Cover-photo capture/deletion — mocked so BrandNameCategorySection's real
+// "Take product photo" flow can be driven without touching native modules.
+jest.mock('@/services/productImage', () => ({
+  pickAndStoreProductPhoto: jest.fn(),
+  deleteProductPhoto: jest.fn(),
+}));
+
+// Deterministic productId so the discard-cleanup test can assert the exact
+// id passed to deleteProductPhoto (AddProductScreen generates it once via
+// useRef(generateId()) — real randomness would make that assertion unstable).
+jest.mock('@/utils/generateId', () => ({
+  generateId: () => 'fixed-product-id',
+}));
+
 // State lives INSIDE each factory (module-body variables are unreliable in
 // hoisted factories); tests reach it back out via jest.requireMock.
 jest.mock('@/store/productsStore', () => {
@@ -50,6 +64,12 @@ const mockAddProduct: jest.Mock = jest.requireMock('@/store/productsStore').__st
 const mockSubmitContribution: jest.Mock = jest.requireMock(
   '@/services/contributions',
 ).submitContribution;
+const mockPickAndStoreProductPhoto: jest.Mock = jest.requireMock(
+  '@/services/productImage',
+).pickAndStoreProductPhoto;
+const mockDeleteProductPhoto: jest.Mock = jest.requireMock(
+  '@/services/productImage',
+).deleteProductPhoto;
 
 import AddProductScreen from '@/screens/catalog/AddProductScreen';
 
@@ -215,8 +235,9 @@ describe('local-first save', () => {
     // Local-only fields must never leave the device.
     expect(payload).not.toHaveProperty('openedDate');
     expect(payload).not.toHaveProperty('paoMonths');
+    // The privacy boundary excludes the cover photo from the anonymized
+    // suggest payload even though the draft/product do carry one.
     expect(payload).not.toHaveProperty('localImageUri');
-    // The wizard carries no photo.
     expect(blob).toBeNull();
   });
 });
@@ -243,5 +264,38 @@ describe('discard confirmation', () => {
       expect.any(String),
       expect.any(Array),
     );
+  });
+
+  it('deletes the stored cover photo when a draft with a photo is discarded', async () => {
+    mockPickAndStoreProductPhoto.mockResolvedValue({
+      localImageUri: 'file:///stored/fixed-product-id.jpg',
+    });
+    renderScreen();
+
+    fireEvent.press(screen.getByText('Take product photo'));
+    await act(async () => Promise.resolve());
+
+    fireEvent.press(screen.getByLabelText('Close'));
+    const discardButton = (Alert.alert as jest.Mock).mock.calls[0][2].find(
+      (b: { text: string }) => b.text === 'Discard',
+    );
+    discardButton.onPress();
+
+    expect(mockDeleteProductPhoto).toHaveBeenCalledWith('fixed-product-id');
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not attempt to delete a photo when the draft never had one', () => {
+    renderScreen();
+    fireEvent.changeText(screen.getByLabelText('Product name'), 'Foaming Cleanser');
+
+    fireEvent.press(screen.getByLabelText('Close'));
+    const discardButton = (Alert.alert as jest.Mock).mock.calls[0][2].find(
+      (b: { text: string }) => b.text === 'Discard',
+    );
+    discardButton.onPress();
+
+    expect(mockDeleteProductPhoto).not.toHaveBeenCalled();
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
   });
 });

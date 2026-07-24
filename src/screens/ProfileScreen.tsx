@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { DebugAccountSyncCard } from '@/components/debug/DebugAccountSyncCard';
 import { DebugOnboardingPreview } from '@/components/debug/DebugOnboardingPreview';
@@ -199,10 +199,10 @@ function CityField({
   if (city) {
     return (
       <View style={cityStyles.selectedRow}>
-        <Feather name="map-pin" size={16} color={colors.textSecondary} />
+        <Icon name="map-pin" size={16} color={colors.textSecondary} />
         <Text style={cityStyles.selectedName}>{city.name}</Text>
         <IconButton
-          icon={<Feather name="x" size={16} color={colors.textTertiary} />}
+          icon={<Icon name="x" size={16} color={colors.textTertiary} />}
           label="Clear city"
           variant="ghost"
           size="xs"
@@ -232,7 +232,7 @@ function CityField({
           accessibilityRole="button"
           accessibilityLabel={`Select ${suggestion.name}`}
         >
-          <Feather name="map-pin" size={14} color={colors.textTertiary} />
+          <Icon name="map-pin" size={14} color={colors.textTertiary} />
           <Text style={cityStyles.suggestionText}>{suggestion.name}</Text>
         </Pressable>
       ))}
@@ -322,7 +322,7 @@ export default function ProfileScreen() {
             <Button
               variant="textActive"
               size="sm"
-              icon={<Feather name="edit-2" size={14} color={palette.plum} />}
+              icon={<Icon name="edit-2" size={14} color={palette.plum} />}
               onPress={() => setEditModalVisible(true)}
               accessibilityLabel="Edit skin profile"
             >
@@ -425,14 +425,14 @@ export default function ProfileScreen() {
           <SectionHeader title="Your Data" />
           <InlineAlert
             tone="info"
-            icon={<Feather name="hard-drive" size={14} color={colors.statusInfo} />}
+            icon={<Icon name="hard-drive" size={14} color={colors.statusInfo} />}
             title="Stored locally on this device"
           >
             Vials does not sync to the cloud. Export your data regularly to avoid losing it if you switch devices or reinstall the app.
           </InlineAlert>
           <View style={styles.card}>
             <ListRow
-              leading={<Feather name="upload-cloud" size={18} color={colors.textSecondary} />}
+              leading={<Icon name="upload-cloud" size={18} color={colors.textSecondary} />}
               title="Export All Data"
               subtitle="Share a JSON backup of your full vault"
               onPress={exportAllData}
@@ -448,7 +448,7 @@ export default function ProfileScreen() {
             <SectionHeader title="Developer Tools (Debug)" />
             <View style={[styles.card, styles.debugCard]}>
               <ListRow
-                leading={<Feather name="eye" size={18} color={colors.statusWarning} />}
+                leading={<Icon name="eye" size={18} color={colors.statusWarning} />}
                 title="Debug: View Onboarding"
                 subtitle="Your skin profile is restored on exit — picking a real product still adds it to My Shelf"
                 onPress={() => setDebugOnboardingVisible(true)}
@@ -465,7 +465,7 @@ export default function ProfileScreen() {
           <SectionHeader title="About" />
           <View style={styles.card}>
             <ListRow
-              leading={<Feather name="info" size={18} color={colors.textSecondary} />}
+              leading={<Icon name="info" size={18} color={colors.textSecondary} />}
               title="Vials"
               subtitle="Version 1.0.0 — Phase 1 MVP"
               divider={false}

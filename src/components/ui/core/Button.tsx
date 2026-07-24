@@ -24,7 +24,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
 export interface ButtonProps extends Omit<PressableProps, 'style'> {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  /** Leading icon node (e.g. a Feather <Icon> component). */
+  /** Leading icon node (e.g. an <Icon> component). */
   icon?: React.ReactNode;
   /** Trailing icon node. */
   iconRight?: React.ReactNode;
