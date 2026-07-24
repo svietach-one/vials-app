@@ -1,108 +1,39 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  importDatabaseFromAssetAsync,
-  openDatabaseAsync,
-  type SQLiteDatabase,
-} from 'expo-sqlite';
+import React, { createContext, useContext, useMemo } from 'react';
 
-import bundledCorpusAsset from '../../assets/corpus/vials_corpus.db';
-
-const TURSO_URL = process.env.EXPO_PUBLIC_TURSO_URL;
-const TURSO_TOKEN = process.env.EXPO_PUBLIC_TURSO_TOKEN;
-const CORPUS_MODE = process.env.EXPO_PUBLIC_CORPUS_MODE;
+import type { CorpusQueryExecutor } from '@/services/corpus/types';
+import { createTursoHttpClient } from '@/services/turso/httpClient';
 
 /**
- * Distinct from the libSQL replica's file name so switching modes on the same
- * install never opens one mode's file with the other mode's driver.
+ * Provides the product corpus as a remote, read-only query executor backed by
+ * the Turso HTTP API (see {@link createTursoHttpClient}). All corpus reads —
+ * search, barcode lookup, ingredient autocomplete — go over the network, so
+ * the corpus works everywhere the app runs (Expo Go, any simulator, device);
+ * there is no bundled/local snapshot and no libSQL native module involved.
+ *
+ * The value is `null` when the corpus isn't configured for this build (missing
+ * EXPO_PUBLIC_TURSO_HTTP_URL / EXPO_PUBLIC_TURSO_TOKEN). Consumers treat null
+ * as "corpus disabled" and fall back to manual entry — but unlike before, that
+ * condition is logged and surfaced in the UI rather than silently masked as an
+ * empty search result.
  */
-const BUNDLED_DB_NAME = 'vials_corpus_bundled.db';
+const CorpusDbContext = createContext<CorpusQueryExecutor | null>(null);
 
-/**
- * The corpus database handle, or null when Turso isn't configured/reachable
- * (missing env vars, bad token, wrong build). Consumers must treat null the
- * same as an unreachable corpus — every repository call already degrades to
- * "not found" in that case, so screens fall back to manual entry.
- */
-const CorpusDbContext = createContext<SQLiteDatabase | null>(null);
-
-export function useCorpusDb(): SQLiteDatabase | null {
+export function useCorpusDb(): CorpusQueryExecutor | null {
   return useContext(CorpusDbContext);
 }
 
-/** Pulls the latest corpus snapshot. Non-blocking; offline is a normal, silent outcome. */
-export async function syncCorpus(db: SQLiteDatabase): Promise<void> {
-  try {
-    // API name has varied across expo-sqlite versions; guard it.
-    const anyDb = db as unknown as { syncLibSQL?: () => Promise<void> };
-    if (typeof anyDb.syncLibSQL === 'function') await anyDb.syncLibSQL();
-  } catch {
-    // No network / sync unavailable → replica still serves last-synced data. Swallow.
-  }
-}
-
-/**
- * Bundled mode (EXPO_PUBLIC_CORPUS_MODE=bundled): opens a read-only snapshot
- * shipped in the app bundle instead of the Turso embedded replica. This is
- * the only corpus that works without the libSQL native module — i.e. in
- * Expo Go and in x86_64 simulator builds (libsql.xcframework has no Intel
- * simulator slice). The snapshot updates only when the app is rebuilt with a
- * fresh assets/corpus/vials_corpus.db; forceOverwrite keeps the working copy
- * in lock-step with the bundled asset across app updates.
- */
-async function openBundledCorpusAsync(): Promise<SQLiteDatabase> {
-  await importDatabaseFromAssetAsync(BUNDLED_DB_NAME, {
-    assetId: bundledCorpusAsset,
-    forceOverwrite: true,
-  });
-  return openDatabaseAsync(BUNDLED_DB_NAME);
-}
-
-/**
- * Wraps the product corpus as a pull-only, read-only SQLite database. Reads
- * are always local; the app never writes to the corpus. Two sources, chosen
- * at bundle time via EXPO_PUBLIC_CORPUS_MODE: the Turso/libSQL embedded
- * replica (default, see handoff/INTEGRATION_GUIDE.md) or the bundled
- * snapshot (testing builds without the libSQL native module).
- *
- * Opens the database itself (rather than expo-sqlite's `<SQLiteProvider>`)
- * because that component renders `null` for all children while opening and
- * never recovers on an open failure (bad token, wrong env, or running in
- * Expo Go without the libSQL native module) — it would leave the whole app
- * blank. Children here always render immediately; the corpus becomes
- * available once open, or stays disabled without blocking anything.
- */
 export function CorpusProvider({ children }: { children: React.ReactNode }) {
-  const [db, setDb] = useState<SQLiteDatabase | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    let openCorpus: Promise<SQLiteDatabase> | null = null;
-    if (CORPUS_MODE === 'bundled') {
-      openCorpus = openBundledCorpusAsync();
-    } else if (TURSO_URL && TURSO_TOKEN) {
-      openCorpus = openDatabaseAsync('vials_corpus.db', {
-        libSQLOptions: { url: TURSO_URL, authToken: TURSO_TOKEN },
-      }).then((opened) => {
-        void syncCorpus(opened);
-        return opened;
-      });
+  const client = useMemo(() => {
+    const c = createTursoHttpClient();
+    if (!c && __DEV__) {
+      console.warn(
+        '[CorpusProvider] Turso corpus is not configured — set ' +
+          'EXPO_PUBLIC_TURSO_HTTP_URL and EXPO_PUBLIC_TURSO_TOKEN in .env.local. ' +
+          'Product database search is disabled for this build.',
+      );
     }
-    if (!openCorpus) return;
-
-    openCorpus
-      .then((opened) => {
-        if (cancelled) return;
-        setDb(opened);
-      })
-      .catch(() => {
-        // Corpus unreachable/misconfigured — app runs on with the corpus disabled.
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    return c;
   }, []);
 
-  return <CorpusDbContext.Provider value={db}>{children}</CorpusDbContext.Provider>;
+  return <CorpusDbContext.Provider value={client}>{children}</CorpusDbContext.Provider>;
 }

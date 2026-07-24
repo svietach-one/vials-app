@@ -1,5 +1,17 @@
 import type { ActiveIngredientKey } from '@/types';
 
+/**
+ * Minimal query surface the corpus repositories depend on. Deliberately a
+ * subset of expo-sqlite's `SQLiteDatabase` so the repositories stay agnostic
+ * to the transport: it is implemented by the remote {@link TursoHttpClient}
+ * (network, works in Expo Go) and would also be satisfied by a local
+ * `SQLiteDatabase` handle. `params` is always an array of bind values.
+ */
+export interface CorpusQueryExecutor {
+  getFirstAsync<T>(sql: string, params: unknown[]): Promise<T | null>;
+  getAllAsync<T>(sql: string, params: unknown[]): Promise<T[]>;
+}
+
 /** Row shape read from the `products` table of the corpus DB (see corpus_schema.sql). */
 export interface CorpusProduct {
   uid: string; // app-facing id (products.uid) — store this on the shelf, not the internal rowid
