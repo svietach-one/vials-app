@@ -31,3 +31,14 @@ export const COMMUNITY_CONTRIBUTION_ENABLED = true;
  * (or delete the flag) once the feedback flow is settled.
  */
 export const CLINIC_FADING_PROMPT_ENABLED = false;
+
+/**
+ * Barcode scanning entry point on the Add Product hub (the "Scan Barcode" row
+ * → BarcodeScanner screen).
+ *
+ * **OFF.** Hidden while barcode lookup is unreliable. Manual entry and corpus
+ * search remain the supported add paths. Flip on once the scan/lookup path is
+ * solid; the BarcodeScanner screen stays registered in the navigator so this is
+ * a pure UI gate.
+ */
+export const BARCODE_SCANNER_ENABLED = false;

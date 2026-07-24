@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 
 import { CameraCaptureModal } from '@/components/camera/CameraCaptureModal';
 import { Button } from '@/components/ui/core/Button';
-import { COMMUNITY_CONTRIBUTION_ENABLED } from '@/constants/featureFlags';
+import { BARCODE_SCANNER_ENABLED, COMMUNITY_CONTRIBUTION_ENABLED } from '@/constants/featureFlags';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { AddProductDraft } from '@/types';
@@ -86,12 +86,14 @@ export function BarcodeSection({ draft, dispatch }: BarcodeSectionProps) {
             </View>
           ) : null}
 
-          <ScanTile
-            icon="maximize"
-            label={draft.barcode !== null ? 'Scan again' : 'Scan barcode'}
-            onPress={() => setCameraVisible(true)}
-            compact
-          />
+          {BARCODE_SCANNER_ENABLED ? (
+            <ScanTile
+              icon="maximize"
+              label={draft.barcode !== null ? 'Scan again' : 'Scan barcode'}
+              onPress={() => setCameraVisible(true)}
+              compact
+            />
+          ) : null}
 
           <Button
             variant="secondary"

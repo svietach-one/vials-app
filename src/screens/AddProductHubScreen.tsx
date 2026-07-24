@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
+import { BARCODE_SCANNER_ENABLED } from '@/constants/featureFlags';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import { useProductRepository } from '@/hooks/useCorpusRepositories';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
@@ -229,27 +230,31 @@ export default function AddProductHubScreen({ navigation }: Props) {
           </View>
         ) : null}
 
-        {/* ── Scan Barcode ───────────────────────────────────────────────── */}
-        <View style={styles.divider} />
-        <Text style={styles.sectionLabel}>Scan</Text>
-        <Pressable
-          style={({ pressed }) => [
-            styles.actionRow,
-            pressed && styles.actionRowPressed,
-          ]}
-          onPress={() => navigation.navigate('BarcodeScanner')}
-          accessibilityRole="button"
-          accessibilityLabel="Scan product barcode"
-        >
-          <View style={styles.actionIconWrap}>
-            <Feather name="aperture" size={20} color={colors.textPrimary} />
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Scan Barcode</Text>
-            <Text style={styles.actionSubtitle}>Look up product by barcode</Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={colors.textTertiary} />
-        </Pressable>
+        {/* ── Scan Barcode ── feature-flagged off while lookup is unreliable ── */}
+        {BARCODE_SCANNER_ENABLED ? (
+          <>
+            <View style={styles.divider} />
+            <Text style={styles.sectionLabel}>Scan</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionRow,
+                pressed && styles.actionRowPressed,
+              ]}
+              onPress={() => navigation.navigate('BarcodeScanner')}
+              accessibilityRole="button"
+              accessibilityLabel="Scan product barcode"
+            >
+              <View style={styles.actionIconWrap}>
+                <Feather name="aperture" size={20} color={colors.textPrimary} />
+              </View>
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Scan Barcode</Text>
+                <Text style={styles.actionSubtitle}>Look up product by barcode</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={colors.textTertiary} />
+            </Pressable>
+          </>
+        ) : null}
 
         {/* ── Manual Entry ───────────────────────────────────────────────── */}
         <View style={styles.divider} />

@@ -82,6 +82,7 @@ jest.mock('@/constants/tokens', () => ({
 // ── Subject under test ─────────────────────────────────────────────────────────
 
 import AddProductHubScreen from '@/screens/AddProductHubScreen';
+import { BARCODE_SCANNER_ENABLED } from '@/constants/featureFlags';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -334,16 +335,18 @@ describe('AC-17b: a failed corpus query shows an error notice, not a fake no-res
 
 // ── AC-18: Barcode scan navigation ────────────────────────────────────────────
 
-describe('AC-18: "Scan Barcode" row navigates to BarcodeScanner', () => {
-  it('should render the Scan section label', () => {
+describe('AC-18: "Scan Barcode" row is gated behind BARCODE_SCANNER_ENABLED', () => {
+  it('renders the Scan row and navigates only while the flag is on', () => {
     renderScreen();
-    expect(screen.getByText('Scan')).toBeTruthy();
-  });
-
-  it('should navigate to BarcodeScanner when the Scan Barcode row is pressed', () => {
-    renderScreen();
-    fireEvent.press(screen.getByLabelText('Scan product barcode'));
-    expect(mockNavigate).toHaveBeenCalledWith('BarcodeScanner');
+    if (BARCODE_SCANNER_ENABLED) {
+      expect(screen.getByText('Scan')).toBeTruthy();
+      fireEvent.press(screen.getByLabelText('Scan product barcode'));
+      expect(mockNavigate).toHaveBeenCalledWith('BarcodeScanner');
+    } else {
+      // Feature-flagged off while barcode lookup is unreliable.
+      expect(screen.queryByText('Scan')).toBeNull();
+      expect(screen.queryByLabelText('Scan product barcode')).toBeNull();
+    }
   });
 });
 
