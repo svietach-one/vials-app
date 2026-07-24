@@ -84,8 +84,8 @@ jest.mock('@/components/routine/AddToRoutineSheet', () => ({
 // FE-8 additions: the Draft Preview sheet pulls in @gorhom/bottom-sheet and
 // the generation domain actions pull in the tracking/season/AsyncStorage
 // chain — both out of scope for hidden-filtering, so mock at the boundary.
-jest.mock('@/components/routine/DraftPreviewSheet', () => ({
-  DraftPreviewSheet: () => null,
+jest.mock('@/components/routine/DraftPreviewScreen', () => ({
+  DraftPreviewScreen: () => null,
 }));
 
 jest.mock('@/domain/routinePlanActions', () => ({

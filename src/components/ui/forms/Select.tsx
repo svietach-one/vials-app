@@ -35,8 +35,8 @@ export interface SelectProps {
   accessibilityLabel?: string;
 }
 
-/** Exported so inline option lists (DraftPreviewSheet's step dropdown) colour
- *  their reason fragments exactly like this control's own menu. */
+/** Exported so option lists (ReplaceStepSheet's candidate rows) colour their
+ *  reason fragments exactly like this control's own menu. */
 export const selectToneColor: Record<SelectOptionTone, string> = {
   recommended: colors.statusSafe,
   neutral: colors.textSecondary,

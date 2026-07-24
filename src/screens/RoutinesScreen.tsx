@@ -13,7 +13,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { AddToRoutineSheet } from '@/components/routine/AddToRoutineSheet';
-import { DraftPreviewSheet } from '@/components/routine/DraftPreviewSheet';
+import { DraftPreviewScreen } from '@/components/routine/DraftPreviewScreen';
 import { DuplicateSlotResolutionSheet } from '@/components/routine/DuplicateSlotResolutionSheet';
 import {
   DuplicateSlotWarningInline,
@@ -673,7 +673,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         activePeriod={defaultPeriod}
       />
 
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible={draft !== null}
         onClose={() => setDraft(null)}
         plan={draft?.proposedPlan ?? null}
