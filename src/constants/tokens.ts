@@ -23,6 +23,9 @@ export const palette = {
   // Pressed state — one step lighter than plum, matching the zinc900→zinc800
   // "+15 per channel" pressed relationship used elsewhere in this palette.
   plumPressed: '#5E2151',
+  // Muted mid-plum used for the "fading" lifespan bar fill: same hue as plum
+  // but clearly lighter, so a fading procedure reads as losing strength.
+  plumFade: '#9C6B90',
   plumTint: '#E5DBE3',
   plumLine: '#D8CBD5',
 
