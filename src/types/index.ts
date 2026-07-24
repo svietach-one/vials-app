@@ -488,6 +488,12 @@ export interface AddProductDraft {
   nameSource: 'ocr' | 'typed' | null;
   productType: ProductType | null;
   productTypeSource: 'auto-detected' | 'manual' | null;
+  /**
+   * Local URI of the captured front-label photo. The same shot becomes the
+   * product cover on save AND is what the optional "Read label" OCR helper
+   * reads — so it lives on the draft. null until a photo is taken/chosen.
+   */
+  localImageUri: string | null;
 
   // Section 2 — barcode
   barcode: string | null; // null = skipped, never blocks progress

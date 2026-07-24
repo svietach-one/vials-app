@@ -33,12 +33,22 @@ export const COMMUNITY_CONTRIBUTION_ENABLED = true;
 export const CLINIC_FADING_PROMPT_ENABLED = false;
 
 /**
- * Barcode scanning entry point on the Add Product hub (the "Scan Barcode" row
- * → BarcodeScanner screen).
+ * Barcode scan tile inside the Add Product flow — the "Scan barcode" tile on
+ * step 2 (BarcodeSection).
  *
- * **OFF.** Hidden while barcode lookup is unreliable. Manual entry and corpus
- * search remain the supported add paths. Flip on once the scan/lookup path is
- * solid; the BarcodeScanner screen stays registered in the navigator so this is
- * a pure UI gate.
+ * **ON.** Barcode capture is offered only while actually adding a product, next
+ * to the field it fills. Manual entry and corpus search remain available
+ * alongside it. The BarcodeScanner screen stays registered in the navigator, so
+ * this is a pure UI gate.
  */
-export const BARCODE_SCANNER_ENABLED = false;
+export const BARCODE_SCANNER_ENABLED = true;
+
+/**
+ * Standalone "Scan Barcode" entry row on the Add Product hub (the previous
+ * screen) → BarcodeScanner screen.
+ *
+ * **OFF.** Per product request, barcode scanning lives only inside the add-a-
+ * product step (see BARCODE_SCANNER_ENABLED), not as a top-level hub shortcut.
+ * Separate from the step-2 gate so the two can move independently.
+ */
+export const BARCODE_HUB_ENTRY_ENABLED = false;

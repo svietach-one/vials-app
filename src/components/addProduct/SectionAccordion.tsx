@@ -1,8 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { colors, radius, shadow, space, typography } from '@/constants/tokens';
 
 export type SectionAccordionStatus = 'empty' | 'in-progress' | 'complete' | 'skipped';
 
@@ -22,14 +22,14 @@ function StatusIndicator({ index, status }: { index: number; status: SectionAcco
   if (status === 'complete') {
     return (
       <View style={[styles.indicator, styles.indicatorFilled]}>
-        <Feather name="check" size={14} color={colors.textOnDark} />
+        <Icon name="check" size={14} color={colors.textOnDark} />
       </View>
     );
   }
   if (status === 'skipped') {
     return (
       <View style={[styles.indicator, styles.indicatorFilled]}>
-        <Feather name="minus" size={14} color={colors.textOnDark} />
+        <Icon name="minus" size={14} color={colors.textOnDark} />
       </View>
     );
   }
@@ -61,38 +61,49 @@ export function SectionAccordion({
   const showSummary = status === 'complete' && !isExpanded;
 
   return (
-    <View style={styles.card}>
-      <Pressable
-        style={({ pressed }) => [styles.headerRow, pressed && styles.headerRowPressed]}
-        onPress={onToggle}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: isExpanded }}
-        accessibilityLabel={`Section ${index}: ${title}`}
-      >
-        <StatusIndicator index={index} status={status} />
+    // Outer wrapper carries the drop shadow: the inner card needs
+    // `overflow: 'hidden'` to clip the pressed-header background to the rounded
+    // corners, and on iOS that same clip would swallow the shadow. Splitting
+    // them lets the shadow render (like the Routines morning/evening cards).
+    <View style={styles.cardShadow}>
+      <View style={styles.card}>
+        <Pressable
+          style={({ pressed }) => [styles.headerRow, pressed && styles.headerRowPressed]}
+          onPress={onToggle}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isExpanded }}
+          accessibilityLabel={`Section ${index}: ${title}`}
+        >
+          <StatusIndicator index={index} status={status} />
 
-        <View style={styles.headerContent}>
-          {showSummary ? summary : <Text style={styles.title}>{title}</Text>}
-        </View>
+          <View style={styles.headerContent}>
+            {showSummary ? summary : <Text style={styles.title}>{title}</Text>}
+          </View>
 
-        <Feather
-          name={showSummary ? 'edit-2' : isExpanded ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={colors.textTertiary}
-        />
-      </Pressable>
+          <Icon
+            name={showSummary ? 'edit-2' : isExpanded ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={colors.textTertiary}
+          />
+        </Pressable>
 
-      {isExpanded ? <View style={styles.body}>{children}</View> : null}
+        {isExpanded ? <View style={styles.body}>{children}</View> : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Borderless + soft drop shadow, matching the Routines morning/evening cards.
+  // Shadow lives here (no overflow clip) so it isn't swallowed on iOS.
+  cardShadow: {
+    backgroundColor: colors.surfaceCard,
+    borderRadius: radius.md,
+    ...shadow.md,
+  },
   card: {
     backgroundColor: colors.surfaceCard,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
+    borderRadius: radius.md,
     overflow: 'hidden',
   },
   headerRow: {

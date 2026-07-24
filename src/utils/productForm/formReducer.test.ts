@@ -24,6 +24,31 @@ describe('initialDraft', () => {
     expect(draft.isOpened).toBe(false);
     expect(draft.openedDate).toBeNull();
     expect(draft.paoMonths).toBeNull();
+    expect(draft.localImageUri).toBeNull();
+  });
+});
+
+describe('SET_IMAGE — front-label photo doubles as the cover', () => {
+  it('stores the captured photo URI on the draft', () => {
+    const draft = apply(initialDraft(), {
+      type: 'SET_IMAGE',
+      uri: 'file:///photos/id-1.jpg',
+    });
+
+    expect(draft.localImageUri).toBe('file:///photos/id-1.jpg');
+  });
+
+  it('clears the photo when passed null and never gates section completion', () => {
+    const withPhoto = apply(initialDraft(), {
+      type: 'SET_IMAGE',
+      uri: 'file:///photos/id-1.jpg',
+    });
+
+    const cleared = apply(withPhoto, { type: 'SET_IMAGE', uri: null });
+
+    expect(cleared.localImageUri).toBeNull();
+    // The photo is optional — it must not move the brand section off 'empty'.
+    expect(cleared.sectionStatus.brand).toBe('empty');
   });
 });
 

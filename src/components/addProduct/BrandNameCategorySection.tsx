@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Icon } from '@/components/ui/Icon';
 
 import { CameraCaptureModal } from '@/components/camera/CameraCaptureModal';
+import { Button } from '@/components/ui/core/Button';
 import { Input } from '@/components/ui/forms/Input';
-import { colors, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { pickAndStoreProductPhoto } from '@/services/productImage';
 import type { AddProductDraft } from '@/types';
 import { suggestLabelLineCorrection } from '@/utils/productForm/brandCorrection';
 import { detectCategory } from '@/utils/productForm/categoryDetector';
@@ -12,12 +15,19 @@ import { splitLabelLines } from '@/utils/productForm/ocrNormalizer';
 
 import { BrandAutocompleteInput } from './BrandAutocompleteInput';
 import { CategoryPillRow } from './CategoryPillRow';
+import { FadeIn } from './FadeIn';
 import { LabelLinePicker, type LabelLineField } from './LabelLinePicker';
-import { ScanTile } from './ScanTile';
+import { ProductPhotoCard } from './ProductPhotoCard';
 
 export interface BrandNameCategorySectionProps {
   draft: AddProductDraft;
   dispatch: (action: FormAction) => void;
+  /**
+   * Stable id for the product-to-be, so the captured cover photo is stored
+   * under the same filename the product will save with (delete-by-id stays
+   * correct). Owned by the screen, generated once per Add Product session.
+   */
+  productId: string;
 }
 
 /** Removes an OCR line previously appended to a field (best effort — the
@@ -32,8 +42,13 @@ function appendLineToField(fieldValue: string, line: string): string {
 }
 
 /** Section 1 — brand, product name and category, via label OCR or manual entry. */
-export function BrandNameCategorySection({ draft, dispatch }: BrandNameCategorySectionProps) {
-  const [cameraVisible, setCameraVisible] = useState(false);
+export function BrandNameCategorySection({
+  draft,
+  dispatch,
+  productId,
+}: BrandNameCategorySectionProps) {
+  // Whether the "Read label" OCR pass (over the existing cover photo) is running.
+  const [readingLabel, setReadingLabel] = useState(false);
   // Multi-line label OCR: the detected-line chip pool + its assignments.
   const [labelLines, setLabelLines] = useState<string[]>([]);
   const [assignments, setAssignments] = useState<Record<number, LabelLineField>>({});
@@ -68,6 +83,16 @@ export function BrandNameCategorySection({ draft, dispatch }: BrandNameCategoryS
       return next;
     });
   }, [draft.name]);
+
+  /**
+   * Cover-photo capture ONLY — no OCR. OCR is opt-in via the "Read label"
+   * helper below, which re-reads THIS same photo (no second shot). Keeping the
+   * two separate is what stops taking a photo from auto-starting OCR.
+   */
+  async function capturePhoto(source: 'camera' | 'library') {
+    const stored = await pickAndStoreProductPhoto(productId, source);
+    if (stored) dispatch({ type: 'SET_IMAGE', uri: stored.localImageUri });
+  }
 
   function handleLabelCapture(rawText: string) {
     // Category detection always runs on the full text; the reducer-level
@@ -180,24 +205,44 @@ export function BrandNameCategorySection({ draft, dispatch }: BrandNameCategoryS
 
   return (
     <View style={styles.wrap}>
-      <ScanTile
-        icon="camera"
-        label="Scan front label"
-        onPress={() => setCameraVisible(true)}
-        compact
+      <ProductPhotoCard
+        imageUri={draft.localImageUri}
+        onTakePhoto={() => void capturePhoto('camera')}
+        onChooseLibrary={() => void capturePhoto('library')}
       />
 
-      <Text style={styles.divider}>or type manually</Text>
+      {draft.localImageUri ? (
+        <View style={styles.helperCard}>
+          <Text style={styles.helperText}>Need help filling the fields?</Text>
+          <Button
+            variant="textActive"
+            size="sm"
+            icon={<Icon name="type" size={14} color={palette.plum} />}
+            onPress={() => setReadingLabel(true)}
+            accessibilityLabel="Read label"
+          >
+            Read label
+          </Button>
+        </View>
+      ) : null}
 
       {labelLines.length > 0 ? (
-        <LabelLinePicker
-          lines={labelLines}
-          assignments={assignments}
-          onAssign={handleAssignLine}
-          suggestions={suggestions}
-          onAcceptSuggestion={handleAcceptSuggestion}
-          onDismissSuggestion={handleDismissSuggestion}
-        />
+        <FadeIn>
+          <View style={styles.recognizedCard}>
+            <View style={styles.recognizedHeader}>
+              <Icon name="type" size={14} color={colors.textSecondary} />
+              <Text style={styles.recognizedTitle}>Recognized text</Text>
+            </View>
+            <LabelLinePicker
+              lines={labelLines}
+              assignments={assignments}
+              onAssign={handleAssignLine}
+              suggestions={suggestions}
+              onAcceptSuggestion={handleAcceptSuggestion}
+              onDismissSuggestion={handleDismissSuggestion}
+            />
+          </View>
+        </FadeIn>
       ) : null}
 
       <BrandAutocompleteInput
@@ -227,10 +272,12 @@ export function BrandNameCategorySection({ draft, dispatch }: BrandNameCategoryS
 
       <CameraCaptureModal
         mode="label"
-        visible={cameraVisible}
-        onClose={() => setCameraVisible(false)}
+        visible={readingLabel}
+        // OCR the already-captured cover photo — no re-shoot of the package.
+        sourceImageUri={draft.localImageUri ?? undefined}
+        onClose={() => setReadingLabel(false)}
         onCapture={(result) => {
-          setCameraVisible(false);
+          setReadingLabel(false);
           if (result.mode !== 'label') return;
           handleLabelCapture(result.rawText);
         }}
@@ -243,9 +290,37 @@ const styles = StyleSheet.create({
   wrap: {
     gap: space[3],
   },
-  divider: {
-    ...typography.caption,
-    color: colors.textTertiary,
-    textAlign: 'center',
+  // Secondary, unobtrusive "Read label" helper — a quiet sunken strip, not a
+  // primary call to action.
+  helperCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[2],
+    backgroundColor: colors.surfaceSunken,
+    borderRadius: radius.md,
+    paddingLeft: space[3],
+    paddingRight: space[1],
+    paddingVertical: space[1],
+  },
+  helperText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
+  // Plain container for the OCR chip pool — no shadow, no padding; the header
+  // and the LabelLinePicker (its own sunken card) sit flush.
+  recognizedCard: {
+    gap: space[2],
+  },
+  recognizedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  recognizedTitle: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
   },
 });
