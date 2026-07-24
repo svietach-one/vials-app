@@ -238,10 +238,12 @@ const fadingStyles = StyleSheet.create({
 
 // ─── LifespanBar ──────────────────────────────────────────────────────────────
 
-const BAR_SEGMENTS = 14;
-// Point along the track (0–1) where the plum starts losing intensity. Before it
-// the fill is full-strength; after it the colour eases toward plumFade.
-const FADE_START = 0.5;
+// More, finer segments make the fade gradient read smoothly rather than stepped.
+const BAR_SEGMENTS = 20;
+// Point along the track (0–1) where the plum starts losing intensity. The first
+// third stays full-strength; after it the colour eases toward plumFade across
+// the remaining two-thirds for a gradual fade.
+const FADE_START = 1 / 3;
 
 /** Linear blend of two #rrggbb hex colours; t=0 → a, t=1 → b. */
 function mixHex(a: string, b: string, t: number): string {
@@ -252,10 +254,14 @@ function mixHex(a: string, b: string, t: number): string {
   return `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
+// Colour the fade eases toward: only ~8% plum over the track background, so the
+// last filled segment is barely tinted — under 10% of the head's intensity.
+const FADE_END = mixHex(colors.surfaceSunken, palette.plum, 0.08);
+
 /**
- * Segmented lifespan bar. Filled segments hold full plum through the first half
- * of the track, then ease toward a lighter plum so the tail reads as "fading"
- * without the whole bar dimming. Completed/archived bars stay muted grey.
+ * Segmented lifespan bar. Filled segments hold full plum through the first third
+ * of the track, then ease gradually toward a lighter plum so the tail reads as
+ * "fading" without the whole bar dimming. Completed/archived bars stay muted grey.
  */
 function LifespanBar({ progress, isDone }: { progress: number; isDone: boolean }) {
   const filled = Math.round(progress * BAR_SEGMENTS);
@@ -271,7 +277,7 @@ function LifespanBar({ progress, isDone }: { progress: number; isDone: boolean }
           } else if (position <= FADE_START) {
             color = palette.plum;
           } else {
-            color = mixHex(palette.plum, palette.plumFade, (position - FADE_START) / (1 - FADE_START));
+            color = mixHex(palette.plum, FADE_END, (position - FADE_START) / (1 - FADE_START));
           }
         }
         return <View key={i} style={[barStyles.segment, { backgroundColor: color }]} />;

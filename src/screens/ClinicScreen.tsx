@@ -210,18 +210,21 @@ export default function ClinicScreen({ navigation }: Props) {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
 
-      <View style={styles.footer}>
-        <Button
-          variant="primary"
-          size="lg"
-          fullWidth
-          icon={<Feather name="plus" size={18} color={palette.white} />}
-          onPress={() => setModalVisible(true)}
-          accessibilityLabel="Log procedure"
-        >
-          Log procedure
-        </Button>
-      </View>
+      {/* Log-procedure CTA only in the empty state; otherwise the header "+" covers it */}
+      {data.length === 0 ? (
+        <View style={styles.footer}>
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            icon={<Feather name="plus" size={18} color={palette.white} />}
+            onPress={() => setModalVisible(true)}
+            accessibilityLabel="Log procedure"
+          >
+            Log procedure
+          </Button>
+        </View>
+      ) : null}
 
       <AddProcedureModal
         visible={modalVisible}
