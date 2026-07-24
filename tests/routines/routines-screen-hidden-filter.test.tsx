@@ -72,7 +72,17 @@ jest.mock('react-native-draggable-flatlist', () => {
     );
   }
   const ScaleDecorator = ({ children }: any) => children;
-  return { __esModule: true, default: DraggableFlatList, ScaleDecorator };
+  const NestableScrollContainer = ({ children }: any) => <View>{children}</View>;
+  const NestableDraggableFlatList = ({ data, renderItem, keyExtractor }: any) => (
+    <View>
+      {data.map((item: any, index: number) => (
+        <View key={keyExtractor ? keyExtractor(item, index) : index}>
+          {renderItem({ item, drag: () => {}, isActive: false, getIndex: () => index })}
+        </View>
+      ))}
+    </View>
+  );
+  return { __esModule: true, default: DraggableFlatList, ScaleDecorator, NestableScrollContainer, NestableDraggableFlatList };
 });
 
 // ── Heavy / irrelevant child components ───────────────────────────────────────
