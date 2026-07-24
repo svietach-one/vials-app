@@ -1,9 +1,9 @@
 /**
- * Integration tests — Story 2 AC2 (sheet wiring), screen-improvements
- * redesign: DraftPreviewSheet renders a "Replace with" Select per recorded
- * `plan.slotAlternatives` entry, listing every candidate (current, engine
- * recommendation, reserve alternatives) and bubbling the chosen one up to
- * the caller instead of mutating the plan itself.
+ * Integration tests — Story 2 AC2 (sheet wiring), routine-draft redesign:
+ * DraftPreviewScreen gives every step with recorded `plan.slotAlternatives` a
+ * "Change" affordance that opens ReplaceStepSheet listing every candidate
+ * (current, engine recommendation, reserve alternatives). Choosing one bubbles
+ * the decision up to the caller instead of mutating the plan itself.
  * Spec: docs/specs/2026-07-11-routine-similar-product-priority.md §4 Story 2
  * Tech design: docs/tech-design/routine-similar-product-priority.md (FE-3, FE-10)
  */
@@ -52,7 +52,7 @@ jest.mock('@/store/routinesStore', () => ({
   useRoutinesStore: jest.fn((selector: any) => selector({ routines: mockRoutines })),
 }));
 
-import { DraftPreviewSheet } from '@/components/routine/DraftPreviewSheet';
+import { DraftPreviewScreen } from '@/components/routine/DraftPreviewScreen';
 
 const NO_DIFF: PlanDiffEntry[] = [];
 
@@ -61,10 +61,10 @@ beforeEach(() => {
   mockRoutines = [];
 });
 
-describe('Story 2 AC2: a same-slot candidate renders inside the step card dropdown', () => {
-  it('starts collapsed and reveals the "Replace with" list only once the step card is tapped', () => {
+describe('Story 2 AC2: a same-slot candidate opens from the step\'s "Change"', () => {
+  it('shows no replacement options until the step\'s "Change" is tapped', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlanWithAlternative()}
@@ -74,17 +74,17 @@ describe('Story 2 AC2: a same-slot candidate renders inside the step card dropdo
       />,
     );
 
-    expect(screen.queryByText('Replace with')).toBeNull();
+    expect(screen.queryByLabelText(`${CREAM_B.name} — from reserve`)).toBeNull();
 
-    fireEvent.press(screen.getByLabelText(`Replace ${CREAM_A.name}`));
+    fireEvent.press(screen.getByLabelText(`Change ${CREAM_A.name}`));
 
-    expect(screen.getByText('Replace with')).toBeTruthy();
+    expect(screen.getByLabelText(`${CREAM_B.name} — from reserve`)).toBeTruthy();
   });
 
   it('never removes the alternative from the shelf or the plan — it stays a suggestion, not a mutation', () => {
     const plan = makePlanWithAlternative();
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={plan}
@@ -99,10 +99,10 @@ describe('Story 2 AC2: a same-slot candidate renders inside the step card dropdo
     expect(plan.periods.morning.map((s) => s.productId)).toEqual([CREAM_A.id]);
   });
 
-  it('renders no dropdown affordance at all when the plan has no slotAlternatives', () => {
+  it('renders no "Change" affordance at all when the plan has no slotAlternatives', () => {
     const plan = makePlanWithAlternative({ slotAlternatives: [] });
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={plan}
@@ -111,16 +111,15 @@ describe('Story 2 AC2: a same-slot candidate renders inside the step card dropdo
         onSwapAlternative={jest.fn()}
       />,
     );
-    expect(screen.queryByText('Replace with')).toBeNull();
-    // The card is inert too — no expand target, so a chevron never lies.
-    expect(screen.queryByLabelText(`Replace ${CREAM_A.name}`)).toBeNull();
+    // The card is inert — no Change target, so the affordance never lies.
+    expect(screen.queryByLabelText(`Change ${CREAM_A.name}`)).toBeNull();
   });
 });
 
-describe('Story 2 AC2: expanding a step card lists every candidate with a reason fragment', () => {
+describe('Story 2 AC2: the replacement sheet lists every candidate with a reason fragment', () => {
   it('lists the recommended product and the alternative, each with a reason', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlanWithAlternative()}
@@ -130,7 +129,7 @@ describe('Story 2 AC2: expanding a step card lists every candidate with a reason
       />,
     );
 
-    fireEvent.press(screen.getByLabelText(`Replace ${CREAM_A.name}`));
+    fireEvent.press(screen.getByLabelText(`Change ${CREAM_A.name}`));
 
     expect(screen.getByLabelText(`${CREAM_A.name} — recommended`)).toBeTruthy();
     expect(screen.getByLabelText(`${CREAM_B.name} — from reserve`)).toBeTruthy();
@@ -151,7 +150,7 @@ describe('Story 2 AC2: expanding a step card lists every candidate with a reason
     });
 
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={plan}
@@ -161,7 +160,7 @@ describe('Story 2 AC2: expanding a step card lists every candidate with a reason
       />,
     );
 
-    fireEvent.press(screen.getByLabelText(`Replace ${CREAM_A.name}`));
+    fireEvent.press(screen.getByLabelText(`Change ${CREAM_A.name}`));
 
     expect(screen.getByLabelText(`${CREAM_B.name} — from reserve`)).toBeTruthy();
     expect(screen.getByLabelText(`${secondAlternative.name} — from reserve`)).toBeTruthy();
@@ -173,7 +172,7 @@ describe('Story 2 AC2: choosing a candidate bubbles the decision up to the calle
     const onSwapAlternative = jest.fn();
     const onCommit = jest.fn();
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlanWithAlternative()}
@@ -183,7 +182,7 @@ describe('Story 2 AC2: choosing a candidate bubbles the decision up to the calle
       />,
     );
 
-    fireEvent.press(screen.getByLabelText(`Replace ${CREAM_A.name}`));
+    fireEvent.press(screen.getByLabelText(`Change ${CREAM_A.name}`));
     fireEvent.press(screen.getByLabelText(`${CREAM_B.name} — from reserve`));
 
     expect(onSwapAlternative).toHaveBeenCalledWith(CREAM_A.id, CREAM_B.id);

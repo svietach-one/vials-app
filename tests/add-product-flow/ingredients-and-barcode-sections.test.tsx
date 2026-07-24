@@ -59,6 +59,7 @@ jest.mock('@/store/settingsStore', () => {
 
 import { BarcodeSection } from '@/components/addProduct/BarcodeSection';
 import { IngredientsSection } from '@/components/addProduct/IngredientsSection';
+import { BARCODE_SCANNER_ENABLED } from '@/constants/featureFlags';
 
 import { makeDraft } from './fixtures';
 
@@ -243,11 +244,15 @@ describe('BarcodeSection', () => {
     expect(screen.getByText(/Help the community find this product/)).toBeTruthy();
   });
 
-  it('opens the barcode camera from the scan tile', () => {
+  it('opens the barcode camera from the scan tile when scanning is enabled, else hides the tile', () => {
     render(<BarcodeSection draft={makeDraft()} dispatch={jest.fn()} />);
 
-    fireEvent.press(screen.getByLabelText('Scan barcode'));
-
-    expect(screen.getByText('camera-open-barcode')).toBeTruthy();
+    if (BARCODE_SCANNER_ENABLED) {
+      fireEvent.press(screen.getByLabelText('Scan barcode'));
+      expect(screen.getByText('camera-open-barcode')).toBeTruthy();
+    } else {
+      // Feature-flagged off while barcode lookup is unreliable.
+      expect(screen.queryByLabelText('Scan barcode')).toBeNull();
+    }
   });
 });

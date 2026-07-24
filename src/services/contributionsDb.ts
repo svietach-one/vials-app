@@ -7,10 +7,10 @@ import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
  * ## Token isolation (architecture rule)
  *
  * This module reads ONLY `EXPO_PUBLIC_TURSO_CONTRIBUTIONS_*`. The corpus's
- * read token (`EXPO_PUBLIC_TURSO_URL` / `_TOKEN`, see `CorpusProvider`) must
- * never appear here, and these two must never be combined into one config
- * object — a single object holding both would make it trivial to hand the
- * write token to a read path or vice versa.
+ * read token (`EXPO_PUBLIC_TURSO_HTTP_URL` / `EXPO_PUBLIC_TURSO_TOKEN`, see
+ * `CorpusProvider`) must never appear here, and these two must never be
+ * combined into one config object — a single object holding both would make it
+ * trivial to hand the write token to a read path or vice versa.
  *
  * The token is provisioned at the narrowest scope Turso offers:
  *

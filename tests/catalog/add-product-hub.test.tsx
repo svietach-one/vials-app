@@ -82,6 +82,7 @@ jest.mock('@/constants/tokens', () => ({
 // ── Subject under test ─────────────────────────────────────────────────────────
 
 import AddProductHubScreen from '@/screens/AddProductHubScreen';
+import { BARCODE_SCANNER_ENABLED } from '@/constants/featureFlags';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -291,30 +292,61 @@ describe('AC-16: zero results state shows hint text and manual fallback', () => 
 
 // ── AC-17: No configured/reachable corpus ─────────────────────────────────────
 
-describe('AC-17: an unconfigured corpus degrades to the zero-results state', () => {
-  it('should show the zero-results fallback instead of crashing when the repository is null', async () => {
+describe('AC-17: an unconfigured corpus surfaces an unavailable notice with manual fallback', () => {
+  it('should show a "database unavailable" notice (not a fake no-results) when the repository is null', async () => {
     mockProductRepository = null;
     renderScreen();
     fireEvent.changeText(screen.getByTestId('hub-search-input'), 'vitamin c');
     act(() => jest.runAllTimers());
     await waitFor(() => {
-      expect(screen.getByText(/No results for/)).toBeTruthy();
+      expect(screen.getByText(/database isn't available/i)).toBeTruthy();
     });
+    // Never a fake empty-result state for a missing corpus.
+    expect(screen.queryByText(/No results for/)).toBeNull();
+  });
+
+  it('should still offer manual entry when the corpus is unavailable', async () => {
+    mockProductRepository = null;
+    renderScreen();
+    fireEvent.changeText(screen.getByTestId('hub-search-input'), 'vitamin c');
+    act(() => jest.runAllTimers());
+    await waitFor(() => {
+      expect(screen.getByText('Add Manually')).toBeTruthy();
+    });
+  });
+});
+
+// ── AC-17b: A failed corpus query surfaces a real error ───────────────────────
+
+describe('AC-17b: a failed corpus query shows an error notice, not a fake no-results', () => {
+  it('should show a "couldn\'t reach the product database" notice when search rejects', async () => {
+    mockSearch.mockRejectedValueOnce(new Error('turso unreachable'));
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    renderScreen();
+    fireEvent.changeText(screen.getByTestId('hub-search-input'), 'vitamin c');
+    act(() => jest.advanceTimersByTime(200));
+    await waitFor(() => {
+      expect(screen.getByText(/Couldn't reach the product database/i)).toBeTruthy();
+    });
+    expect(screen.queryByText(/No results for/)).toBeNull();
+    errSpy.mockRestore();
   });
 });
 
 // ── AC-18: Barcode scan navigation ────────────────────────────────────────────
 
-describe('AC-18: "Scan Barcode" row navigates to BarcodeScanner', () => {
-  it('should render the Scan section label', () => {
+describe('AC-18: "Scan Barcode" row is gated behind BARCODE_SCANNER_ENABLED', () => {
+  it('renders the Scan row and navigates only while the flag is on', () => {
     renderScreen();
-    expect(screen.getByText('Scan')).toBeTruthy();
-  });
-
-  it('should navigate to BarcodeScanner when the Scan Barcode row is pressed', () => {
-    renderScreen();
-    fireEvent.press(screen.getByLabelText('Scan product barcode'));
-    expect(mockNavigate).toHaveBeenCalledWith('BarcodeScanner');
+    if (BARCODE_SCANNER_ENABLED) {
+      expect(screen.getByText('Scan')).toBeTruthy();
+      fireEvent.press(screen.getByLabelText('Scan product barcode'));
+      expect(mockNavigate).toHaveBeenCalledWith('BarcodeScanner');
+    } else {
+      // Feature-flagged off while barcode lookup is unreliable.
+      expect(screen.queryByText('Scan')).toBeNull();
+      expect(screen.queryByLabelText('Scan product barcode')).toBeNull();
+    }
   });
 });
 

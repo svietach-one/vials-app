@@ -1,36 +1,19 @@
 /**
- * Screen-level integration tests — ClinicScreen wiring for the forecast
- * timeline (clinic-forecast-timeline).
+ * Screen-level integration tests — ClinicScreen tab wiring.
  *
- * Spec:        docs/specs/clinic-forecast-timeline.md
- * Tech design: docs/tech-design/clinic-forecast-timeline.md (FE-3)
- *
- * `ForecastTimeline` itself is mocked at the module boundary here (its own
- * behaviour — window math, segments, row stacking — is covered by
- * forecast-timeline.test.tsx). This suite only asserts ClinicScreen's own
- * responsibilities per the tech design:
- *   - filters archived procedures before handing them to the ribbon and
- *     gates the ribbon's presence on the non-archived subset (Story 4)
- *   - wires tap -> FlatList.scrollToItem with the matching procedure log,
- *     without navigating away (Story 3)
+ * The 12-month forecast ribbon was removed from ClinicScreen during the Clinic
+ * redesign (the calendar strip is gone); the screen now splits procedures into
+ * an Active / History segmented control. `ForecastTimeline` still exists and is
+ * covered in isolation by forecast-timeline.test.tsx — it is simply no longer
+ * mounted here. This suite asserts ClinicScreen's current responsibilities:
+ *   - the Active tab (default) lists only non-archived procedures
+ *   - the History tab lists only archived procedures
+ *   - each tab shows its own empty state when its subset is empty
  *
  * `react-native`'s `FlatList` is partially mocked: the real module is loaded
- * via `jest.requireActual` and every other export (View, Text, Pressable,
- * Modal, ScrollView, StyleSheet, ...) stays real and untouched — only
- * `FlatList` is swapped, via a `Proxy` `get` trap rather than an object
- * spread. A `{ ...jest.requireActual('react-native') }` spread was tried
- * first (per the coordinator's stated preference) but eagerly enumerates
- * every export getter on the real RN module, including `DevMenu`, which
- * throws `TurboModuleRegistry.getEnforcing(...): 'DevMenu' could not be
- * found` outside a native runtime. The `Proxy` only evaluates a getter the
- * moment consuming code actually reads that specific export, so unrelated
- * FlatList behaviour stays exactly as real as a spread would give it,
- * without forcing every lazy RN export to resolve up front.
- *
- * These tests exercise the CURRENT (pre-engineer) ClinicScreen.tsx, which
- * does not yet import ForecastTimeline, gate on visibleProcedures, or hold a
- * FlatList ref. They are expected to FAIL against today's implementation —
- * that is the point of tests-first. See progress/clinic-forecast-timeline.md.
+ * via `jest.requireActual` and every other export stays real, only `FlatList`
+ * is swapped via a `Proxy` `get` trap (a full spread eagerly resolves lazy RN
+ * exports like `DevMenu`, which throws outside a native runtime).
  */
 
 import React from 'react';
@@ -44,8 +27,6 @@ import {
 
 // ── react-native FlatList — partial mock, everything else stays real ─────────
 
-const mockScrollToItem = jest.fn();
-
 jest.mock('react-native', () => {
   const RN = jest.requireActual('react-native');
   const ReactActual = require('react');
@@ -54,7 +35,7 @@ jest.mock('react-native', () => {
     const { data, renderItem, keyExtractor, ListHeaderComponent, ListEmptyComponent, ItemSeparatorComponent } = props;
 
     ReactActual.useImperativeHandle(ref, () => ({
-      scrollToItem: mockScrollToItem,
+      scrollToItem: jest.fn(),
       scrollToIndex: jest.fn(),
       scrollToOffset: jest.fn(),
     }));
@@ -117,35 +98,6 @@ jest.mock('@/components/clinic/ProcedureLifespanCard', () => {
   };
 });
 
-// ── ForecastTimeline mock — captures props, exposes tappable stand-ins ────────
-
-// Pre-implementation this mock needed `{ virtual: true }` + a relative path
-// (see progress/clinic-forecast-timeline.md, qa-lead entry). Now that
-// src/components/clinic/ForecastTimeline.tsx exists, the virtual workaround
-// is not just unnecessary but broken: a virtual mock registers under the
-// unresolved, extensionless path, while jest resolves the real import to the
-// .tsx file's module ID, so the real component loaded and the mock was never
-// consulted. A plain (non-virtual) mock on the alias registers under the
-// resolved module ID and intercepts ClinicScreen's import correctly.
-// [engineer 2026-07-06 — mock plumbing only, assertions untouched]
-jest.mock('@/components/clinic/ForecastTimeline', () => {
-  const { View, Pressable } = require('react-native');
-  return {
-    ForecastTimeline: ({ procedures, onSelectProcedure }: any) => (
-      <View testID="mock-forecast-timeline-root">
-        {procedures.map((p: UserProcedureLog) => (
-          <Pressable
-            key={p.id}
-            testID={`mock-forecast-track-${p.id}`}
-            accessibilityRole="button"
-            onPress={() => onSelectProcedure(p.id)}
-          />
-        ))}
-      </View>
-    ),
-  };
-});
-
 // ── Store mock ────────────────────────────────────────────────────────────────
 
 let mockProcedures: UserProcedureLog[] = [];
@@ -179,63 +131,45 @@ beforeEach(() => {
   mockProcedures = [];
 });
 
-// ── Story 4: ribbon presence gated on non-archived procedures ────────────────
+// ── Active tab: ongoing procedures only ──────────────────────────────────────
 
-describe('Story 4: ribbon presence is gated on non-archived procedures', () => {
-  it('omits the ribbon when there are zero logged procedures', () => {
-    mockProcedures = [];
-    renderScreen();
-
-    expect(screen.queryByTestId('mock-forecast-timeline-root')).toBeNull();
-  });
-
-  it('omits the ribbon when every logged procedure is archived', () => {
-    mockProcedures = [ARCHIVED_PROC, makeProcedureLog({ id: 'archived-2', status: 'archived' })];
-    renderScreen();
-
-    expect(screen.queryByTestId('mock-forecast-timeline-root')).toBeNull();
-  });
-
-  it('still shows the FlatList cards for archived procedures even though the ribbon is omitted', () => {
-    mockProcedures = [ARCHIVED_PROC];
-    renderScreen();
-
-    expect(screen.queryByTestId('mock-forecast-timeline-root')).toBeNull();
-    expect(screen.getByTestId(`procedure-card-${ARCHIVED_PROC.id}`)).toBeTruthy();
-  });
-
-  it('renders the ribbon with only the non-archived subset when the list is mixed', () => {
+describe('Active tab lists only non-archived procedures', () => {
+  it('shows non-archived cards and hides archived ones on the default tab', () => {
     mockProcedures = [ARCHIVED_PROC, BOTOX_ACTIVE];
     renderScreen();
 
-    expect(screen.getByTestId('mock-forecast-timeline-root')).toBeTruthy();
-    expect(screen.getByTestId(`mock-forecast-track-${BOTOX_ACTIVE.id}`)).toBeTruthy();
-    expect(screen.queryByTestId(`mock-forecast-track-${ARCHIVED_PROC.id}`)).toBeNull();
+    expect(screen.getByTestId(`procedure-card-${BOTOX_ACTIVE.id}`)).toBeTruthy();
+    expect(screen.queryByTestId(`procedure-card-${ARCHIVED_PROC.id}`)).toBeNull();
+  });
+
+  it('renders the empty state when no procedures are logged', () => {
+    mockProcedures = [];
+    renderScreen();
+
+    expect(screen.getByText('No procedures logged')).toBeTruthy();
   });
 });
 
-// ── Story 3: tap a track -> scroll the FlatList to that card ─────────────────
+// ── History tab: archived procedures only ────────────────────────────────────
 
-describe('Story 3: tapping a track scrolls the FlatList to the matching card', () => {
-  it('calls FlatList.scrollToItem with the tapped procedure log', () => {
+describe('History tab lists only archived procedures', () => {
+  it('shows archived cards and hides active ones after switching to History', () => {
+    mockProcedures = [ARCHIVED_PROC, BOTOX_ACTIVE];
+    renderScreen();
+
+    fireEvent.press(screen.getByText('History'));
+
+    expect(screen.getByTestId(`procedure-card-${ARCHIVED_PROC.id}`)).toBeTruthy();
+    expect(screen.queryByTestId(`procedure-card-${BOTOX_ACTIVE.id}`)).toBeNull();
+  });
+
+  it('renders the archived empty state when nothing is archived', () => {
     mockProcedures = [BOTOX_ACTIVE];
     renderScreen();
 
-    fireEvent.press(screen.getByTestId(`mock-forecast-track-${BOTOX_ACTIVE.id}`));
+    fireEvent.press(screen.getByText('History'));
 
-    expect(mockScrollToItem).toHaveBeenCalledTimes(1);
-    const call = mockScrollToItem.mock.calls[0][0];
-    expect(call.item.id).toBe(BOTOX_ACTIVE.id);
-    expect(call.animated).toBe(true);
-  });
-
-  it('does not navigate away from the Clinic screen when a track is tapped', () => {
-    mockProcedures = [BOTOX_ACTIVE];
-    const navigate = jest.fn();
-    renderScreen(navigate);
-
-    fireEvent.press(screen.getByTestId(`mock-forecast-track-${BOTOX_ACTIVE.id}`));
-
-    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getByText('Nothing archived yet')).toBeTruthy();
+    expect(screen.queryByTestId(`procedure-card-${BOTOX_ACTIVE.id}`)).toBeNull();
   });
 });

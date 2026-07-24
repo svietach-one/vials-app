@@ -83,6 +83,8 @@ export interface UserProcedureLog {
   deferralCount: number;
   /** User-reported actual duration in months, set when they confirm fading. */
   realDuration?: number;
+  /** Free-text note the user attached to this procedure (Clinic → Details). */
+  note?: string;
 }
 
 export interface ClinicalTimelineConfig {

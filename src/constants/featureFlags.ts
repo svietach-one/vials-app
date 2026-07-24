@@ -19,3 +19,26 @@
  * mode that made this flag necessary in the first place.
  */
 export const COMMUNITY_CONTRIBUTION_ENABLED = true;
+
+/**
+ * Clinic "Still seeing results?" fading prompt — the in-card Still visible /
+ * Mostly faded buttons on a fading ProcedureLifespanCard.
+ *
+ * **OFF.** Parked pending a product decision: effect feedback will likely be
+ * requested at "Move to history" time (or reworked) rather than mid-lifespan.
+ * With this off the fading card still shows its bar, time label, and
+ * "Repeat around" footer — only the interactive prompt is hidden. Flip back on
+ * (or delete the flag) once the feedback flow is settled.
+ */
+export const CLINIC_FADING_PROMPT_ENABLED = false;
+
+/**
+ * Barcode scanning entry point on the Add Product hub (the "Scan Barcode" row
+ * → BarcodeScanner screen).
+ *
+ * **OFF.** Hidden while barcode lookup is unreliable. Manual entry and corpus
+ * search remain the supported add paths. Flip on once the scan/lookup path is
+ * solid; the BarcodeScanner screen stays registered in the navigator so this is
+ * a pure UI gate.
+ */
+export const BARCODE_SCANNER_ENABLED = false;

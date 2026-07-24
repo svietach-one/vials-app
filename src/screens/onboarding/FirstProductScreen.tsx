@@ -48,9 +48,16 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
       return;
     }
     setSearching(true);
-    const products = await productRepository.search(text);
-    setResults(products);
-    setSearching(false);
+    try {
+      const products = await productRepository.search(text);
+      setResults(products);
+    } catch (e) {
+      // Corpus unreachable — onboarding stays usable via manual entry.
+      if (__DEV__) console.warn('[FirstProduct] corpus search failed', e);
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
   }
 
   async function handleSelect(item: CorpusProduct) {

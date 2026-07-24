@@ -86,11 +86,12 @@
  *     suite only asserts the WIRING (screen calls rankSlotGroup, passes its result
  *     + routineId straight through to the sheet).
  *
- * ── DraftPreviewSheet wiring (Story 2, screen-improvements redesign) ──────
+ * ── DraftPreviewScreen wiring (Story 2, routine-draft redesign) ───────────
  *   - Prop: `onSwapAlternative(winnerProductId: string, chosenProductId: string): void`.
  *   - For every entry in `plan.slotAlternatives` whose `period`/`slotIndex` matches
- *     a rendered step, that step renders a "Replace with" Select listing every
- *     candidate (current, recommended, keep-current, from-reserve — deduplicated).
+ *     a rendered step, that step gets a "Change" affordance opening ReplaceStepSheet,
+ *     which lists every candidate (current, recommended, keep-current, from-reserve
+ *     — deduplicated).
  *   - Choosing an option calls onSwapAlternative(entry.winnerProductId,
  *     chosenProductId) — `winnerProductId` is always the entry's stable identity
  *     key, never the currently-admitted product, so re-selection keeps working

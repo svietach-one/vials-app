@@ -19,6 +19,7 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
+import { parseDateInput } from '@/utils/dateInput';
 import { generateId } from '@/utils/generateId';
 import { PROCEDURE_LABELS } from '@/utils/procedureLifespanHelpers';
 import { CLINICAL_RULES_DB } from '@/types';
@@ -77,21 +78,6 @@ export interface AddProcedureModalProps {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Parses DD/MM/YYYY → YYYY-MM-DD ISO date string, or null on failure. */
-function parseDateInput(text: string): string | null {
-  const match = text.trim().replace(/\s/g, '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!match) return null;
-  const [, dd, mm, yyyy] = match;
-  const d = parseInt(dd, 10);
-  const m = parseInt(mm, 10);
-  const y = parseInt(yyyy, 10);
-  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 2000) return null;
-  const date = new Date(y, m - 1, d);
-  // JS Date rolls overflow dates (e.g. April 31 → May 1); reject those
-  if (isNaN(date.getTime()) || date.getDate() !== d || date.getMonth() + 1 !== m) return null;
-  return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-}
 
 function todayFormatted(): string {
   const now = new Date();
