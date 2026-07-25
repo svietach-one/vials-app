@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -60,10 +60,12 @@ export interface ReplaceStepSheetProps {
  * cascades back through onDismiss and slams this sheet shut a frame after it
  * opens. An RN Modal renders in its own window above the parent, no stack.
  *
- * Candidates are split into "Recommended for you" (the engine's pick + the
- * product already in the slot) and "Good alternatives" (everything from
- * reserve), mirroring the reference layout without inventing a catalog-wide
- * search the swap mechanism can't honour.
+ * Candidates are split into "Recommended for you" (always and only the
+ * engine's original pick for this slot, `winnerProductId`) and "Good
+ * alternatives" (everything else, including the product currently in the
+ * slot when the user has already swapped away from the recommendation — it
+ * keeps its "Current" tag there, but the "Recommended for you" label stays
+ * pinned to the engine's pick and never follows a manual swap).
  */
 export function ReplaceStepSheet({ target, onClose, productOf, onSelect }: ReplaceStepSheetProps) {
   const insets = useSafeAreaInsets();
@@ -71,10 +73,10 @@ export function ReplaceStepSheet({ target, onClose, productOf, onSelect }: Repla
   // Split candidates into the two reference sections. Gated on `target` so no
   // rows exist in the tree until a step is actually tapped.
   const recommended = target
-    ? target.options.filter((o) => o.value === target.currentProductId || o.tone === 'recommended')
+    ? target.options.filter((o) => o.value === target.winnerProductId)
     : [];
   const alternatives = target
-    ? target.options.filter((o) => !recommended.includes(o))
+    ? target.options.filter((o) => o.value !== target.winnerProductId)
     : [];
 
   return (
@@ -100,7 +102,7 @@ export function ReplaceStepSheet({ target, onClose, productOf, onSelect }: Repla
                   {`Select ${target.categoryLabel}`}
                 </Text>
                 <IconButton
-                  icon={<Feather name="x" size={18} color={colors.textSecondary} />}
+                  icon={<Icon name="x" size={18} color={colors.textSecondary} />}
                   label="Close"
                   variant="secondary"
                   size="sm"
@@ -186,7 +188,7 @@ function OptionRow({
       accessibilityLabel={option.reason ? `${option.title} — ${option.reason}` : option.title}
     >
       <View style={[styles.radio, selected && styles.radioSelected]}>
-        {selected ? <Feather name="check" size={13} color={colors.bgBase} /> : null}
+        {selected ? <Icon name="check" size={13} color={colors.bgBase} /> : null}
       </View>
 
       {product ? <ProductThumbnail product={product} size={52} /> : null}

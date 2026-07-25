@@ -60,8 +60,16 @@ const cameraMock = jest.requireMock('@/components/camera/CameraCaptureModal') as
 
 function captureLabel(rawText: string, dispatch = jest.fn()) {
   cameraMock.__state.rawText = rawText;
-  render(<BrandNameCategorySection draft={makeDraft()} dispatch={dispatch} />);
-  fireEvent.press(screen.getByLabelText('Scan front label'));
+  // OCR is now an opt-in helper ("Read label"), shown only once a cover photo
+  // exists — so seed the draft with one, then trigger the label OCR flow.
+  render(
+    <BrandNameCategorySection
+      draft={{ ...makeDraft(), localImageUri: 'file:///cover.jpg' }}
+      dispatch={dispatch}
+      productId="test-product-id"
+    />,
+  );
+  fireEvent.press(screen.getByText('Read label'));
   fireEvent.press(screen.getByText('camera-open-label'));
   return dispatch;
 }

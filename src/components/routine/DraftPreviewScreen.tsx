@@ -4,7 +4,7 @@ import {
   BottomSheetModal,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/ui/core/AppHeader';
@@ -27,6 +27,7 @@ import { buildDraftSummaryLines } from '@/utils/routineEngine/planApply';
 import type { PlannedStep, SlotAlternative } from '@/utils/routineEngine/planTypes';
 import { getSlotIndex, orderSteps } from '@/utils/routineEngine/slotting';
 import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
+import { formatScheduleDays } from '@/utils/routineLabel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -173,7 +174,7 @@ export function DraftPreviewScreen({
           title="Routine Draft"
           leftAction={
             <IconButton
-              icon={<Feather name="arrow-left" size={18} color={colors.textPrimary} />}
+              icon={<Icon name="arrow-left" size={18} color={colors.textPrimary} />}
               label="Back"
               variant="ghost"
               size="sm"
@@ -191,7 +192,7 @@ export function DraftPreviewScreen({
           <View style={styles.summary}>
             {summaryLines.map((line) => (
               <View key={line} style={styles.summaryRow}>
-                <Feather name="check" size={14} color={colors.statusSafe} />
+                <Icon name="check" size={14} color={colors.statusSafe} />
                 <Text style={styles.summaryText}>{line}</Text>
               </View>
             ))}
@@ -243,7 +244,7 @@ export function DraftPreviewScreen({
               <Text style={styles.reserveHeading}>
                 {`In reserve · ${plan.reserve.length} product${plan.reserve.length === 1 ? '' : 's'}`}
               </Text>
-              <Feather
+              <Icon
                 name={reserveExpanded ? 'chevron-up' : 'chevron-down'}
                 size={18}
                 color={colors.textTertiary}
@@ -382,7 +383,7 @@ function PeriodSteps({
             { backgroundColor: isMorning ? palette.marigoldTint : palette.cobaltTint },
           ]}
         >
-          <Feather
+          <Icon
             name={isMorning ? 'sun' : 'moon'}
             size={14}
             color={isMorning ? palette.marigold : palette.cobalt}
@@ -440,6 +441,12 @@ function StepCard({
   // Only a slot with recorded candidates offers a "Change" — the rest are
   // plain cards, so the affordance always means "there is something to choose".
   const isSwappable = !!entry;
+  const showReasonBadge = isChanged && !!reason;
+  // "No change" only means something when there's nothing to swap to — once
+  // a Change action exists, showing it alongside renders the pill's "nothing
+  // to do here" message contradictory, so Change wins.
+  const showNoChangeTag = !isChanged && !isSwappable;
+  const showStatusRow = showReasonBadge || showNoChangeTag || isSwappable;
 
   const openReplace = () => {
     if (!entry) return;
@@ -453,19 +460,24 @@ function StepCard({
 
   return (
     <View style={styles.stepCard}>
+      {/* Step number + slot category, flush with the card's left edge, above
+          the photo — frequency marker pinned to the right of the same line. */}
+      <View style={styles.titleLine}>
+        <View style={styles.titleLineLeft}>
+          <Text style={styles.stepNumber}>{position}.</Text>
+          <Text style={styles.stepCategory} numberOfLines={1}>
+            {typeLabel}
+          </Text>
+        </View>
+        <Text style={styles.frequency} numberOfLines={1}>
+          {formatScheduleDays(step.scheduledDays)}
+        </Text>
+      </View>
+
       <View style={styles.stepRow}>
         {product ? <ProductThumbnail product={product} size={76} /> : null}
 
         <View style={styles.identity}>
-          {/* Line 1: step number + slot category. */}
-          <View style={styles.titleLine}>
-            <Text style={styles.stepNumber}>{position}.</Text>
-            <Text style={styles.stepCategory} numberOfLines={1}>
-              {typeLabel}
-            </Text>
-          </View>
-
-          {/* Line 2: product name. Line 3: brand. */}
           <Text style={isChanged ? styles.nameChanged : styles.name} numberOfLines={2}>
             {name}
           </Text>
@@ -480,30 +492,34 @@ function StepCard({
               {nameOf(oldStep.productId)}
             </Text>
           ) : null}
-          {isChanged ? (
-            reason ? (
-              <Badge status="Cobalt" type="Light" style={styles.reasonBadge}>
-                {reason}
-              </Badge>
-            ) : null
-          ) : (
-            <Tag tone="neutral" style={styles.noChangeTag}>
-              No change
-            </Tag>
-          )}
-        </View>
 
-        {isSwappable ? (
-          <Pressable
-            style={styles.changeButton}
-            onPress={openReplace}
-            accessibilityRole="button"
-            accessibilityLabel={`Change ${name}`}
-          >
-            <Text style={styles.changeLabel}>Change</Text>
-            <Feather name="chevron-right" size={18} color={palette.plum} />
-          </Pressable>
-        ) : null}
+          {/* Row itself is conditional so a changed step with no reason and
+              no alternative (nothing to show either side) doesn't leave a
+              bare gap behind. */}
+          {showStatusRow ? (
+            <View style={styles.statusRow}>
+              {showReasonBadge ? (
+                <Badge status="Cobalt" type="Light">
+                  {reason}
+                </Badge>
+              ) : showNoChangeTag ? (
+                <Tag tone="neutral">No change</Tag>
+              ) : null}
+
+              {isSwappable ? (
+                <Pressable
+                  style={styles.changeButton}
+                  onPress={openReplace}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Change ${name}`}
+                >
+                  <Text style={styles.changeLabel}>Change</Text>
+                  <Icon name="chevron-right" size={18} color={palette.plum} />
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -622,20 +638,35 @@ const styles = StyleSheet.create({
   },
   stepRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // Top edge lines up with the name line (identity's first row), not the
+    // whole content block — the photo previously centered against brand/
+    // frequency/reason rows too and drifted below the product name.
+    alignItems: 'flex-start',
     gap: space[3],
-    padding: space[3],
+    paddingHorizontal: space[3],
+    paddingBottom: space[3],
   },
   identity: {
     flex: 1,
     minWidth: 0,
     gap: space[1],
   },
-  // Line 1: "1.  Cleanser" — number then slot category.
+  // "1.  Cleanser" (left, flush above the photo) + frequency marker (right),
+  // e.g. "2.  Cream                              Every day".
   titleLine: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    justifyContent: 'space-between',
     gap: space[3],
+    paddingHorizontal: space[3],
+    paddingTop: space[3],
+    paddingBottom: space[1],
+  },
+  titleLineLeft: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: space[3],
+    flexShrink: 1,
   },
   stepNumber: {
     ...typography.body,
@@ -650,6 +681,11 @@ const styles = StyleSheet.create({
   brand: {
     ...typography.bodySmall,
     color: colors.textSecondary,
+  },
+  frequency: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    flexShrink: 0,
   },
   name: {
     ...typography.body,
@@ -666,17 +702,17 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     textDecorationLine: 'line-through',
   },
-  reasonBadge: {
+  // Status pill (left) + Change action (right), same row.
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: space[1],
-    alignSelf: 'flex-start',
-  },
-  noChangeTag: {
-    marginTop: space[1],
-    alignSelf: 'flex-start',
   },
   changeButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    // Pushes to the row's right edge whether or not a status pill precedes it.
+    marginLeft: 'auto',
     gap: 2,
     paddingVertical: space[1],
     paddingLeft: space[2],

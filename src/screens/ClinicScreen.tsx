@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AddProcedureModal } from '@/components/clinic/AddProcedureModal';
@@ -96,7 +96,7 @@ function ClinicEmptyState({ tab }: { tab: ClinicTab }) {
   if (tab === 'history') {
     return (
       <View style={emptyStyles.wrap}>
-        <Feather name="archive" size={32} color={colors.textTertiary} />
+        <Icon name="archive" size={32} color={colors.textTertiary} />
         <Text style={emptyStyles.title}>Nothing archived yet</Text>
         <Text style={emptyStyles.body}>
           Procedures you move to history will appear here so your active list stays focused.
@@ -106,7 +106,7 @@ function ClinicEmptyState({ tab }: { tab: ClinicTab }) {
   }
   return (
     <View style={emptyStyles.wrap}>
-      <Feather name="activity" size={32} color={colors.textTertiary} />
+      <Icon name="activity" size={32} color={colors.textTertiary} />
       <Text style={emptyStyles.title}>No procedures logged</Text>
       <Text style={emptyStyles.body}>
         Log a cosmetic procedure to track its rehab window, effect lifespan, and ingredient safety rules.
@@ -182,7 +182,7 @@ export default function ClinicScreen({ navigation }: Props) {
         title="Clinic"
         rightAction={
           <IconButton
-            icon={<Feather name="plus" size={20} color={colors.textPrimary} />}
+            icon={<Icon name="plus" size={20} color={colors.textPrimary} />}
             label="Log procedure"
             variant="ghost"
             size="sm"
@@ -217,7 +217,7 @@ export default function ClinicScreen({ navigation }: Props) {
             variant="primary"
             size="lg"
             fullWidth
-            icon={<Feather name="plus" size={18} color={palette.white} />}
+            icon={<Icon name="plus" size={18} color={palette.white} />}
             onPress={() => setModalVisible(true)}
             accessibilityLabel="Log procedure"
           >

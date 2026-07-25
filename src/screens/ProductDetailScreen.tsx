@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
@@ -58,7 +58,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           title="Product"
           leftAction={
             <IconButton
-              icon={<Feather name="arrow-left" size={20} color={colors.textPrimary} />}
+              icon={<Icon name="arrow-left" size={20} color={colors.textPrimary} />}
               label="Back"
               variant="ghost"
               size="sm"
@@ -104,7 +104,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
         title={product.name}
         leftAction={
           <IconButton
-            icon={<Feather name="arrow-left" size={20} color={colors.textPrimary} />}
+            icon={<Icon name="arrow-left" size={20} color={colors.textPrimary} />}
             label="Back"
             variant="ghost"
             size="sm"
@@ -113,7 +113,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
         }
         rightAction={
           <IconButton
-            icon={<Feather name="more-vertical" size={20} color={colors.textPrimary} />}
+            icon={<Icon name="more-vertical" size={20} color={colors.textPrimary} />}
             label="Product options"
             variant="ghost"
             size="sm"
@@ -160,7 +160,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
                         accessibilityLabel="Detected via regional ingredient name"
                         style={styles.aliasIconWrap}
                       >
-                        <Feather name="globe" size={11} color={colors.textSecondary} />
+                        <Icon name="globe" size={11} color={colors.textSecondary} />
                       </View>
                     ) : null}
                   </Pressable>
@@ -178,7 +178,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           activeTags.includes('vitamin_c_pure') ? (
             <InlineAlert
               tone="info"
-              icon={<Feather name="info" size={14} color={colors.statusInfo} />}
+              icon={<Icon name="info" size={14} color={colors.statusInfo} />}
               title="Treated as pure vitamin C"
             >
               <Text style={styles.infoboxText}>

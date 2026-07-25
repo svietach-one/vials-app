@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { CameraCaptureModal } from '@/components/camera/CameraCaptureModal';
 import { Button } from '@/components/ui/core/Button';
@@ -69,7 +69,7 @@ export function BarcodeSection({ draft, dispatch }: BarcodeSectionProps) {
 
       {showConfirmation ? (
         <View style={styles.confirmation}>
-          <Feather name="check-circle" size={18} color={palette.bottleGreen} />
+          <Icon name="check-circle" size={18} color={palette.bottleGreen} />
           <View style={styles.confirmationText}>
             <Text style={styles.confirmationCode}>{draft.barcode}</Text>
             <Text style={styles.confirmationLabel}>
@@ -81,7 +81,7 @@ export function BarcodeSection({ draft, dispatch }: BarcodeSectionProps) {
         <>
           {draft.barcode !== null ? (
             <View style={styles.savedRow}>
-              <Feather name="check" size={16} color={colors.textSecondary} />
+              <Icon name="check" size={16} color={colors.textSecondary} />
               <Text style={styles.savedCode}>{draft.barcode}</Text>
             </View>
           ) : null}

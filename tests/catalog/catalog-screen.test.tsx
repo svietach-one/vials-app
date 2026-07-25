@@ -162,8 +162,8 @@ jest.mock('@/components/ui/forms/Input', () => {
   };
 });
 
-jest.mock('@expo/vector-icons', () => ({
-  Feather: () => null,
+jest.mock('@/components/ui/Icon', () => ({
+  Icon: () => null,
 }));
 
 jest.mock('@/constants/tokens', () => ({

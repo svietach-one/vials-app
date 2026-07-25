@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { colors, radius, space, typography } from '@/constants/tokens';
 import type { RehabNotice } from '@/types';
@@ -38,10 +38,10 @@ export function RehabNoticeCard({ notice }: RehabNoticeCardProps) {
         accessibilityLabel={`Rehabilitation: ${notice.procedureName}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
       >
         <View style={styles.headerLeft}>
-          <Feather name="shield" size={14} color={colors.statusWarning} />
+          <Icon name="shield" size={14} color={colors.statusWarning} />
           <Text style={styles.headerText}>Rehabilitation: {notice.procedureName}</Text>
         </View>
-        <Feather
+        <Icon
           name={collapsed ? 'chevron-down' : 'chevron-up'}
           size={16}
           color={colors.statusWarning}
@@ -59,7 +59,7 @@ export function RehabNoticeCard({ notice }: RehabNoticeCardProps) {
             <View style={styles.restrictions}>
               {notice.restrictions.map((text, i) => (
                 <View key={i} style={styles.restrictionRow}>
-                  <Feather
+                  <Icon
                     name="x-circle"
                     size={13}
                     color={colors.statusWarning}

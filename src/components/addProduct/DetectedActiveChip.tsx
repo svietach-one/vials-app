@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { IconButton } from '@/components/ui/core/IconButton';
 import { ACTIVE_INGREDIENT_LABELS } from '@/constants/labels';
@@ -24,7 +24,7 @@ export function DetectedActiveChip({ activeKey, onRemove }: DetectedActiveChipPr
         {ACTIVE_INGREDIENT_LABELS[activeKey]}
       </Text>
       <IconButton
-        icon={<Feather name="x" size={14} color={group.color} />}
+        icon={<Icon name="x" size={14} color={group.color} />}
         label={`Remove ${ACTIVE_INGREDIENT_LABELS[activeKey]}`}
         variant="ghost"
         size="xs"

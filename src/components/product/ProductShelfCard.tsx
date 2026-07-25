@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -150,12 +150,12 @@ export function ProductShelfCard({
                   <>
                     {(usageTime === 'morning' || usageTime === 'both') ? (
                       <View testID="icon-sun" style={[styles.circleBadge, styles.circleBadgeSun]}>
-                        <Feather name="sun" size={14} color={palette.marigold} />
+                        <Icon name="sun" size={14} color={palette.marigold} />
                       </View>
                     ) : null}
                     {(usageTime === 'evening' || usageTime === 'both') ? (
                       <View testID="icon-moon" style={[styles.circleBadge, styles.circleBadgeMoon]}>
-                        <Feather name="moon" size={14} color={palette.cobalt} />
+                        <Icon name="moon" size={14} color={palette.cobalt} />
                       </View>
                     ) : null}
                   </>
@@ -164,7 +164,7 @@ export function ProductShelfCard({
                     testID="icon-hidden-from-routine"
                     style={[styles.circleBadge, styles.circleBadgeHidden]}
                   >
-                    <Feather name="eye-off" size={14} color={palette.zinc600} />
+                    <Icon name="eye-off" size={14} color={palette.zinc600} />
                   </View>
                 )}
               </View>
@@ -202,7 +202,7 @@ export function ProductShelfCard({
                 <View testID="shelf-card-actives-row" style={styles.activesRow}>
                   {product.isHidden ? (
                     <View style={styles.hiddenIconBadge}>
-                      <Feather name="eye-off" size={12} color={colors.textTertiary} />
+                      <Icon name="eye-off" size={12} color={colors.textTertiary} />
                     </View>
                   ) : null}
                   {activeKeys.slice(0, visibleActiveCount).map((key) => (
@@ -218,7 +218,7 @@ export function ProductShelfCard({
             </View>
 
             <IconButton
-              icon={<Feather name="more-vertical" size={16} color={colors.textSecondary} />}
+              icon={<Icon name="more-vertical" size={16} color={colors.textSecondary} />}
               label={`More actions for ${product.name}`}
               variant="ghost"
               size="sm"

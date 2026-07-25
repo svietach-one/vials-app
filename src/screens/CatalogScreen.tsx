@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
@@ -155,7 +155,7 @@ export default function CatalogScreen({ navigation }: Props) {
               onPress={() => setSheetOpen(true)}
             />
             <IconButton
-              icon={<Feather name="plus" size={20} color={colors.textPrimary} />}
+              icon={<Icon name="plus" size={20} color={colors.textPrimary} />}
               label="Add product"
               variant="ghost"
               size="sm"
@@ -180,7 +180,7 @@ export default function CatalogScreen({ navigation }: Props) {
             {/* Full-width — the filter trigger it used to share this row with
                 now lives in the header, beside "+". */}
             <Input
-              icon={<Feather name="search" size={15} color={colors.textTertiary} />}
+              icon={<Icon name="search" size={15} color={colors.textTertiary} />}
               value={filterState.searchQuery}
               onChangeText={(t) => setFilterState((s) => ({ ...s, searchQuery: t }))}
               placeholder="Search by name, brand or ingredient…"
@@ -252,7 +252,7 @@ function PaoChip({ product }: { product: Product }) {
 
   return (
     <View style={paoStyles.row}>
-      <Feather name="alert-triangle" size={12} color={PAO_AMBER} />
+      <Icon name="alert-triangle" size={12} color={PAO_AMBER} />
       <Text style={paoStyles.text}>{label}</Text>
     </View>
   );
@@ -294,14 +294,14 @@ function CatalogEmptyState({
 
   return (
     <View style={emptyStyles.wrap}>
-      <Feather name="package" size={32} color={colors.textTertiary} />
+      <Icon name="package" size={32} color={colors.textTertiary} />
       <Text style={emptyStyles.title}>{title}</Text>
       <Text style={emptyStyles.body}>{body}</Text>
       {!hasProducts ? (
         <Button
           variant="primary"
           size="lg"
-          icon={<Feather name="plus" size={16} color={colors.textOnDark} />}
+          icon={<Icon name="plus" size={16} color={colors.textOnDark} />}
           onPress={onAdd}
           style={emptyStyles.addBtn}
         >

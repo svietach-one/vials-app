@@ -9,9 +9,9 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { Product, Routine, RoutineStep } from '@/types';
 
-jest.mock('@expo/vector-icons', () => {
+jest.mock('@/components/ui/Icon', () => {
   const { View } = require('react-native');
-  return { Feather: ({ name }: { name: string }) => <View testID={`feather-icon-${name}`} /> };
+  return { Icon: ({ name }: { name: string }) => <View testID={`icon-${name}`} /> };
 });
 
 jest.mock('@/components/ui/ProductThumbnail', () => {
@@ -136,8 +136,8 @@ describe('RoutineCalendarView', () => {
     });
 
     // 4 grid cells + 1 legend marker per period.
-    expect(screen.getAllByTestId('feather-icon-sun')).toHaveLength(5);
-    expect(screen.getAllByTestId('feather-icon-moon')).toHaveLength(5);
+    expect(screen.getAllByTestId('icon-sun')).toHaveLength(5);
+    expect(screen.getAllByTestId('icon-moon')).toHaveLength(5);
   });
 
   it('explains the icons in a legend', () => {

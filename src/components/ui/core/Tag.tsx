@@ -7,7 +7,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { colors, radius, space } from '@/constants/tokens';
 
@@ -77,7 +77,7 @@ export function Tag({ children, tone = 'neutral', onRemove, style }: TagProps) {
             pressed && styles.removeButtonPressed,
           ]}
         >
-          <Feather name="x" size={12} color={textColor} />
+          <Icon name="x" size={12} color={textColor} />
         </Pressable>
       ) : null}
     </View>

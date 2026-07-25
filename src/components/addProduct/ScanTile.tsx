@@ -1,11 +1,11 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
 import { colors, radius, space, typography } from '@/constants/tokens';
 
 export interface ScanTileProps {
-  icon: keyof typeof Feather.glyphMap;
+  icon: IconName;
   label: string;
   caption?: string;
   onPress: () => void;
@@ -28,10 +28,10 @@ export function ScanTile({ icon, label, caption, onPress, compact = false }: Sca
       accessibilityLabel={label}
     >
       {compact ? (
-        <Feather name={icon} size={16} color={colors.textPrimary} />
+        <Icon name={icon} size={16} color={colors.textPrimary} />
       ) : (
         <View style={styles.iconWrap}>
-          <Feather name={icon} size={20} color={colors.textPrimary} />
+          <Icon name={icon} size={20} color={colors.textPrimary} />
         </View>
       )}
       <Text style={styles.label}>{label}</Text>

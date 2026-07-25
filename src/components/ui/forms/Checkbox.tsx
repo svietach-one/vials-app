@@ -7,7 +7,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
@@ -60,7 +60,7 @@ export function Checkbox({
         ]}
       >
         {checked ? (
-          <Feather name="check" size={iconSize} color={palette.white} />
+          <Icon name="check" size={iconSize} color={palette.white} />
         ) : null}
       </View>
 

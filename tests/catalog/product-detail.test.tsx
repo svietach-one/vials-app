@@ -144,8 +144,8 @@ jest.mock('@/components/ui/feedback/InlineAlert', () => {
   };
 });
 
-jest.mock('@expo/vector-icons', () => ({
-  Feather: () => null,
+jest.mock('@/components/ui/Icon', () => ({
+  Icon: () => null,
 }));
 
 jest.mock('@/constants/tokens', () => ({

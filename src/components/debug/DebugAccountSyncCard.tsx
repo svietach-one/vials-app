@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
@@ -67,7 +67,7 @@ export function DebugAccountSyncCard() {
           variant="primary"
           size="md"
           fullWidth
-          icon={<Feather name="cloud" size={14} color={palette.white} />}
+          icon={<Icon name="cloud" size={14} color={palette.white} />}
           onPress={handleSimulate}
           accessibilityLabel="Simulate account sync"
           style={styles.button}

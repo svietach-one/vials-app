@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { colors, palette, radius } from '@/constants/tokens';
 
@@ -82,7 +82,7 @@ function CalendarCellComponent({
         ]}
       >
         {scheduled ? (
-          <Feather name={spec.icon} size={Math.round(diameter * 0.55)} color={spec.color} />
+          <Icon name={spec.icon} size={Math.round(diameter * 0.55)} color={spec.color} />
         ) : null}
       </View>
     </View>

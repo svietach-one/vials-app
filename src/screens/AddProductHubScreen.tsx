@@ -8,13 +8,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
-import { BARCODE_SCANNER_ENABLED } from '@/constants/featureFlags';
+import { BARCODE_HUB_ENTRY_ENABLED } from '@/constants/featureFlags';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import { useProductRepository } from '@/hooks/useCorpusRepositories';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
@@ -111,13 +111,13 @@ export default function AddProductHubScreen({ navigation }: Props) {
       accessibilityLabel="Create product manually"
     >
       <View style={styles.actionIconWrap}>
-        <Feather name="edit-3" size={20} color={colors.textPrimary} />
+        <Icon name="edit-3" size={20} color={colors.textPrimary} />
       </View>
       <View style={styles.actionContent}>
         <Text style={styles.actionTitle}>Add Manually</Text>
         <Text style={styles.actionSubtitle}>Enter details yourself</Text>
       </View>
-      <Feather name="chevron-right" size={18} color={colors.textTertiary} />
+      <Icon name="chevron-right" size={18} color={colors.textTertiary} />
     </Pressable>
   );
 
@@ -129,7 +129,7 @@ export default function AddProductHubScreen({ navigation }: Props) {
         title="Add Product"
         leftAction={
           <IconButton
-            icon={<Feather name="arrow-left" size={20} color={colors.textPrimary} />}
+            icon={<Icon name="arrow-left" size={20} color={colors.textPrimary} />}
             label="Back"
             variant="ghost"
             size="sm"
@@ -146,7 +146,7 @@ export default function AddProductHubScreen({ navigation }: Props) {
         {/* ── Corpus Search ──────────────────────────────────────────────── */}
         <Text style={styles.sectionLabel}>Search Database</Text>
         <Input
-          icon={<Feather name="search" size={16} color={colors.textTertiary} />}
+          icon={<Icon name="search" size={16} color={colors.textTertiary} />}
           value={searchText}
           onChangeText={setSearchText}
           placeholder="Search by name or brand…"
@@ -193,7 +193,7 @@ export default function AddProductHubScreen({ navigation }: Props) {
                       </Text>
                     ) : null}
                   </View>
-                  <Feather name="plus" size={18} color={colors.textSecondary} />
+                  <Icon name="plus" size={18} color={colors.textSecondary} />
                 </Pressable>
               ))}
             </View>
@@ -204,7 +204,7 @@ export default function AddProductHubScreen({ navigation }: Props) {
         ) : showSearchError ? (
           <View style={styles.notFoundWrap}>
             <View style={styles.noticeBanner}>
-              <Feather name="wifi-off" size={16} color={colors.statusWarning} />
+              <Icon name="wifi-off" size={16} color={colors.statusWarning} />
               <Text style={styles.noticeText}>
                 Couldn't reach the product database. Check your connection and try again.
               </Text>
@@ -214,7 +214,7 @@ export default function AddProductHubScreen({ navigation }: Props) {
         ) : showCorpusUnavailable ? (
           <View style={styles.notFoundWrap}>
             <View style={styles.noticeBanner}>
-              <Feather name="alert-triangle" size={16} color={colors.statusWarning} />
+              <Icon name="alert-triangle" size={16} color={colors.statusWarning} />
               <Text style={styles.noticeText}>
                 Product database isn't available in this build. You can still add a product manually.
               </Text>
@@ -230,8 +230,8 @@ export default function AddProductHubScreen({ navigation }: Props) {
           </View>
         ) : null}
 
-        {/* ── Scan Barcode ── feature-flagged off while lookup is unreliable ── */}
-        {BARCODE_SCANNER_ENABLED ? (
+        {/* ── Scan Barcode ── moved into Add Product step 2; hub entry off ── */}
+        {BARCODE_HUB_ENTRY_ENABLED ? (
           <>
             <View style={styles.divider} />
             <Text style={styles.sectionLabel}>Scan</Text>
@@ -245,13 +245,13 @@ export default function AddProductHubScreen({ navigation }: Props) {
               accessibilityLabel="Scan product barcode"
             >
               <View style={styles.actionIconWrap}>
-                <Feather name="aperture" size={20} color={colors.textPrimary} />
+                <Icon name="aperture" size={20} color={colors.textPrimary} />
               </View>
               <View style={styles.actionContent}>
                 <Text style={styles.actionTitle}>Scan Barcode</Text>
                 <Text style={styles.actionSubtitle}>Look up product by barcode</Text>
               </View>
-              <Feather name="chevron-right" size={18} color={colors.textTertiary} />
+              <Icon name="chevron-right" size={18} color={colors.textTertiary} />
             </Pressable>
           </>
         ) : null}
@@ -269,13 +269,13 @@ export default function AddProductHubScreen({ navigation }: Props) {
           accessibilityLabel="Create product manually"
         >
           <View style={styles.actionIconWrap}>
-            <Feather name="edit-3" size={20} color={colors.textPrimary} />
+            <Icon name="edit-3" size={20} color={colors.textPrimary} />
           </View>
           <View style={styles.actionContent}>
             <Text style={styles.actionTitle}>Create Product Manually</Text>
             <Text style={styles.actionSubtitle}>Enter details yourself</Text>
           </View>
-          <Feather name="chevron-right" size={18} color={colors.textTertiary} />
+          <Icon name="chevron-right" size={18} color={colors.textTertiary} />
         </Pressable>
       </ScrollView>
     </SafeAreaView>

@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { CameraCaptureModal } from '@/components/camera/CameraCaptureModal';
 import { InciScanNotice } from '@/components/camera/InciScanNotice';
@@ -137,7 +137,7 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
               accessibilityRole="button"
               accessibilityState={{ expanded: rawExpanded }}
             >
-              <Feather
+              <Icon
                 name={rawExpanded ? 'chevron-down' : 'chevron-right'}
                 size={16}
                 color={colors.textSecondary}
@@ -145,7 +145,7 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
               <Text style={styles.rawToggleLabel}>Full INCI text (raw)</Text>
             </Pressable>
             <IconButton
-              icon={<Feather name="x-circle" size={16} color={colors.textTertiary} />}
+              icon={<Icon name="x-circle" size={16} color={colors.textTertiary} />}
               label="Clear INCI text"
               variant="ghost"
               size="sm"
@@ -217,7 +217,7 @@ export function IngredientsSection({ draft, dispatch }: IngredientsSectionProps)
 
       {conflictHits.length > 0 ? (
         <View style={styles.conflictBanner}>
-          <Feather name="alert-triangle" size={16} color={palette.amber} />
+          <Icon name="alert-triangle" size={16} color={palette.amber} />
           <View style={styles.conflictBody}>
             {conflictHits.map((rule) => (
               <Text key={rule.id} style={styles.conflictPair}>

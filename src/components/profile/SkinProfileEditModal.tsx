@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
 import { GoalSelector } from '@/components/profile/GoalSelector';
@@ -134,7 +134,7 @@ export function SkinProfileEditModal({
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Edit Skin Profile</Text>
             <IconButton
-              icon={<Feather name="x" size={20} color={colors.textSecondary} />}
+              icon={<Icon name="x" size={20} color={colors.textSecondary} />}
               label="Close"
               variant="secondary"
               size="sm"

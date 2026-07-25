@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
 import { ListRow } from '@/components/ui/core/ListRow';
 import { colors, radius, space } from '@/constants/tokens';
@@ -24,7 +24,7 @@ export interface RoutineStepActionSheetProps {
 }
 
 interface RowProps {
-  icon: React.ComponentProps<typeof Feather>['name'];
+  icon: IconName;
   label: string;
   onPress: () => void;
   divider?: boolean;
@@ -33,7 +33,7 @@ interface RowProps {
 function SheetRow({ icon, label, onPress, divider = true }: RowProps) {
   return (
     <ListRow
-      leading={<Feather name={icon} size={18} color={colors.textPrimary} />}
+      leading={<Icon name={icon} size={18} color={colors.textPrimary} />}
       title={label}
       onPress={onPress}
       divider={divider}

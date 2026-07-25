@@ -5,7 +5,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
 import { Input } from '@/components/ui/forms/Input';
 import { Button } from '@/components/ui/core/Button';
@@ -46,9 +46,9 @@ const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 // Filled bars are plum-monochrome; completed/archived read as muted grey.
 const DONE_STATUSES: ReadonlySet<ComputedStatus> = new Set(['completed', 'archived']);
 
-// Leading Feather glyph per procedure, shown in a plum tint circle like the
+// Leading Lucide glyph per procedure, shown in a plum tint circle like the
 // icon treatment used across My Shelf / Routines cards.
-const PROCEDURE_ICON: Record<CosmeticProcedureKey, keyof typeof Feather.glyphMap> = {
+const PROCEDURE_ICON: Record<CosmeticProcedureKey, IconName> = {
   botox:              'zap',
   fillers:            'droplet',
   smas_lifting:       'trending-up',
@@ -57,7 +57,7 @@ const PROCEDURE_ICON: Record<CosmeticProcedureKey, keyof typeof Feather.glyphMap
   mechanical_facial:  'wind',
 };
 
-function getProcedureIcon(proc: UserProcedureLog): keyof typeof Feather.glyphMap {
+function getProcedureIcon(proc: UserProcedureLog): IconName {
   if (proc.procedureKey === 'custom') return 'activity';
   return PROCEDURE_ICON[proc.procedureKey] ?? 'activity';
 }
@@ -151,7 +151,7 @@ function FadingInteractivePrompt({
             Confirm
           </Button>
           <IconButton
-            icon={<Feather name="x" size={16} color={colors.textTertiary} />}
+            icon={<Icon name="x" size={16} color={colors.textTertiary} />}
             label="Cancel custom duration entry"
             variant="ghost"
             size="xs"
@@ -313,7 +313,7 @@ export function ProcedureLifespanCard({ proc, onUpdate, onOpenMenu }: ProcedureL
       {/* Header row */}
       <View style={cardStyles.header}>
         <View style={[cardStyles.iconCircle, isDone && cardStyles.iconCircleMuted]}>
-          <Feather
+          <Icon
             name={getProcedureIcon(proc)}
             size={20}
             color={isDone ? colors.textTertiary : palette.plum}
@@ -324,7 +324,7 @@ export function ProcedureLifespanCard({ proc, onUpdate, onOpenMenu }: ProcedureL
           <Text style={cardStyles.date}>{formatDate(proc.datePerformed)}</Text>
         </View>
         <IconButton
-          icon={<Feather name="more-horizontal" size={18} color={colors.textSecondary} />}
+          icon={<Icon name="more-horizontal" size={18} color={colors.textSecondary} />}
           label={`Options for ${procName}`}
           variant="ghost"
           size="xs"

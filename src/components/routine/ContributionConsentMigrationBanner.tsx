@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, space, typography } from '@/constants/tokens';
@@ -26,7 +26,7 @@ export function ContributionConsentMigrationBanner({
   return (
     <InlineAlert
       tone="info"
-      icon={<Feather name="image" size={16} color={colors.statusInfo} />}
+      icon={<Icon name="image" size={16} color={colors.statusInfo} />}
       title="Share photos with Vials?"
     >
       <Text style={styles.body}>

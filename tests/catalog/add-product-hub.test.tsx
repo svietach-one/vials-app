@@ -82,7 +82,7 @@ jest.mock('@/constants/tokens', () => ({
 // ── Subject under test ─────────────────────────────────────────────────────────
 
 import AddProductHubScreen from '@/screens/AddProductHubScreen';
-import { BARCODE_SCANNER_ENABLED } from '@/constants/featureFlags';
+import { BARCODE_HUB_ENTRY_ENABLED } from '@/constants/featureFlags';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -335,15 +335,15 @@ describe('AC-17b: a failed corpus query shows an error notice, not a fake no-res
 
 // ── AC-18: Barcode scan navigation ────────────────────────────────────────────
 
-describe('AC-18: "Scan Barcode" row is gated behind BARCODE_SCANNER_ENABLED', () => {
-  it('renders the Scan row and navigates only while the flag is on', () => {
+describe('AC-18: "Scan Barcode" hub row is gated behind BARCODE_HUB_ENTRY_ENABLED', () => {
+  it('renders the Scan row and navigates only while the hub-entry flag is on', () => {
     renderScreen();
-    if (BARCODE_SCANNER_ENABLED) {
+    if (BARCODE_HUB_ENTRY_ENABLED) {
       expect(screen.getByText('Scan')).toBeTruthy();
       fireEvent.press(screen.getByLabelText('Scan product barcode'));
       expect(mockNavigate).toHaveBeenCalledWith('BarcodeScanner');
     } else {
-      // Feature-flagged off while barcode lookup is unreliable.
+      // Barcode scanning now lives only inside Add Product step 2, not the hub.
       expect(screen.queryByText('Scan')).toBeNull();
       expect(screen.queryByLabelText('Scan product barcode')).toBeNull();
     }

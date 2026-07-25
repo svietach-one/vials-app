@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer, NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -72,7 +72,7 @@ const CatalogStack = createNativeStackNavigator<CatalogStackParamList>();
 const ClinicStack = createNativeStackNavigator<ClinicStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-const TAB_ICONS: Record<keyof RootTabParamList, keyof typeof Feather.glyphMap> = {
+const TAB_ICONS: Record<keyof RootTabParamList, IconName> = {
   Routines: 'calendar',
   'My Shelf': 'package',
   Clinic: 'activity',
@@ -128,7 +128,7 @@ function MainTabs() {
           fontSize: 14,
         },
         tabBarIcon: ({ color, size }) => (
-          <Feather
+          <Icon
             name={TAB_ICONS[route.name as keyof RootTabParamList]}
             size={size}
             color={color}

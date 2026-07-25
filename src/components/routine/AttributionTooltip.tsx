@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, radius, space, typography } from '@/constants/tokens';
@@ -36,7 +36,7 @@ export function AttributionTooltip({ visible, onClose, displayName, matches }: A
           </Text>
           <IconButton
             testID="attribution-tooltip-close"
-            icon={<Feather name="x" size={18} color={colors.textSecondary} />}
+            icon={<Icon name="x" size={18} color={colors.textSecondary} />}
             label="Close"
             variant="ghost"
             size="sm"
