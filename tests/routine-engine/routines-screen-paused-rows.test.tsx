@@ -116,7 +116,9 @@ jest.mock('@/store/profileStore', () => ({
   useProfileStore: jest.fn((selector: any) => selector({ profile: null })),
 }));
 jest.mock('@/store/settingsStore', () => ({
-  useSettingsStore: jest.fn((selector: any) => selector({ routineCycleType: 'fixed' })),
+  useSettingsStore: jest.fn((selector: any) =>
+    selector({ routineCycleType: 'fixed', routineAccordion: null, setRoutineAccordion: jest.fn() }),
+  ),
 }));
 jest.mock('@/store/trackingStore', () => ({
   useTrackingStore: jest.fn((selector: any) => selector({ applicationStats: [] })),

@@ -40,7 +40,14 @@ export type OnboardingStackParamList = {
 };
 
 export type CatalogStackParamList = {
-  Catalog: undefined;
+  Catalog: {
+    /**
+     * One-shot success toast for a manual save, shown once and cleared
+     * (see docs/specs/contribution-consent-flow/03-visual-spec.md).
+     * `savedAt` disambiguates back-to-back saves with identical content.
+     */
+    toast?: { savedAt: number; contributionOptIn: boolean; contributedCount: number };
+  } | undefined;
   AddProductHub: undefined;
   ManualProductForm: {
     /** A corpus (Turso) hit the user picked via search or barcode scan — see src/services/corpus. */

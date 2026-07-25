@@ -30,6 +30,7 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { searchCities } from '@/utils/citySearch';
 import { setContributionConsent } from '@/utils/contributionConsent';
+import { contributedProductsCount } from '@/utils/contributionConsentFlow';
 import type {
   CityLocation,
   SkinPhototype,
@@ -276,6 +277,21 @@ export default function ProfileScreen() {
   const setGamificationEnabled = useSettingsStore((s) => s.setGamificationEnabled);
   const routineCycleType = useSettingsStore((s) => s.routineCycleType);
 
+  const contributionConsentStatus = useSettingsStore((s) => s.contributionConsentStatus);
+  const setContributionConsentStatus = useSettingsStore((s) => s.setContributionConsentStatus);
+  const products = useProductsStore((s) => s.products);
+  const contributedCount = contributedProductsCount(products);
+
+  function handleContributionToggle(v: boolean) {
+    if (v) {
+      // Re-enabling from 'disabled' is a fresh start (unset), not a silent
+      // resume of 'accepted' — the full explainer modal reappears next save.
+      setContributionConsentStatus(contributionConsentStatus === 'disabled' ? 'unset' : 'accepted');
+    } else {
+      setContributionConsentStatus('disabled');
+    }
+  }
+
   function handleCycleToggle(enableDynamic: boolean) {
     if (!enableDynamic) {
       // Dynamic → fixed discards cycle progress — confirm first (research §1.4).
@@ -296,7 +312,7 @@ export default function ProfileScreen() {
     switchCycleType('dynamic');
   }
 
-  const productCount = useProductsStore((s) => s.products.length);
+  const productCount = products.length;
   const procedureCount = useProceduresStore((s) => s.procedures.length);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -396,11 +412,27 @@ export default function ProfileScreen() {
                   size="sm"
                 />
               }
+              divider
+            />
+            <ListRow
+              title="Share new products with Vials"
+              subtitle={`${contributedCount} products contributed so far`}
+              trailing={
+                <Switch
+                  checked={contributionConsentStatus === 'accepted'}
+                  onValueChange={handleContributionToggle}
+                  accessibilityLabel="Share new products with Vials"
+                  size="sm"
+                />
+              }
               divider={false}
             />
           </View>
           <Text style={styles.settingsHint}>
             Previously shared photos remain in the database.
+          </Text>
+          <Text style={styles.settingsHint}>
+            Turning this off stops future contributions. Products already shared stay in the database.
           </Text>
         </View>
 

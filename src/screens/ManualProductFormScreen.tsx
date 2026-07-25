@@ -15,6 +15,8 @@ import {
 import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { ContributionConsentModal, type ContributionConsentModalVariant } from '@/components/product/ContributionConsentModal';
+import { ContributionToggle } from '@/components/product/ContributionToggle';
 import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { AppHeader } from '@/components/ui/core/AppHeader';
@@ -49,7 +51,9 @@ import type {
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { canShareContributionPhoto } from '@/utils/contributionConsent';
+import { contributedProductsCount, decideManualSave } from '@/utils/contributionConsentFlow';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -411,6 +415,20 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const profile = useProfileStore((s) => s.profile);
   const productRepository = useProductRepository();
 
+  // Product-contribution consent (docs/specs/contribution-consent-flow/) —
+  // only applies to genuinely manual, new saves (no corpus/OBF prefill, not
+  // an edit). Distinct from `contributionConsent` above, which gates the
+  // photo blob only.
+  const contributionConsentStatus = useSettingsStore((s) => s.contributionConsentStatus);
+  const declinedSaveCountSinceLastReminder = useSettingsStore(
+    (s) => s.declinedSaveCountSinceLastReminder,
+  );
+  const reminderCountShown = useSettingsStore((s) => s.reminderCountShown);
+  const setContributionConsentStatus = useSettingsStore((s) => s.setContributionConsentStatus);
+  const incrementDeclinedSaveCount = useSettingsStore((s) => s.incrementDeclinedSaveCount);
+  const resetDeclinedSaveCount = useSettingsStore((s) => s.resetDeclinedSaveCount);
+  const incrementReminderCountShown = useSettingsStore((s) => s.incrementReminderCountShown);
+
   const editingProduct = editingProductId
     ? (products.find((p) => p.id === editingProductId) ?? null)
     : null;
@@ -445,6 +463,22 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   // waits on it and never fails because of it.
   const [sharing, setSharing] = useState(false);
   const [shareResult, setShareResult] = useState<ContributionResult | null>(null);
+
+  // Inline toggle default: on while `accepted`, off while `declined` — n/a
+  // while `unset` (modal shown instead) or `disabled` (toggle hidden).
+  const [shareToggleOn, setShareToggleOn] = useState(contributionConsentStatus === 'accepted');
+  // Resyncs if the global status changes via the Profile screen while this
+  // form stays mounted in a backgrounded tab (React Navigation keeps stack
+  // screens alive) — otherwise the toggle can display a stale default.
+  useEffect(() => {
+    setShareToggleOn(contributionConsentStatus === 'accepted');
+  }, [contributionConsentStatus]);
+  const [consentModalVariant, setConsentModalVariant] =
+    useState<ContributionConsentModalVariant | null>(null);
+  // The just-saved product waiting on a modal decision (first-time) or just
+  // waiting for the modal to close before continuing to the scheduler sheet
+  // (reminder — that save already resolved, see handleConsentContinue).
+  const [pendingConsentProduct, setPendingConsentProduct] = useState<Product | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -546,7 +580,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     }
   }
 
-  function buildProduct(): Product {
+  function buildProduct(contributionOptIn = false): Product {
     const resolvedPaoMonths: number | null = isCustomPao
       ? (parseInt(customPaoText, 10) || null)
       : paoMonths;
@@ -571,6 +605,8 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       // Edits preserve the original provenance; new records split on
       // whether they came from an OBF result or pure manual entry.
       source: editingProduct?.source ?? (obfId ? 'obf_import' : 'user_local'),
+      // Set once at save time, never mutated afterward on edits.
+      contributionOptIn: editingProduct?.contributionOptIn ?? contributionOptIn,
     };
   }
 
@@ -638,6 +674,45 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     void shareProduct(buildProduct());
   }
 
+  /**
+   * Continue/Not-now handlers for ContributionConsentModal (either variant).
+   * Reminder-modal decisions never retroactively change the product that
+   * already saved (per the "no retroactive share" scope decision) — they
+   * only govern the global status/toggle for future saves.
+   */
+  function handleConsentContinue(shareThisProduct: boolean) {
+    const wasFirstTime = consentModalVariant === 'first-time';
+    setConsentModalVariant(null);
+    setContributionConsentStatus('accepted');
+    setShareToggleOn(true);
+
+    if (!pendingConsentProduct) return;
+
+    if (wasFirstTime) {
+      updateProduct(pendingConsentProduct.id, { contributionOptIn: shareThisProduct });
+      if (shareThisProduct) {
+        void shareProduct({ ...pendingConsentProduct, contributionOptIn: true });
+      }
+      setSchedulerProduct({ ...pendingConsentProduct, contributionOptIn: shareThisProduct });
+    } else {
+      setSchedulerProduct(pendingConsentProduct);
+    }
+    setPendingConsentProduct(null);
+  }
+
+  function handleConsentNotNow() {
+    const wasFirstTime = consentModalVariant === 'first-time';
+    setConsentModalVariant(null);
+    if (wasFirstTime) {
+      setContributionConsentStatus('declined');
+      setShareToggleOn(false);
+    }
+    if (pendingConsentProduct) {
+      setSchedulerProduct(pendingConsentProduct);
+      setPendingConsentProduct(null);
+    }
+  }
+
   function handleSave() {
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -653,21 +728,61 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     }
     setPaoError(null);
 
-    const product = buildProduct();
-
     if (isEditMode) {
+      const product = buildProduct();
       // The user removed a previously attached photo → clean up its file.
       if (editingProduct?.localImageUri && !product.localImageUri) {
         void deleteProductPhoto(productId);
       }
       updateProduct(product.id, product);
       navigation.goBack();
-    } else {
-      // Local shelf save is instant and never awaits the contribution.
+      return;
+    }
+
+    // Contribution consent only governs genuinely manual entries — a
+    // corpus/OBF-prefilled save keeps today's unconditional background sync,
+    // unchanged by this flow (see scope decisions in
+    // docs/specs/contribution-consent-flow/00-IMPLEMENTATION-PROMPT.md).
+    if (obfId) {
+      const product = buildProduct();
       addProduct(product);
       void shareProduct(product);
       setSchedulerProduct(product);
+      return;
     }
+
+    const decision = decideManualSave(
+      {
+        status: contributionConsentStatus,
+        declinedSaveCountSinceLastReminder,
+        reminderCountShown,
+      },
+      shareToggleOn,
+    );
+
+    // Local shelf save is instant and never awaits the contribution.
+    const product = buildProduct(decision.contributionOptIn);
+    addProduct(product);
+
+    if (decision.nextStatus) setContributionConsentStatus(decision.nextStatus);
+    if (decision.incrementDeclinedCount) incrementDeclinedSaveCount();
+    if (decision.resetDeclinedCount) resetDeclinedSaveCount();
+    if (decision.incrementReminderCount) incrementReminderCountShown();
+    if (decision.nextStatus === 'accepted') setShareToggleOn(true);
+
+    if (decision.contributionOptIn) {
+      void shareProduct(product);
+    }
+
+    if (decision.showModal) {
+      // Defer the scheduler sheet until the modal resolves, so it never
+      // appears underneath a still-open consent decision.
+      setPendingConsentProduct(product);
+      setConsentModalVariant(decision.showModal);
+      return;
+    }
+
+    setSchedulerProduct(product);
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -832,6 +947,9 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         </ScrollView>
 
         <View style={s.footer}>
+          {!isEditMode && !obfId && contributionConsentStatus !== 'disabled' && contributionConsentStatus !== 'unset' ? (
+            <ContributionToggle checked={shareToggleOn} onValueChange={setShareToggleOn} />
+          ) : null}
           <ShareStatus
             sharing={sharing}
             result={shareResult}
@@ -849,6 +967,13 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         onResult={handleOcrResult}
       />
 
+      <ContributionConsentModal
+        visible={consentModalVariant !== null}
+        variant={consentModalVariant ?? 'first-time'}
+        onContinue={handleConsentContinue}
+        onNotNow={handleConsentNotNow}
+      />
+
       <RoutineSchedulerSheet
         visible={schedulerProduct !== null}
         productId={schedulerProduct?.id ?? ''}
@@ -856,8 +981,15 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         cancelLabel="Skip"
         saveLabel="Save & Next"
         onClose={() => {
+          const savedProduct = schedulerProduct;
           setSchedulerProduct(null);
-          navigation.navigate('Catalog');
+          navigation.navigate('Catalog', {
+            toast: {
+              savedAt: Date.now(),
+              contributionOptIn: savedProduct?.contributionOptIn === true,
+              contributedCount: contributedProductsCount(useProductsStore.getState().products),
+            },
+          });
         }}
       />
     </KeyboardAvoidingView>
