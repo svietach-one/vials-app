@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
 import { BottomSheet } from '@/components/ui/core/BottomSheet';
 import { Button } from '@/components/ui/core/Button';
@@ -168,7 +168,7 @@ function TimeChip({
   active,
   onPress,
 }: {
-  icon: React.ComponentProps<typeof Feather>['name'];
+  icon: IconName;
   label: string;
   active: boolean;
   onPress: () => void;
@@ -181,7 +181,7 @@ function TimeChip({
       accessibilityState={{ checked: active }}
       accessibilityLabel={label}
     >
-      <Feather
+      <Icon
         name={icon}
         size={15}
         color={active ? palette.white : colors.textSecondary}

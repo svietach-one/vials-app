@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer, NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -18,6 +18,7 @@ import FirstProductScreen from '@/screens/onboarding/FirstProductScreen';
 
 import RoutinesScreen from '@/screens/RoutinesScreen';
 import ClinicScreen from '@/screens/ClinicScreen';
+import ProcedureDetailScreen from '@/screens/ProcedureDetailScreen';
 import ProfileScreen from '@/screens/ProfileScreen';
 
 // ─── Catalog stack screens ────────────────────────────────────────────────────
@@ -39,7 +40,14 @@ export type OnboardingStackParamList = {
 };
 
 export type CatalogStackParamList = {
-  Catalog: undefined;
+  Catalog: {
+    /**
+     * One-shot success toast for a manual save, shown once and cleared
+     * (see docs/specs/contribution-consent-flow/03-visual-spec.md).
+     * `savedAt` disambiguates back-to-back saves with identical content.
+     */
+    toast?: { savedAt: number; contributionOptIn: boolean; contributedCount: number };
+  } | undefined;
   AddProductHub: undefined;
   ManualProductForm: {
     /** A corpus (Turso) hit the user picked via search or barcode scan — see src/services/corpus. */
@@ -51,11 +59,16 @@ export type CatalogStackParamList = {
   AddProduct: undefined;
 };
 
+export type ClinicStackParamList = {
+  Clinic: undefined;
+  ProcedureDetail: { procedureId: string };
+};
+
 export type RootTabParamList = {
   Routines: undefined;
   // NavigatorScreenParams allows typed deep-linking into the nested stack
   'My Shelf': NavigatorScreenParams<CatalogStackParamList>;
-  Clinic: undefined;
+  Clinic: NavigatorScreenParams<ClinicStackParamList>;
   Profile: undefined;
 };
 
@@ -63,9 +76,10 @@ export type RootTabParamList = {
 
 const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
 const CatalogStack = createNativeStackNavigator<CatalogStackParamList>();
+const ClinicStack = createNativeStackNavigator<ClinicStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-const TAB_ICONS: Record<keyof RootTabParamList, keyof typeof Feather.glyphMap> = {
+const TAB_ICONS: Record<keyof RootTabParamList, IconName> = {
   Routines: 'calendar',
   'My Shelf': 'package',
   Clinic: 'activity',
@@ -96,6 +110,15 @@ function CatalogNavigator() {
   );
 }
 
+function ClinicNavigator() {
+  return (
+    <ClinicStack.Navigator screenOptions={{ headerShown: false }}>
+      <ClinicStack.Screen name="Clinic" component={ClinicScreen} />
+      <ClinicStack.Screen name="ProcedureDetail" component={ProcedureDetailScreen} />
+    </ClinicStack.Navigator>
+  );
+}
+
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -112,7 +135,7 @@ function MainTabs() {
           fontSize: 14,
         },
         tabBarIcon: ({ color, size }) => (
-          <Feather
+          <Icon
             name={TAB_ICONS[route.name as keyof RootTabParamList]}
             size={size}
             color={color}
@@ -128,7 +151,7 @@ function MainTabs() {
         component={CatalogNavigator}
         options={{ headerShown: false }}
       />
-      <Tab.Screen name="Clinic" component={ClinicScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Clinic" component={ClinicNavigator} options={{ headerShown: false }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   );

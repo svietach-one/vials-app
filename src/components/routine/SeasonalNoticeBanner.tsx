@@ -1,5 +1,5 @@
 import React from 'react';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
@@ -48,11 +48,11 @@ export function SeasonalNoticeBanner() {
   return (
     <InlineAlert
       tone="info"
-      icon={<Feather name="sun" size={14} color={colors.statusInfo} />}
+      icon={<Icon name="sun" size={14} color={colors.statusInfo} />}
       title={SEASON_TITLE[season]}
       action={
         <IconButton
-          icon={<Feather name="x" size={16} color={colors.statusInfo} />}
+          icon={<Icon name="x" size={16} color={colors.statusInfo} />}
           label="Dismiss seasonal tip"
           variant="ghost"
           size="xs"

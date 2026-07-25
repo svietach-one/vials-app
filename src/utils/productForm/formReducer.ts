@@ -4,6 +4,7 @@ export type FormAction =
   | { type: 'SET_BRAND'; value: string; source: AddProductDraft['brandSource'] }
   | { type: 'SET_NAME'; value: string; source: AddProductDraft['nameSource'] }
   | { type: 'SET_CATEGORY'; value: ProductType; source: 'auto-detected' | 'manual' }
+  | { type: 'SET_IMAGE'; uri: string | null }
   | { type: 'APPLY_LABEL_OCR_RESULT'; brand: string; name: string; detectedType: ProductType | null }
   | { type: 'SET_BARCODE'; value: string }
   | { type: 'SKIP_BARCODE' }
@@ -67,6 +68,7 @@ export function initialDraft(): AddProductDraft {
     nameSource: null,
     productType: null,
     productTypeSource: null,
+    localImageUri: null,
     barcode: null,
     inciRaw: null,
     activeIngredientKeys: [],
@@ -92,6 +94,11 @@ export function formReducer(state: AddProductDraft, action: FormAction): AddProd
 
     case 'SET_NAME':
       return withBrandStatus({ ...state, name: action.value, nameSource: action.source });
+
+    case 'SET_IMAGE':
+      // Photo capture is orthogonal to the section-completion rules — it never
+      // gates progress, so no sectionStatus recompute here.
+      return { ...state, localImageUri: action.uri };
 
     case 'SET_CATEGORY':
       // Manual selection always wins: it simply overwrites source, and

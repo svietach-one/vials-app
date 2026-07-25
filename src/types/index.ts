@@ -83,6 +83,8 @@ export interface UserProcedureLog {
   deferralCount: number;
   /** User-reported actual duration in months, set when they confirm fading. */
   realDuration?: number;
+  /** Free-text note the user attached to this procedure (Clinic → Details). */
+  note?: string;
 }
 
 export interface ClinicalTimelineConfig {
@@ -288,6 +290,15 @@ export interface Product {
    * Render precedence everywhere: `localImageUri ?? imageUrl ?? <placeholder>`.
    */
   localImageUri?: string | null;
+  /**
+   * Whether the user explicitly opted in to sharing THIS product with the
+   * Vials product database at save time (see docs/specs/contribution-consent-flow/).
+   * Set once at save and never mutated afterward — the running contributor
+   * counter reads this field directly, independent of the user's current
+   * global `contributionConsentStatus`. Absent on records saved before this
+   * field existed; treat as false.
+   */
+  contributionOptIn?: boolean;
 }
 
 
@@ -445,6 +456,60 @@ export interface AppSettings {
    * endpoint backs a global number in this scope.
    */
   communityContributionCount: number;
+  /**
+   * Routines screen Morning/Evening accordion snapshot, so a manual collapse
+   * survives an app restart for the rest of the skincare day. Re-decided from
+   * the 15:00 AM/PM rule once a new skincare day starts (see
+   * getSkincareDateString). Null before the first decision is made.
+   */
+  routineAccordion: RoutineAccordionSettings | null;
+  /**
+   * ISO 8601 timestamp of when the user accepted the onboarding medical
+   * disclaimer (MarketingSlidesScreen slide 3 consent checkbox). Null until
+   * accepted.
+   */
+  medicalDisclaimerAcceptedAt: string | null;
+  /**
+   * Copy version of the medical disclaimer the user last accepted. Defaults
+   * to 0 pre-acceptance — a value that can never collide with a real version
+   * (versions start at 1) so "never accepted" is unambiguous from this field
+   * alone.
+   */
+  medicalDisclaimerVersion: number;
+  /**
+   * Global state for the product-contribution consent flow
+   * (docs/specs/contribution-consent-flow/) — distinct from
+   * `ContributionConsent` (the photo-sharing consent on `UserProfile`).
+   * Governs whether `ContributionConsentModal` / `ContributionToggle` appear
+   * when a manually-added product is saved.
+   */
+  contributionConsentStatus: ContributionConsentStatus;
+  /**
+   * Manual saves declined (toggle off) since the last reminder modal was
+   * shown. Only meaningful while `contributionConsentStatus === 'declined'`.
+   */
+  declinedSaveCountSinceLastReminder: number;
+  /**
+   * Reminder modals shown so far: 0 = none yet, 1 = 1st shown, 2 = 2nd,
+   * 3+ = 3rd/every-30 tier. Drives the next reminder threshold (5/15/30/30…).
+   */
+  reminderCountShown: number;
+}
+
+/**
+ * Product-contribution consent state machine (docs/specs/contribution-consent-flow/01-copy-and-consent-states.md).
+ * - unset: never seen the modal — shown on next manual save.
+ * - declined: seen at least once, not opted in — reminder cadence applies.
+ * - accepted: opted in at least once — no modal, ever again.
+ * - disabled: explicit opt-out in Profile — no modal, no toggle, ever.
+ */
+export type ContributionConsentStatus = 'unset' | 'declined' | 'accepted' | 'disabled';
+
+export interface RoutineAccordionSettings {
+  /** Skincare-day date string (see getSkincareDateString) this snapshot applies to. */
+  date: string;
+  morningExpanded: boolean;
+  eveningExpanded: boolean;
 }
 
 // ─── Catalog filters ──────────────────────────────────────────────────────────
@@ -486,6 +551,12 @@ export interface AddProductDraft {
   nameSource: 'ocr' | 'typed' | null;
   productType: ProductType | null;
   productTypeSource: 'auto-detected' | 'manual' | null;
+  /**
+   * Local URI of the captured front-label photo. The same shot becomes the
+   * product cover on save AND is what the optional "Read label" OCR helper
+   * reads — so it lives on the draft. null until a photo is taken/chosen.
+   */
+  localImageUri: string | null;
 
   // Section 2 — barcode
   barcode: string | null; // null = skipped, never blocks progress

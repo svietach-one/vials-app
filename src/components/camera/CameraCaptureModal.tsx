@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -12,7 +13,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { OcrEngineWebView } from '@/components/camera/OcrEngineWebView';
 import type { OcrEngineHandle } from '@/components/camera/OcrEngineWebView';
@@ -34,6 +35,13 @@ export interface CameraCaptureModalProps {
   visible: boolean;
   onClose: () => void;
   onCapture: (result: CaptureResult) => void;
+  /**
+   * When set, the label/inci flow OCRs THIS already-captured image instead of
+   * launching the camera/gallery at all — e.g. re-reading the product cover
+   * photo, so the user isn't asked to photograph the package again. Ignored in
+   * barcode mode.
+   */
+  sourceImageUri?: string;
 }
 
 /**
@@ -119,7 +127,7 @@ function BarcodeCaptureModal({ mode, visible, onClose, onCapture }: CameraCaptur
   function renderFallback() {
     return (
       <View style={styles.centerFill}>
-        <Feather name="camera-off" size={32} color="rgba(255,255,255,0.6)" />
+        <Icon name="camera-off" size={32} color="rgba(255,255,255,0.6)" />
         <Text style={styles.fallbackText}>
           Camera unavailable. Enter the barcode below or use manual entry.
         </Text>
@@ -192,7 +200,7 @@ function BarcodeCaptureModal({ mode, visible, onClose, onCapture }: CameraCaptur
         */}
         <SafeAreaView style={styles.closeWrap} pointerEvents="box-none">
           <IconButton
-            icon={<Feather name="x" size={20} color={palette.white} />}
+            icon={<Icon name="x" size={20} color={palette.white} />}
             label="Close camera"
             variant="ghost"
             size="sm"
@@ -246,7 +254,13 @@ const PICKER_TITLE: Record<Exclude<CaptureMode, 'barcode'>, string> = {
   inci: 'Scan Ingredient List',
 };
 
-function OcrPhotoFlow({ mode, visible, onClose, onCapture }: CameraCaptureModalProps) {
+function OcrPhotoFlow({
+  mode,
+  visible,
+  onClose,
+  onCapture,
+  sourceImageUri,
+}: CameraCaptureModalProps) {
   // Drives the full-screen "Reading…" overlay; set before any OCR work starts.
   const [loading, setLoading] = useState(false);
 
@@ -283,7 +297,13 @@ function OcrPhotoFlow({ mode, visible, onClose, onCapture }: CameraCaptureModalP
       engineRef.current?.clearPending();
       return;
     }
-    showPickerAlert();
+    // An already-captured photo is OCR'd in place (no re-shoot); otherwise the
+    // in-app Take Photo / Choose from Gallery prompt (unchanged default).
+    if (sourceImageUri) {
+      void processExistingImage(sourceImageUri);
+    } else {
+      showPickerAlert();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
@@ -352,6 +372,23 @@ function OcrPhotoFlow({ mode, visible, onClose, onCapture }: CameraCaptureModalP
     engineRef.current?.processImage(base64);
   }
 
+  // OCRs an already-stored image (the product cover) without any capture step —
+  // reads it to base64 and hands it to the same engine as a fresh shot.
+  async function processExistingImage(uri: string) {
+    setLoading(true);
+    startScanTimeout();
+    try {
+      const base64 = await new File(uri).base64();
+      if (!base64) {
+        showOcrError();
+        return;
+      }
+      engineRef.current?.processImage(base64);
+    } catch {
+      showOcrError();
+    }
+  }
+
   function handleOcrText(rawText: string) {
     clearScanTimeout();
     setLoading(false);
@@ -382,7 +419,12 @@ function OcrPhotoFlow({ mode, visible, onClose, onCapture }: CameraCaptureModalP
     setLoading(false);
     engineRef.current?.clearPending();
     Alert.alert('Scan Failed', 'Could not read the text. Try again, or use manual entry.', [
-      { text: 'Try Again', onPress: showPickerAlert },
+      {
+        text: 'Try Again',
+        // Existing-photo mode re-reads the same shot; capture mode re-prompts.
+        onPress: () =>
+          sourceImageUri ? void processExistingImage(sourceImageUri) : showPickerAlert(),
+      },
       { text: 'Cancel', style: 'cancel', onPress: onClose },
     ]);
   }

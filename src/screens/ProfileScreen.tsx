@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { DebugAccountSyncCard } from '@/components/debug/DebugAccountSyncCard';
 import { DebugOnboardingPreview } from '@/components/debug/DebugOnboardingPreview';
@@ -30,6 +30,7 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { searchCities } from '@/utils/citySearch';
 import { setContributionConsent } from '@/utils/contributionConsent';
+import { contributedProductsCount } from '@/utils/contributionConsentFlow';
 import type {
   CityLocation,
   SkinPhototype,
@@ -199,10 +200,10 @@ function CityField({
   if (city) {
     return (
       <View style={cityStyles.selectedRow}>
-        <Feather name="map-pin" size={16} color={colors.textSecondary} />
+        <Icon name="map-pin" size={16} color={colors.textSecondary} />
         <Text style={cityStyles.selectedName}>{city.name}</Text>
         <IconButton
-          icon={<Feather name="x" size={16} color={colors.textTertiary} />}
+          icon={<Icon name="x" size={16} color={colors.textTertiary} />}
           label="Clear city"
           variant="ghost"
           size="xs"
@@ -232,7 +233,7 @@ function CityField({
           accessibilityRole="button"
           accessibilityLabel={`Select ${suggestion.name}`}
         >
-          <Feather name="map-pin" size={14} color={colors.textTertiary} />
+          <Icon name="map-pin" size={14} color={colors.textTertiary} />
           <Text style={cityStyles.suggestionText}>{suggestion.name}</Text>
         </Pressable>
       ))}
@@ -276,6 +277,21 @@ export default function ProfileScreen() {
   const setGamificationEnabled = useSettingsStore((s) => s.setGamificationEnabled);
   const routineCycleType = useSettingsStore((s) => s.routineCycleType);
 
+  const contributionConsentStatus = useSettingsStore((s) => s.contributionConsentStatus);
+  const setContributionConsentStatus = useSettingsStore((s) => s.setContributionConsentStatus);
+  const products = useProductsStore((s) => s.products);
+  const contributedCount = contributedProductsCount(products);
+
+  function handleContributionToggle(v: boolean) {
+    if (v) {
+      // Re-enabling from 'disabled' is a fresh start (unset), not a silent
+      // resume of 'accepted' — the full explainer modal reappears next save.
+      setContributionConsentStatus(contributionConsentStatus === 'disabled' ? 'unset' : 'accepted');
+    } else {
+      setContributionConsentStatus('disabled');
+    }
+  }
+
   function handleCycleToggle(enableDynamic: boolean) {
     if (!enableDynamic) {
       // Dynamic → fixed discards cycle progress — confirm first (research §1.4).
@@ -296,7 +312,7 @@ export default function ProfileScreen() {
     switchCycleType('dynamic');
   }
 
-  const productCount = useProductsStore((s) => s.products.length);
+  const productCount = products.length;
   const procedureCount = useProceduresStore((s) => s.procedures.length);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -322,7 +338,7 @@ export default function ProfileScreen() {
             <Button
               variant="textActive"
               size="sm"
-              icon={<Feather name="edit-2" size={14} color={palette.plum} />}
+              icon={<Icon name="edit-2" size={14} color={palette.plum} />}
               onPress={() => setEditModalVisible(true)}
               accessibilityLabel="Edit skin profile"
             >
@@ -396,11 +412,27 @@ export default function ProfileScreen() {
                   size="sm"
                 />
               }
+              divider
+            />
+            <ListRow
+              title="Share new products with Vials"
+              subtitle={`${contributedCount} products contributed so far`}
+              trailing={
+                <Switch
+                  checked={contributionConsentStatus === 'accepted'}
+                  onValueChange={handleContributionToggle}
+                  accessibilityLabel="Share new products with Vials"
+                  size="sm"
+                />
+              }
               divider={false}
             />
           </View>
           <Text style={styles.settingsHint}>
             Previously shared photos remain in the database.
+          </Text>
+          <Text style={styles.settingsHint}>
+            Turning this off stops future contributions. Products already shared stay in the database.
           </Text>
         </View>
 
@@ -425,14 +457,14 @@ export default function ProfileScreen() {
           <SectionHeader title="Your Data" />
           <InlineAlert
             tone="info"
-            icon={<Feather name="hard-drive" size={14} color={colors.statusInfo} />}
+            icon={<Icon name="hard-drive" size={14} color={colors.statusInfo} />}
             title="Stored locally on this device"
           >
             Vials does not sync to the cloud. Export your data regularly to avoid losing it if you switch devices or reinstall the app.
           </InlineAlert>
           <View style={styles.card}>
             <ListRow
-              leading={<Feather name="upload-cloud" size={18} color={colors.textSecondary} />}
+              leading={<Icon name="upload-cloud" size={18} color={colors.textSecondary} />}
               title="Export All Data"
               subtitle="Share a JSON backup of your full vault"
               onPress={exportAllData}
@@ -448,7 +480,7 @@ export default function ProfileScreen() {
             <SectionHeader title="Developer Tools (Debug)" />
             <View style={[styles.card, styles.debugCard]}>
               <ListRow
-                leading={<Feather name="eye" size={18} color={colors.statusWarning} />}
+                leading={<Icon name="eye" size={18} color={colors.statusWarning} />}
                 title="Debug: View Onboarding"
                 subtitle="Your skin profile is restored on exit — picking a real product still adds it to My Shelf"
                 onPress={() => setDebugOnboardingVisible(true)}
@@ -465,7 +497,7 @@ export default function ProfileScreen() {
           <SectionHeader title="About" />
           <View style={styles.card}>
             <ListRow
-              leading={<Feather name="info" size={18} color={colors.textSecondary} />}
+              leading={<Icon name="info" size={18} color={colors.textSecondary} />}
               title="Vials"
               subtitle="Version 1.0.0 — Phase 1 MVP"
               divider={false}

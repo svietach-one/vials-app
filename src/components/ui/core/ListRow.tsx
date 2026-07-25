@@ -8,7 +8,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { colors, space, typography } from '@/constants/tokens';
 
@@ -63,7 +63,7 @@ export function ListRow({
       {trailing ? <View style={styles.trailingSlot}>{trailing}</View> : null}
 
       {chevron ? (
-        <Feather
+        <Icon
           name="chevron-right"
           size={18}
           color={colors.textTertiary}

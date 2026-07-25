@@ -3,7 +3,7 @@
  * the four-way commit scope.
  * Spec: docs/specs/2026-07-04-routine-engine.md §4 Story 2
  *
- * FE-8 shipped DraftPreviewSheet + src/domain/routinePlanActions.ts
+ * FE-8 shipped DraftPreviewScreen + src/domain/routinePlanActions.ts
  * (progress/routine-engine.md, 2026-07-05 "GENERATION UX" entry). Heavy
  * native modules (@gorhom/bottom-sheet) are mocked at the boundary per
  * .claude/rules/testing.md and the established playbook in
@@ -54,7 +54,7 @@ jest.mock('@/store/routinesStore', () => ({
   useRoutinesStore: jest.fn((selector: any) => selector({ routines: mockRoutines })),
 }));
 
-import { DraftPreviewSheet } from '@/components/routine/DraftPreviewSheet';
+import { DraftPreviewScreen } from '@/components/routine/DraftPreviewScreen';
 
 function makeProduct(overrides: Partial<Product>): Product {
   return {
@@ -111,7 +111,7 @@ beforeEach(() => {
 describe('Story 2 AC: Draft Preview renders the step list with the four commit actions', () => {
   it('renders Morning/Evening step groups, the paused row, and all four scope actions', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan()}
@@ -135,7 +135,7 @@ describe('Story 2 AC: Draft Preview renders the step list with the four commit a
 
   it('caps the summary lines at 3', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan()}
@@ -153,7 +153,7 @@ describe('Story 2 AC: Draft Preview renders the step list with the four commit a
 describe('screen-improvements: steps are numbered in the order they are applied', () => {
   it('lists a period layering-ordered regardless of the order the plan arrays hold', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan({
@@ -177,7 +177,7 @@ describe('screen-improvements: steps are numbered in the order they are applied'
 
   it('numbers each step by its position within its own period', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan()}
@@ -187,8 +187,8 @@ describe('screen-improvements: steps are numbered in the order they are applied'
     );
 
     // Morning has two steps (1, 2) and Evening restarts at 1.
-    expect(screen.getAllByText('1')).toHaveLength(2);
-    expect(screen.getAllByText('2')).toHaveLength(1);
+    expect(screen.getAllByText('1.')).toHaveLength(2);
+    expect(screen.getAllByText('2.')).toHaveLength(1);
   });
 });
 
@@ -203,7 +203,7 @@ describe('screen-improvements: each step reflects whether it changed from the sa
       },
     ];
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan({
@@ -233,7 +233,7 @@ describe('screen-improvements: each step reflects whether it changed from the sa
       },
     ];
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan({
@@ -258,21 +258,21 @@ describe('screen-improvements: each step reflects whether it changed from the sa
 describe('Story 2 AC: each commit action invokes onCommit with the correct scope', () => {
   it('"Save for Morning & Evening" commits scope "both"', () => {
     const onCommit = jest.fn();
-    render(<DraftPreviewSheet visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
+    render(<DraftPreviewScreen visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
     fireEvent.press(screen.getByLabelText('Save for Morning & Evening'));
     expect(onCommit).toHaveBeenCalledWith('both');
   });
 
   it('"Save for Morning Only" commits scope "am"', () => {
     const onCommit = jest.fn();
-    render(<DraftPreviewSheet visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
+    render(<DraftPreviewScreen visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
     fireEvent.press(screen.getByLabelText('Save for Morning Only'));
     expect(onCommit).toHaveBeenCalledWith('am');
   });
 
   it('"Save for Evening Only" commits scope "pm"', () => {
     const onCommit = jest.fn();
-    render(<DraftPreviewSheet visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
+    render(<DraftPreviewScreen visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
     fireEvent.press(screen.getByLabelText('Save for Evening Only'));
     expect(onCommit).toHaveBeenCalledWith('pm');
   });
@@ -280,7 +280,7 @@ describe('Story 2 AC: each commit action invokes onCommit with the correct scope
   it('"Cancel / Discard Draft" never calls onCommit, only onClose', () => {
     const onCommit = jest.fn();
     const onClose = jest.fn();
-    render(<DraftPreviewSheet visible onClose={onClose} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
+    render(<DraftPreviewScreen visible onClose={onClose} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
     fireEvent.press(screen.getByLabelText('Cancel and discard draft'));
     expect(onCommit).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
@@ -290,7 +290,7 @@ describe('Story 2 AC: each commit action invokes onCommit with the correct scope
 describe('screen-improvements: the reserve list is a collapsed-by-default disclosure', () => {
   it('explains the whole list once under the heading instead of per product', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan({
@@ -314,7 +314,7 @@ describe('screen-improvements: the reserve list is a collapsed-by-default disclo
 
   it('keeps a reason on the row when it says something the shared intro does not', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan({
@@ -336,7 +336,7 @@ describe('screen-improvements: the reserve list is a collapsed-by-default disclo
 
   it('starts collapsed, showing only the heading with a product count', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan({
@@ -354,7 +354,7 @@ describe('screen-improvements: the reserve list is a collapsed-by-default disclo
 
   it('expands to show the reserved products themselves when tapped', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan({
@@ -375,7 +375,7 @@ describe('screen-improvements: the reserve list is a collapsed-by-default disclo
 describe('phase-07: reserve rows show the reason and an override action', () => {
   it('shows a frozen pair-rule product with its reason text (not a rule id)', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan({
@@ -393,7 +393,7 @@ describe('phase-07: reserve rows show the reason and an override action', () => 
   it('fires onOverride with the product id when "Add anyway" is tapped', () => {
     const onOverride = jest.fn();
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan({ reserve: [{ productId: VITC.id, reasonCode: 'cumulative_active_cap' }] })}
@@ -410,7 +410,7 @@ describe('phase-07: reserve rows show the reason and an override action', () => 
 
   it('omits the override action when onOverride is not provided', () => {
     render(
-      <DraftPreviewSheet
+      <DraftPreviewScreen
         visible
         onClose={jest.fn()}
         plan={makePlan({ reserve: [{ productId: VITC.id, reasonCode: 'not_needed_for_goals' }] })}

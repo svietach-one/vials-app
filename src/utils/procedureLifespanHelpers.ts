@@ -80,6 +80,17 @@ export function computeStatus(proc: UserProcedureLog, now: Date): ComputedStatus
 }
 
 /**
+ * Estimated date the effect fully lapses and the procedure is worth repeating:
+ * datePerformed + the total effect window. For custom procedures this collapses
+ * to estimatedReturnDate (getTimelineConfig derives the window from that span).
+ */
+export function getRepeatDate(proc: UserProcedureLog): Date {
+  const config = getTimelineConfig(proc);
+  const performed = new Date(proc.datePerformed).getTime();
+  return new Date(performed + config.totalEffectMonths * DAYS_PER_MONTH * MS_PER_DAY);
+}
+
+/**
  * Returns a progress ratio in [0, 1] representing how far through the
  * total effect window the procedure is (capped at 1.0).
  */

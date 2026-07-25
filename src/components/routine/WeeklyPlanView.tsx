@@ -5,7 +5,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import DraggableFlatList, {
   ScaleDecorator,
 } from 'react-native-draggable-flatlist';
@@ -60,7 +60,7 @@ function StepRow({ item, drag, isActive, products, onUpdateSchedule }: StepRowPr
         accessibilityLabel="Hold to reorder step"
         accessibilityRole="button"
       >
-        <Feather name="menu" size={18} color={colors.textTertiary} />
+        <Icon name="menu" size={18} color={colors.textTertiary} />
       </Pressable>
 
       {/* Content */}
@@ -161,7 +161,7 @@ const rowStyles = StyleSheet.create({
 function WeeklyEmptyState() {
   return (
     <View style={emptyStyles.wrap}>
-      <Feather name="list" size={28} color={colors.textTertiary} />
+      <Icon name="list" size={28} color={colors.textTertiary} />
       <Text style={emptyStyles.title}>No steps yet</Text>
       <Text style={emptyStyles.body}>
         Add products from the Catalog tab — they'll appear here as routine steps.

@@ -1,25 +1,22 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  BottomSheetBackdrop,
   BottomSheetModal,
   BottomSheetScrollView,
-  type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Badge } from '@/components/ui/feedback/Badge';
 import { Button } from '@/components/ui/core/Button';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { Tag } from '@/components/ui/core/Tag';
-import {
-  selectToneColor,
-  type SelectOption,
-  type SelectOptionTone,
-} from '@/components/ui/forms/Select';
+import { ReplaceStepSheet, type ReplaceStepTarget } from '@/components/routine/ReplaceStepSheet';
+import { type SelectOption, type SelectOptionTone } from '@/components/ui/forms/Select';
 import { reasonText } from '@/constants/decisionReasons';
-import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { getSlotCategoryLabel, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { PlanCommitScope } from '@/domain/routinePlanActions';
 import { useProductsStore } from '@/store/productsStore';
@@ -30,10 +27,11 @@ import { buildDraftSummaryLines } from '@/utils/routineEngine/planApply';
 import type { PlannedStep, SlotAlternative } from '@/utils/routineEngine/planTypes';
 import { getSlotIndex, orderSteps } from '@/utils/routineEngine/slotting';
 import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
+import { formatScheduleDays } from '@/utils/routineLabel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface DraftPreviewSheetProps {
+export interface DraftPreviewScreenProps {
   visible: boolean;
   onClose: () => void;
   plan: RoutinePlan | null;
@@ -41,39 +39,41 @@ export interface DraftPreviewSheetProps {
   onCommit: (scope: PlanCommitScope) => void;
   /**
    * Story 2 (routine-similar-product-priority): fired when the user picks a
-   * candidate from a step's "Replace with" select. `winnerProductId` is
-   * always the recorded slot's stable identity key (never the currently-
-   * admitted product — see planApply.ts), so repeated reselection keeps
-   * working. The sheet never applies the swap itself — RoutinesScreen owns
-   * rewriting the still-uncommitted draft via `applySlotAlternativeSwap`
-   * (tech design §1). Optional so pre-existing callers/tests that predate
-   * this feature keep typechecking.
+   * candidate from a step's replacement sheet. `winnerProductId` is always the
+   * recorded slot's stable identity key (never the currently-admitted product
+   * — see planApply.ts), so repeated reselection keeps working. The screen
+   * never applies the swap itself — RoutinesScreen owns rewriting the still-
+   * uncommitted draft via `applySlotAlternativeSwap` (tech design §1). Optional
+   * so pre-existing callers/tests that predate this feature keep typechecking.
    */
   onSwapAlternative?: (winnerProductId: string, chosenProductId: string) => void;
   /**
    * Fired when the user taps "Add anyway" on a reserved product (phase-07
-   * override). The sheet never applies it — RoutinesScreen records the override
-   * and regenerates the draft. Optional so older callers keep typechecking.
+   * override). The screen never applies it — RoutinesScreen records the
+   * override and regenerates the draft. Optional so older callers keep
+   * typechecking.
    */
   onOverride?: (productId: string) => void;
 }
 
-const SNAP_POINTS = ['88%'];
+const SNAP_POINTS = ['100%'];
+const HIDE_HANDLE = () => null;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
- * Draft Preview (Diff Mode, research §3): Morning then Evening, each period a
+ * Routine Draft (Diff Mode, research §3), presented as a full screen with a
+ * back arrow rather than a bottom sheet: Morning then Evening, each period a
  * numbered list of steps in the order they are applied (layering order, not
  * score order). Every step is one card — number + slot category on the left,
- * product identity on the right — and a card with recorded same-slot
- * candidates is a dropdown: tapping it expands the replacements inline
- * instead of opening a separate Select modal.
+ * product identity on the right — and a step with recorded same-slot
+ * candidates carries a "Change" affordance that opens the ReplaceStepSheet
+ * (screen-2) for that slot.
  *
  * Nothing here writes — commits route through routinePlanActions and swaps
  * bubble up to RoutinesScreen, which owns the uncommitted draft.
  */
-export function DraftPreviewSheet({
+export function DraftPreviewScreen({
   visible,
   onClose,
   plan,
@@ -81,11 +81,12 @@ export function DraftPreviewSheet({
   onCommit,
   onSwapAlternative,
   onOverride,
-}: DraftPreviewSheetProps) {
+}: DraftPreviewScreenProps) {
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheetModal>(null);
   const wasPresented = useRef(false);
   const [reserveExpanded, setReserveExpanded] = useState(false);
+  const [replaceTarget, setReplaceTarget] = useState<ReplaceStepTarget | null>(null);
 
   const products = useProductsStore((s) => s.products);
   const routines = useRoutinesStore((s) => s.routines);
@@ -101,18 +102,10 @@ export function DraftPreviewSheet({
     }
   }, [visible]);
 
-  const renderBackdrop = useCallback(
-    (backdropProps: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop
-        {...backdropProps}
-        appearsOnIndex={0}
-        disappearsOnIndex={-1}
-        pressBehavior="close"
-        opacity={0.45}
-      />
-    ),
-    [],
-  );
+  // A closed screen must never leave a stale replacement sheet queued.
+  useEffect(() => {
+    if (!visible) setReplaceTarget(null);
+  }, [visible]);
 
   if (!plan) return null;
 
@@ -139,8 +132,8 @@ export function DraftPreviewSheet({
 
   // Story 2 (routine-similar-product-priority): same-slot candidates, keyed
   // by slotIndex (stable regardless of which candidate is currently
-  // admitted) so the "Replace with" select can always find its slot, even
-  // after the user has already swapped once.
+  // admitted) so the replacement sheet can always find its slot, even after
+  // the user has already swapped once.
   const alternativesFor = (period: 'morning' | 'evening'): Map<number, SlotAlternative> =>
     new Map(
       (plan.slotAlternatives ?? []).filter((a) => a.period === period).map((a) => [a.slotIndex, a]),
@@ -160,27 +153,46 @@ export function DraftPreviewSheet({
       : `${nameOf(f.productId)} — ${reasonText(f.reasonCode)}`,
   }));
 
+  const handleSelectReplacement = (chosenProductId: string) => {
+    if (replaceTarget) onSwapAlternative?.(replaceTarget.winnerProductId, chosenProductId);
+    setReplaceTarget(null);
+  };
+
   return (
     <BottomSheetModal
       ref={sheetRef}
       snapPoints={SNAP_POINTS}
+      topInset={0}
+      handleComponent={HIDE_HANDLE}
+      enablePanDownToClose={false}
       enableDynamicSizing={false}
       onDismiss={onClose}
-      backgroundStyle={styles.sheetBackground}
-      handleIndicatorStyle={styles.handleIndicator}
-      backdropComponent={renderBackdrop}
+      backgroundStyle={styles.screenBackground}
     >
+      <View style={[styles.headerWrap, { paddingTop: insets.top }]}>
+        <AppHeader
+          title="Routine Draft"
+          leftAction={
+            <IconButton
+              icon={<Icon name="arrow-left" size={18} color={colors.textPrimary} />}
+              label="Back"
+              variant="ghost"
+              size="sm"
+              onPress={onClose}
+            />
+          }
+        />
+      </View>
+
       <BottomSheetScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space[6] }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Routine Draft</Text>
-
         {summaryLines.length > 0 ? (
           <View style={styles.summary}>
             {summaryLines.map((line) => (
               <View key={line} style={styles.summaryRow}>
-                <Feather name="check" size={14} color={colors.statusSafe} />
+                <Icon name="check" size={14} color={colors.statusSafe} />
                 <Text style={styles.summaryText}>{line}</Text>
               </View>
             ))}
@@ -196,7 +208,7 @@ export function DraftPreviewSheet({
           nameOf={nameOf}
           productOf={productOf}
           reasonForProduct={reasonForProduct}
-          onSwapAlternative={onSwapAlternative}
+          onRequestReplace={setReplaceTarget}
         />
         <PeriodSteps
           label="Evening"
@@ -207,7 +219,7 @@ export function DraftPreviewSheet({
           nameOf={nameOf}
           productOf={productOf}
           reasonForProduct={reasonForProduct}
-          onSwapAlternative={onSwapAlternative}
+          onRequestReplace={setReplaceTarget}
         />
 
         {pausedRows.length > 0 ? (
@@ -232,7 +244,7 @@ export function DraftPreviewSheet({
               <Text style={styles.reserveHeading}>
                 {`In reserve · ${plan.reserve.length} product${plan.reserve.length === 1 ? '' : 's'}`}
               </Text>
-              <Feather
+              <Icon
                 name={reserveExpanded ? 'chevron-up' : 'chevron-down'}
                 size={18}
                 color={colors.textTertiary}
@@ -309,6 +321,13 @@ export function DraftPreviewSheet({
           </Button>
         </View>
       </BottomSheetScrollView>
+
+      <ReplaceStepSheet
+        target={replaceTarget}
+        onClose={() => setReplaceTarget(null)}
+        productOf={productOf}
+        onSelect={handleSelectReplacement}
+      />
     </BottomSheetModal>
   );
 }
@@ -337,7 +356,7 @@ function PeriodSteps({
   nameOf,
   productOf,
   reasonForProduct,
-  onSwapAlternative,
+  onRequestReplace,
 }: {
   label: string;
   period: 'morning' | 'evening';
@@ -347,7 +366,7 @@ function PeriodSteps({
   nameOf: (productId: string | null) => string;
   productOf: (productId: string | null) => Product | undefined;
   reasonForProduct: (productId: string) => string | null;
-  onSwapAlternative?: (winnerProductId: string, chosenProductId: string) => void;
+  onRequestReplace: (target: ReplaceStepTarget) => void;
 }) {
   const isMorning = period === 'morning';
   // Application order, not score order: the list reads top-to-bottom exactly
@@ -364,7 +383,7 @@ function PeriodSteps({
             { backgroundColor: isMorning ? palette.marigoldTint : palette.cobaltTint },
           ]}
         >
-          <Feather
+          <Icon
             name={isMorning ? 'sun' : 'moon'}
             size={14}
             color={isMorning ? palette.marigold : palette.cobalt}
@@ -384,7 +403,7 @@ function PeriodSteps({
             entry={alternativesBySlot.get(step.slotIndex)}
             nameOf={nameOf}
             productOf={productOf}
-            onSwapAlternative={onSwapAlternative}
+            onRequestReplace={onRequestReplace}
           />
         ))
       ) : (
@@ -394,7 +413,7 @@ function PeriodSteps({
   );
 }
 
-// ─── One step: numbered identity card that expands into its replacements ──────
+// ─── One step: numbered identity card with a "Change" affordance ──────────────
 
 function StepCard({
   position,
@@ -404,7 +423,7 @@ function StepCard({
   entry,
   nameOf,
   productOf,
-  onSwapAlternative,
+  onRequestReplace,
 }: {
   position: number;
   step: PlannedStep;
@@ -413,135 +432,98 @@ function StepCard({
   entry: SlotAlternative | undefined;
   nameOf: (productId: string | null) => string;
   productOf: (productId: string | null) => Product | undefined;
-  onSwapAlternative?: (winnerProductId: string, chosenProductId: string) => void;
+  onRequestReplace: (target: ReplaceStepTarget) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
   const isChanged = !oldStep || oldStep.productId !== step.productId;
   const product = productOf(step.productId);
   const name = nameOf(step.productId);
   const typeLabel = PRODUCT_TYPE_LABELS[step.productType] ?? step.productType;
-  // Only a slot with recorded candidates is a dropdown; the rest are plain
-  // cards, so a chevron always means "there is something to choose here".
-  const isExpandable = !!entry;
+  // Only a slot with recorded candidates offers a "Change" — the rest are
+  // plain cards, so the affordance always means "there is something to choose".
+  const isSwappable = !!entry;
+  const showReasonBadge = isChanged && !!reason;
+  // "No change" only means something when there's nothing to swap to — once
+  // a Change action exists, showing it alongside renders the pill's "nothing
+  // to do here" message contradictory, so Change wins.
+  const showNoChangeTag = !isChanged && !isSwappable;
+  const showStatusRow = showReasonBadge || showNoChangeTag || isSwappable;
+
+  const openReplace = () => {
+    if (!entry) return;
+    onRequestReplace({
+      winnerProductId: entry.winnerProductId,
+      categoryLabel: getSlotCategoryLabel(step.productType),
+      options: buildStepOptions(entry, step.productId, oldStep, nameOf),
+      currentProductId: step.productId,
+    });
+  };
 
   return (
     <View style={styles.stepCard}>
-      <Pressable
-        style={styles.stepHeader}
-        onPress={isExpandable ? () => setExpanded((v) => !v) : undefined}
-        disabled={!isExpandable}
-        accessibilityRole={isExpandable ? 'button' : undefined}
-        accessibilityState={isExpandable ? { expanded } : undefined}
-        accessibilityLabel={isExpandable ? `Replace ${name}` : name}
-      >
-        <View style={styles.positionColumn}>
-          <Text style={styles.positionNumber}>{position}</Text>
-          <Text style={styles.positionLabel} numberOfLines={1}>
+      {/* Step number + slot category, flush with the card's left edge, above
+          the photo — frequency marker pinned to the right of the same line. */}
+      <View style={styles.titleLine}>
+        <View style={styles.titleLineLeft}>
+          <Text style={styles.stepNumber}>{position}.</Text>
+          <Text style={styles.stepCategory} numberOfLines={1}>
             {typeLabel}
           </Text>
         </View>
+        <Text style={styles.frequency} numberOfLines={1}>
+          {formatScheduleDays(step.scheduledDays)}
+        </Text>
+      </View>
 
-        {product ? <ProductThumbnail product={product} size={56} /> : null}
+      <View style={styles.stepRow}>
+        {product ? <ProductThumbnail product={product} size={76} /> : null}
 
         <View style={styles.identity}>
+          <Text style={isChanged ? styles.nameChanged : styles.name} numberOfLines={2}>
+            {name}
+          </Text>
           {product?.brand ? (
             <Text style={styles.brand} numberOfLines={1}>
               {product.brand}
             </Text>
           ) : null}
-          <Text style={isChanged ? styles.nameChanged : styles.name} numberOfLines={2}>
-            {name}
-          </Text>
 
           {isChanged && oldStep ? (
             <Text style={styles.oldName} numberOfLines={1}>
               {nameOf(oldStep.productId)}
             </Text>
           ) : null}
-          {isChanged ? (
-            reason ? (
-              <Badge status="Cobalt" type="Light" style={styles.reasonBadge}>
-                {reason}
-              </Badge>
-            ) : null
-          ) : (
-            <Tag tone="neutral" style={styles.noChangeTag}>
-              No change
-            </Tag>
-          )}
-        </View>
 
-        {isExpandable ? (
-          <Feather
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={colors.textTertiary}
-          />
-        ) : null}
-      </Pressable>
+          {/* Row itself is conditional so a changed step with no reason and
+              no alternative (nothing to show either side) doesn't leave a
+              bare gap behind. */}
+          {showStatusRow ? (
+            <View style={styles.statusRow}>
+              {showReasonBadge ? (
+                <Badge status="Cobalt" type="Light">
+                  {reason}
+                </Badge>
+              ) : showNoChangeTag ? (
+                <Tag tone="neutral">No change</Tag>
+              ) : null}
 
-      {isExpandable && expanded && entry ? (
-        <View style={styles.dropdown}>
-          <Text style={styles.dropdownLabel}>Replace with</Text>
-          {buildStepOptions(entry, step.productId, oldStep, nameOf).map((option) => (
-            <ReplacementRow
-              key={option.value}
-              option={option}
-              product={productOf(option.value)}
-              selected={option.value === step.productId}
-              onPress={() => {
-                setExpanded(false);
-                onSwapAlternative?.(entry.winnerProductId, option.value);
-              }}
-            />
-          ))}
+              {isSwappable ? (
+                <Pressable
+                  style={styles.changeButton}
+                  onPress={openReplace}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Change ${name}`}
+                >
+                  <Text style={styles.changeLabel}>Change</Text>
+                  <Icon name="chevron-right" size={18} color={palette.plum} />
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
         </View>
-      ) : null}
+      </View>
     </View>
   );
 }
-
-/** One candidate inside an expanded step card. */
-function ReplacementRow({
-  option,
-  product,
-  selected,
-  onPress,
-}: {
-  option: SelectOption;
-  product: Product | undefined;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      style={[styles.optionRow, selected && styles.optionRowSelected]}
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={option.reason ? `${option.title} — ${option.reason}` : option.title}
-    >
-      {product ? <ProductThumbnail product={product} size={40} /> : null}
-      <View style={styles.optionText}>
-        <Text style={styles.optionTitle} numberOfLines={2}>
-          {option.title}
-        </Text>
-        {option.reason ? (
-          <Text
-            style={[styles.optionReason, { color: toneColorOf(option.tone) }]}
-            numberOfLines={1}
-          >
-            {option.reason}
-          </Text>
-        ) : null}
-      </View>
-      {selected ? <Feather name="check" size={18} color={colors.textPrimary} /> : null}
-    </Pressable>
-  );
-}
-
-const toneColorOf = (tone: SelectOptionTone | undefined) => selectToneColor[tone ?? 'neutral'];
 
 /**
  * Every candidate for one slot, deduplicated: the currently-admitted product
@@ -595,22 +577,17 @@ function buildStepOptions(
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  sheetBackground: {
-    backgroundColor: colors.bgBase,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
+  screenBackground: {
+    backgroundColor: colors.bgScreen,
+    borderRadius: 0,
   },
-  handleIndicator: {
-    backgroundColor: colors.borderStrong,
+  headerWrap: {
+    backgroundColor: colors.bgBase,
   },
   content: {
     paddingHorizontal: space.gutterScreen,
-    paddingTop: space[2],
+    paddingTop: space[4],
     gap: space[4],
-  },
-  title: {
-    ...typography.h3,
-    color: colors.textPrimary,
   },
   summary: {
     backgroundColor: colors.statusSafeTint,
@@ -659,48 +636,65 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     ...shadow.sm,
   },
-  stepHeader: {
+  stepRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // Top edge lines up with the name line (identity's first row), not the
+    // whole content block — the photo previously centered against brand/
+    // frequency/reason rows too and drifted below the product name.
+    alignItems: 'flex-start',
     gap: space[3],
-    padding: space[3],
-  },
-  // Fixed width so every card's product identity starts at the same x, however
-  // long the category label is.
-  positionColumn: {
-    width: 60,
-    alignItems: 'center',
-    gap: 2,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: colors.borderDivider,
-    paddingRight: space[2],
-  },
-  positionNumber: {
-    ...typography.h3,
-    color: colors.textPrimary,
-  },
-  positionLabel: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
+    paddingHorizontal: space[3],
+    paddingBottom: space[3],
   },
   identity: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    gap: space[1],
+  },
+  // "1.  Cleanser" (left, flush above the photo) + frequency marker (right),
+  // e.g. "2.  Cream                              Every day".
+  titleLine: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: space[3],
+    paddingHorizontal: space[3],
+    paddingTop: space[3],
+    paddingBottom: space[1],
+  },
+  titleLineLeft: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: space[3],
+    flexShrink: 1,
+  },
+  stepNumber: {
+    ...typography.body,
+    fontFamily: 'DMSans-Bold',
+    color: colors.textPrimary,
+  },
+  stepCategory: {
+    ...typography.body,
+    color: colors.textSecondary,
+    flexShrink: 1,
   },
   brand: {
     ...typography.bodySmall,
     color: colors.textSecondary,
   },
+  frequency: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    flexShrink: 0,
+  },
   name: {
     ...typography.body,
+    fontFamily: 'DMSans-Bold',
     color: colors.textPrimary,
   },
   nameChanged: {
     ...typography.body,
-    fontFamily: 'DMSans-Medium',
+    fontFamily: 'DMSans-Bold',
     color: colors.textPrimary,
   },
   oldName: {
@@ -708,52 +702,25 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     textDecorationLine: 'line-through',
   },
-  reasonBadge: {
-    marginTop: space[1],
-    alignSelf: 'flex-start',
-  },
-  noChangeTag: {
-    marginTop: space[1],
-    alignSelf: 'flex-start',
-  },
-
-  dropdown: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.borderDivider,
-    paddingHorizontal: space[3],
-    paddingTop: space[2],
-    paddingBottom: space[2],
-    gap: space[1],
-  },
-  dropdownLabel: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  optionRow: {
+  // Status pill (left) + Change action (right), same row.
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[3],
-    paddingVertical: space[2],
-    paddingHorizontal: space[2],
-    borderRadius: radius.sm,
+    marginTop: space[1],
   },
-  optionRowSelected: {
-    backgroundColor: colors.surfaceSunken,
-  },
-  optionText: {
-    flex: 1,
-    minWidth: 0,
+  changeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // Pushes to the row's right edge whether or not a status pill precedes it.
+    marginLeft: 'auto',
     gap: 2,
+    paddingVertical: space[1],
+    paddingLeft: space[2],
   },
-  optionTitle: {
+  changeLabel: {
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
-  },
-  optionReason: {
-    ...typography.caption,
-    fontSize: 12,
+    color: palette.plum,
   },
 
   pausedBlock: {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
@@ -28,7 +28,7 @@ export function PhototypeConfirmBanner({
   return (
     <InlineAlert
       tone="info"
-      icon={<Feather name="sun" size={16} color={colors.statusInfo} />}
+      icon={<Icon name="sun" size={16} color={colors.statusInfo} />}
       title="Confirm your skin tone"
     >
       <Text style={styles.body}>

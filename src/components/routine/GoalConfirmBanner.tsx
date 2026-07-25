@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
@@ -22,7 +22,7 @@ export function GoalConfirmBanner({ goalLabel, onConfirm, onAdjust }: GoalConfir
   return (
     <InlineAlert
       tone="info"
-      icon={<Feather name="target" size={16} color={colors.statusInfo} />}
+      icon={<Icon name="target" size={16} color={colors.statusInfo} />}
       title="Confirm your care goal"
     >
       <Text style={styles.body}>

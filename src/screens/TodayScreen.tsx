@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
@@ -84,12 +84,12 @@ export default function TodayScreen() {
         {isDynamic ? (
           cycleStatus.available ? (
             <View style={styles.phaseCard}>
-              <Feather name="moon" size={16} color={colors.textSecondary} />
+              <Icon name="moon" size={16} color={colors.textSecondary} />
               <Text style={styles.phaseText}>{CYCLE_PHASE_LABELS[cycleStatus.phase]}</Text>
             </View>
           ) : (
             <View style={styles.phaseCard}>
-              <Feather name="alert-circle" size={16} color={colors.textSecondary} />
+              <Icon name="alert-circle" size={16} color={colors.textSecondary} />
               <Text style={styles.phaseText}>
                 Skin cycling is paused — add an exfoliant or retinoid to your shelf, or switch
                 back to fixed days in Profile.
@@ -145,7 +145,7 @@ function RoutineBlock({ view, products }: { view: DailyRoutineView; products: Pr
 
       {view.steps.map((step) => (
         <View key={step.id} style={styles.stepRow}>
-          <Feather name="circle" size={14} color={colors.textTertiary} />
+          <Icon name="circle" size={14} color={colors.textTertiary} />
           <Text style={styles.stepName} numberOfLines={1}>
             {nameOf(step.productId)}
           </Text>
@@ -154,7 +154,7 @@ function RoutineBlock({ view, products }: { view: DailyRoutineView; products: Pr
 
       {view.frozen.map((item) => (
         <View key={item.stepId} style={styles.stepRow}>
-          <Feather name="pause-circle" size={14} color={colors.textTertiary} />
+          <Icon name="pause-circle" size={14} color={colors.textTertiary} />
           <Text style={styles.pausedName} numberOfLines={1}>
             {nameOf(item.productId)} — paused until {item.until}
           </Text>
@@ -163,7 +163,7 @@ function RoutineBlock({ view, products }: { view: DailyRoutineView; products: Pr
 
       {view.cycledOut.map((item) => (
         <View key={item.stepId} style={styles.stepRow}>
-          <Feather name="rotate-cw" size={14} color={colors.textTertiary} />
+          <Icon name="rotate-cw" size={14} color={colors.textTertiary} />
           <Text style={styles.pausedName} numberOfLines={1}>
             {nameOf(item.productId)} — not tonight
           </Text>

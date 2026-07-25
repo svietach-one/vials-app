@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Badge } from '@/components/ui/feedback/Badge';
@@ -139,7 +139,7 @@ export function ProductPickerCard({ product, onAdd }: ProductPickerCardProps) {
           {/* Add button — 24×24 visual, 42×42 tap target (hitSlop 9 on each
               side), top-right corner on the brand's line. */}
           <IconButton
-            icon={<Feather name="plus" size={14} color={palette.white} />}
+            icon={<Icon name="plus" size={14} color={palette.white} />}
             label={`Add ${product.name} to routine`}
             variant="filled"
             round

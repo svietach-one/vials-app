@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -76,7 +76,7 @@ export function DuplicateSlotResolutionSheet({
                   ) : null}
                 </View>
                 <IconButton
-                  icon={<Feather name="trash-2" size={16} color={colors.statusError} />}
+                  icon={<Icon name="trash-2" size={16} color={colors.statusError} />}
                   label={`Remove ${product.name}`}
                   variant="ghost"
                   size="xs"

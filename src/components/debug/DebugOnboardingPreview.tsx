@@ -1,12 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { NavigationContainer, NavigationIndependentTree } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Icon } from '@/components/ui/Icon';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
-import type { OnboardingStackParamList } from '@/navigation/AppNavigator';
+import ContributionConsentScreen from '@/screens/onboarding/ContributionConsentScreen';
 import FirstProductScreen from '@/screens/onboarding/FirstProductScreen';
 import MarketingSlidesScreen from '@/screens/onboarding/MarketingSlidesScreen';
 import SkinProfileSetupScreen from '@/screens/onboarding/SkinProfileSetupScreen';
@@ -17,11 +16,21 @@ import type { UserProfile } from '@/types';
  * TEMPORARY DEBUG COMPONENT — remove together with the "Developer Tools"
  * section in ProfileScreen.tsx.
  *
- * Builds its own onboarding stack (rather than importing AppNavigator's)
- * because AppNavigator imports ProfileScreen for the Profile tab — reusing
- * its navigator here would be a circular import that also drags the entire
- * screen graph (react-native-webview via the OCR scanner, etc.) into any
- * test that touches ProfileScreen.
+ * Renders the four onboarding screens via plain local-state step switching
+ * instead of a real React Navigation stack. A previous version nested a full
+ * `createNativeStackNavigator` (backed by react-native-screens) inside this
+ * component's `Modal` — RN's `Modal` renders its subtree in a separate native
+ * root, and nesting a react-native-screens native stack inside a `Modal` is a
+ * documented source of touches failing to register at all on iOS (confirmed:
+ * neither the checkbox nor the CTA button responded). Plain conditional
+ * rendering sidesteps this entirely — no native view controllers, no
+ * disconnected gesture root.
+ *
+ * Each of the four screens only ever calls `navigation.replace(nextScreen)`
+ * (verified: MarketingSlides -> SkinProfileSetup -> ContributionConsent ->
+ * FirstProduct, single literal target per call site) and never reads
+ * `route.params` — so a minimal hand-built navigation/route pair is enough to
+ * drive them without a real navigator.
  *
  * SkinProfileSetupScreen and FirstProductScreen write straight to
  * profileStore/productsStore, including nulling out real skin-profile fields
@@ -29,25 +38,18 @@ import type { UserProfile } from '@/types';
  * close/completion to avoid clobbering real data.
  */
 
-const DebugOnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
-
-function StandaloneOnboardingStack() {
-  return (
-    <DebugOnboardingStack.Navigator screenOptions={{ headerShown: false }}>
-      <DebugOnboardingStack.Screen name="MarketingSlides" component={MarketingSlidesScreen} />
-      <DebugOnboardingStack.Screen name="SkinProfileSetup" component={SkinProfileSetupScreen} />
-      <DebugOnboardingStack.Screen name="FirstProduct" component={FirstProductScreen} />
-    </DebugOnboardingStack.Navigator>
-  );
-}
+type DebugStep = 'MarketingSlides' | 'SkinProfileSetup' | 'ContributionConsent' | 'FirstProduct';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
 }
 
+const FAKE_ROUTE = { key: 'debug', name: 'debug', params: undefined } as never;
+
 export function DebugOnboardingPreview({ visible, onClose }: Props) {
   const snapshotRef = useRef<UserProfile | null>(null);
+  const [step, setStep] = useState<DebugStep>('MarketingSlides');
   const onboardingCompleted = useProfileStore(
     (s) => s.profile?.onboardingCompleted ?? false,
   );
@@ -55,6 +57,7 @@ export function DebugOnboardingPreview({ visible, onClose }: Props) {
   useEffect(() => {
     if (visible && snapshotRef.current === null) {
       snapshotRef.current = useProfileStore.getState().profile;
+      setStep('MarketingSlides');
     }
   }, [visible]);
 
@@ -73,24 +76,40 @@ export function DebugOnboardingPreview({ visible, onClose }: Props) {
     onClose();
   }
 
+  function fakeNavigation(next: DebugStep) {
+    return { replace: () => setStep(next) } as never;
+  }
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.flex}>
-        {/* v7 requires nested containers to opt in explicitly via this wrapper */}
-        <NavigationIndependentTree>
-          <NavigationContainer>
-            <StandaloneOnboardingStack />
-          </NavigationContainer>
-        </NavigationIndependentTree>
+      <GestureHandlerRootView style={styles.flex}>
+        {step === 'MarketingSlides' ? (
+          <MarketingSlidesScreen
+            navigation={fakeNavigation('SkinProfileSetup')}
+            route={FAKE_ROUTE}
+          />
+        ) : step === 'SkinProfileSetup' ? (
+          <SkinProfileSetupScreen
+            navigation={fakeNavigation('ContributionConsent')}
+            route={FAKE_ROUTE}
+          />
+        ) : step === 'ContributionConsent' ? (
+          <ContributionConsentScreen
+            navigation={fakeNavigation('FirstProduct')}
+            route={FAKE_ROUTE}
+          />
+        ) : (
+          <FirstProductScreen navigation={fakeNavigation('FirstProduct')} route={FAKE_ROUTE} />
+        )}
 
-        <SafeAreaView style={styles.overlay} pointerEvents="box-none">
-          <View style={styles.badgeRow} pointerEvents="box-none">
+        <SafeAreaView style={[styles.overlay, { pointerEvents: 'box-none' }]}>
+          <View style={[styles.badgeRow, { pointerEvents: 'box-none' }]}>
             <View style={styles.badge}>
-              <Feather name="eye" size={12} color={palette.white} />
+              <Icon name="eye" size={12} color={palette.white} />
               <Text style={styles.badgeText}>Debug Preview</Text>
             </View>
             <IconButton
-              icon={<Feather name="x" size={16} color={palette.white} />}
+              icon={<Icon name="x" size={16} color={palette.white} />}
               label="Exit onboarding preview"
               variant="ghost"
               size="xs"
@@ -99,7 +118,7 @@ export function DebugOnboardingPreview({ visible, onClose }: Props) {
             />
           </View>
         </SafeAreaView>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

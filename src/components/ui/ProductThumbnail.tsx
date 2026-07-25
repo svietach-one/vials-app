@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { palette, radius } from '@/constants/tokens';
 import { localPhotoExists } from '@/services/imageFile';
@@ -121,7 +121,7 @@ export interface ProductThumbnailPlaceholderProps {
 
 /**
  * Own subcomponent with a stable prop contract so future custom artwork can
- * replace it without touching {@link ProductThumbnail}'s API. A Feather `image`
+ * replace it without touching {@link ProductThumbnail}'s API. An `image`
  * glyph on a muted per-type wash — deliberately a filled tile (a product with
  * no photo yet), semantically distinct from any future "deleted"/empty-slot
  * placeholder.
@@ -138,7 +138,7 @@ export function ProductThumbnailPlaceholder({
       testID="product-thumbnail-placeholder"
       style={[styles.placeholder, { backgroundColor: getProductThumbnailTint(productType) }]}
     >
-      <Feather
+      <Icon
         name="image"
         size={Math.round(productThumbnailWidth(size) * 0.4)}
         color={palette.zinc400}

@@ -8,7 +8,7 @@ import {
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
 import { FilterChip } from '@/components/ui/core/FilterChip';
@@ -353,7 +353,7 @@ function StepPick({
             <Text style={styles.title}>Add to routine</Text>
           </View>
           <IconButton
-            icon={<Feather name="x" size={18} color={colors.textSecondary} />}
+            icon={<Icon name="x" size={18} color={colors.textSecondary} />}
             label="Close"
             variant="secondary"
             size="sm"
@@ -363,7 +363,7 @@ function StepPick({
 
         <View style={styles.searchSection}>
           <Input
-            icon={<Feather name="search" size={16} color={colors.textTertiary} />}
+            icon={<Icon name="search" size={16} color={colors.textTertiary} />}
             placeholder="Search by name, brand or ingredient"
             value={searchQuery}
             onChangeText={onSearchChange}
@@ -454,7 +454,7 @@ function StepSchedule({
     <>
       <View style={styles.header}>
         <IconButton
-          icon={<Feather name="arrow-left" size={18} color={colors.textSecondary} />}
+          icon={<Icon name="arrow-left" size={18} color={colors.textSecondary} />}
           label="Back to product list"
           variant="secondary"
           size="sm"
@@ -530,7 +530,7 @@ function TimeChip({
   onPress,
   disabled,
 }: {
-  icon: React.ComponentProps<typeof Feather>['name'];
+  icon: IconName;
   label: string;
   active: boolean;
   onPress: () => void;
@@ -545,7 +545,7 @@ function TimeChip({
       accessibilityState={{ checked: active, disabled }}
       accessibilityLabel={label}
     >
-      <Feather
+      <Icon
         name={icon}
         size={15}
         color={active ? palette.white : colors.textSecondary}

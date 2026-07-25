@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { colors, radius, shadow, space, typography } from '@/constants/tokens';
 
@@ -35,8 +35,8 @@ export interface SelectProps {
   accessibilityLabel?: string;
 }
 
-/** Exported so inline option lists (DraftPreviewSheet's step dropdown) colour
- *  their reason fragments exactly like this control's own menu. */
+/** Exported so option lists (ReplaceStepSheet's candidate rows) colour their
+ *  reason fragments exactly like this control's own menu. */
 export const selectToneColor: Record<SelectOptionTone, string> = {
   recommended: colors.statusSafe,
   neutral: colors.textSecondary,
@@ -69,7 +69,7 @@ export function Select({ label, value, options, onValueChange, accessibilityLabe
             </Text>
           ) : null}
         </View>
-        <Feather name="chevron-down" size={18} color={colors.textTertiary} />
+        <Icon name="chevron-down" size={18} color={colors.textTertiary} />
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)} statusBarTranslucent>
@@ -99,7 +99,7 @@ export function Select({ label, value, options, onValueChange, accessibilityLabe
                         </Text>
                       ) : null}
                     </View>
-                    {isSelected ? <Feather name="check" size={18} color={colors.textPrimary} /> : null}
+                    {isSelected ? <Icon name="check" size={18} color={colors.textPrimary} /> : null}
                   </Pressable>
                 );
               })}

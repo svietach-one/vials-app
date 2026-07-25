@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { ACTIVE_INGREDIENT_LABELS } from '@/constants/labels';
 import { colors, radius, space, typography } from '@/constants/tokens';
@@ -36,7 +36,7 @@ function ChecklistChip({ group, activeKey, checked, onToggle }: ChecklistChipPro
         pressed && styles.chipPressed,
       ]}
     >
-      {checked ? <Feather name="check" size={12} color={group.color} /> : null}
+      {checked ? <Icon name="check" size={12} color={group.color} /> : null}
       <Text style={[styles.chipLabel, { color: checked ? group.color : colors.textSecondary }]}>
         {ACTIVE_INGREDIENT_LABELS[activeKey]}
       </Text>

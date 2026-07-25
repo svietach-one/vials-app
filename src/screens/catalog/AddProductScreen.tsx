@@ -1,4 +1,4 @@
-import React, { useReducer, useState } from 'react';
+import React, { useReducer, useRef, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -8,7 +8,7 @@ import {
   Text,
   ToastAndroid,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { BarcodeSection } from '@/components/addProduct/BarcodeSection';
@@ -24,6 +24,7 @@ import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/label
 import { colors, palette, space, typography } from '@/constants/tokens';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { submitContribution } from '@/services/contributions';
+import { deleteProductPhoto } from '@/services/productImage';
 import { useProductsStore } from '@/store/productsStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { AddProductDraft } from '@/types';
@@ -93,6 +94,10 @@ export default function AddProductScreen({ navigation }: Props) {
   const [draft, dispatch] = useReducer(formReducer, undefined, initialDraft);
   const [validation, setValidation] = useState<{ section: 1 | 4; message: string } | null>(null);
 
+  // Established once so the front-label photo can be stored (and its file
+  // named) before save; reused as the product id when the draft is saved.
+  const productId = useRef(generateId()).current;
+
   const addProduct = useProductsStore((s) => s.addProduct);
   const incrementCommunityContribution = useSettingsStore(
     (s) => s.incrementCommunityContribution,
@@ -103,6 +108,7 @@ export default function AddProductScreen({ navigation }: Props) {
       draft.brand.trim().length > 0 ||
       draft.name.trim().length > 0 ||
       draft.productType !== null ||
+      draft.localImageUri !== null ||
       draft.barcode !== null ||
       draft.inciRaw !== null ||
       draft.activeIngredientKeys.length > 0 ||
@@ -118,7 +124,16 @@ export default function AddProductScreen({ navigation }: Props) {
     }
     Alert.alert('Discard this product?', 'Your entries so far will be lost.', [
       { text: 'Keep editing', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() },
+      {
+        text: 'Discard',
+        style: 'destructive',
+        onPress: () => {
+          // The cover photo was already written to disk under productId — this
+          // draft is abandoned, so its file would otherwise orphan forever.
+          if (draft.localImageUri) void deleteProductPhoto(productId);
+          navigation.goBack();
+        },
+      },
     ]);
   }
 
@@ -139,7 +154,7 @@ export default function AddProductScreen({ navigation }: Props) {
     setValidation(null);
 
     // 1. SYNCHRONOUS local write — this IS the save, as far as the UI cares.
-    const product = buildProductFromDraft(draft, generateId(), new Date().toISOString());
+    const product = buildProductFromDraft(draft, productId, new Date().toISOString());
     addProduct(product);
     // An INCI submission counts as a community contribution (like a barcode
     // scan, which BarcodeSection already counted at scan time).
@@ -186,7 +201,7 @@ export default function AddProductScreen({ navigation }: Props) {
         title="Add product"
         leftAction={
           <IconButton
-            icon={<Feather name="x" size={20} color={colors.textPrimary} />}
+            icon={<Icon name="x" size={20} color={colors.textPrimary} />}
             label="Close"
             variant="ghost"
             size="sm"
@@ -205,7 +220,7 @@ export default function AddProductScreen({ navigation }: Props) {
           summary={<Section1Summary draft={draft} />}
         >
           {showSection1Error ? <Text style={styles.validation}>{validation.message}</Text> : null}
-          <BrandNameCategorySection draft={draft} dispatch={dispatch} />
+          <BrandNameCategorySection draft={draft} dispatch={dispatch} productId={productId} />
         </SectionAccordion>
 
         <SectionAccordion

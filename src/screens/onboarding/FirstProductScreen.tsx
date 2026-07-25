@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '@/components/ui/core/Button';
@@ -48,9 +48,16 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
       return;
     }
     setSearching(true);
-    const products = await productRepository.search(text);
-    setResults(products);
-    setSearching(false);
+    try {
+      const products = await productRepository.search(text);
+      setResults(products);
+    } catch (e) {
+      // Corpus unreachable — onboarding stays usable via manual entry.
+      if (__DEV__) console.warn('[FirstProduct] corpus search failed', e);
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
   }
 
   async function handleSelect(item: CorpusProduct) {
@@ -103,7 +110,7 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
             value={query}
             onChangeText={handleSearch}
             placeholder="e.g. The Ordinary Niacinamide"
-            icon={<Feather name="search" size={16} color={colors.textTertiary} />}
+            icon={<Icon name="search" size={16} color={colors.textTertiary} />}
             autoCorrect={false}
             autoCapitalize="none"
             returnKeyType="search"
@@ -160,7 +167,7 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
             />
           ) : query.length >= 3 && !searching ? (
             <View style={styles.emptyState}>
-              <Feather name="inbox" size={32} color={colors.textTertiary} />
+              <Icon name="inbox" size={32} color={colors.textTertiary} />
               <Text style={styles.emptyText}>No results found.</Text>
               <Text style={styles.emptySubtext}>
                 You can add products manually from the Catalog tab.

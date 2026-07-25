@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { CalendarCell } from '@/components/routine/CalendarCell';
 import { Button } from '@/components/ui/core/Button';
@@ -75,7 +75,7 @@ export function RoutineCalendarView({
   if (matrix.rows.length === 0) {
     return (
       <View style={styles.emptyWrap}>
-        <Feather name="calendar" size={28} color={colors.textTertiary} />
+        <Icon name="calendar" size={28} color={colors.textTertiary} />
         <Text style={styles.emptyText}>No products scheduled this month.</Text>
         <Button variant="textActive" size="sm" onPress={onAddProduct} accessibilityLabel="Add product to routine">
           Add product

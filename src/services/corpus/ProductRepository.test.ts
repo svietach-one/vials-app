@@ -1,11 +1,10 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-
 import { ProductRepository } from './ProductRepository';
+import type { CorpusQueryExecutor } from './types';
 
 function makeFakeDb(rows: unknown[] = []) {
   const getAllAsync = jest.fn().mockResolvedValue(rows);
   const getFirstAsync = jest.fn();
-  return { db: { getAllAsync, getFirstAsync } as unknown as SQLiteDatabase, getAllAsync };
+  return { db: { getAllAsync, getFirstAsync } as unknown as CorpusQueryExecutor, getAllAsync };
 }
 
 describe('ProductRepository.search', () => {
@@ -80,15 +79,13 @@ describe('ProductRepository.search', () => {
     expect(params).toEqual(['%2\\%%']);
   });
 
-  it('degrades to [] when the underlying query throws', async () => {
+  it('propagates the error when the underlying query throws, so callers can surface it', async () => {
     const db = {
-      getAllAsync: jest.fn().mockRejectedValue(new Error('replica not synced')),
+      getAllAsync: jest.fn().mockRejectedValue(new Error('turso unreachable')),
       getFirstAsync: jest.fn(),
-    } as unknown as SQLiteDatabase;
+    } as unknown as CorpusQueryExecutor;
     const repo = new ProductRepository(db);
 
-    const result = await repo.search('cera');
-
-    expect(result).toEqual([]);
+    await expect(repo.search('cera')).rejects.toThrow('turso unreachable');
   });
 });

@@ -8,7 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "VIALS_CORPUS_BUNDLED": "1"
+        "VIALS_CORPUS_BUNDLED": "1",
+        "EXPO_PUBLIC_TURSO_HTTP_URL": "https://vials-corpus-kotylion.aws-eu-west-1.turso.io"
       },
       "ios": {
         "simulator": true
@@ -17,19 +18,28 @@
     "development-device": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_TURSO_HTTP_URL": "https://REPLACE-WITH-YOUR-TURSO-HOST.turso.io"
+      },
       "ios": {
         "simulator": false
       }
     },
     "preview": {
       "distribution": "store",
+      "env": {
+        "EXPO_PUBLIC_TURSO_HTTP_URL": "https://REPLACE-WITH-YOUR-TURSO-HOST.turso.io"
+      },
       "ios": {
         "autoIncrement": true
       }
     },
     "production": {
       "distribution": "store",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_TURSO_HTTP_URL": "https://REPLACE-WITH-YOUR-TURSO-HOST.turso.io"
+      }
     }
   },
   "submit": {

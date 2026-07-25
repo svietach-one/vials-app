@@ -42,6 +42,26 @@ describe('buildProductFromDraft', () => {
     ]);
   });
 
+  it('carries the captured front-label photo onto the product as its cover', () => {
+    const product = buildProductFromDraft(
+      completedDraft({ localImageUri: 'file:///photos/id-1.jpg' }),
+      'id-1',
+      '2026-07-11T10:00:00.000Z',
+    );
+
+    expect(product.localImageUri).toBe('file:///photos/id-1.jpg');
+  });
+
+  it('leaves localImageUri null when no photo was captured', () => {
+    const product = buildProductFromDraft(
+      completedDraft(),
+      'id-1',
+      '2026-07-11T10:00:00.000Z',
+    );
+
+    expect(product.localImageUri).toBeNull();
+  });
+
   it('nulls openedDate when the product was never marked opened', () => {
     const product = buildProductFromDraft(
       completedDraft({ openedDate: '2026-07-01', isOpened: false }),

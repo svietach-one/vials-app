@@ -8,10 +8,10 @@ import React from 'react';
 import { Text } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-jest.mock('@expo/vector-icons', () => {
+jest.mock('@/components/ui/Icon', () => {
   const { Text: RNText } = require('react-native');
   return {
-    Feather: ({ name }: { name: string }) => <RNText>{`icon-${name}`}</RNText>,
+    Icon: ({ name }: { name: string }) => <RNText>{`icon-${name}`}</RNText>,
   };
 });
 

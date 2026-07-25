@@ -1,16 +1,15 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-
 import type { ActiveIngredientKey } from '@/types';
 
-import type { IngredientHit } from './types';
+import type { CorpusQueryExecutor, IngredientHit } from './types';
 
 /**
- * Read-only access to the pull-only corpus replica. Never issues a write.
- * Every method swallows query errors and degrades to "no hit" — same
- * fallback contract as {@link ProductRepository}.
+ * Read-only access to the remote ingredient corpus over
+ * {@link CorpusQueryExecutor}. Never issues a write. Both methods degrade to
+ * "no hit" on a transport error (autocomplete/lookup are non-blocking helpers)
+ * but log the failure rather than swallow it silently.
  */
 export class IngredientRepository {
-  constructor(private db: SQLiteDatabase) {}
+  constructor(private db: CorpusQueryExecutor) {}
 
   /** Prefix autocomplete over inci_name + synonyms. Debounce ~300ms at the call site. */
   async autocomplete(prefix: string): Promise<IngredientHit[]> {
@@ -23,7 +22,8 @@ export class IngredientRepository {
          WHERE ingredients_fts MATCH ? LIMIT 10`,
         [`${p}*`],
       );
-    } catch {
+    } catch (e) {
+      if (__DEV__) console.warn('[IngredientRepository] autocomplete failed', e);
       return [];
     }
   }
@@ -35,7 +35,8 @@ export class IngredientRepository {
         [inciName],
       );
       return row?.active_key ?? null;
-    } catch {
+    } catch (e) {
+      if (__DEV__) console.warn('[IngredientRepository] getActiveKey failed', e);
       return null;
     }
   }

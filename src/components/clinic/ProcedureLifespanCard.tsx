@@ -5,17 +5,19 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
 import { Input } from '@/components/ui/forms/Input';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
-import type { UserProcedureLog } from '@/types';
+import { CLINIC_FADING_PROMPT_ENABLED } from '@/constants/featureFlags';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
+import type { CosmeticProcedureKey, UserProcedureLog } from '@/types';
 import {
   computeStatus,
   getProcedureDisplayName,
   getProgress,
+  getRepeatDate,
   getTimelineConfig,
   isCustomProcedure,
   type ComputedStatus,
@@ -30,7 +32,8 @@ export type { ComputedStatus } from '@/utils/procedureLifespanHelpers';
 export interface ProcedureLifespanCardProps {
   proc: UserProcedureLog;
   onUpdate: (patch: Partial<UserProcedureLog>) => void;
-  onRemove: () => void;
+  /** Opens the "…" action sheet (Details / Move to history / Delete). */
+  onOpenMenu: () => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -40,16 +43,24 @@ const DAYS_PER_MONTH = 30.44;
 
 const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const STATUS_CONFIG: Record<
-  ComputedStatus,
-  { label: string; bg: string; text: string; barFill: string }
-> = {
-  rehab:     { label: 'Rehab',     bg: palette.cabernetTint,    text: palette.cabernet,    barFill: palette.cabernet    },
-  active:    { label: 'Active',    bg: palette.bottleGreenTint, text: palette.bottleGreen, barFill: palette.bottleGreen },
-  fading:    { label: 'Fading?',   bg: palette.amberTint,       text: palette.amber,       barFill: palette.amber       },
-  completed: { label: 'Completed', bg: colors.surfaceSunken,    text: colors.textSecondary,barFill: colors.borderStrong },
-  archived:  { label: 'Archived',  bg: colors.surfaceSunken,    text: colors.textTertiary, barFill: colors.borderDivider},
+// Filled bars are plum-monochrome; completed/archived read as muted grey.
+const DONE_STATUSES: ReadonlySet<ComputedStatus> = new Set(['completed', 'archived']);
+
+// Leading Lucide glyph per procedure, shown in a plum tint circle like the
+// icon treatment used across My Shelf / Routines cards.
+const PROCEDURE_ICON: Record<CosmeticProcedureKey, IconName> = {
+  botox:              'zap',
+  fillers:            'droplet',
+  smas_lifting:       'trending-up',
+  mesotherapy:        'grid',
+  chemical_peel_deep: 'layers',
+  mechanical_facial:  'wind',
 };
+
+function getProcedureIcon(proc: UserProcedureLog): IconName {
+  if (proc.procedureKey === 'custom') return 'activity';
+  return PROCEDURE_ICON[proc.procedureKey] ?? 'activity';
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -140,7 +151,7 @@ function FadingInteractivePrompt({
             Confirm
           </Button>
           <IconButton
-            icon={<Feather name="x" size={16} color={colors.textTertiary} />}
+            icon={<Icon name="x" size={16} color={colors.textTertiary} />}
             label="Cancel custom duration entry"
             variant="ghost"
             size="xs"
@@ -162,30 +173,14 @@ function FadingInteractivePrompt({
           onPress={() => onUpdate({ deferralCount: proc.deferralCount + 1 })}
           accessibilityRole="button"
         >
-          <Feather name="check" size={13} color={palette.bottleGreen} />
-          <Text style={[fadingStyles.optionText, { color: palette.bottleGreen }]}>
-            Still visible
-          </Text>
+          <Text style={fadingStyles.optionText}>Still visible</Text>
         </Pressable>
         <Pressable
           style={fadingStyles.optionBtn}
           onPress={() => setShowDuration(true)}
           accessibilityRole="button"
         >
-          <Feather name="trending-down" size={13} color={palette.amber} />
-          <Text style={[fadingStyles.optionText, { color: palette.amber }]}>
-            Mostly faded
-          </Text>
-        </Pressable>
-        <Pressable
-          style={fadingStyles.optionBtn}
-          onPress={() => onUpdate({ status: 'archived' })}
-          accessibilityRole="button"
-        >
-          <Feather name="archive" size={13} color={colors.textTertiary} />
-          <Text style={[fadingStyles.optionText, { color: colors.textTertiary }]}>
-            Archive
-          </Text>
+          <Text style={fadingStyles.optionText}>Mostly faded</Text>
         </Pressable>
       </View>
     </View>
@@ -197,19 +192,19 @@ const fadingStyles = StyleSheet.create({
     marginTop: space[3],
     padding: space[3],
     borderRadius: radius.sm,
-    backgroundColor: palette.amberTint,
+    backgroundColor: palette.plumTint,
     borderWidth: 1,
-    borderColor: palette.amberLine,
+    borderColor: palette.plumLine,
     gap: space[2],
   },
   question: {
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
-    color: palette.amber,
+    color: palette.plum,
   },
   deferred: {
     ...typography.bodySmall,
-    color: palette.amber,
+    color: palette.plum,
     fontStyle: 'italic',
   },
   btnRow: {
@@ -218,19 +213,18 @@ const fadingStyles = StyleSheet.create({
   },
   optionBtn: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: space[2],
-    borderRadius: radius.xs,
+    paddingVertical: space[3],
+    borderRadius: radius.sm,
     backgroundColor: colors.bgBase,
     borderWidth: 1,
-    borderColor: palette.amberLine,
+    borderColor: palette.plumLine,
   },
   optionText: {
-    ...typography.caption,
+    ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
+    color: palette.plum,
   },
   durationRow: {
     flexDirection: 'row',
@@ -244,20 +238,50 @@ const fadingStyles = StyleSheet.create({
 
 // ─── LifespanBar ──────────────────────────────────────────────────────────────
 
-function LifespanBar({
-  progress,
-  barFill,
-}: {
-  progress: number;
-  barFill: string;
-}) {
-  const pct = `${Math.round(progress * 100)}%`;
+// More, finer segments make the fade gradient read smoothly rather than stepped.
+const BAR_SEGMENTS = 20;
+// Point along the track (0–1) where the plum starts losing intensity. The first
+// third stays full-strength; after it the colour eases toward plumFade across
+// the remaining two-thirds for a gradual fade.
+const FADE_START = 1 / 3;
+
+/** Linear blend of two #rrggbb hex colours; t=0 → a, t=1 → b. */
+function mixHex(a: string, b: string, t: number): string {
+  const clamped = Math.max(0, Math.min(1, t));
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+  const mixed = pa.map((c, i) => Math.round(c + (pb[i] - c) * clamped));
+  return `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+// Colour the fade eases toward: only ~8% plum over the track background, so the
+// last filled segment is barely tinted — under 10% of the head's intensity.
+const FADE_END = mixHex(colors.surfaceSunken, palette.plum, 0.08);
+
+/**
+ * Segmented lifespan bar. Filled segments hold full plum through the first third
+ * of the track, then ease gradually toward a lighter plum so the tail reads as
+ * "fading" without the whole bar dimming. Completed/archived bars stay muted grey.
+ */
+function LifespanBar({ progress, isDone }: { progress: number; isDone: boolean }) {
+  const filled = Math.round(progress * BAR_SEGMENTS);
   return (
     <View style={barStyles.track}>
-      {/* Filled */}
-      <View style={{ width: pct as `${number}%`, backgroundColor: barFill, borderRadius: 4 }} />
-      {/* Unfilled */}
-      <View style={{ flex: 1, backgroundColor: colors.surfaceSunken }} />
+      {Array.from({ length: BAR_SEGMENTS }, (_, i) => {
+        const isFilled = i < filled;
+        const position = (i + 0.5) / BAR_SEGMENTS;
+        let color: string = colors.surfaceSunken;
+        if (isFilled) {
+          if (isDone) {
+            color = colors.borderStrong;
+          } else if (position <= FADE_START) {
+            color = palette.plum;
+          } else {
+            color = mixHex(palette.plum, FADE_END, (position - FADE_START) / (1 - FADE_START));
+          }
+        }
+        return <View key={i} style={[barStyles.segment, { backgroundColor: color }]} />;
+      })}
     </View>
   );
 }
@@ -266,67 +290,66 @@ const barStyles = StyleSheet.create({
   track: {
     flexDirection: 'row',
     height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceSunken,
+    gap: 3,
+  },
+  segment: {
+    flex: 1,
+    height: 8,
+    borderRadius: radius.pill,
   },
 });
 
 // ─── Main card ────────────────────────────────────────────────────────────────
 
-export function ProcedureLifespanCard({ proc, onUpdate, onRemove }: ProcedureLifespanCardProps) {
+export function ProcedureLifespanCard({ proc, onUpdate, onOpenMenu }: ProcedureLifespanCardProps) {
   const now = new Date();
   const status = computeStatus(proc, now);
-  const cfg = STATUS_CONFIG[status];
   const progress = getProgress(proc, now);
   const procName = getProcedureDisplayName(proc);
+  const isDone = DONE_STATUSES.has(status);
 
   return (
     <View style={cardStyles.card}>
       {/* Header row */}
       <View style={cardStyles.header}>
+        <View style={[cardStyles.iconCircle, isDone && cardStyles.iconCircleMuted]}>
+          <Icon
+            name={getProcedureIcon(proc)}
+            size={20}
+            color={isDone ? colors.textTertiary : palette.plum}
+          />
+        </View>
         <View style={cardStyles.headerLeft}>
           <Text style={cardStyles.procName}>{procName}</Text>
           <Text style={cardStyles.date}>{formatDate(proc.datePerformed)}</Text>
         </View>
-        <View style={cardStyles.headerRight}>
-          <View style={[cardStyles.badge, { backgroundColor: cfg.bg }]}>
-            <Text style={[cardStyles.badgeText, { color: cfg.text }]}>{cfg.label}</Text>
-          </View>
-          <IconButton
-            icon={<Feather name="trash-2" size={14} color={colors.textTertiary} />}
-            label={`Remove ${procName}`}
-            variant="ghost"
-            size="xs"
-            style={cardStyles.removeBtn}
-            onPress={onRemove}
-          />
-        </View>
+        <IconButton
+          icon={<Icon name="more-horizontal" size={18} color={colors.textSecondary} />}
+          label={`Options for ${procName}`}
+          variant="ghost"
+          size="xs"
+          style={cardStyles.menuBtn}
+          onPress={onOpenMenu}
+        />
       </View>
 
       {/* Progress bar */}
-      <LifespanBar progress={progress} barFill={cfg.barFill} />
+      <LifespanBar progress={progress} isDone={isDone} />
 
       {/* Time label */}
       <Text style={cardStyles.timeLabel}>{getTimeLabel(proc, status, now)}</Text>
 
-      {/* Fading prompt — only when actively fading and not yet 3x deferred */}
-      {status === 'fading' ? (
+      {/* Fading prompt — feature-flagged off pending the feedback-flow decision */}
+      {status === 'fading' && CLINIC_FADING_PROMPT_ENABLED ? (
         <FadingInteractivePrompt proc={proc} procName={procName} onUpdate={onUpdate} />
       ) : null}
 
-      {/* Archive link — for active/completed cards */}
-      {(status === 'active' || status === 'completed') ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<Feather name="archive" size={12} color={palette.plum} />}
-          onPress={() => onUpdate({ status: 'archived' })}
-          accessibilityLabel={`Archive ${procName}`}
-          style={cardStyles.archiveLink}
-        >
-          Archive
-        </Button>
+      {/* Repeat-around footer — the estimated date the effect fully lapses */}
+      {(status === 'active' || status === 'fading') ? (
+        <View style={cardStyles.footer}>
+          <Text style={cardStyles.footerLabel}>Repeat around</Text>
+          <Text style={cardStyles.footerDate}>{formatDate(getRepeatDate(proc).toISOString())}</Text>
+        </View>
       ) : null}
     </View>
   );
@@ -342,12 +365,24 @@ const cardStyles = StyleSheet.create({
     borderColor: colors.borderDivider,
     padding: space[4],
     gap: space[3],
+    ...shadow.sm,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     gap: space[3],
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    backgroundColor: palette.plumTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  iconCircleMuted: {
+    backgroundColor: colors.surfaceSunken,
   },
   headerLeft: {
     flex: 1,
@@ -362,34 +397,31 @@ const cardStyles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textSecondary,
   },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    flexShrink: 0,
-  },
-  badge: {
-    paddingHorizontal: space[2],
-    paddingVertical: 3,
-    borderRadius: radius.xs,
-  },
-  badgeText: {
-    ...typography.caption,
-    fontFamily: 'DMSans-Medium',
-  },
-  removeBtn: {
-    width: 28,
-    height: 28,
+  menuBtn: {
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.xs,
-    backgroundColor: colors.surfaceSunken,
+    borderRadius: radius.pill,
+    flexShrink: 0,
   },
   timeLabel: {
     ...typography.caption,
     color: colors.textSecondary,
   },
-  archiveLink: {
-    alignSelf: 'flex-start',
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
+    paddingTop: space[3],
+    gap: 2,
+  },
+  footerLabel: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  footerDate: {
+    ...typography.body,
+    fontFamily: 'DMSans-Medium',
+    color: palette.plum,
   },
 });

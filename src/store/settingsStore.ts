@@ -7,7 +7,7 @@ import {
   saveJson,
   STORAGE_KEYS,
 } from '@/services/storage';
-import { AppSettings, RoutineCycleType } from '@/types';
+import { AppSettings, ContributionConsentStatus, RoutineAccordionSettings, RoutineCycleType } from '@/types';
 
 interface SettingsState extends AppSettings {
   hydrated: boolean;
@@ -18,6 +18,20 @@ interface SettingsState extends AppSettings {
   setRoutineCycleType: (type: RoutineCycleType) => void;
   /** Bumps the local per-device community contribution counter. */
   incrementCommunityContribution: () => void;
+  /** Overwrites today's Routines screen accordion snapshot. */
+  setRoutineAccordion: (snapshot: RoutineAccordionSettings) => void;
+  /** Records acceptance of the onboarding medical disclaimer (slide 3). */
+  acceptMedicalDisclaimer: (version: number) => void;
+  /**
+   * Transitions the product-contribution consent state machine. Setting to
+   * 'accepted', 'disabled', or 'unset' resets declinedSaveCountSinceLastReminder;
+   * setting to 'unset' (re-enabling from 'disabled') also resets reminderCountShown,
+   * so a re-enabled user gets the full first-time modal and cadence again.
+   */
+  setContributionConsentStatus: (status: ContributionConsentStatus) => void;
+  incrementDeclinedSaveCount: () => void;
+  resetDeclinedSaveCount: () => void;
+  incrementReminderCountShown: () => void;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -26,6 +40,12 @@ const DEFAULT_SETTINGS: AppSettings = {
   dismissedBanners: [],
   routineCycleType: 'fixed',
   communityContributionCount: 0,
+  routineAccordion: null,
+  medicalDisclaimerAcceptedAt: null,
+  medicalDisclaimerVersion: 0,
+  contributionConsentStatus: 'unset',
+  declinedSaveCountSinceLastReminder: 0,
+  reminderCountShown: 0,
 };
 
 function pickSettings(s: SettingsState): AppSettings {
@@ -35,6 +55,12 @@ function pickSettings(s: SettingsState): AppSettings {
     dismissedBanners: s.dismissedBanners,
     routineCycleType: s.routineCycleType,
     communityContributionCount: s.communityContributionCount,
+    routineAccordion: s.routineAccordion,
+    medicalDisclaimerAcceptedAt: s.medicalDisclaimerAcceptedAt,
+    medicalDisclaimerVersion: s.medicalDisclaimerVersion,
+    contributionConsentStatus: s.contributionConsentStatus,
+    declinedSaveCountSinceLastReminder: s.declinedSaveCountSinceLastReminder,
+    reminderCountShown: s.reminderCountShown,
   };
 }
 
@@ -83,5 +109,58 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       STORAGE_KEYS.settings,
       pickSettings({ ...get(), communityContributionCount: next }),
     );
+  },
+
+  setRoutineAccordion: (snapshot) => {
+    set({ routineAccordion: snapshot });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), routineAccordion: snapshot }));
+  },
+
+  acceptMedicalDisclaimer: (version) => {
+    const acceptedAt = new Date().toISOString();
+    set({ medicalDisclaimerAcceptedAt: acceptedAt, medicalDisclaimerVersion: version });
+    void saveJson(
+      STORAGE_KEYS.settings,
+      pickSettings({
+        ...get(),
+        medicalDisclaimerAcceptedAt: acceptedAt,
+        medicalDisclaimerVersion: version,
+      }),
+    );
+  },
+
+  setContributionConsentStatus: (status) => {
+    const resetsDeclinedCount = status === 'accepted' || status === 'disabled' || status === 'unset';
+    const resetsReminderCount = status === 'unset';
+    const patch = {
+      contributionConsentStatus: status,
+      ...(resetsDeclinedCount ? { declinedSaveCountSinceLastReminder: 0 } : null),
+      ...(resetsReminderCount ? { reminderCountShown: 0 } : null),
+    };
+    set(patch);
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), ...patch }));
+  },
+
+  incrementDeclinedSaveCount: () => {
+    const next = get().declinedSaveCountSinceLastReminder + 1;
+    set({ declinedSaveCountSinceLastReminder: next });
+    void saveJson(
+      STORAGE_KEYS.settings,
+      pickSettings({ ...get(), declinedSaveCountSinceLastReminder: next }),
+    );
+  },
+
+  resetDeclinedSaveCount: () => {
+    set({ declinedSaveCountSinceLastReminder: 0 });
+    void saveJson(
+      STORAGE_KEYS.settings,
+      pickSettings({ ...get(), declinedSaveCountSinceLastReminder: 0 }),
+    );
+  },
+
+  incrementReminderCountShown: () => {
+    const next = get().reminderCountShown + 1;
+    set({ reminderCountShown: next });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), reminderCountShown: next }));
   },
 }));

@@ -9,7 +9,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 import { colors, radius, space, typography } from '@/constants/tokens';
 
@@ -18,7 +18,7 @@ import { colors, radius, space, typography } from '@/constants/tokens';
 export interface InputProps extends Omit<TextInputProps, 'style'> {
   /** Mono uppercase label rendered above the field. */
   label?: string | null;
-  /** Leading icon node (e.g. a Feather icon). */
+  /** Leading icon node (e.g. an <Icon> glyph). */
   icon?: React.ReactNode;
   /** Trailing unit or hint rendered inside the field on the right. */
   suffix?: string | null;
@@ -93,7 +93,7 @@ export function Input({
             accessibilityLabel={label ? `Clear ${label}` : 'Clear field'}
             style={styles.clearBtn}
           >
-            <Feather name="x-circle" size={18} color={colors.textTertiary} />
+            <Icon name="x-circle" size={18} color={colors.textTertiary} />
           </Pressable>
         ) : null}
       </View>

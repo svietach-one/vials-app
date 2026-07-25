@@ -1,9 +1,7 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-
 import type { ActiveIngredientKey } from '@/types';
 
 import { toTrigramQuery } from './trigramSearch';
-import type { CorpusProduct } from './types';
+import type { CorpusProduct, CorpusQueryExecutor } from './types';
 
 const COLS = `uid, barcode, brand, name, type, inci_raw as inciRaw, image_url as imageUrl, source, url, name_lacin as nameLacin`;
 
@@ -29,13 +27,18 @@ function caseVariants(text: string): string[] {
 }
 
 /**
- * Read-only access to the pull-only corpus replica. Never issues a write.
- * Every method swallows query errors (e.g. the replica hasn't synced yet, or
- * the OBF cutover DELETE just ran) and degrades to "not found" — callers must
- * always offer the manual-entry fallback, same contract as the OBF service.
+ * Read-only access to the remote product corpus over {@link CorpusQueryExecutor}
+ * (the Turso HTTP transport). Never issues a write.
+ *
+ * `search` intentionally lets transport errors propagate so the caller can
+ * surface a real error instead of a fake empty result — see AddProductHubScreen.
+ * The secondary lookups (`findByBarcode`, `getByUid`, `getActiveKeys`) keep a
+ * graceful "not found" fallback because their callers already treat that as a
+ * cue to fall back to OBF/manual entry, but they log the failure (never
+ * silently swallow it) so a broken corpus is visible in the logs.
  */
 export class ProductRepository {
-  constructor(private db: SQLiteDatabase) {}
+  constructor(private db: CorpusQueryExecutor) {}
 
   async findByBarcode(barcode: string): Promise<CorpusProduct | null> {
     try {
@@ -43,7 +46,8 @@ export class ProductRepository {
         `SELECT ${COLS} FROM products WHERE barcode = ? LIMIT 1`,
         [barcode],
       );
-    } catch {
+    } catch (e) {
+      if (__DEV__) console.warn('[ProductRepository] findByBarcode failed', e);
       return null;
     }
   }
@@ -54,7 +58,8 @@ export class ProductRepository {
         `SELECT ${COLS} FROM products WHERE uid = ? LIMIT 1`,
         [uid],
       );
-    } catch {
+    } catch (e) {
+      if (__DEV__) console.warn('[ProductRepository] getByUid failed', e);
       return null;
     }
   }
@@ -71,26 +76,22 @@ export class ProductRepository {
     const trimmed = query.trim();
     if (!trimmed) return [];
     const match = toTrigramQuery(trimmed);
-    try {
-      if (match) {
-        return await this.db.getAllAsync<CorpusProduct>(
-          `SELECT ${COLS.split(',')
-            .map((c) => 'p.' + c.trim())
-            .join(', ')}
-           FROM products_fts f JOIN products p ON p.id = f.rowid
-           WHERE products_fts MATCH ? ORDER BY bm25(products_fts, 2.0, 1.0) LIMIT 20`,
-          [match],
-        );
-      }
-      const params = caseVariants(trimmed).map((v) => `%${escapeLikePattern(v)}%`);
-      const where = params.map(() => `search_norm LIKE ? ESCAPE '${LIKE_ESCAPE}'`).join(' OR ');
-      return await this.db.getAllAsync<CorpusProduct>(
-        `SELECT ${COLS} FROM products WHERE ${where} ORDER BY search_norm LIMIT 20`,
-        params,
+    if (match) {
+      return this.db.getAllAsync<CorpusProduct>(
+        `SELECT ${COLS.split(',')
+          .map((c) => 'p.' + c.trim())
+          .join(', ')}
+         FROM products_fts f JOIN products p ON p.id = f.rowid
+         WHERE products_fts MATCH ? ORDER BY bm25(products_fts, 2.0, 1.0) LIMIT 20`,
+        [match],
       );
-    } catch {
-      return [];
     }
+    const params = caseVariants(trimmed).map((v) => `%${escapeLikePattern(v)}%`);
+    const where = params.map(() => `search_norm LIKE ? ESCAPE '${LIKE_ESCAPE}'`).join(' OR ');
+    return this.db.getAllAsync<CorpusProduct>(
+      `SELECT ${COLS} FROM products WHERE ${where} ORDER BY search_norm LIMIT 20`,
+      params,
+    );
   }
 
   async getActiveKeys(uid: string): Promise<ActiveIngredientKey[]> {
@@ -101,7 +102,8 @@ export class ProductRepository {
         [uid],
       );
       return rows.map((r) => r.active_key);
-    } catch {
+    } catch (e) {
+      if (__DEV__) console.warn('[ProductRepository] getActiveKeys failed', e);
       return [];
     }
   }

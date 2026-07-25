@@ -72,7 +72,17 @@ jest.mock('react-native-draggable-flatlist', () => {
     );
   }
   const ScaleDecorator = ({ children }: any) => children;
-  return { __esModule: true, default: DraggableFlatList, ScaleDecorator };
+  const NestableScrollContainer = ({ children }: any) => <View>{children}</View>;
+  const NestableDraggableFlatList = ({ data, renderItem, keyExtractor }: any) => (
+    <View>
+      {data.map((item: any, index: number) => (
+        <View key={keyExtractor ? keyExtractor(item, index) : index}>
+          {renderItem({ item, drag: () => {}, isActive: false, getIndex: () => index })}
+        </View>
+      ))}
+    </View>
+  );
+  return { __esModule: true, default: DraggableFlatList, ScaleDecorator, NestableScrollContainer, NestableDraggableFlatList };
 });
 
 // ── Heavy / irrelevant child components ───────────────────────────────────────
@@ -84,8 +94,8 @@ jest.mock('@/components/routine/AddToRoutineSheet', () => ({
 // FE-8 additions: the Draft Preview sheet pulls in @gorhom/bottom-sheet and
 // the generation domain actions pull in the tracking/season/AsyncStorage
 // chain — both out of scope for hidden-filtering, so mock at the boundary.
-jest.mock('@/components/routine/DraftPreviewSheet', () => ({
-  DraftPreviewSheet: () => null,
+jest.mock('@/components/routine/DraftPreviewScreen', () => ({
+  DraftPreviewScreen: () => null,
 }));
 
 jest.mock('@/domain/routinePlanActions', () => ({
@@ -117,7 +127,13 @@ jest.mock('@/store/profileStore', () => ({
 }));
 
 jest.mock('@/store/settingsStore', () => ({
-  useSettingsStore: jest.fn((selector: any) => selector({ routineCycleType: 'fixed' })),
+  useSettingsStore: jest.fn((selector: any) =>
+    selector({
+      routineCycleType: 'fixed',
+      routineAccordion: null,
+      setRoutineAccordion: jest.fn(),
+    }),
+  ),
 }));
 
 jest.mock('@/store/trackingStore', () => ({
@@ -189,10 +205,11 @@ jest.mock('@/store/routinesStore', () => ({
 
 // img-03: the Morning/Evening accordions open based on the time of day. Pin
 // that here so these filtering assertions never depend on the wall clock —
-// the 15:00 rule itself is covered in src/utils/routineAccordion.test.ts.
+// the 15:00 rule and the once-a-day persistence are covered in
+// src/utils/routineAccordion.test.ts.
 jest.mock('@/utils/routineAccordion', () => ({
   ...jest.requireActual('@/utils/routineAccordion'),
-  getInitialAccordionState: () => ({ morning: true, evening: false }),
+  resolveAccordionState: () => ({ morning: true, evening: false }),
 }));
 
 import RoutinesScreen from '@/screens/RoutinesScreen';

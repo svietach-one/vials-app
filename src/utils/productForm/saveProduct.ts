@@ -20,6 +20,8 @@ export function buildProductFromDraft(
     brand: draft.brand.trim() || null,
     productType: draft.productType,
     imageUrl: null,
+    // The front-label capture doubles as the product cover (see AddProductDraft).
+    localImageUri: draft.localImageUri,
     activeIngredients: draft.activeIngredientKeys.map((key) => ({
       key,
       displayName: ACTIVE_INGREDIENT_LABELS[key],
