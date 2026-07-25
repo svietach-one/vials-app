@@ -447,6 +447,20 @@ export interface AppSettings {
    * endpoint backs a global number in this scope.
    */
   communityContributionCount: number;
+  /**
+   * Routines screen Morning/Evening accordion snapshot, so a manual collapse
+   * survives an app restart for the rest of the skincare day. Re-decided from
+   * the 15:00 AM/PM rule once a new skincare day starts (see
+   * getSkincareDateString). Null before the first decision is made.
+   */
+  routineAccordion: RoutineAccordionSettings | null;
+}
+
+export interface RoutineAccordionSettings {
+  /** Skincare-day date string (see getSkincareDateString) this snapshot applies to. */
+  date: string;
+  morningExpanded: boolean;
+  eveningExpanded: boolean;
 }
 
 // ─── Catalog filters ──────────────────────────────────────────────────────────

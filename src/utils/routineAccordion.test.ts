@@ -2,11 +2,14 @@ import {
   buildRoutineRows,
   getInitialAccordionState,
   mergeReorderedSteps,
+  resolveAccordionState,
   resolveDragResult,
   routineRowKey,
+  toPersistedAccordionState,
   type RoutineRow,
 } from '@/utils/routineAccordion';
-import type { RoutineStep } from '@/types';
+import { getSkincareDateString } from '@/utils/timeHelpers';
+import type { RoutineAccordionSettings, RoutineStep } from '@/types';
 
 /**
  * Unit tests — routine accordion + drag logic (img-03). Dates are injected,
@@ -36,6 +39,46 @@ describe('getInitialAccordionState', () => {
       evening: false,
     });
     expect(getInitialAccordionState(at(23))).toEqual({ morning: false, evening: true });
+  });
+});
+
+describe('resolveAccordionState', () => {
+  it('falls back to the AM/PM auto-decision when there is no persisted snapshot', () => {
+    expect(resolveAccordionState(null, at(9))).toEqual({ morning: true, evening: false });
+    expect(resolveAccordionState(null, at(15))).toEqual({ morning: false, evening: true });
+  });
+
+  it('reuses a manual collapse persisted earlier the same skincare day, ignoring the AM/PM rule', () => {
+    const persisted: RoutineAccordionSettings = {
+      date: getSkincareDateString(at(9)),
+      morningExpanded: false,
+      eveningExpanded: false,
+    };
+
+    // Even though 15:00 has passed and the AM/PM rule would open Evening,
+    // today's persisted snapshot (a manual collapse) wins.
+    expect(resolveAccordionState(persisted, at(16))).toEqual({ morning: false, evening: false });
+  });
+
+  it('discards a snapshot from a previous skincare day and makes a fresh auto-decision', () => {
+    const yesterday = new Date(2026, 6, 18, 20, 0, 0);
+    const persisted: RoutineAccordionSettings = {
+      date: getSkincareDateString(yesterday),
+      morningExpanded: false,
+      eveningExpanded: false,
+    };
+
+    expect(resolveAccordionState(persisted, at(9))).toEqual({ morning: true, evening: false });
+  });
+});
+
+describe('toPersistedAccordionState', () => {
+  it('tags the given state with the skincare date for "now"', () => {
+    expect(toPersistedAccordionState({ morning: false, evening: true }, at(16))).toEqual({
+      date: getSkincareDateString(at(16)),
+      morningExpanded: false,
+      eveningExpanded: true,
+    });
   });
 });
 

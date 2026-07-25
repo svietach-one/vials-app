@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   SafeAreaView,
@@ -59,8 +59,9 @@ import { ConflictEngine } from '@/utils/conflictEngine';
 import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
 import { isScheduledOnDay } from '@/utils/routineSchedule';
 import {
-  getInitialAccordionState,
   mergeReorderedSteps,
+  resolveAccordionState,
+  toPersistedAccordionState,
   type AccordionState,
 } from '@/utils/routineAccordion';
 import { getAdaptationStatus } from '@/utils/routineEngine/adaptation';
@@ -131,11 +132,26 @@ export default function RoutinesScreen({ navigation }: Props) {
   const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
   const removeProductStep = useRoutinesStore((s) => s.removeProductStep);
   const setStepHidden = useRoutinesStore((s) => s.setStepHidden);
+  const persistedAccordion = useSettingsStore((s) => s.routineAccordion);
+  const setRoutineAccordion = useSettingsStore((s) => s.setRoutineAccordion);
 
   const [viewMode, setViewMode] = useState<RoutineViewMode>('list');
-  // Decided once, on mount: before 15:00 Morning is open, after it Evening is.
-  // Manual toggles win from then on — never recomputed on re-render.
-  const [expanded, setExpanded] = useState<AccordionState>(() => getInitialAccordionState());
+  // The AM/PM auto-decision (before 15:00 Morning open, after it Evening) only
+  // fires once per skincare day — today's persisted snapshot wins over it if
+  // one exists, so a manual collapse survives a remount for the rest of the
+  // day. Read once on mount; settings are already hydrated by the time this
+  // screen exists (App gates rendering on storesReady).
+  const [expanded, setExpanded] = useState<AccordionState>(() =>
+    resolveAccordionState(persistedAccordion),
+  );
+
+  // Persists on mount (recording the day's auto-decision, if it wasn't
+  // already recorded) and after every manual toggle below, so a remount later
+  // the same skincare day reuses this exact snapshot instead of re-deciding
+  // from the 15:00 AM/PM rule.
+  useEffect(() => {
+    setRoutineAccordion(toPersistedAccordionState(expanded));
+  }, [expanded, setRoutineAccordion]);
   const [selectedDow, setSelectedDow] = useState<number>(() => new Date().getDay());
   const [addSheetVisible, setAddSheetVisible] = useState(false);
   const [sheetProduct, setSheetProduct] = useState<Product | null>(null);

@@ -21,11 +21,14 @@ const BARRIER_COPY: Record<RehabNotice['barrierStatus'], string> = {
  * restriction list rides inside this card during the acute (disrupted) phase
  * and disappears once the notice reports no restrictions, so the user never
  * sees two anxious cards about the same procedure. Amber "alarm" tone (calmer
- * than the old red SOS), collapsible to its header line. Pure render of a
- * RehabNotice — self-destructs when the window ends and the notice is gone.
+ * than the old red SOS), collapsible to its header + day-count lines. Pure
+ * render of a RehabNotice — self-destructs when the window ends and the
+ * notice is gone.
  */
 export function RehabNoticeCard({ notice }: RehabNoticeCardProps) {
-  // Local UI only — collapses the card to its header line to save space.
+  // Local UI only — collapses the card down to its header + "Day X of Y"
+  // status line to save space; the day count stays visible either way so the
+  // user can track recovery progress without expanding the card.
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -48,11 +51,12 @@ export function RehabNoticeCard({ notice }: RehabNoticeCardProps) {
         />
       </Pressable>
 
+      <Text style={styles.dayText}>
+        Day {notice.currentDay} of {notice.totalDays}
+      </Text>
+
       {!collapsed ? (
         <>
-          <Text style={styles.dayText}>
-            Day {notice.currentDay} of {notice.totalDays}
-          </Text>
           <Text style={styles.bodyText}>{BARRIER_COPY[notice.barrierStatus]}</Text>
 
           {notice.restrictions.length > 0 ? (

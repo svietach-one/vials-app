@@ -1,4 +1,5 @@
-import type { RoutineStep } from '@/types';
+import type { RoutineAccordionSettings, RoutineStep } from '@/types';
+import { getSkincareDateString } from '@/utils/timeHelpers';
 
 /**
  * Pure logic for the Routine list view's Morning/Evening accordions (img-03).
@@ -25,6 +26,36 @@ export interface AccordionState {
 export function getInitialAccordionState(now: Date = new Date()): AccordionState {
   const isEvening = now.getHours() >= EVENING_SWITCH_HOUR;
   return { morning: !isEvening, evening: isEvening };
+}
+
+/**
+ * Resolves the accordion state for "now" from a persisted snapshot: the
+ * AM/PM auto-decision (getInitialAccordionState) only fires once per
+ * skincare day. If today already has a snapshot — whether it's that first
+ * auto-decision or a later manual toggle — it wins, so a manual collapse is
+ * never silently re-expanded by a later re-mount the same day. A new
+ * skincare day discards the old snapshot and makes a fresh auto-decision.
+ */
+export function resolveAccordionState(
+  persisted: RoutineAccordionSettings | null,
+  now: Date = new Date(),
+): AccordionState {
+  if (persisted && persisted.date === getSkincareDateString(now)) {
+    return { morning: persisted.morningExpanded, evening: persisted.eveningExpanded };
+  }
+  return getInitialAccordionState(now);
+}
+
+/** Snapshots an AccordionState for persistence, tagged with today's skincare date. */
+export function toPersistedAccordionState(
+  state: AccordionState,
+  now: Date = new Date(),
+): RoutineAccordionSettings {
+  return {
+    date: getSkincareDateString(now),
+    morningExpanded: state.morning,
+    eveningExpanded: state.evening,
+  };
 }
 
 // ─── Rows (single-list model) ─────────────────────────────────────────────────

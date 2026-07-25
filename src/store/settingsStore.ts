@@ -7,7 +7,7 @@ import {
   saveJson,
   STORAGE_KEYS,
 } from '@/services/storage';
-import { AppSettings, RoutineCycleType } from '@/types';
+import { AppSettings, RoutineAccordionSettings, RoutineCycleType } from '@/types';
 
 interface SettingsState extends AppSettings {
   hydrated: boolean;
@@ -18,6 +18,8 @@ interface SettingsState extends AppSettings {
   setRoutineCycleType: (type: RoutineCycleType) => void;
   /** Bumps the local per-device community contribution counter. */
   incrementCommunityContribution: () => void;
+  /** Overwrites today's Routines screen accordion snapshot. */
+  setRoutineAccordion: (snapshot: RoutineAccordionSettings) => void;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -26,6 +28,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   dismissedBanners: [],
   routineCycleType: 'fixed',
   communityContributionCount: 0,
+  routineAccordion: null,
 };
 
 function pickSettings(s: SettingsState): AppSettings {
@@ -35,6 +38,7 @@ function pickSettings(s: SettingsState): AppSettings {
     dismissedBanners: s.dismissedBanners,
     routineCycleType: s.routineCycleType,
     communityContributionCount: s.communityContributionCount,
+    routineAccordion: s.routineAccordion,
   };
 }
 
@@ -83,5 +87,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       STORAGE_KEYS.settings,
       pickSettings({ ...get(), communityContributionCount: next }),
     );
+  },
+
+  setRoutineAccordion: (snapshot) => {
+    set({ routineAccordion: snapshot });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), routineAccordion: snapshot }));
   },
 }));
