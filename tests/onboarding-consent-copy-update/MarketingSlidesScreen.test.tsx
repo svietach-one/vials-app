@@ -32,6 +32,7 @@ import {
   SLIDE2_KICKER,
   SLIDE3_BODY,
   SLIDE3_CTA,
+  SLIDE3_HEADLINE,
   SLIDE3_KICKER,
   advanceToConsentSlide,
   advanceToSlide,
@@ -105,11 +106,12 @@ describe('MarketingSlidesScreen — stale privacy claim removed (spec Goal 1)', 
 // ─── Story 2: slide 3 consent gate ──────────────────────────────────────────
 
 describe('MarketingSlidesScreen — slide 3 verbatim copy (spec §5)', () => {
-  it('renders the exact kicker, body, and consent checkbox label', () => {
+  it('renders the exact kicker, headline, body, and consent checkbox label', () => {
     renderScreen();
     advanceToConsentSlide();
 
     expect(screen.getByText(SLIDE3_KICKER)).toBeTruthy();
+    expect(screen.getByText(SLIDE3_HEADLINE)).toBeTruthy();
     expect(screen.getByText(SLIDE3_BODY)).toBeTruthy();
     expect(screen.getByText(CONSENT_LABEL)).toBeTruthy();
   });

@@ -23,15 +23,16 @@ export const SLIDE1_KICKER = 'CARE THAT ASKS LESS OF YOU';
 export const SLIDE1_HEADLINE = "Beauty isn't just about the right products.";
 export const SLIDE1_BODY =
   "It's a system of small decisions and reminders you have to keep in mind. Let Vials hold that part — so your ritual keeps only what you actually enjoy.";
-export const SLIDE1_CTA = 'Get started';
+export const SLIDE1_CTA = 'Next';
 
 export const SLIDE2_KICKER = 'PRIVACY FIRST';
 export const SLIDE2_HEADLINE = 'Your beauty secrets stay exactly that — yours.';
 export const SLIDE2_BODY =
   'Your skin profile, routines, and procedure history stay on your device by default — nothing personal is uploaded unless you choose to. When you add a new product to your shelf, anonymous data about it joins the Vials database, so the catalog grows for the whole community.';
-export const SLIDE2_CTA = 'Continue';
+export const SLIDE2_CTA = 'Next';
 
-export const SLIDE3_KICKER = 'WARNINGS THAT ACTUALLY MATTER';
+export const SLIDE3_KICKER = 'SAFETY LOGIC';
+export const SLIDE3_HEADLINE = 'Warnings that actually matter.';
 export const SLIDE3_BODY =
   'Instead of long lists of generic advice, Vials watches your own routine and warns you only about the combinations of products and procedures that actually apply to you.';
 export const SLIDE3_CTA = 'Get started';
