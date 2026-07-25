@@ -36,7 +36,7 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 
 **Scope:**
 1. Update `src/types/index.ts` — add `deferralCount`, `realDuration`, `'overdue'` status, `individualDurationMonths`, `dismissedBanners`, `medicalDisclaimerAcceptedAt`, `medicalDisclaimerVersion`
-2. Update `src/store/settingsStore.ts` — add `dismissedBanners: string[]` field and `dismissBanner(key)` action, plus `medicalDisclaimerAcceptedAt`/`medicalDisclaimerVersion` fields and the `acceptMedicalDisclaimer(version)` action (onboarding consent gate, Phase 1)
+2. Update `src/store/settingsStore.ts` — add `dismissedBanners: string[]` field and `dismissBanner(key)` action, plus `medicalDisclaimerAcceptedAt`/`medicalDisclaimerVersion` fields and the `acceptMedicalDisclaimer(version)` action (onboarding consent gate, Phase 1). Add `contributionConsentStatus`, `declinedSaveCountSinceLastReminder`, `reminderCountShown` and their actions — see `docs/specs/contribution-consent-flow/02-store-schema.md`. Add `contributionOptIn: boolean` to the `Product` type in `src/types/index.ts`.
 3. Port remaining web DS components to React Native `.tsx`: `Input`, `Checkbox`, `Switch`, `SegmentedControl` (needed by Phase 1–3 screens)
 4. Scaffold `src/services/vialsApi/` network client infrastructure:
    - `src/services/vialsApi/client.ts` — base fetch client pointed at the Vials API base URL (read from `EXPO_PUBLIC_VIALS_API_URL` env var); handles request timeout and generic error normalization
@@ -105,7 +105,15 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 - `ProductForm` (Manual Fallback + Crowdsourcing) — text inputs for Brand, Name, Type dropdown, and a large multi-line raw INCI field (`inci_raw`):
   - **Pre-fill:** When accessed via a failed Universal Scan, `brand` and `name` fields are auto-populated with OCR-extracted strings, minimizing typing friction
   - **Instant local activation on save:** The new record is immediately written to `productsStore` with `source: 'manual'`, making it available for routines and conflict checks without any server round-trip
-  - **Asynchronous background sync:** After the local write, the app fires `suggestProduct(payload)` → `POST /api/v1/products/suggest` in the background with `status: 'pending'`. The save action never awaits this call — the user sees an immediate success toast ("Product added to your shelf") and is returned to the Shelf with no loader or blocking state
+  - **Contribution consent:** Whether the record is also sent to the server depends on `settingsStore.contributionConsentStatus`:
+    - First manual save ever (`unset`): a full-screen `ContributionConsentModal` asks the user to opt in, toggle defaulting on. Accepting sets status to `accepted`; declining sets status to `declined`.
+    - Subsequent saves while `declined`: a compact inline toggle only (default off) — except on a periodic reminder cadence (5 declined saves, then 15, then 30, then every 30) where the full modal reappears with softer copy.
+    - Subsequent saves while `accepted`: compact inline toggle only, default on.
+    - While `disabled` (explicit opt-out in Profile): no modal, no toggle, ever.
+    - See `docs/specs/contribution-consent-flow/01-copy-and-consent-states.md` for the full state machine and copy.
+  - **Asynchronous background sync:** If the user opted in on this save (`contributionOptIn: true`), the app fires `submitContribution(payload)` in the background with `status: 'pending'`. The save action never awaits this call — the user sees an immediate success toast (green variant) and is returned to the Shelf with no loader or blocking state.
+- `ContributionConsentModal` — full-screen modal, two copy variants (`first-time` / `reminder`), toggle + two CTAs. See `docs/specs/contribution-consent-flow/01-copy-and-consent-states.md`.
+- `ContributionToggle` — compact inline toggle rendered inside `ProductForm` on all manual saves except the ones that trigger the modal.
 - `DeleteProductModal` — checks routinesStore for active steps before deleting, DS modal pattern
 
 **Service consumed:** `src/services/vialsApi/products.ts` (scaffolded in Phase 0).
@@ -132,6 +140,7 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 **Components to build:**
 - `SkinProfileEditor` — form bound to profileStore (age, gender, skin issues, phototype cards reused from onboarding)
 - `GamificationToggle` — DS Switch bound to settingsStore.gamificationEnabled
+- `ContributionSettingsRow` — Profile-screen switch + counter for contribution consent, bound to `settingsStore.contributionConsentStatus`. See `docs/specs/contribution-consent-flow/`.
 - `ExportBackupUtility` — reads all AsyncStorage keys belonging to the Zustand persistence namespace, serializes the full dataset to a single tagged `.json` file (with schema version header), and triggers the native share sheet via `expo-sharing`
 - `ImportRestoreUtility` — accepts a previously exported `.json` via `expo-document-picker`, validates schema version against the current AsyncStorage schema, and offers **Replace** (clears current AsyncStorage store, loads file as-is) or **Merge** (adds records from file that don't already exist locally by ID, skips exact duplicates) before a confirmation summary screen ("This will add 12 products, 3 procedures...") and final commit
 - `LocalDataWarningModal` — shown once per install (guarded by `settingsStore.hasSeenLocalDataWarning`)

@@ -42,6 +42,25 @@ jest.mock('@/store/productsStore', () => {
   return { useProductsStore, __state: state };
 });
 
+// These tests exercise the community-share pipeline itself (US-3), not the
+// product-contribution consent gate (docs/specs/contribution-consent-flow/)
+// added on top of it — default to 'accepted' so shareProduct fires
+// unconditionally, same as before that gate existed.
+jest.mock('@/store/settingsStore', () => {
+  const state = {
+    contributionConsentStatus: 'accepted',
+    declinedSaveCountSinceLastReminder: 0,
+    reminderCountShown: 0,
+    setContributionConsentStatus: jest.fn(),
+    incrementDeclinedSaveCount: jest.fn(),
+    resetDeclinedSaveCount: jest.fn(),
+    incrementReminderCountShown: jest.fn(),
+  };
+  const useSettingsStore = (selector: (s: typeof state) => unknown) => selector(state);
+  useSettingsStore.getState = () => state;
+  return { useSettingsStore };
+});
+
 const mockAddProduct: jest.Mock = jest.requireMock('@/store/productsStore').__state.addProduct;
 const mockSubmit: jest.Mock = jest.requireMock('@/services/contributions').submitContribution;
 const mockRenderBlob: jest.Mock =

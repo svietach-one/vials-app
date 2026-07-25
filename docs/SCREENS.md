@@ -3,6 +3,8 @@
 > **Sync note:** This revision reconciles the screen spec with PRD v1.1 (the gap-fix pass). Five items that had been fixed at the PRD level were missing here and have been restored: import/restore utility, catalog biomarker filters, phototype accessibility labels, onboarding skip path, and the fading-prompt deferral cap.
 >
 > **Sync note (2026-07-07):** Corrected the Tab 2 purpose line — product data now comes only from the on-device Vials corpus (Turso/libSQL replica), not a "proprietary Vials API." See `docs/PRD_Spec.md` §4.3 and `docs/database/db-product-spec.md` for the as-built architecture.
+>
+> **Sync note (2026-07-25):** Added `US-24` (Product Contribution Consent) — §3's `ProductForm` submission is now gated by `settingsStore.contributionConsentStatus` instead of always firing, and §5 adds `ContributionSettingsRow`. See `docs/specs/contribution-consent-flow/`.
 
 This document defines the interface architecture, component state-machines, and layout hierarchies for Phase 1.
 
@@ -114,7 +116,13 @@ silently filtered out of the visible list (see `USER_STORIES.md` US-08.1 note).
 * **`ProductForm` (Manual Fallback):** Text inputs for Brand, Name, Type dropdown, and a multi-line raw INCI ingredient field. Triggers automatically when the API returns no match, when the user selects no match from results, **or immediately when the device is offline** — this path is always available regardless of network state.
   * **Pre-fill State:** If accessed via a failed Universal Scan, `brand` and `name` fields are automatically populated with strings extracted by the OCR layer, minimizing typing friction.
   * **Ingredient Input Field:** A large text area for pasting or typing the raw INCI ingredients (`inci_raw`).
-  * **Submission UI Feedback:** Upon pressing "Save", the screen dismisses immediately to the user's Shelf with a success toast ("Product added to your shelf"). No loader or blocking state is shown for the background server sync.
+  * **Contribution consent:** Whether a genuinely manual save (not a corpus/OBF match) is also sent to the server depends on `settingsStore.contributionConsentStatus`:
+    * First manual save ever (`unset`): a full-screen `ContributionConsentModal` asks the user to opt in, with a toggle defaulting on. Accepting sets status to `accepted`; declining sets status to `declined`.
+    * Subsequent saves while `declined`: no modal on most saves — just a compact inline toggle in the form (default off) — except on a periodic reminder cadence (5 declined saves, then 15, then 30, then every 30) where the full modal reappears with softer copy.
+    * Subsequent saves while `accepted`: compact inline toggle only, default on.
+    * While `disabled` (explicit opt-out in Profile): no modal, no toggle, ever.
+    * See `docs/specs/contribution-consent-flow/01-copy-and-consent-states.md` for the full state machine and copy.
+  * **Submission UI Feedback:** Upon pressing "Save", the screen dismisses to the user's Shelf with a success toast — green variant, "Saved" plus a contributor-count line only when this save was opted in. No loader or blocking state is shown for the background server sync.
 * **`DeleteProductModal` (`US-08.1`):** Triggered on item deletion. If the item is active in Tab 1, it renders a confirmation prompt: *"Deleting will remove this step from your routine."* On click, it simultaneously purges the item from both stores.
 
 ---
@@ -135,6 +143,7 @@ silently filtered out of the visible list (see `USER_STORIES.md` US-08.1 note).
 
 * **`SkinProfileEditor`:** Input form sheets updating age, gender metrics, and skin issues. Houses the 3 phototype card selectors (see accessibility note in Section 1).
 * **`GamificationToggle`:** System preference switcher to enable or disable checklist completion rewards and daily streaks (Default OFF).
+* **`ContributionSettingsRow`:** DS Switch labeled "Share new products with Vials", bound to `settingsStore.contributionConsentStatus` (on = `accepted`, off = `disabled`; re-enabling from `disabled` resets to `unset` so the full explainer modal reappears on the next manual save). Shows a running count: "{N} products contributed so far", derived from `productsStore` (count of records with `contributionOptIn === true`). Helper text clarifies that turning this off only affects future contributions, not already-shared records.
 * **`ExportBackupUtility`:** Parses the local MMKV database, serializes all data blocks to a single `.json` file, and triggers the native share-sheet for manual backup.
 * **`ImportRestoreUtility`:** Accepts a previously exported `.json` via the system document picker, validates its schema/version, and offers **Replace** (wipe + load) or **Merge** (add non-duplicate records by ID) before a confirmation summary screen ("This will add 12 products, 3 procedures...") and final commit.
 * **`LocalDataWarningModal`:** High-visibility text warning anchored in settings: *"Data is saved locally on this device. Deleting the app will erase your logs unless you've exported a backup."*

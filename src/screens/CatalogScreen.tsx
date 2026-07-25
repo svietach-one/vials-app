@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FlatList,
   SafeAreaView,
@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/core/Button';
 import { Card } from '@/components/ui/core/Card';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Badge } from '@/components/ui/feedback/Badge';
+import { Toast } from '@/components/ui/feedback/Toast';
 import { Tag } from '@/components/ui/core/Tag';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, space, typography } from '@/constants/tokens';
@@ -43,6 +44,18 @@ type Props = NativeStackScreenProps<CatalogStackParamList, 'Catalog'>;
 // ─── Module-level filter constants ────────────────────────────────────────────
 
 const PAO_AMBER = '#D97706';
+
+/** 1st / 2nd / 3rd / 4th… for the contribution-count toast line. */
+function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
+}
 
 // ─── applyFilters ─────────────────────────────────────────────────────────────
 
@@ -77,7 +90,7 @@ export function applyFilters(
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function CatalogScreen({ navigation }: Props) {
+export default function CatalogScreen({ navigation, route }: Props) {
   const products = useProductsStore((s) => s.products);
   const updateProduct = useProductsStore((s) => s.updateProduct);
   const routines = useRoutinesStore((s) => s.routines);
@@ -87,6 +100,21 @@ export default function CatalogScreen({ navigation }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [schedulerTarget, setSchedulerTarget] = useState<Product | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // One-shot success toast forwarded from ManualProductFormScreen after a
+  // save — captured into local state, then cleared from params so it never
+  // reappears on refocus (docs/specs/contribution-consent-flow/03-visual-spec.md).
+  const incomingToast = route.params?.toast;
+  const [toastContent, setToastContent] = useState<{
+    contributionOptIn: boolean;
+    contributedCount: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!incomingToast) return;
+    setToastContent(incomingToast);
+    navigation.setParams({ toast: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingToast?.savedAt]);
 
   const filteredProducts = applyFilters(products, filterState);
   const activeFilterCount =
@@ -220,6 +248,17 @@ export default function CatalogScreen({ navigation }: Props) {
         initialState={filterState}
         onApply={setFilterState}
         onClose={() => setSheetOpen(false)}
+      />
+
+      <Toast
+        visible={toastContent !== null}
+        title="Saved"
+        subtitle={
+          toastContent?.contributionOptIn
+            ? `That's your ${ordinal(toastContent.contributedCount)} jar in the Vials database.`
+            : undefined
+        }
+        onHide={() => setToastContent(null)}
       />
     </SafeAreaView>
   );

@@ -290,6 +290,15 @@ export interface Product {
    * Render precedence everywhere: `localImageUri ?? imageUrl ?? <placeholder>`.
    */
   localImageUri?: string | null;
+  /**
+   * Whether the user explicitly opted in to sharing THIS product with the
+   * Vials product database at save time (see docs/specs/contribution-consent-flow/).
+   * Set once at save and never mutated afterward — the running contributor
+   * counter reads this field directly, independent of the user's current
+   * global `contributionConsentStatus`. Absent on records saved before this
+   * field existed; treat as false.
+   */
+  contributionOptIn?: boolean;
 }
 
 
@@ -467,7 +476,34 @@ export interface AppSettings {
    * alone.
    */
   medicalDisclaimerVersion: number;
+  /**
+   * Global state for the product-contribution consent flow
+   * (docs/specs/contribution-consent-flow/) — distinct from
+   * `ContributionConsent` (the photo-sharing consent on `UserProfile`).
+   * Governs whether `ContributionConsentModal` / `ContributionToggle` appear
+   * when a manually-added product is saved.
+   */
+  contributionConsentStatus: ContributionConsentStatus;
+  /**
+   * Manual saves declined (toggle off) since the last reminder modal was
+   * shown. Only meaningful while `contributionConsentStatus === 'declined'`.
+   */
+  declinedSaveCountSinceLastReminder: number;
+  /**
+   * Reminder modals shown so far: 0 = none yet, 1 = 1st shown, 2 = 2nd,
+   * 3+ = 3rd/every-30 tier. Drives the next reminder threshold (5/15/30/30…).
+   */
+  reminderCountShown: number;
 }
+
+/**
+ * Product-contribution consent state machine (docs/specs/contribution-consent-flow/01-copy-and-consent-states.md).
+ * - unset: never seen the modal — shown on next manual save.
+ * - declined: seen at least once, not opted in — reminder cadence applies.
+ * - accepted: opted in at least once — no modal, ever again.
+ * - disabled: explicit opt-out in Profile — no modal, no toggle, ever.
+ */
+export type ContributionConsentStatus = 'unset' | 'declined' | 'accepted' | 'disabled';
 
 export interface RoutineAccordionSettings {
   /** Skincare-day date string (see getSkincareDateString) this snapshot applies to. */
