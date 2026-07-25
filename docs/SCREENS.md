@@ -43,7 +43,10 @@ The application consolidates navigation into 4 high-priority bottom tabs.
 
 ## 1. Onboarding Flow (Pre-Navigation Stack)
 
-* **`MarketingSlidesScreen`:** 3 text-driven, airy sliding cards detailing local data privacy, safety logic, and cyclic planning. Contains a primary black button to advance.
+* **`MarketingSlidesScreen`:** 3 text-driven, airy sliding cards.
+  * *Card 1* (kicker "CARE THAT ASKS LESS OF YOU"): the app's value proposition — Vials holds the small day-to-day routine decisions.
+  * *Card 2* (kicker "PRIVACY FIRST"): discloses that skin profile, routines, and procedure history stay on-device by default, while anonymized metadata from manually-added products joins the shared Vials product database (see `docs/PRD_Spec.md` §4.3) — nothing personal ever leaves the device.
+  * *Card 3* (kicker "WARNINGS THAT ACTUALLY MATTER"): explains the routine-specific conflict warnings, followed by a required consent checkbox acknowledging Vials is a planning tool, not a medical app (`US-23`). The checkbox defaults unchecked and gates the primary CTA — disabled and unpressable until checked, no auto-check, no skip path. Checking the box then tapping the CTA calls `settingsStore.acceptMedicalDisclaimer(version)` (recording `medicalDisclaimerAcceptedAt` + `medicalDisclaimerVersion`) before advancing to `SkinProfileSetupScreen`.
 * **`SkinProfileSetupScreen`:** Age/Gender select layers and Skin Type selectors.
   * **`PhototypeSelector` (`US-03`):** 3 visually unlabeled option cards based on UV sensitivity guidelines. Each card carries a full `accessibilityLabel` (e.g. "Light or fair skin tone, burns easily, high sensitivity") so the visual minimalism doesn't become a screen-reader gap.
 * **`FirstProductScreen`:** Embedded quick-search bar allowing users to input their first item to instantiate the database. Includes a secondary **"Skip for now"** outline button — the store can instantiate empty, and `CatalogList` renders its standard empty state on first launch of Tab 2.

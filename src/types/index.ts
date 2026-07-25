@@ -454,6 +454,19 @@ export interface AppSettings {
    * getSkincareDateString). Null before the first decision is made.
    */
   routineAccordion: RoutineAccordionSettings | null;
+  /**
+   * ISO 8601 timestamp of when the user accepted the onboarding medical
+   * disclaimer (MarketingSlidesScreen slide 3 consent checkbox). Null until
+   * accepted.
+   */
+  medicalDisclaimerAcceptedAt: string | null;
+  /**
+   * Copy version of the medical disclaimer the user last accepted. Defaults
+   * to 0 pre-acceptance — a value that can never collide with a real version
+   * (versions start at 1) so "never accepted" is unambiguous from this field
+   * alone.
+   */
+  medicalDisclaimerVersion: number;
 }
 
 export interface RoutineAccordionSettings {

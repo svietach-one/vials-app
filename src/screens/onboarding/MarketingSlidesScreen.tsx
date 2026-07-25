@@ -12,31 +12,49 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '@/components/ui/core/Button';
+import { Checkbox } from '@/components/ui/forms/Checkbox';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { OnboardingStackParamList } from '@/navigation/AppNavigator';
+import { useSettingsStore } from '@/store/settingsStore';
+
+// ─── Consent copy version ──────────────────────────────────────────────────────
+
+/**
+ * Bumped whenever the slide 3 disclaimer sentence changes materially. See
+ * docs/tech-design/onboarding-consent-copy-update.md §4 — co-located here
+ * rather than in a shared constants module since this screen is the only
+ * call site; a future re-prompt-on-bump flow (out of scope) would hoist it.
+ */
+const CURRENT_MEDICAL_DISCLAIMER_VERSION = 1;
 
 // ─── Slide content ────────────────────────────────────────────────────────────
 
 const SLIDES = [
   {
-    eyebrow: 'Privacy first',
-    title: 'Your data stays\non your device.',
-    body: 'Everything you log — products, routines, procedures — is saved locally. No account, no cloud, no tracking. You own your data.',
+    eyebrow: 'CARE THAT ASKS LESS OF YOU',
+    title: "Beauty isn't just about the right products.",
+    body: "It's a system of small decisions and reminders you have to keep in mind. Let Vials hold that part — so your ritual keeps only what you actually enjoy.",
+    cta: 'Get started',
     accent: colors.statusInfo,
   },
   {
-    eyebrow: 'Safety logic',
-    title: 'Ingredient conflicts\ncaught before they happen.',
-    body: 'Vials cross-checks active ingredients and clinical procedures in real time, so you get warnings exactly when they matter — not generic disclaimers.',
+    eyebrow: 'PRIVACY FIRST',
+    title: 'Your beauty secrets stay exactly that — yours.',
+    body: 'Your skin profile, routines, and procedure history stay on your device by default — nothing personal is uploaded unless you choose to. When you add a new product to your shelf, anonymous data about it joins the Vials database, so the catalog grows for the whole community.',
+    cta: 'Continue',
     accent: colors.statusWarning,
   },
   {
-    eyebrow: 'Cyclic planning',
-    title: 'A routine that adapts\nto your skin cycle.',
-    body: 'Schedule products by day of week, manage clinical recovery windows, and let the app handle the timing logic while you focus on your skin.',
+    eyebrow: 'WARNINGS THAT ACTUALLY MATTER',
+    title: null,
+    body: 'Instead of long lists of generic advice, Vials watches your own routine and warns you only about the combinations of products and procedures that actually apply to you.',
+    cta: 'Get started',
     accent: colors.statusSafe,
   },
 ] as const;
+
+const CONSENT_LABEL =
+  "I understand Vials is a planning tool, not a medical app. It doesn't replace a consultation with a doctor or aesthetician, and it doesn't diagnose. Decisions about which products to use and procedures to undergo — and responsibility for their outcome, including possible allergic reactions — are mine to make.";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,7 +65,9 @@ type Props = NativeStackScreenProps<OnboardingStackParamList, 'MarketingSlides'>
 export default function MarketingSlidesScreen({ navigation }: Props) {
   const { width: screenW } = useWindowDimensions();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [consentChecked, setConsentChecked] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const acceptMedicalDisclaimer = useSettingsStore((s) => s.acceptMedicalDisclaimer);
 
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const idx = Math.round(e.nativeEvent.contentOffset.x / screenW);
@@ -58,6 +78,7 @@ export default function MarketingSlidesScreen({ navigation }: Props) {
     if (activeIndex < SLIDES.length - 1) {
       scrollRef.current?.scrollTo({ x: (activeIndex + 1) * screenW, animated: true });
     } else {
+      acceptMedicalDisclaimer(CURRENT_MEDICAL_DISCLAIMER_VERSION);
       navigation.replace('SkinProfileSetup');
     }
   }
@@ -78,8 +99,17 @@ export default function MarketingSlidesScreen({ navigation }: Props) {
         {SLIDES.map((slide, i) => (
           <View key={i} style={[styles.slide, { width: screenW }]}>
             <Text style={[styles.eyebrow, { color: slide.accent }]}>{slide.eyebrow}</Text>
-            <Text style={styles.title}>{slide.title}</Text>
+            {slide.title ? <Text style={styles.title}>{slide.title}</Text> : null}
             <Text style={styles.body}>{slide.body}</Text>
+            {i === SLIDES.length - 1 ? (
+              <Checkbox
+                size="md"
+                checked={consentChecked}
+                onValueChange={setConsentChecked}
+                label={CONSENT_LABEL}
+                style={styles.consentCheckbox}
+              />
+            ) : null}
           </View>
         ))}
       </ScrollView>
@@ -99,9 +129,10 @@ export default function MarketingSlidesScreen({ navigation }: Props) {
           variant="primary"
           size="lg"
           fullWidth
+          disabled={isLast && !consentChecked}
           onPress={handleNext}
         >
-          {isLast ? 'Get started' : 'Continue'}
+          {SLIDES[activeIndex].cta}
         </Button>
       </View>
     </SafeAreaView>
@@ -134,6 +165,9 @@ const styles = StyleSheet.create({
     ...typography.bodyLg,
     color: colors.textSecondary,
     maxWidth: 340,
+  },
+  consentCheckbox: {
+    marginTop: space[2],
   },
 
   footer: {

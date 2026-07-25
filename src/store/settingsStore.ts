@@ -20,6 +20,8 @@ interface SettingsState extends AppSettings {
   incrementCommunityContribution: () => void;
   /** Overwrites today's Routines screen accordion snapshot. */
   setRoutineAccordion: (snapshot: RoutineAccordionSettings) => void;
+  /** Records acceptance of the onboarding medical disclaimer (slide 3). */
+  acceptMedicalDisclaimer: (version: number) => void;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -29,6 +31,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   routineCycleType: 'fixed',
   communityContributionCount: 0,
   routineAccordion: null,
+  medicalDisclaimerAcceptedAt: null,
+  medicalDisclaimerVersion: 0,
 };
 
 function pickSettings(s: SettingsState): AppSettings {
@@ -39,6 +43,8 @@ function pickSettings(s: SettingsState): AppSettings {
     routineCycleType: s.routineCycleType,
     communityContributionCount: s.communityContributionCount,
     routineAccordion: s.routineAccordion,
+    medicalDisclaimerAcceptedAt: s.medicalDisclaimerAcceptedAt,
+    medicalDisclaimerVersion: s.medicalDisclaimerVersion,
   };
 }
 
@@ -92,5 +98,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setRoutineAccordion: (snapshot) => {
     set({ routineAccordion: snapshot });
     void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), routineAccordion: snapshot }));
+  },
+
+  acceptMedicalDisclaimer: (version) => {
+    const acceptedAt = new Date().toISOString();
+    set({ medicalDisclaimerAcceptedAt: acceptedAt, medicalDisclaimerVersion: version });
+    void saveJson(
+      STORAGE_KEYS.settings,
+      pickSettings({
+        ...get(),
+        medicalDisclaimerAcceptedAt: acceptedAt,
+        medicalDisclaimerVersion: version,
+      }),
+    );
   },
 }));

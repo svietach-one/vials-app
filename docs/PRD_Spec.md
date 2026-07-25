@@ -25,7 +25,7 @@ version: 1.1 (gap-fix revision)
 **Vials** is a premium, unisex personal skincare and aesthetic medicine management mobile app. It helps users track formulations, build dynamic morning/evening schedules (Skin Cycling), avoid ingredient conflicts, and safely navigate clinical cosmetic procedures (Botox, fillers, peels), with **all personal data stored locally on-device**.
 
 * **The Core Value Intersection:** Daily skincare and medical cosmetic tracking combined into an inseparable local engine.
-* **The Trust Anchor:** 100% data confidentiality. Personal data never leaves the device — no cloud backend, no analytics, no trackers.
+* **The Trust Anchor:** Personal data — skin profile, routines, procedure history — stays on-device by default. Product metadata (brand, name, INCI) contributed via manual entry is sent to the Vials product database, anonymized and never linked to a user profile.
 * **Connectivity Architecture (The Hybrid Engine):** The application operates on a hybrid data model. The user's personal shelf (`catalogStore`), routine schedules/checklists (`routineStore`), and the ingredient conflict verification engine (`conflictEngine.ts`) run strictly offline-first and local-only (Zustand + MMKV).
 Global search and barcode scanning read the on-device Vials product corpus (a Turso/libSQL embedded replica, see §4.3) and work fully offline once the device has synced at least once — no network needed at read time. Only the corpus's own background pull needs connectivity, and it silently no-ops without one. Label text recognition (OCR) and crowdsourced product suggestions remain unbuilt (see §4.3 sync note); when a lookup finds no match, the UI falls back to manual input.
 
@@ -72,7 +72,7 @@ The viewport system eliminates layout clutter by routing all configurations into
 ## 4. Comprehensive Screen Specifications & Functional Logic
 
 ### 4.1. Onboarding Flow (Pre-Navigation Stack)
-* **`MarketingSlidesScreen`:** 3 text-driven, spacious swipeable cards detailing data privacy, safety logic, and cyclic planning. Contains a primary black button to advance.
+* **`MarketingSlidesScreen`:** 3 text-driven, spacious swipeable cards. Card 1 pitches the app's value proposition; Card 2 discloses the on-device-by-default data model, distinguishing personal data (stays on-device) from anonymized product metadata contributed via manual entry (joins the shared Vials database, see §4.3); Card 3 explains routine-specific conflict warnings and requires the user to check a medical-disclaimer consent box (`US-23`) before the primary CTA is enabled — no skip path, recorded via `settingsStore.acceptMedicalDisclaimer`.
 * **`SkinProfileSetupScreen`:** Age/Gender select layers and Skin Type selectors.
   * **`PhototypeSelector` (`US-03`):** 3 geometric option cards based on UV sensitivity metrics. **Visually unlabeled** (icon/shade-only), but each card carries a full `accessibilityLabel` (e.g. "Light or fair skin tone, burns easily, high sensitivity") for screen readers — visual minimalism must not become an accessibility gap.
     1. *Card 1:* Light / Fair — Burns easily, high sensitivity.

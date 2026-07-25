@@ -21,6 +21,15 @@ This document defines the complete functional requirements and behavior specific
 > sync. Added an "Implementation note" to US-22 with the corrected
 > architecture and the still-unbuilt pieces (camera OCR product search,
 > crowdsourcing submission).
+>
+> **Sync note (2026-07-25):** Added `US-23` (Medical Disclaimer Consent,
+> Onboarding). Also corrected `docs/PRD_Spec.md` §1 and `docs/SCREENS.md` §1,
+> which claimed personal data "never leaves the device" — a claim that
+> contradicted `docs/PRD_Spec.md` §4.3's shipped crowdsourcing pipeline
+> (US-22, manually-added product metadata is sent to the Vials product
+> database). Both docs now distinguish on-device-by-default personal data
+> from anonymized, contributed product metadata, per
+> `docs/specs/onboarding-consent-copy-update.md`.
 
 ---
 
@@ -275,3 +284,19 @@ This document defines the complete functional requirements and behavior specific
 > corpus is 100% dogfood OBF-import data (ODbL-licensed, not Vials-owned) —
 > "the global database" this story refers to is not yet populated with
 > genuinely-owned (`vials_seed`/`community`) records.
+
+---
+
+### US-23 · Medical Disclaimer Consent (Onboarding)
+
+**As a** new user finishing the onboarding slides
+**I want to** explicitly confirm I understand Vials is not a medical app before continuing into the app
+**So that** I'm not misled about what its warnings mean, and my acknowledgment is recorded.
+
+**Acceptance criteria:**
+* Given the user is on slide 3 of `MarketingSlidesScreen`, when it first renders, then the consent checkbox is unchecked and the "Get started" CTA is disabled — the checkbox defaults unchecked, with no auto-check and no pre-checked default.
+* Given the checkbox is unchecked, when the user tries to activate the disabled CTA, then nothing happens — no navigation, no store write.
+* Given the user is on slide 3, when they tap the checkbox, then it becomes checked and the CTA becomes enabled; no other control on the screen can check it for them.
+* Given the checkbox is checked, when the user unchecks it again, then the CTA becomes disabled again.
+* Given the checkbox is checked, when the user taps the enabled CTA, then `settingsStore.acceptMedicalDisclaimer(version)` is called — setting `medicalDisclaimerAcceptedAt` to the current ISO 8601 timestamp and `medicalDisclaimerVersion` to the current copy version — and the user is navigated to `SkinProfileSetupScreen`.
+* Slide 3 has no secondary "Skip" action of any kind — checking the box and tapping the CTA is the only way to proceed. This is distinct from `US-21`'s `FirstProductScreen` "Skip for now" path, which this story does not change.

@@ -35,8 +35,8 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 **Goal:** Close the gaps that block all screen work: missing type fields, missing React Native DS components, and the network client infrastructure required by the Universal Scanner.
 
 **Scope:**
-1. Update `src/types/index.ts` — add `deferralCount`, `realDuration`, `'overdue'` status, `individualDurationMonths`, `dismissedBanners`
-2. Update `src/store/settingsStore.ts` — add `dismissedBanners: string[]` field and `dismissBanner(key)` action
+1. Update `src/types/index.ts` — add `deferralCount`, `realDuration`, `'overdue'` status, `individualDurationMonths`, `dismissedBanners`, `medicalDisclaimerAcceptedAt`, `medicalDisclaimerVersion`
+2. Update `src/store/settingsStore.ts` — add `dismissedBanners: string[]` field and `dismissBanner(key)` action, plus `medicalDisclaimerAcceptedAt`/`medicalDisclaimerVersion` fields and the `acceptMedicalDisclaimer(version)` action (onboarding consent gate, Phase 1)
 3. Port remaining web DS components to React Native `.tsx`: `Input`, `Checkbox`, `Switch`, `SegmentedControl` (needed by Phase 1–3 screens)
 4. Scaffold `src/services/vialsApi/` network client infrastructure:
    - `src/services/vialsApi/client.ts` — base fetch client pointed at the Vials API base URL (read from `EXPO_PUBLIC_VIALS_API_URL` env var); handles request timeout and generic error normalization
@@ -54,7 +54,7 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 **Goal:** Give new users a first-run flow that populates the profile store before unlocking the main tabs.
 
 **Screens to build:**
-- `MarketingSlidesScreen` — 3 swipeable slides, black primary CTA
+- `MarketingSlidesScreen` — 3 swipeable slides, black primary CTA; slide 3 adds a medical-disclaimer consent checkbox (`US-23`) that gates the CTA (disabled until checked, no skip path) and writes `settingsStore.acceptMedicalDisclaimer(version)` before advancing
 - `SkinProfileSetupScreen` — age, gender, skin type, phototype selector (3 unlabeled cards with accessibilityLabel)
 - `FirstProductScreen` — text search bar querying the Vials API (`searchByText`) + `UniversalScannerOverlay` camera button + `ProductForm` manual fallback + "Skip for now" outline button
 
