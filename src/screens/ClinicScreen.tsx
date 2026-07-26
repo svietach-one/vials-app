@@ -14,7 +14,7 @@ import { ProcedureActionSheet } from '@/components/clinic/ProcedureActionSheet';
 import { ProcedureLifespanCard } from '@/components/clinic/ProcedureLifespanCard';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { AppHeader } from '@/components/ui/core/AppHeader';
-import { Button } from '@/components/ui/core/Button';
+import { EmptyState } from '@/components/ui/core/EmptyState';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { PillToggle } from '@/components/ui/core/PillToggle';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
@@ -37,25 +37,37 @@ const TAB_OPTIONS: { value: ClinicTab; label: string }[] = [
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
-function ClinicEmptyState({ tab }: { tab: ClinicTab }) {
+function ClinicEmptyState({ tab, onLogProcedure }: { tab: ClinicTab; onLogProcedure: () => void }) {
+  // Action lives inside the empty state itself (matches Routines/Catalog/
+  // Calendar empty states) rather than a separate sticky footer.
+  const logAction = [
+    {
+      label: 'Log procedure',
+      onPress: onLogProcedure,
+      icon: <Icon name="plus" size={16} color={palette.white} />,
+    },
+  ];
+
   if (tab === 'history') {
     return (
       <View style={emptyStyles.wrap}>
-        <Icon name="archive" size={32} color={colors.textTertiary} />
-        <Text style={emptyStyles.title}>Nothing archived yet</Text>
-        <Text style={emptyStyles.body}>
-          Procedures you move to history will appear here so your active list stays focused.
-        </Text>
+        <EmptyState
+          icon={<Icon name="archive" size={24} color={colors.textSecondary} />}
+          title="Nothing archived yet"
+          description="Procedures you move to history will appear here so your active list stays focused."
+          actions={logAction}
+        />
       </View>
     );
   }
   return (
     <View style={emptyStyles.wrap}>
-      <Icon name="activity" size={32} color={colors.textTertiary} />
-      <Text style={emptyStyles.title}>No procedures logged</Text>
-      <Text style={emptyStyles.body}>
-        Log a cosmetic procedure to track its rehab window, effect lifespan, and ingredient safety rules.
-      </Text>
+      <EmptyState
+        icon={<Icon name="activity" size={24} color={colors.textSecondary} />}
+        title="No procedures logged"
+        description="Log a cosmetic procedure to track its rehab window, effect lifespan, and ingredient safety rules."
+        actions={logAction}
+      />
     </View>
   );
 }
@@ -65,18 +77,6 @@ const emptyStyles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: space[8],
     paddingTop: space[12],
-    gap: space[3],
-  },
-  title: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  body: {
-    ...typography.bodySmall,
-    color: colors.textTertiary,
-    textAlign: 'center',
   },
 });
 
@@ -161,25 +161,11 @@ export default function ClinicScreen({ navigation }: Props) {
           styles.list,
           data.length === 0 && styles.listEmpty,
         ]}
-        ListEmptyComponent={<ClinicEmptyState tab={tab} />}
+        ListEmptyComponent={
+          <ClinicEmptyState tab={tab} onLogProcedure={() => setModalVisible(true)} />
+        }
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
-
-      {/* Log-procedure CTA only in the empty state; otherwise the header "+" covers it */}
-      {data.length === 0 ? (
-        <View style={styles.footer}>
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            icon={<Icon name="plus" size={18} color={palette.white} />}
-            onPress={() => setModalVisible(true)}
-            accessibilityLabel="Log procedure"
-          >
-            Log procedure
-          </Button>
-        </View>
-      ) : null}
 
       <AddProcedureModal
         visible={modalVisible}
@@ -240,10 +226,5 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: space.gapCard,
-  },
-  footer: {
-    paddingHorizontal: space.gutterScreen,
-    paddingTop: space[3],
-    paddingBottom: space[2],
   },
 });

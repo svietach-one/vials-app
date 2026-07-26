@@ -388,8 +388,6 @@ const cardStyles = StyleSheet.create({
   card: {
     backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
     padding: space[4],
     gap: space[3],
     ...shadow.sm,

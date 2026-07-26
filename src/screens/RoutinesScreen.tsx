@@ -595,25 +595,25 @@ export default function RoutinesScreen({ navigation }: Props) {
           </>
         )}
 
-        <View style={styles.addProductFooter}>
-          <PausedSteps frozen={allFrozen} products={products} />
-          <Button
-            variant="textActive"
-            size="md"
-            fullWidth
-            icon={<Icon name="plus" size={16} color={palette.plum} />}
-            onPress={handleOpenAddSheet}
-            accessibilityLabel="Add product to routine"
-          >
-            Add product
-          </Button>
-          {totalSteps > 0 ? (
+        {totalSteps > 0 ? (
+          <View style={styles.addProductFooter}>
+            <PausedSteps frozen={allFrozen} products={products} />
+            <Button
+              variant="textActive"
+              size="md"
+              fullWidth
+              icon={<Icon name="plus" size={16} color={palette.plum} />}
+              onPress={handleOpenAddSheet}
+              accessibilityLabel="Add product to routine"
+            >
+              Add product
+            </Button>
             <OptimizeStrip
               hasFindings={validation?.hasBlockingFindings ?? false}
               onPress={handleOpenDraftPreview}
             />
-          ) : null}
-        </View>
+          </View>
+        ) : null}
       </NestableScrollContainer>
       )}
 
