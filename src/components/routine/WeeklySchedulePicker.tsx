@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   chip: {
     flex: 1,
     height: 30,
-    borderRadius: radius.sm,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.borderStrong,
     backgroundColor: colors.surfaceRaised,

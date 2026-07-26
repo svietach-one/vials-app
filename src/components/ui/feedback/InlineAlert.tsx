@@ -1,11 +1,13 @@
 import React from 'react';
 import {
+  Pressable,
   StyleSheet,
   Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { Icon } from '@/components/ui/Icon';
 
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
@@ -17,8 +19,24 @@ export interface InlineAlertProps {
   tone?: AlertTone;
   icon?: React.ReactNode;
   title?: string;
-  /** Trailing node — e.g. a dismiss Pressable. */
+  /** Trailing node — e.g. a "Learn more" link. Ignored when `onDismiss` is set. */
   action?: React.ReactNode;
+  /** Renders a built-in close-X in the trailing slot and calls this on tap. */
+  onDismiss?: () => void;
+  /** Accessibility label for the built-in dismiss button. Defaults to "Dismiss". */
+  dismissAccessibilityLabel?: string;
+  /**
+   * Collapsible header: presence of `onToggleCollapse` makes the icon+title
+   * row tappable and renders a chevron in the trailing slot instead of
+   * `action`. `children` render only while expanded; `summary` (if given)
+   * always renders regardless of collapse state — e.g. RehabNoticeCard's
+   * "Day X of Y" line.
+   */
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+  /** Accessibility label for the collapse toggle. Defaults to `title`. */
+  collapseAccessibilityLabel?: string;
+  summary?: React.ReactNode;
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }
@@ -53,12 +71,42 @@ export function InlineAlert({
   icon,
   title,
   action,
+  onDismiss,
+  dismissAccessibilityLabel = 'Dismiss',
+  collapsed = false,
+  onToggleCollapse,
+  collapseAccessibilityLabel,
+  summary,
   children,
   style,
 }: InlineAlertProps) {
   const bg = toneBackground[tone];
   const border = toneBorder[tone];
   const textColor = toneText[tone];
+  const isCollapsible = !!onToggleCollapse;
+
+  const resolvedAction = onDismiss ? (
+    <Pressable
+      onPress={onDismiss}
+      hitSlop={12}
+      accessibilityRole="button"
+      accessibilityLabel={dismissAccessibilityLabel}
+    >
+      <Icon name="x" size={16} color={textColor} />
+    </Pressable>
+  ) : isCollapsible ? (
+    <Icon name={collapsed ? 'chevron-down' : 'chevron-up'} size={16} color={textColor} />
+  ) : (
+    action
+  );
+
+  const titleRowContent = (
+    <>
+      {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
+      <Text style={[styles.title, styles.titleText, { color: textColor }]}>{title}</Text>
+      {resolvedAction ? <View style={styles.actionInline}>{resolvedAction}</View> : null}
+    </>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: bg, borderColor: border }, style]}>
@@ -76,13 +124,28 @@ export function InlineAlert({
 
         <View style={styles.body}>
           {title ? (
-            <View style={styles.titleRow}>
-              {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
-              <Text style={[styles.title, styles.titleText, { color: textColor }]}>{title}</Text>
-              {action ? <View style={styles.actionInline}>{action}</View> : null}
-            </View>
+            isCollapsible ? (
+              <Pressable
+                style={styles.titleRow}
+                onPress={onToggleCollapse}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: !collapsed }}
+                accessibilityLabel={collapseAccessibilityLabel ?? title}
+              >
+                {titleRowContent}
+              </Pressable>
+            ) : (
+              <View style={styles.titleRow}>{titleRowContent}</View>
+            )
           ) : null}
-          {children != null ? (
+          {summary != null ? (
+            typeof summary === 'string' ? (
+              <Text style={[styles.bodyText, { color: textColor }]}>{summary}</Text>
+            ) : (
+              summary
+            )
+          ) : null}
+          {(!isCollapsible || !collapsed) && children != null ? (
             typeof children === 'string' ? (
               <Text style={[styles.bodyText, { color: textColor }]}>{children}</Text>
             ) : (
@@ -91,7 +154,7 @@ export function InlineAlert({
           ) : null}
         </View>
 
-        {!title && action ? <View style={styles.actionWrap}>{action}</View> : null}
+        {!title && resolvedAction ? <View style={styles.actionWrap}>{resolvedAction}</View> : null}
       </View>
     </View>
   );

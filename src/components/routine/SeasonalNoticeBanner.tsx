@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
@@ -76,20 +76,8 @@ export function SeasonalNoticeBanner() {
           tone="info"
           icon={<Icon name="sun" size={14} color={colors.statusInfo} />}
           title={SEASON_TITLE[season]}
-          action={
-            // Bare icon + hitSlop, same footprint as RehabNoticeCard's
-            // chevron — IconButton's fixed 32px box was taller than the
-            // title's own line-height, so alignItems:'center' inflated the
-            // whole header row to fit it and visibly pushed the icon/title.
-            <Pressable
-              onPress={() => dismissBanner(bannerKey)}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Dismiss seasonal tip"
-            >
-              <Icon name="x" size={16} color={colors.statusInfo} />
-            </Pressable>
-          }
+          onDismiss={() => dismissBanner(bannerKey)}
+          dismissAccessibilityLabel="Dismiss seasonal tip"
         >
           {SEASON_MESSAGE[season]}
         </InlineAlert>
@@ -100,16 +88,8 @@ export function SeasonalNoticeBanner() {
           tone="info"
           icon={<Icon name="shield" size={14} color={colors.statusInfo} />}
           title={SPF_ADEQUACY_TITLE}
-          action={
-            <Pressable
-              onPress={() => dismissBanner(spfFinding.dismissKey)}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Dismiss sunscreen recommendation"
-            >
-              <Icon name="x" size={16} color={colors.statusInfo} />
-            </Pressable>
-          }
+          onDismiss={() => dismissBanner(spfFinding.dismissKey)}
+          dismissAccessibilityLabel="Dismiss sunscreen recommendation"
         >
           {spfFinding.message}
         </InlineAlert>

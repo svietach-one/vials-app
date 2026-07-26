@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
+import { Button } from '@/components/ui/core/Button';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, space, typography } from '@/constants/tokens';
 
@@ -34,22 +35,12 @@ export function ContributionConsentMigrationBanner({
         this anytime in Settings.
       </Text>
       <View style={styles.actions}>
-        <Pressable
-          onPress={onGoToSettings}
-          style={styles.action}
-          accessibilityRole="button"
-          accessibilityLabel="Go to Settings"
-        >
-          <Text style={styles.actionText}>Go to Settings</Text>
-        </Pressable>
-        <Pressable
-          onPress={onDismiss}
-          style={styles.action}
-          accessibilityRole="button"
-          accessibilityLabel="Dismiss"
-        >
-          <Text style={styles.actionText}>Dismiss</Text>
-        </Pressable>
+        <Button variant="textActive" size="sm" onPress={onGoToSettings} accessibilityLabel="Go to Settings">
+          Go to Settings
+        </Button>
+        <Button variant="textActive" size="sm" onPress={onDismiss} accessibilityLabel="Dismiss">
+          Dismiss
+        </Button>
       </View>
     </InlineAlert>
   );
@@ -64,13 +55,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: space[4],
     marginTop: space[2],
-  },
-  action: {
-    paddingVertical: space[1],
-  },
-  actionText: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.statusInfo,
   },
 });

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   FlatList,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -17,7 +16,8 @@ import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
-import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
+import { PillToggle } from '@/components/ui/core/PillToggle';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { ClinicStackParamList } from '@/navigation/AppNavigator';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProfileStore } from '@/store/profileStore';
@@ -34,62 +34,6 @@ const TAB_OPTIONS: { value: ClinicTab; label: string }[] = [
   { value: 'active', label: 'Active' },
   { value: 'history', label: 'History' },
 ];
-
-// ─── Plum tab toggle (matches the Routines list/calendar pill) ────────────────
-
-function ClinicTabs({ tab, onChange }: { tab: ClinicTab; onChange: (t: ClinicTab) => void }) {
-  return (
-    <View style={tabStyles.group}>
-      {TAB_OPTIONS.map(({ value, label }) => {
-        const active = value === tab;
-        return (
-          <Pressable
-            key={value}
-            style={[tabStyles.btn, active && tabStyles.btnActive]}
-            onPress={() => onChange(value)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={`${label} procedures`}
-            hitSlop={4}
-          >
-            <Text style={[tabStyles.label, active && tabStyles.labelActive]}>{label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-const tabStyles = StyleSheet.create({
-  group: {
-    flexDirection: 'row',
-    gap: space[1],
-    backgroundColor: palette.white,
-    borderRadius: radius.pill,
-    padding: space[1],
-    ...shadow.sm,
-  },
-  btn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: palette.white,
-  },
-  btnActive: {
-    backgroundColor: palette.plum,
-  },
-  label: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 18,
-    color: colors.textSecondary,
-  },
-  labelActive: {
-    color: palette.white,
-  },
-});
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
@@ -194,7 +138,15 @@ export default function ClinicScreen({ navigation }: Props) {
         }
       />
       <View style={styles.controls}>
-        <ClinicTabs tab={tab} onChange={setTab} />
+        <PillToggle
+          value={tab}
+          onValueChange={(v) => setTab(v as ClinicTab)}
+          options={TAB_OPTIONS.map(({ value, label }) => ({
+            value,
+            label,
+            accessibilityLabel: `${label} procedures`,
+          }))}
+        />
         <Text style={styles.subtitle}>
           {tab === 'history'
             ? 'Procedures you have moved to history.'

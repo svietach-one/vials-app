@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { FilterChip } from '@/components/ui/core/FilterChip';
 import { GOAL_LABELS } from '@/constants/labels';
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { space } from '@/constants/tokens';
 import type { SkinGoal } from '@/types';
 
 /**
@@ -11,11 +12,8 @@ import type { SkinGoal } from '@/types';
  * maintenance — deliberately not a chip, it is the absence of a goal, and the
  * engine's treatment slot stays empty for it.
  *
- * Not built on the shared FilterChip (whose children must be a plain string)
- * because the primary chip needs a second, separately-queryable "Primary"
- * label alongside the goal name — so the visual tokens below are copied from
- * FilterChip 1:1 (radius, height, colors) to keep every pill in the app
- * looking identical without forcing incompatible content through one component.
+ * Built on the shared FilterChip's `subLabel` slot for the primary chip's
+ * separately-queryable "Primary" tag.
  */
 
 const SELECTABLE_GOALS: SkinGoal[] = [
@@ -64,17 +62,16 @@ export function GoalSelector({ primaryGoal, secondaryGoal, onChange }: GoalSelec
         const active = isPrimary || isSecondary;
         const atCapacity = selectedCount >= 2 && !active;
         return (
-          <Pressable
+          <FilterChip
             key={goal}
             onPress={() => handlePress(goal)}
-            style={[styles.chip, active && styles.chipActive, atCapacity && styles.chipDim]}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: active }}
+            selected={active}
+            subLabel={isPrimary ? 'Primary' : undefined}
+            style={atCapacity && styles.chipDim}
             accessibilityLabel={GOAL_LABELS[goal]}
           >
-            <Text style={[styles.label, active && styles.labelActive]}>{GOAL_LABELS[goal]}</Text>
-            {isPrimary && <Text style={styles.primaryTag}>Primary</Text>}
-          </Pressable>
+            {GOAL_LABELS[goal]}
+          </FilterChip>
         );
       })}
     </View>
@@ -87,38 +84,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space[2],
   },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    height: space[8],
-    paddingHorizontal: space[3],
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceRaised,
-  },
-  chipActive: {
-    backgroundColor: colors.controlFill,
-    borderColor: colors.controlFill,
-  },
   chipDim: {
     opacity: 0.45,
-  },
-  label: {
-    fontSize: typography.bodySmall.fontSize,
-    lineHeight: typography.bodySmall.lineHeight,
-    fontFamily: 'DMSans-Medium',
-    includeFontPadding: false,
-    color: colors.textSecondary,
-  },
-  labelActive: {
-    color: colors.controlOn,
-  },
-  primaryTag: {
-    ...typography.caption,
-    fontFamily: 'DMSans-Medium',
-    color: colors.controlOn,
-    opacity: 0.75,
   },
 });
