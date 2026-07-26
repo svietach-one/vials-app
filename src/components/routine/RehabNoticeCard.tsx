@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
@@ -14,6 +14,16 @@ export interface RehabNoticeCardProps {
    * it never changes the rehab window, the restrictions, or the card's tone.
    */
   conditionCaution?: string | null;
+  /**
+   * Controlled collapse state, resolved by the caller from the persisted
+   * per-day snapshot (src/utils/rehabNoticeCollapse.ts) so a manual collapse
+   * survives a re-visit for the rest of the skincare day instead of
+   * re-expanding on every remount. Defaults to expanded for callers that
+   * don't need day-scoped persistence (e.g. presentational tests).
+   */
+  collapsed?: boolean;
+  /** Fires on header tap; the caller owns persisting the new value. */
+  onToggleCollapse?: () => void;
 }
 
 const BARRIER_COPY: Record<RehabNotice['barrierStatus'], string> = {
@@ -31,17 +41,17 @@ const BARRIER_COPY: Record<RehabNotice['barrierStatus'], string> = {
  * render of a RehabNotice — self-destructs when the window ends and the
  * notice is gone.
  */
-export function RehabNoticeCard({ notice, conditionCaution = null }: RehabNoticeCardProps) {
-  // Local UI only — collapses the card down to its header + "Day X of Y"
-  // status line to save space; the day count stays visible either way so the
-  // user can track recovery progress without expanding the card.
-  const [collapsed, setCollapsed] = useState(false);
-
+export function RehabNoticeCard({
+  notice,
+  conditionCaution = null,
+  collapsed = false,
+  onToggleCollapse,
+}: RehabNoticeCardProps) {
   return (
     <View style={styles.card} accessibilityRole="summary">
       <Pressable
         style={styles.headerRow}
-        onPress={() => setCollapsed((c) => !c)}
+        onPress={onToggleCollapse}
         accessibilityRole="button"
         accessibilityState={{ expanded: !collapsed }}
         accessibilityLabel={`Rehabilitation: ${notice.procedureName}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}

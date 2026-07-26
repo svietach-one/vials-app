@@ -555,6 +555,13 @@ export interface AppSettings {
    * 3+ = 3rd/every-30 tier. Drives the next reminder threshold (5/15/30/30…).
    */
   reminderCountShown: number;
+  /**
+   * Per-procedure RehabNoticeCard collapse state on the Routines screen,
+   * keyed by RehabNotice.key, so a manual collapse survives a re-visit for
+   * the rest of the skincare day — mirrors `routineAccordion`'s day-scoping.
+   * Re-decided (defaults to expanded) once a new skincare day starts.
+   */
+  rehabNoticeCollapsed: Record<string, RehabNoticeCollapseEntry>;
 }
 
 /**
@@ -571,6 +578,12 @@ export interface RoutineAccordionSettings {
   date: string;
   morningExpanded: boolean;
   eveningExpanded: boolean;
+}
+
+export interface RehabNoticeCollapseEntry {
+  /** Skincare-day date string (see getSkincareDateString) this decision applies to. */
+  date: string;
+  collapsed: boolean;
 }
 
 // ─── Catalog filters ──────────────────────────────────────────────────────────

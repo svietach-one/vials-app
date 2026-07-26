@@ -66,6 +66,10 @@ import {
   toPersistedAccordionState,
   type AccordionState,
 } from '@/utils/routineAccordion';
+import {
+  resolveRehabNoticeCollapsed,
+  toRehabNoticeCollapseEntry,
+} from '@/utils/rehabNoticeCollapse';
 import { getAdaptationStatus } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { getDailyView, type FrozenStepView } from '@/utils/routineEngine/dailyView';
@@ -136,6 +140,8 @@ export default function RoutinesScreen({ navigation }: Props) {
   const setStepHidden = useRoutinesStore((s) => s.setStepHidden);
   const persistedAccordion = useSettingsStore((s) => s.routineAccordion);
   const setRoutineAccordion = useSettingsStore((s) => s.setRoutineAccordion);
+  const persistedRehabCollapse = useSettingsStore((s) => s.rehabNoticeCollapsed);
+  const setRehabNoticeCollapsed = useSettingsStore((s) => s.setRehabNoticeCollapsed);
 
   const [viewMode, setViewMode] = useState<RoutineViewMode>('list');
   // The AM/PM auto-decision (before 15:00 Morning open, after it Evening) only
@@ -440,16 +446,23 @@ export default function RoutinesScreen({ navigation }: Props) {
         {/* One merged card per procedure in rehab (shield + acute lifestyle
             restrictions in a single card; the two former cards would read as
             needlessly anxious). Self-destructs when its window ends. */}
-        {rehabNotices.map((notice) => (
-          <RehabNoticeCard
-            key={notice.key}
-            notice={notice}
-            conditionCaution={getRecoveryConditionCaution(profile?.skinConditions ?? [], {
-              aggressive: notice.aggressive,
-              phase: 'rehab',
-            })}
-          />
-        ))}
+        {rehabNotices.map((notice) => {
+          const collapsed = resolveRehabNoticeCollapsed(persistedRehabCollapse[notice.key]);
+          return (
+            <RehabNoticeCard
+              key={notice.key}
+              notice={notice}
+              collapsed={collapsed}
+              onToggleCollapse={() =>
+                setRehabNoticeCollapsed(notice.key, toRehabNoticeCollapseEntry(!collapsed))
+              }
+              conditionCaution={getRecoveryConditionCaution(profile?.skinConditions ?? [], {
+                aggressive: notice.aggressive,
+                phase: 'rehab',
+              })}
+            />
+          );
+        })}
         {profile?.goalNeedsConfirmation === true && (
           <GoalConfirmBanner
             goalLabel={GOAL_LABELS[profile.primaryGoal]}
