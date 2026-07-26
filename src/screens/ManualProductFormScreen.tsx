@@ -444,6 +444,8 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [brand, setBrand] = useState('');
   const [productType, setProductType] = useState<ProductType | null>(null);
+  // Labelled SPF, captured only for sunscreens (US-29). Empty = unknown.
+  const [spfText, setSpfText] = useState('');
   const [selectedIngredients, setSelectedIngredients] = useState<ActiveIngredient[]>([]);
   const [fullIngredientText, setFullIngredientText] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
@@ -487,6 +489,11 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       setName(editingProduct.name);
       setBrand(editingProduct.brand ?? '');
       setProductType(editingProduct.productType);
+      setSpfText(
+        editingProduct.spfValue !== null && editingProduct.spfValue !== undefined
+          ? String(editingProduct.spfValue)
+          : '',
+      );
       setFullIngredientText(editingProduct.fullIngredientText ?? '');
       setObfId(editingProduct.openBeautyFactsId);
       setImageUrl(editingProduct.imageUrl);
@@ -602,6 +609,9 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       notes: null,
       openedDate: isOpened ? openedDate : null,
       paoMonths: resolvedPaoMonths,
+      // Only meaningful on a sunscreen; anything unparseable stays unknown so
+      // the adequacy check skips the product rather than guessing.
+      spfValue: productType === 'spf' ? (parseInt(spfText, 10) || null) : null,
       // Edits preserve the original provenance; new records split on
       // whether they came from an OBF result or pure manual entry.
       source: editingProduct?.source ?? (obfId ? 'obf_import' : 'user_local'),
@@ -894,6 +904,20 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
                   ))}
                 </View>
               </View>
+
+              {/* SPF strength — sunscreens only (US-29). Optional: leaving it
+                  blank means "unknown", never "assume the worst". */}
+              {productType === 'spf' ? (
+                <Input
+                  label="SPF (optional)"
+                  value={spfText}
+                  onChangeText={(t) => setSpfText(t.replace(/[^0-9]/g, ''))}
+                  placeholder="e.g. 50"
+                  keyboardType="number-pad"
+                  maxLength={3}
+                  returnKeyType="done"
+                />
+              ) : null}
             </View>
           </Card>
 

@@ -20,6 +20,7 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { ClinicStackParamList } from '@/navigation/AppNavigator';
 import { useProceduresStore } from '@/store/proceduresStore';
+import { useProfileStore } from '@/store/profileStore';
 import { getProcedureDisplayName } from '@/utils/procedureLifespanHelpers';
 import type { UserProcedureLog } from '@/types';
 
@@ -152,6 +153,7 @@ export default function ClinicScreen({ navigation }: Props) {
   const addProcedure = useProceduresStore((s) => s.addProcedure);
   const updateProcedure = useProceduresStore((s) => s.updateProcedure);
   const removeProcedure = useProceduresStore((s) => s.removeProcedure);
+  const profile = useProfileStore((s) => s.profile);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -172,6 +174,7 @@ export default function ClinicScreen({ navigation }: Props) {
         proc={item}
         onUpdate={(patch) => updateProcedure(item.id, patch)}
         onOpenMenu={() => setMenuTarget(item)}
+        skinConditions={profile?.skinConditions ?? []}
       />
     );
   }

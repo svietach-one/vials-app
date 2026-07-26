@@ -35,6 +35,7 @@ import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
 import { ContributionConsentMigrationBanner } from '@/components/routine/ContributionConsentMigrationBanner';
 import { GoalConfirmBanner } from '@/components/routine/GoalConfirmBanner';
 import { PhototypeConfirmBanner } from '@/components/routine/PhototypeConfirmBanner';
+import { ConflictWarningInline } from '@/components/routine/ConflictWarningInline';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
@@ -56,6 +57,7 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
+import { getRecoveryConditionCaution } from '@/utils/skinConditionModifiers';
 import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
 import { isScheduledOnDay } from '@/utils/routineSchedule';
 import {
@@ -439,7 +441,14 @@ export default function RoutinesScreen({ navigation }: Props) {
             restrictions in a single card; the two former cards would read as
             needlessly anxious). Self-destructs when its window ends. */}
         {rehabNotices.map((notice) => (
-          <RehabNoticeCard key={notice.key} notice={notice} />
+          <RehabNoticeCard
+            key={notice.key}
+            notice={notice}
+            conditionCaution={getRecoveryConditionCaution(profile?.skinConditions ?? [], {
+              aggressive: notice.aggressive,
+              phase: 'rehab',
+            })}
+          />
         ))}
         {profile?.goalNeedsConfirmation === true && (
           <GoalConfirmBanner
@@ -468,6 +477,16 @@ export default function RoutinesScreen({ navigation }: Props) {
           products={products}
           onPressGroup={handlePressDuplicateGroup}
         />
+        {/* Pairwise conflicts + (v1.2) condition advisories and density
+            insights. Fed the SAME visible steps the list renders — so it can
+            never warn about a step a clinical freeze has already removed.
+            Advisory only — never blocks. */}
+        <ConflictWarningInline
+          morningSteps={amSteps}
+          eveningSteps={pmSteps}
+          products={products}
+          skinConditions={profile?.skinConditions ?? []}
+        />
       </View>
     ),
     [
@@ -476,6 +495,8 @@ export default function RoutinesScreen({ navigation }: Props) {
       handleDaySelect,
       rehabNotices,
       routines,
+      amSteps,
+      pmSteps,
       products,
       handlePressDuplicateGroup,
       profile,

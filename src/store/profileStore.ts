@@ -31,6 +31,7 @@ const DEFAULT_PROFILE: UserProfile = {
   fitzpatrick: null,
   city: null,
   concerns: [],
+  skinConditions: [],
   primaryGoal: 'maintenance',
   secondaryGoal: null,
   goalNeedsConfirmation: false,

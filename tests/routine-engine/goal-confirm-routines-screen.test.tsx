@@ -142,6 +142,7 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     fitzpatrick: null,
     city: null,
     concerns: ['wrinkles'],
+    skinConditions: [],
     primaryGoal: 'aging',
     secondaryGoal: null,
     goalNeedsConfirmation: true,

@@ -13,6 +13,7 @@ import {
 import { Icon } from '@/components/ui/Icon';
 
 import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
+import { ConditionSelector } from '@/components/profile/ConditionSelector';
 import { GoalSelector } from '@/components/profile/GoalSelector';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -22,6 +23,7 @@ import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type {
   FitzpatrickType,
   SkinConcern,
+  SkinConditionType,
   SkinGoal,
   SkinType,
   UserProfile,
@@ -77,6 +79,7 @@ export function SkinProfileEditModal({
   const [skinType, setSkinType] = useState<SkinType | null>(null);
   const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(null);
   const [concerns, setConcerns] = useState<SkinConcern[]>([]);
+  const [skinConditions, setSkinConditions] = useState<SkinConditionType[]>([]);
   const [primaryGoal, setPrimaryGoal] = useState<SkinGoal>('maintenance');
   const [secondaryGoal, setSecondaryGoal] = useState<SkinGoal | null>(null);
   const [spfSensitivity, setSpfSensitivity] = useState(false);
@@ -89,6 +92,7 @@ export function SkinProfileEditModal({
     setSkinType(profile?.skinType ?? null);
     setFitzpatrick(profile?.fitzpatrick ?? null);
     setConcerns(profile?.concerns ?? []);
+    setSkinConditions(profile?.skinConditions ?? []);
     setPrimaryGoal(profile?.primaryGoal ?? 'maintenance');
     setSecondaryGoal(profile?.secondaryGoal ?? null);
     setSpfSensitivity(profile?.spfSensitivity ?? false);
@@ -108,6 +112,7 @@ export function SkinProfileEditModal({
       skinType,
       fitzpatrick,
       concerns,
+      skinConditions,
       primaryGoal,
       secondaryGoal,
       // Saving from the editor IS the user choosing — no confirmation owed
@@ -241,6 +246,16 @@ export function SkinProfileEditModal({
                   );
                 })}
               </View>
+            </View>
+
+            {/* Skin conditions (v1.2, US-23) — editable after onboarding */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Skin Conditions</Text>
+              <Text style={styles.fieldHint}>
+                Optional. Selecting one makes Vials more careful with its ingredient
+                warnings; selecting none changes nothing.
+              </Text>
+              <ConditionSelector selected={skinConditions} onChange={setSkinConditions} />
             </View>
 
             {/* Care goals (V2.1 Step 0) */}

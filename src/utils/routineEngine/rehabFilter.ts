@@ -2,6 +2,7 @@ import { CLINICAL_RULES_DB } from '@/types';
 import type { RehabNotice, UserProcedureLog } from '@/types';
 import { ConflictEngine } from '@/utils/conflictEngine';
 import { getProcedureDisplayName } from '@/utils/procedureLifespanHelpers';
+import { isAggressiveProcedure } from '@/utils/skinConditionModifiers';
 import { getElapsedDays } from '@/utils/timeHelpers';
 
 /** Rehab window length in days for any logged procedure. */
@@ -86,6 +87,9 @@ export function buildRehabNotices(
       totalDays: head.totalDays,
       barrierStatus: head.barrierStatus,
       restrictions: head.restrictions,
+      // The merge signature already pins procedureKey, so every member of a
+      // group shares this classification.
+      aggressive: isAggressiveProcedure(head.proc.procedureKey),
     };
   });
 

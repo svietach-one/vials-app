@@ -121,6 +121,7 @@ export function makeFullProfile(overrides: Partial<UserProfile> = {}): UserProfi
     fitzpatrick: null,
     city: null,
     concerns: [],
+    skinConditions: [],
     primaryGoal: 'maintenance',
     secondaryGoal: null,
     goalNeedsConfirmation: false,

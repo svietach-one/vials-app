@@ -34,6 +34,8 @@ export function buildProductFromDraft(
     notes: null,
     openedDate: draft.isOpened ? draft.openedDate : null,
     paoMonths: draft.paoMonths,
+    // Only meaningful for sunscreens; the reducer already clears it otherwise.
+    spfValue: draft.productType === 'spf' ? draft.spfValue : null,
     barcode: draft.barcode,
     // The wizard is the manual / barcode-not-found path by definition; the
     // OBF-prefill path lives in ManualProductFormScreen ('obf_import').

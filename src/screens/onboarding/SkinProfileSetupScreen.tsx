@@ -12,12 +12,19 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
+import { ConditionSelector } from '@/components/profile/ConditionSelector';
 import { GoalSelector } from '@/components/profile/GoalSelector';
 import { Button } from '@/components/ui/core/Button';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
-import type { FitzpatrickType, SkinConcern, SkinGoal, SkinType } from '@/types';
+import type {
+  FitzpatrickType,
+  SkinConcern,
+  SkinConditionType,
+  SkinGoal,
+  SkinType,
+} from '@/types';
 import type { OnboardingStackParamList } from '@/navigation/AppNavigator';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -56,6 +63,7 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
   const [skinType, setSkinType] = useState<SkinType | null>(null);
   const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(null);
   const [concerns, setConcerns] = useState<SkinConcern[]>([]);
+  const [skinConditions, setSkinConditions] = useState<SkinConditionType[]>([]);
   const [primaryGoal, setPrimaryGoal] = useState<SkinGoal>('maintenance');
   const [secondaryGoal, setSecondaryGoal] = useState<SkinGoal | null>(null);
 
@@ -73,6 +81,7 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
       skinType,
       fitzpatrick,
       concerns,
+      skinConditions,
       primaryGoal,
       secondaryGoal,
       // Chosen (or deliberately left at maintenance) during onboarding —
@@ -201,6 +210,14 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
                 />
               ))}
             </View>
+          </Section>
+
+          {/* Skin conditions (v1.2, US-23) — optional, defaults to none */}
+          <Section
+            label="Skin conditions (optional)"
+            hint="Select any that apply so Vials can be more careful with its warnings. Leaving this empty changes nothing."
+          >
+            <ConditionSelector selected={skinConditions} onChange={setSkinConditions} />
           </Section>
         </ScrollView>
 
