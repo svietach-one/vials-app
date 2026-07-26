@@ -1,6 +1,5 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/core/Button';
 import { colors, space, typography } from '@/constants/tokens';
@@ -24,10 +23,8 @@ const DEFAULT_PRIVACY_NOTE =
  * This is the single primary-filled action on the Add Product screen.
  */
 export function SaveBar({ enabled, onPress, privacyNote = DEFAULT_PRIVACY_NOTE }: SaveBarProps) {
-  const insets = useSafeAreaInsets();
-
   return (
-    <View style={[styles.bar, { paddingBottom: insets.bottom + space[3] }]}>
+    <View style={styles.bar}>
       {privacyNote ? <Text style={styles.privacyNote}>{privacyNote}</Text> : null}
       <Button
         variant="primary"
@@ -46,6 +43,7 @@ const styles = StyleSheet.create({
   bar: {
     paddingHorizontal: space.gutterScreen,
     paddingTop: space[3],
+    paddingBottom: space[4],
     gap: space[3],
     backgroundColor: colors.bgBase,
     borderTopWidth: 1,

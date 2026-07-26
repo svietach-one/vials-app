@@ -47,11 +47,12 @@ const mockSubmit: jest.Mock = jest.requireMock('@/services/contributions').submi
 
 import ManualProductFormScreen from '@/screens/ManualProductFormScreen';
 import { useSettingsStore } from '@/store/settingsStore';
+import type { CorpusProduct } from '@/services/corpus/types';
 
-function renderScreen() {
+function renderScreen(params: Record<string, unknown> = {}) {
   const navigation = { goBack: jest.fn(), navigate: jest.fn() } as never;
   return render(
-    <ManualProductFormScreen navigation={navigation} route={{ params: {} } as never} />,
+    <ManualProductFormScreen navigation={navigation} route={{ params } as never} />,
   );
 }
 
@@ -59,6 +60,21 @@ async function saveWithName(name = 'Night Serum') {
   fireEvent.changeText(screen.getByPlaceholderText(/Daily Moisturiser/), name);
   fireEvent.press(screen.getByText('Add to Catalog'));
   await act(async () => Promise.resolve());
+}
+
+function makeCorpusProduct(source: CorpusProduct['source']): CorpusProduct {
+  return {
+    uid: 'corpus-1',
+    barcode: null,
+    brand: 'Some Brand',
+    name: 'Some Serum',
+    type: 'serum',
+    inciRaw: null,
+    imageUrl: null,
+    source,
+    url: null,
+    nameLacin: null,
+  };
 }
 
 beforeEach(() => {
@@ -154,6 +170,42 @@ describe('disabled status', () => {
     expect(screen.queryByText('Share with Vials')).toBeNull();
     expect(screen.queryByText('Make adding products easier for everyone.')).toBeNull();
     expect(mockAddProduct.mock.calls[0][0]).toMatchObject({ contributionOptIn: false });
+    expect(mockSubmit).not.toHaveBeenCalled();
+  });
+});
+
+describe('corpus-prefilled saves (picked from search results, not typed manually)', () => {
+  // Regression coverage for the bug where a database pick was mistaken for a
+  // genuinely manual entry: the screen used to gate the consent flow on
+  // `obfId`, which is only set for `obf_import` rows — `vials_seed` and
+  // `community` rows (also database picks) fell through and incorrectly
+  // triggered the manual-entry modal/toggle.
+  it.each([['vials_seed'], ['community'], ['obf_import']] as const)(
+    'shows no modal and no toggle for a %s prefill, even on the very first save ever',
+    async (source) => {
+      renderScreen({ prefillCorpusProduct: makeCorpusProduct(source) });
+      await saveWithName();
+
+      expect(screen.queryByText('Make adding products easier for everyone.')).toBeNull();
+      expect(screen.queryByText('Share with Vials')).toBeNull();
+      expect(mockAddProduct).toHaveBeenCalledTimes(1);
+      expect(mockAddProduct.mock.calls[0][0]).toMatchObject({ source });
+      expect(mockSubmit).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('preserves the vials_seed/community source on the saved product instead of mislabeling it user_local', async () => {
+    renderScreen({ prefillCorpusProduct: makeCorpusProduct('vials_seed') });
+    await saveWithName();
+
+    expect(mockAddProduct.mock.calls[0][0]).toMatchObject({ source: 'vials_seed' });
+  });
+
+  it('still shows the manual-entry modal for a genuinely manual save with no prefill', async () => {
+    renderScreen();
+    await saveWithName();
+
+    expect(screen.getByText('Make adding products easier for everyone.')).toBeTruthy();
     expect(mockSubmit).not.toHaveBeenCalled();
   });
 });
