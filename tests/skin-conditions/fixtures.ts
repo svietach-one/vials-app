@@ -5,7 +5,6 @@
  * Factory return types are annotated with the real component prop types, so
  * prop drift fails `tsc` rather than only the test run.
  */
-import type { ConditionSelectorProps } from '@/components/profile/ConditionSelector';
 import type { ConflictWarningInlineProps } from '@/components/routine/ConflictWarningInline';
 import type { RehabNoticeCardProps } from '@/components/routine/RehabNoticeCard';
 import type {
@@ -75,16 +74,6 @@ export function makeConflictWarningInlineProps(
     eveningSteps: [],
     products: [],
     skinConditions: [],
-    ...overrides,
-  };
-}
-
-export function makeConditionSelectorProps(
-  overrides: Partial<ConditionSelectorProps> = {},
-): ConditionSelectorProps {
-  return {
-    selected: [],
-    onChange: jest.fn(),
     ...overrides,
   };
 }

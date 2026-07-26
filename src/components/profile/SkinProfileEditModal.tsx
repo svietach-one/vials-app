@@ -3,7 +3,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -13,13 +12,14 @@ import {
 import { Icon } from '@/components/ui/Icon';
 
 import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
-import { ConditionSelector } from '@/components/profile/ConditionSelector';
 import { GoalSelector } from '@/components/profile/GoalSelector';
+import { SkinConcernsSelector } from '@/components/profile/SkinConcernsSelector';
 import { Button } from '@/components/ui/core/Button';
+import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, space, typography } from '@/constants/tokens';
 import type {
   FitzpatrickType,
   SkinConcern,
@@ -41,18 +41,6 @@ const SKIN_TYPES: { value: SkinType; label: string }[] = [
   { value: 'dry', label: 'Dry' },
   { value: 'combination', label: 'Combination' },
   { value: 'normal', label: 'Normal' },
-];
-
-const CONCERNS: { value: SkinConcern; label: string }[] = [
-  { value: 'acne', label: 'Acne' },
-  { value: 'dryness', label: 'Dryness' },
-  { value: 'wrinkles', label: 'Wrinkles' },
-  { value: 'sensitivity', label: 'Sensitivity' },
-  { value: 'redness', label: 'Redness' },
-  { value: 'hyperpigmentation', label: 'Hyperpigmentation' },
-  { value: 'pores', label: 'Pores' },
-  { value: 'dark_spots', label: 'Dark spots' },
-  { value: 'eczema', label: 'Eczema' },
 ];
 
 const FITZPATRICK_TYPES: FitzpatrickType[] = [1, 2, 3, 4, 5, 6];
@@ -97,12 +85,6 @@ export function SkinProfileEditModal({
     setSecondaryGoal(profile?.secondaryGoal ?? null);
     setSpfSensitivity(profile?.spfSensitivity ?? false);
   }, [visible, profile]);
-
-  function toggleConcern(c: SkinConcern) {
-    setConcerns((prev) =>
-      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
-    );
-  }
 
   function handleSave() {
     const parsedAge = parseInt(ageText, 10);
@@ -157,22 +139,15 @@ export function SkinProfileEditModal({
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Gender</Text>
               <View style={styles.chipRow}>
-                {GENDER_OPTIONS.map(({ value, label }) => {
-                  const active = gender === value;
-                  return (
-                    <Pressable
-                      key={value}
-                      onPress={() => setGender(active ? null : value)}
-                      style={[chipStyles.chip, active && chipStyles.chipActive]}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: active }}
-                    >
-                      <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {GENDER_OPTIONS.map(({ value, label }) => (
+                  <FilterChip
+                    key={value}
+                    selected={gender === value}
+                    onPress={() => setGender(gender === value ? null : value)}
+                  >
+                    {label}
+                  </FilterChip>
+                ))}
               </View>
             </View>
 
@@ -191,22 +166,15 @@ export function SkinProfileEditModal({
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Skin Type</Text>
               <View style={styles.chipRow}>
-                {SKIN_TYPES.map(({ value, label }) => {
-                  const active = skinType === value;
-                  return (
-                    <Pressable
-                      key={value}
-                      onPress={() => setSkinType(active ? null : value)}
-                      style={[chipStyles.chip, active && chipStyles.chipActive]}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {SKIN_TYPES.map(({ value, label }) => (
+                  <FilterChip
+                    key={value}
+                    selected={skinType === value}
+                    onPress={() => setSkinType(skinType === value ? null : value)}
+                  >
+                    {label}
+                  </FilterChip>
+                ))}
               </View>
             </View>
 
@@ -225,39 +193,6 @@ export function SkinProfileEditModal({
               </View>
             </View>
 
-            {/* Concerns */}
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Skin Concerns</Text>
-              <View style={styles.concernWrap}>
-                {CONCERNS.map(({ value, label }) => {
-                  const active = concerns.includes(value);
-                  return (
-                    <Pressable
-                      key={value}
-                      onPress={() => toggleConcern(value)}
-                      style={[chipStyles.chip, active && chipStyles.chipActive]}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: active }}
-                    >
-                      <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Skin conditions (v1.2, US-23) — editable after onboarding */}
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Skin Conditions</Text>
-              <Text style={styles.fieldHint}>
-                Optional. Selecting one makes Vials more careful with its ingredient
-                warnings; selecting none changes nothing.
-              </Text>
-              <ConditionSelector selected={skinConditions} onChange={setSkinConditions} />
-            </View>
-
             {/* Care goals (V2.1 Step 0) */}
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Care Goals</Text>
@@ -272,6 +207,19 @@ export function SkinProfileEditModal({
                   setPrimaryGoal(primary);
                   setSecondaryGoal(secondary);
                 }}
+              />
+            </View>
+
+            {/* Skin concerns — merges skin concerns with skin conditions (v1.2,
+                US-23) into one deduplicated chip list; shared with onboarding
+                (SkinProfileSetupScreen) so the two screens can't drift apart. */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Skin concerns (optional)</Text>
+              <SkinConcernsSelector
+                concerns={concerns}
+                skinConditions={skinConditions}
+                onChangeConcerns={setConcerns}
+                onChangeConditions={setSkinConditions}
               />
             </View>
 
@@ -332,21 +280,17 @@ const styles = StyleSheet.create({
     gap: space[5],
   },
   field: { gap: space[2] },
-  // Matches the Input component's default field label
   fieldLabel: {
-    ...typography.label,
+    fontFamily: 'DMSans-Medium',
+    fontSize: 16,
+    lineHeight: 22,
     color: colors.textPrimary,
   },
   fieldHint: {
     ...typography.bodySmall,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
   chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space[2],
-  },
-  concernWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: space[2],
@@ -370,7 +314,7 @@ const styles = StyleSheet.create({
   },
   switchDesc: {
     ...typography.caption,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
   footer: {
     flexDirection: 'row',
@@ -382,27 +326,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgBase,
   },
   footerBtn: { flex: 1 },
-});
-
-const chipStyles = StyleSheet.create({
-  chip: {
-    paddingHorizontal: space[3],
-    paddingVertical: space[2] - 1,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceRaised,
-  },
-  chipActive: {
-    backgroundColor: palette.black,
-    borderColor: palette.black,
-  },
-  label: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textSecondary,
-  },
-  labelActive: {
-    color: palette.white,
-  },
 });

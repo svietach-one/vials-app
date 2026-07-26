@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,11 +11,12 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
-import { ConditionSelector } from '@/components/profile/ConditionSelector';
 import { GoalSelector } from '@/components/profile/GoalSelector';
+import { SkinConcernsSelector } from '@/components/profile/SkinConcernsSelector';
+import { FilterChip } from '@/components/ui/core/FilterChip';
 import { Button } from '@/components/ui/core/Button';
 import { Input } from '@/components/ui/forms/Input';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, space, typography } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
 import type {
   FitzpatrickType,
@@ -40,17 +40,6 @@ const SKIN_TYPES: { value: SkinType; label: string }[] = [
   { value: 'normal', label: 'Normal' },
 ];
 
-const CONCERNS: { value: SkinConcern; label: string }[] = [
-  { value: 'acne', label: 'Acne' },
-  { value: 'dryness', label: 'Dryness' },
-  { value: 'wrinkles', label: 'Wrinkles' },
-  { value: 'sensitivity', label: 'Sensitivity' },
-  { value: 'redness', label: 'Redness' },
-  { value: 'hyperpigmentation', label: 'Hyperpigmentation' },
-  { value: 'pores', label: 'Pores' },
-  { value: 'dark_spots', label: 'Dark spots' },
-];
-
 const FITZPATRICK_TYPES: FitzpatrickType[] = [1, 2, 3, 4, 5, 6];
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -66,12 +55,6 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
   const [skinConditions, setSkinConditions] = useState<SkinConditionType[]>([]);
   const [primaryGoal, setPrimaryGoal] = useState<SkinGoal>('maintenance');
   const [secondaryGoal, setSecondaryGoal] = useState<SkinGoal | null>(null);
-
-  function toggleConcern(c: SkinConcern) {
-    setConcerns((prev) =>
-      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
-    );
-  }
 
   function buildProfilePatch() {
     const age = parseInt(ageText, 10);
@@ -130,12 +113,13 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
           <Section label="Gender (optional)">
             <View style={styles.chipRow}>
               {(['female', 'male'] as const).map((g) => (
-                <SelectChip
+                <FilterChip
                   key={g}
-                  label={g === 'female' ? 'Female' : 'Male'}
                   selected={gender === g}
                   onPress={() => setGender(gender === g ? null : g)}
-                />
+                >
+                  {g === 'female' ? 'Female' : 'Male'}
+                </FilterChip>
               ))}
             </View>
           </Section>
@@ -156,26 +140,13 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
           <Section label="Skin type">
             <View style={styles.chipRow}>
               {SKIN_TYPES.map((t) => (
-                <SelectChip
+                <FilterChip
                   key={t.value}
-                  label={t.label}
                   selected={skinType === t.value}
                   onPress={() => setSkinType(t.value)}
-                />
-              ))}
-            </View>
-          </Section>
-
-          {/* Concerns */}
-          <Section label="Skin concerns (optional)">
-            <View style={styles.chipWrap}>
-              {CONCERNS.map((c) => (
-                <SelectChip
-                  key={c.value}
-                  label={c.label}
-                  selected={concerns.includes(c.value)}
-                  onPress={() => toggleConcern(c.value)}
-                />
+                >
+                  {t.label}
+                </FilterChip>
               ))}
             </View>
           </Section>
@@ -195,6 +166,18 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
             />
           </Section>
 
+          {/* Skin concerns — merges skin concerns with skin conditions (v1.2,
+              US-23) into one deduplicated chip list; shared with the profile
+              editor (SkinProfileEditModal) so the two screens can't drift apart. */}
+          <Section label="Skin concerns (optional)">
+            <SkinConcernsSelector
+              concerns={concerns}
+              skinConditions={skinConditions}
+              onChangeConcerns={setConcerns}
+              onChangeConditions={setSkinConditions}
+            />
+          </Section>
+
           {/* Phototype — visually unlabeled cards (US-03) */}
           <Section
             label="UV sensitivity"
@@ -210,14 +193,6 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
                 />
               ))}
             </View>
-          </Section>
-
-          {/* Skin conditions (v1.2, US-23) — optional, defaults to none */}
-          <Section
-            label="Skin conditions (optional)"
-            hint="Select any that apply so Vials can be more careful with its warnings. Leaving this empty changes nothing."
-          >
-            <ConditionSelector selected={skinConditions} onChange={setSkinConditions} />
           </Section>
         </ScrollView>
 
@@ -266,29 +241,6 @@ function Section({
   );
 }
 
-function SelectChip({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.chip, selected && styles.chipSelected]}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected }}
-    >
-      <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -305,42 +257,18 @@ const styles = StyleSheet.create({
   header: { gap: space[2] },
   eyebrow: { ...typography.label, color: colors.textSecondary },
   title: { ...typography.h1, color: colors.textPrimary },
-  subtitle: { ...typography.body, color: colors.textSecondary },
+  subtitle: { fontFamily: 'DMSans-Medium', fontSize: 16, lineHeight: 22, color: colors.textPrimary },
 
   section: { gap: space[2] },
-  // Matches the Input component's default field label
   sectionLabel: {
-    ...typography.label,
+    fontFamily: 'DMSans-Medium',
+    fontSize: 16,
+    lineHeight: 22,
     color: colors.textPrimary,
   },
-  sectionHint: { ...typography.bodySmall, color: colors.textTertiary },
+  sectionHint: { ...typography.bodySmall, color: colors.textPrimary },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
-
-  chip: {
-    height: 36,
-    paddingHorizontal: space[3],
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceRaised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipSelected: {
-    backgroundColor: colors.controlFill,
-    borderColor: colors.controlFill,
-  },
-  chipLabel: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textPrimary,
-  },
-  chipLabelSelected: {
-    color: palette.white,
-  },
 
   phototypeRow: {
     flexDirection: 'row',
