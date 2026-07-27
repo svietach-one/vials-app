@@ -16,6 +16,8 @@ export interface GoalsStepProps {
   onNext: (patch: Partial<UserProfile>) => void;
   onSkip: () => void;
   onBack: () => void;
+  /** The container's OnboardingProgressRing, forwarded into the header row next to Back. */
+  progressRing?: React.ReactNode;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -27,6 +29,7 @@ export function GoalsStep({
   onNext,
   onSkip,
   onBack,
+  progressRing,
 }: GoalsStepProps) {
   const [primaryGoal, setPrimaryGoal] = useState<SkinGoal>(initialPrimaryGoal);
   const [secondaryGoal, setSecondaryGoal] = useState<SkinGoal | null>(initialSecondaryGoal);
@@ -38,6 +41,7 @@ export function GoalsStep({
       onBack={onBack}
       onSkip={onSkip}
       onNext={() => onNext({ primaryGoal, secondaryGoal })}
+      progressRing={progressRing}
     >
       <View style={styles.maintenanceRow}>
         <FilterChip

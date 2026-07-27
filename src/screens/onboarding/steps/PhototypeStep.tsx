@@ -27,6 +27,8 @@ export interface PhototypeStepProps {
   onNext: (patch: Partial<UserProfile>) => void;
   onSkip: () => void;
   onBack: () => void;
+  /** The container's OnboardingProgressRing, forwarded into the header row next to Back. */
+  progressRing?: React.ReactNode;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -36,7 +38,13 @@ export interface PhototypeStepProps {
  * `FitzpatrickCard` (resolved OQ-1 — 6 individual cards, not 3 grouped),
  * arranged in a 2-column grid.
  */
-export function PhototypeStep({ initialFitzpatrick, onNext, onSkip, onBack }: PhototypeStepProps) {
+export function PhototypeStep({
+  initialFitzpatrick,
+  onNext,
+  onSkip,
+  onBack,
+  progressRing,
+}: PhototypeStepProps) {
   const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(initialFitzpatrick);
 
   return (
@@ -47,6 +55,7 @@ export function PhototypeStep({ initialFitzpatrick, onNext, onSkip, onBack }: Ph
       onSkip={onSkip}
       onNext={() => onNext({ fitzpatrick })}
       nextDisabled={fitzpatrick === null}
+      progressRing={progressRing}
     >
       <View style={styles.grid} accessibilityRole="radiogroup">
         {FITZPATRICK_TYPES.map((type) => (

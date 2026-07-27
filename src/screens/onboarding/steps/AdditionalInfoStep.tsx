@@ -19,6 +19,8 @@ export interface AdditionalInfoStepProps {
   onNext: (patch: Partial<UserProfile>) => void;
   onSkip: () => void;
   onBack: () => void;
+  /** The container's OnboardingProgressRing, forwarded into the header row next to Back. */
+  progressRing?: React.ReactNode;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -31,6 +33,7 @@ export function AdditionalInfoStep({
   onNext,
   onSkip,
   onBack,
+  progressRing,
 }: AdditionalInfoStepProps) {
   const [pregnantOrBreastfeeding, setPregnantOrBreastfeeding] = useState(
     initialPregnantOrBreastfeeding,
@@ -46,6 +49,7 @@ export function AdditionalInfoStep({
       onSkip={onSkip}
       onNext={() => onNext({ pregnantOrBreastfeeding, skinConditions, concerns })}
       nextLabel="Finish"
+      progressRing={progressRing}
     >
       <InlineAlert
         tone="warning"

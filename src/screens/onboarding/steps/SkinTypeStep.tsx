@@ -21,12 +21,14 @@ export interface SkinTypeStepProps {
   initialSkinType: SkinType | null;
   onNext: (patch: Partial<UserProfile>) => void;
   onSkip: () => void;
+  /** The container's OnboardingProgressRing, forwarded into the header row next to Back. */
+  progressRing?: React.ReactNode;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /** Step 1 of 5 — skin type. First step in the flow, so there is no Back. */
-export function SkinTypeStep({ initialSkinType, onNext, onSkip }: SkinTypeStepProps) {
+export function SkinTypeStep({ initialSkinType, onNext, onSkip, progressRing }: SkinTypeStepProps) {
   const [skinType, setSkinType] = useState<SkinType | null>(initialSkinType);
 
   return (
@@ -36,6 +38,7 @@ export function SkinTypeStep({ initialSkinType, onNext, onSkip }: SkinTypeStepPr
       onSkip={onSkip}
       onNext={() => onNext({ skinType })}
       nextDisabled={skinType === null}
+      progressRing={progressRing}
     >
       <View style={styles.chipRow}>
         {SKIN_TYPES.map((t) => (

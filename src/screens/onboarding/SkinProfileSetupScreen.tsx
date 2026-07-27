@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { OnboardingProgressRing } from '@/components/onboarding/OnboardingProgressRing';
 import type { IconName } from '@/components/ui/Icon';
-import { colors, space } from '@/constants/tokens';
+import { colors } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
 import type { UserProfile } from '@/types';
 import type { OnboardingStackParamList } from '@/navigation/AppNavigator';
@@ -64,18 +64,21 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
     setStep((s) => s - 1);
   }
 
+  // Rendered inside each step's header row, next to Back — not above the
+  // step content — so the two sit on the same line (Back left, ring right).
+  const progressRing = (
+    <OnboardingProgressRing step={step} totalSteps={TOTAL_STEPS} iconName={STEP_ICONS[step]} />
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.ringWrap}>
-          <OnboardingProgressRing step={step} totalSteps={TOTAL_STEPS} iconName={STEP_ICONS[step]} />
-        </View>
-
         {step === 1 && (
           <SkinTypeStep
             initialSkinType={profile?.skinType ?? null}
             onNext={handleNext}
             onSkip={handleSkip}
+            progressRing={progressRing}
           />
         )}
         {step === 2 && (
@@ -85,6 +88,7 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
             onNext={handleNext}
             onSkip={handleSkip}
             onBack={handleBack}
+            progressRing={progressRing}
           />
         )}
         {step === 3 && (
@@ -93,6 +97,7 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
             onNext={handleNext}
             onSkip={handleSkip}
             onBack={handleBack}
+            progressRing={progressRing}
           />
         )}
         {step === 4 && (
@@ -103,6 +108,7 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
             onNext={handleNext}
             onSkip={handleSkip}
             onBack={handleBack}
+            progressRing={progressRing}
           />
         )}
         {step === 5 && (
@@ -113,6 +119,7 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
             onNext={handleNext}
             onSkip={handleSkip}
             onBack={handleBack}
+            progressRing={progressRing}
           />
         )}
       </KeyboardAvoidingView>
@@ -125,9 +132,4 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bgScreen },
   flex: { flex: 1 },
-  ringWrap: {
-    paddingHorizontal: space.gutterScreen,
-    paddingTop: space[4],
-    paddingBottom: space[2],
-  },
 });

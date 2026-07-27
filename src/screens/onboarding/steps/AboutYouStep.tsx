@@ -28,6 +28,8 @@ export interface AboutYouStepProps {
   onNext: (patch: Partial<UserProfile>) => void;
   onSkip: () => void;
   onBack: () => void;
+  /** The container's OnboardingProgressRing, forwarded into the header row next to Back. */
+  progressRing?: React.ReactNode;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -40,6 +42,7 @@ export function AboutYouStep({
   onNext,
   onSkip,
   onBack,
+  progressRing,
 }: AboutYouStepProps) {
   const [ageText, setAgeText] = useState(initialAge != null ? String(initialAge) : '');
   const [gender, setGender] = useState<'female' | 'male' | null>(initialGender);
@@ -61,6 +64,7 @@ export function AboutYouStep({
       onBack={onBack}
       onSkip={onSkip}
       onNext={handleNext}
+      progressRing={progressRing}
     >
       <Input
         value={ageText}

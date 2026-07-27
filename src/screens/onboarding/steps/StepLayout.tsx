@@ -18,6 +18,8 @@ interface StepLayoutProps {
   /** "Finish" on the last step, "Next" everywhere else. */
   nextLabel?: string;
   nextDisabled?: boolean;
+  /** The container's OnboardingProgressRing, rendered in the same row as Back, right-aligned. */
+  progressRing?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -36,6 +38,7 @@ export function StepLayout({
   onNext,
   nextLabel = 'Next',
   nextDisabled = false,
+  progressRing,
   children,
 }: StepLayoutProps) {
   return (
@@ -46,15 +49,19 @@ export function StepLayout({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {onBack ? (
-          <IconButton
-            icon={<Icon name="arrow-left" size={20} />}
-            label="Back"
-            variant="ghost"
-            onPress={onBack}
-            style={styles.backBtn}
-          />
-        ) : null}
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            {onBack ? (
+              <IconButton
+                icon={<Icon name="arrow-left" size={20} />}
+                label="Back"
+                variant="ghost"
+                onPress={onBack}
+              />
+            ) : null}
+          </View>
+          {progressRing}
+        </View>
 
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
@@ -93,8 +100,13 @@ const styles = StyleSheet.create({
     paddingBottom: space[4],
     gap: space[6],
   },
-  backBtn: {
-    alignSelf: 'flex-start',
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: {
+    flexShrink: 0,
   },
   header: { gap: space[2] },
   title: { ...typography.h2, color: colors.textPrimary },

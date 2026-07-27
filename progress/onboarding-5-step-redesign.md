@@ -374,3 +374,16 @@ Code: FE-1..FE-10 complete, see log
   6 rendered cards resolve to the identical `height` style value, so this class of bug is caught by
   `npx jest` instead of requiring another visual report. `npx tsc --noEmit` clean; `npx jest
   tests/onboarding-5-step-redesign` 52/52 passing (51 + 1 new regression test).
+
+2026-07-27 — layout change, requested by human (Sviatlana): move the progress ring onto the same
+  line as the Back arrow (right-aligned, opposite it), instead of its own row above the step content.
+  The ring is owned by the container (`SkinProfileSetupScreen`) and Back is owned by each step (via
+  `StepLayout`) — these are different subtrees, so getting them into one visual row required plumbing
+  the ring down as a `progressRing?: React.ReactNode` prop: `StepLayout` now renders a
+  `headerRow` (`flexDirection:'row', justifyContent:'space-between'`) with Back (or an empty
+  `flexShrink:0` placeholder on step 1) on the left and `progressRing` on the right; all 5 step
+  components gained the same optional `progressRing` prop and forward it straight through; the
+  container computes the ring once and passes it to whichever step is active, replacing its old
+  standalone `ringWrap` row. Purely additive to every step's prop contract (optional, not consumed by
+  any existing test), so no test files needed changes. Re-verified: `npx tsc --noEmit` clean; `npx
+  jest tests/onboarding-5-step-redesign` 52/52 passing, unchanged.
