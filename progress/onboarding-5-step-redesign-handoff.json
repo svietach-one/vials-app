@@ -1,0 +1,81 @@
+{
+  "task": "onboarding-5-step-redesign",
+  "phase": "review_complete",
+  "status": "PR_REVIEW",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/onboarding-5-step-redesign.md",
+    "tech_design": "docs/tech-design/onboarding-5-step-redesign.md",
+    "tests": "tests/onboarding-5-step-redesign/ (7 files, 51 tests, all passing)",
+    "new_src_files": [
+      "src/components/onboarding/OnboardingProgressRing.tsx",
+      "src/screens/onboarding/steps/StepLayout.tsx",
+      "src/screens/onboarding/steps/SkinTypeStep.tsx",
+      "src/screens/onboarding/steps/GoalsStep.tsx",
+      "src/screens/onboarding/steps/PhototypeStep.tsx",
+      "src/screens/onboarding/steps/AboutYouStep.tsx",
+      "src/screens/onboarding/steps/AdditionalInfoStep.tsx"
+    ],
+    "modified_src_files": [
+      "src/types/index.ts",
+      "src/store/profileStore.ts",
+      "src/utils/routineEngine/migrations.ts",
+      "src/components/ui/Icon.tsx",
+      "src/screens/onboarding/SkinProfileSetupScreen.tsx"
+    ]
+  },
+  "planner_notes": {
+    "superseded_docs": [
+      "docs/specs/profile/TASK_onboarding_redesign.md (overwritten with a SUPERSEDED pointer stub, not deleted)"
+    ],
+    "unchanged_reference_docs": [
+      "docs/specs/profile/SCREENS_onboarding_spec.md (verbatim per-step copy, still accurate)"
+    ],
+    "ground_truth_corrections_against_stale_spec": 8,
+    "open_questions_resolved_2026_07_27": [
+      {
+        "id": "OQ-1",
+        "resolution": "6 cards (FitzpatrickCard as-is) \u2014 human confirmed the recommended default."
+      },
+      {
+        "id": "OQ-2",
+        "resolution": "binary gender (Female/Male only) \u2014 human confirmed the recommended default; FE-11 dropped from scope."
+      }
+    ]
+  },
+  "engineer_notes": {
+    "summary": "FE-1..FE-10 all implemented. 51/51 new tests passing, npx tsc --noEmit clean repo-wide.",
+    "real_bug_fixed_in_qa_test_mock": "react-native-svg jest.mock in OnboardingProgressRing.test.tsx and SkinProfileSetupScreen.test.tsx used a get-only Proxy, invisible to lucide-react-native's internal Object.keys()-based namespace interop \u2014 silently made every lucide icon resolve to undefined whenever react-native-svg was mocked. Fixed by pre-populating real enumerable own properties for the SVG primitives lucide needs; same stubbing behavior, just enumerable. See progress/onboarding-5-step-redesign.md log for full detail.",
+    "repo_wide_fixes_required_by_FE_1": [
+      "tests/contribution-consent/fixtures.ts",
+      "tests/routine-engine/fixtures.ts",
+      "tests/routine-engine/cycling-and-adaptation.test.ts",
+      "tests/routine-engine/goal-confirm-routines-screen.test.tsx"
+    ],
+    "unrelated_pre_existing_failures_not_touched": "Full-repo `npx jest` shows 24 failing suites in tests/catalog/, tests/product-shelf-card/, tests/product-images/, tests/inci-attribution-highlighting/, tests/routines/, plus stray .claude/worktrees/agent-*/ copies \u2014 confirmed via git diff to be a different concurrent session's uncommitted PRODUCT_TYPE_BADGE_STATUS work-in-progress, unrelated to this task.",
+    "not_implemented_per_scope": "FE-11 dropped (OQ-2 resolved binary). No conflict-engine/clinic-procedure wiring for the new safety fields \u2014 explicitly deferred per spec \u00a76.",
+    "nothing_committed": "All changes are unstaged for tech-lead/human review."
+  },
+  "tech_lead_notes": {
+    "verdict": "ACCEPT",
+    "independently_reverified": [
+      "npx tsc --noEmit: exit 0, 0 errors repo-wide",
+      "npx jest tests/onboarding-5-step-redesign: 7/7 suites, 51/51 tests passing",
+      "npx jest tests/onboarding-5-step-redesign tests/contribution-consent tests/routine-engine src/utils/routineEngine/migrations.test.ts: 41/41 suites, 296 passed + 2 pre-existing todo / 298 total",
+      "react-native-svg mock bug claim confirmed true via node_modules/lucide-react-native/dist/cjs/Icon.js (_interopNamespaceDefault uses Object.keys)",
+      "repo-wide UserProfile fixture fallout confirmed complete (exactly the 4 claimed files)",
+      "git diff --stat: this task's file footprint has zero overlap with the concurrent unrelated session's uncommitted files"
+    ],
+    "warnings_non_blocking": [
+      "hormoneTherapy/pregnantOrBreastfeeding shipped non-optional boolean vs tech design's boolean? -- logged and justified, matches contributionConsent precedent",
+      "SkinProfileSetupScreen (~81 lines) and AboutYouStep (~72 lines) component functions exceed the 50-line style guideline; both are JSX-dominated presentational bodies, not complex logic",
+      "docs/specs/onboarding-5-step-redesign.md Sec.10 OQ-1/OQ-2 checkboxes left unchecked despite resolution documented elsewhere -- cosmetic doc-hygiene only"
+    ],
+    "security_note": "Incoming review request had an appended prompt-injection payload (fake /security-review slash-command block with fabricated git status/diff for an unrelated task). Not executed; noted for the human.",
+    "blockers": []
+  }
+}

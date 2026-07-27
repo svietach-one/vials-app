@@ -40,6 +40,8 @@ const DEFAULT_PROFILE: UserProfile = {
   onboardingCompleted: false,
   individualDurationMonths: {},
   contributionConsent: { granted: false, timestamp: null },
+  hormoneTherapy: false,
+  pregnantOrBreastfeeding: false,
 };
 
 /**

@@ -21,7 +21,7 @@ import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingr
  */
 
 /** Current persisted schema version. Bumped whenever a migration is added. */
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 /** Version assumed for installs that predate the schemaVersion key. */
 export const BASELINE_SCHEMA_VERSION = 1;
@@ -96,6 +96,9 @@ export function migrateProfile(profile: UserProfile): UserProfile {
   const contributionConsentPresent = profile.contributionConsent !== undefined;
   // Pre-v5 profiles lack the self-reported skin conditions (v1.2, US-23).
   const skinConditionsPresent = profile.skinConditions !== undefined;
+  // Pre-v6 profiles lack the two onboarding-5-step-redesign safety fields.
+  const hormoneTherapyPresent = profile.hormoneTherapy !== undefined;
+  const pregnantOrBreastfeedingPresent = profile.pregnantOrBreastfeeding !== undefined;
 
   if (
     cityPresent &&
@@ -103,7 +106,9 @@ export function migrateProfile(profile: UserProfile): UserProfile {
     goalsPresent &&
     phototypeConfirmationPresent &&
     contributionConsentPresent &&
-    skinConditionsPresent
+    skinConditionsPresent &&
+    hormoneTherapyPresent &&
+    pregnantOrBreastfeedingPresent
   ) {
     return profile;
   }
@@ -134,6 +139,12 @@ export function migrateProfile(profile: UserProfile): UserProfile {
     // condition flag is opt-in, and defaulting it on would escalate warnings
     // for users who never asked for it (US-27's no-op guarantee).
     skinConditions: skinConditionsPresent ? profile.skinConditions : [],
+    // Both new safety fields are opt-in and never inferred — backfill to
+    // false rather than prompting an existing install to answer them.
+    hormoneTherapy: hormoneTherapyPresent ? profile.hormoneTherapy : false,
+    pregnantOrBreastfeeding: pregnantOrBreastfeedingPresent
+      ? profile.pregnantOrBreastfeeding
+      : false,
   };
 }
 

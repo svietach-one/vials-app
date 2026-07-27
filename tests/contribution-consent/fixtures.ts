@@ -43,6 +43,8 @@ export function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     onboardingCompleted: true,
     individualDurationMonths: {},
     contributionConsent: makeContributionConsent(),
+    hormoneTherapy: false,
+    pregnantOrBreastfeeding: false,
     ...overrides,
   };
 }

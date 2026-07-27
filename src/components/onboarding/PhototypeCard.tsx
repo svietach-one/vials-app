@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { colors, radius, shadow, typography } from '@/constants/tokens';
 import type { FitzpatrickType, SkinPhototype } from '@/types';
@@ -57,6 +57,8 @@ interface FitzpatrickCardProps {
   type: FitzpatrickType;
   selected: boolean;
   onSelect: () => void;
+  /** Optional style override (e.g. a shorter aspect ratio) — additive, other callers are unaffected. */
+  style?: StyleProp<ViewStyle>;
 }
 
 /** Skin-tone swatches for the full scale — consumer-friendly, no racial labels. */
@@ -84,7 +86,7 @@ const FITZPATRICK_A11Y: Record<FitzpatrickType, string> = {
  * rows of three; the roman numeral is the only text (≥14 px), the swatch
  * carries the meaning, and the full description lives on the a11y label.
  */
-export function FitzpatrickCard({ type, selected, onSelect }: FitzpatrickCardProps) {
+export function FitzpatrickCard({ type, selected, onSelect, style }: FitzpatrickCardProps) {
   const NUMERALS: Record<FitzpatrickType, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI' };
   return (
     <Pressable
@@ -96,6 +98,7 @@ export function FitzpatrickCard({ type, selected, onSelect }: FitzpatrickCardPro
         styles.card,
         selected && styles.cardSelected,
         pressed && styles.cardPressed,
+        style,
       ]}
     >
       <View style={[styles.swatchSmall, { backgroundColor: FITZPATRICK_SHADE[type] }]} />

@@ -157,6 +157,8 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     onboardingCompleted: true,
     individualDurationMonths: {},
     contributionConsent: { granted: false, timestamp: null },
+    hormoneTherapy: false,
+    pregnantOrBreastfeeding: false,
     ...overrides,
   };
 }

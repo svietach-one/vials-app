@@ -130,6 +130,8 @@ export function makeFullProfile(overrides: Partial<UserProfile> = {}): UserProfi
     onboardingCompleted: true,
     individualDurationMonths: {},
     contributionConsent: { granted: false, timestamp: null },
+    hormoneTherapy: false,
+    pregnantOrBreastfeeding: false,
     ...overrides,
   };
 }

@@ -198,7 +198,8 @@ export interface UserProfile {
   age: number | null;
   skinType: SkinType | null;
   /**
-   * Grouped phototype (authoritative input while onboarding uses 3 cards).
+   * Grouped phototype, derived from the numeric {@link fitzpatrick} the
+   * 6-card onboarding selector writes (see `deriveGroupedPhototype`).
    * Critical for laser/peel safety checks.
    */
   phototype: SkinPhototype | null;
@@ -246,6 +247,18 @@ export interface UserProfile {
    * `src/utils/contributionConsent.ts` for the gating helper.
    */
   contributionConsent: ContributionConsent;
+  /**
+   * Currently on hormone therapy (gender-affirming or otherwise), added in
+   * schema v6. Collected for future personalization (sebum/sensitivity
+   * weighting) — no downstream logic reads it yet.
+   */
+  hormoneTherapy: boolean;
+  /**
+   * Pregnant or breastfeeding, added in schema v6. Safety-relevant flag for
+   * a planned conflict-engine check (retinoids / high-concentration acids)
+   * and a clinic-procedure block — both separate, not-yet-built follow-ups.
+   */
+  pregnantOrBreastfeeding: boolean;
 }
 
 /** Consent to share a product photo in community contributions (schema v4). */
