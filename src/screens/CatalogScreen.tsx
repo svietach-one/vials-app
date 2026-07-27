@@ -18,6 +18,7 @@ import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerShee
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { Card } from '@/components/ui/core/Card';
+import { EmptyState } from '@/components/ui/core/EmptyState';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Badge } from '@/components/ui/feedback/Badge';
 import { Toast } from '@/components/ui/feedback/Toast';
@@ -196,10 +197,7 @@ export default function CatalogScreen({ navigation, route }: Props) {
         data={filteredProducts}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={[
-          styles.listContent,
-          filteredProducts.length === 0 && styles.listContentEmpty,
-        ]}
+        contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -333,20 +331,22 @@ function CatalogEmptyState({
 
   return (
     <View style={emptyStyles.wrap}>
-      <Icon name="package" size={32} color={colors.textTertiary} />
-      <Text style={emptyStyles.title}>{title}</Text>
-      <Text style={emptyStyles.body}>{body}</Text>
-      {!hasProducts ? (
-        <Button
-          variant="primary"
-          size="lg"
-          icon={<Icon name="plus" size={16} color={colors.textOnDark} />}
-          onPress={onAdd}
-          style={emptyStyles.addBtn}
-        >
-          Add Product
-        </Button>
-      ) : null}
+      <EmptyState
+        icon={<Icon name="package" size={24} color={colors.textSecondary} />}
+        title={title}
+        description={body}
+        actions={
+          !hasProducts
+            ? [
+                {
+                  label: 'Add Product',
+                  onPress: onAdd,
+                  icon: <Icon name="plus" size={16} color={colors.textOnDark} />,
+                },
+              ]
+            : undefined
+        }
+      />
     </View>
   );
 }
@@ -374,9 +374,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: space.gutterScreen,
     paddingBottom: space[12],
-  },
-  listContentEmpty: {
-    flexGrow: 1,
   },
   card: {
     // full-width cards with consistent horizontal padding already applied by listContent
@@ -417,25 +414,8 @@ const styles = StyleSheet.create({
 
 const emptyStyles = StyleSheet.create({
   wrap: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: space[8],
-    gap: space[3],
     paddingTop: space[12],
-  },
-  title: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  body: {
-    ...typography.bodySmall,
-    color: colors.textTertiary,
-    textAlign: 'center',
-  },
-  addBtn: {
-    marginTop: space[2],
   },
 });

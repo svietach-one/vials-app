@@ -10,6 +10,8 @@ export interface FilterChipProps extends Omit<PressableProps, 'style' | 'childre
   children: string;
   selected?: boolean;
   size?: 'sm' | 'md';
+  /** Optional trailing sub-label (e.g. "Primary") shown after the main text. */
+  subLabel?: string;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -19,6 +21,7 @@ export function FilterChip({
   children,
   selected = false,
   size = 'md',
+  subLabel,
   accessibilityLabel,
   style,
   ...rest
@@ -40,6 +43,7 @@ export function FilterChip({
       <Text style={[styles.label, selected ? styles.labelSelected : styles.labelUnselected]}>
         {children}
       </Text>
+      {subLabel ? <Text style={styles.subLabel}>{subLabel}</Text> : null}
     </Pressable>
   );
 }
@@ -48,10 +52,12 @@ export function FilterChip({
 
 const styles = StyleSheet.create({
   chip: {
+    flexDirection: 'row',
     borderRadius: radius.pill,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'flex-start',
+    gap: space[2],
   },
   chipMd: {
     height: space[8],
@@ -83,5 +89,11 @@ const styles = StyleSheet.create({
   },
   labelUnselected: {
     color: colors.textSecondary,
+  },
+  subLabel: {
+    ...typography.caption,
+    fontFamily: 'DMSans-Medium',
+    color: colors.controlOn,
+    opacity: 0.75,
   },
 });

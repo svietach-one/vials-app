@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   BottomSheetBackdrop,
   BottomSheetFlatList,
@@ -8,11 +8,12 @@ import {
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import { Icon } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
 import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { TimeChip } from '@/components/ui/core/TimeChip';
 import { Input } from '@/components/ui/forms/Input';
 import { DuplicateSlotChoiceSheet } from '@/components/routine/DuplicateSlotChoiceSheet';
 import { ProductPickerCard } from '@/components/routine/ProductPickerCard';
@@ -22,7 +23,7 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
 import { deriveProductSchedule } from '@/utils/routineLabel';
 import { getSlotCategoryLabel } from '@/constants/labels';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, radius, space, typography } from '@/constants/tokens';
 import type { Product, ProductType, RoutineStep } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -521,42 +522,6 @@ function StepSchedule({
   );
 }
 
-// ─── Time chip ────────────────────────────────────────────────────────────────
-
-function TimeChip({
-  icon,
-  label,
-  active,
-  onPress,
-  disabled,
-}: {
-  icon: IconName;
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={disabled ? undefined : onPress}
-      disabled={disabled}
-      style={[styles.timeChip, active && styles.timeChipActive, disabled && styles.timeChipDisabled]}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: active, disabled }}
-      accessibilityLabel={label}
-    >
-      <Icon
-        name={icon}
-        size={15}
-        color={active ? palette.white : colors.textSecondary}
-      />
-      <Text style={[styles.timeChipLabel, active && styles.timeChipLabelActive]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -652,33 +617,6 @@ const styles = StyleSheet.create({
   chipRow: {
     flexDirection: 'row',
     gap: space[3],
-  },
-  timeChip: {
-    flex: 1,
-    height: 48,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceRaised,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[2],
-  },
-  timeChipActive: {
-    backgroundColor: palette.black,
-    borderColor: palette.black,
-  },
-  timeChipDisabled: {
-    opacity: 0.4,
-  },
-  timeChipLabel: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textSecondary,
-  },
-  timeChipLabelActive: {
-    color: palette.white,
   },
   hintText: {
     ...typography.caption,

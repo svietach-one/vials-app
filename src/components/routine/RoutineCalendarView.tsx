@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
 import { CalendarCell } from '@/components/routine/CalendarCell';
-import { Button } from '@/components/ui/core/Button';
+import { EmptyState } from '@/components/ui/core/EmptyState';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { Product, Routine } from '@/types';
@@ -75,11 +75,19 @@ export function RoutineCalendarView({
   if (matrix.rows.length === 0) {
     return (
       <View style={styles.emptyWrap}>
-        <Icon name="calendar" size={28} color={colors.textTertiary} />
-        <Text style={styles.emptyText}>No products scheduled this month.</Text>
-        <Button variant="textActive" size="sm" onPress={onAddProduct} accessibilityLabel="Add product to routine">
-          Add product
-        </Button>
+        <EmptyState
+          icon={<Icon name="calendar" size={24} color={colors.textSecondary} />}
+          title="No products scheduled"
+          description="Products scheduled in your routine will show up here on the month grid."
+          actions={[
+            {
+              label: 'Add product',
+              onPress: onAddProduct,
+              variant: 'secondary',
+              accessibilityLabel: 'Add product to routine',
+            },
+          ]}
+        />
       </View>
     );
   }
@@ -399,11 +407,6 @@ const styles = StyleSheet.create({
   emptyWrap: {
     alignItems: 'center',
     paddingVertical: space[12],
-    gap: space[3],
-  },
-  emptyText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
+    paddingHorizontal: space[6],
   },
 });

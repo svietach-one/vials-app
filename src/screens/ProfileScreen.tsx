@@ -159,7 +159,7 @@ const summaryStyles = StyleSheet.create({
   chip: {
     paddingHorizontal: space[2] + 2,
     paddingVertical: 5,
-    borderRadius: radius.xs,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.borderDivider,
     backgroundColor: colors.surfaceSunken,

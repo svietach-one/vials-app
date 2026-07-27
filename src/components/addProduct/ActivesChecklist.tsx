@@ -1,11 +1,11 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Icon } from '@/components/ui/Icon';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ACTIVE_INGREDIENT_LABELS } from '@/constants/labels';
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { colors, space, typography } from '@/constants/tokens';
 import type { ActiveIngredientKey } from '@/types';
 
+import { ActiveGroupChip } from './ActiveGroupChip';
 import { ACTIVES_GROUPS } from './activesGroups';
 import type { ActivesGroup } from './activesGroups';
 
@@ -22,25 +22,15 @@ interface ChecklistChipProps {
 }
 
 function ChecklistChip({ group, activeKey, checked, onToggle }: ChecklistChipProps) {
+  const label = ACTIVE_INGREDIENT_LABELS[activeKey];
   return (
-    <Pressable
+    <ActiveGroupChip
+      label={label}
+      group={group}
+      checked={checked}
+      accessibilityLabel={label}
       onPress={() => onToggle(activeKey)}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
-      accessibilityLabel={ACTIVE_INGREDIENT_LABELS[activeKey]}
-      style={({ pressed }) => [
-        styles.chip,
-        checked
-          ? { backgroundColor: group.tint, borderColor: group.line }
-          : styles.chipUnchecked,
-        pressed && styles.chipPressed,
-      ]}
-    >
-      {checked ? <Icon name="check" size={12} color={group.color} /> : null}
-      <Text style={[styles.chipLabel, { color: checked ? group.color : colors.textSecondary }]}>
-        {ACTIVE_INGREDIENT_LABELS[activeKey]}
-      </Text>
-    </Pressable>
+    />
   );
 }
 
@@ -97,26 +87,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: space[2],
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[1],
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    paddingHorizontal: space[3],
-    height: space[8],
-  },
-  chipUnchecked: {
-    backgroundColor: colors.surfaceRaised,
-    borderColor: colors.borderStrong,
-  },
-  chipPressed: {
-    opacity: 0.7,
-  },
-  chipLabel: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    includeFontPadding: false,
   },
 });
