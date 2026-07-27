@@ -33,6 +33,7 @@ export function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     phototype: null,
     fitzpatrick: null,
     city: null,
+    skinConditions: [],
     concerns: [],
     primaryGoal: 'maintenance',
     secondaryGoal: null,

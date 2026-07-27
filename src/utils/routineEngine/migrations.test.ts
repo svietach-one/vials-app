@@ -55,8 +55,8 @@ function makeRoutine(steps: Routine['steps']): Routine {
 // ─── Schema version ───────────────────────────────────────────────────────────
 
 describe('CURRENT_SCHEMA_VERSION', () => {
-  it('is 4 after adding contributionConsent (contribution-consent task)', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(4);
+  it('is 5 after adding skinConditions (routine-engine-v2.2 US-23)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(5);
   });
 });
 
@@ -137,6 +137,33 @@ describe('migrateProfile', () => {
     const result = migrateProfile(profile);
     // Assert
     expect(result.city).toBe(city);
+  });
+
+  it('defaults skinConditions to an empty list on a pre-v5 profile', () => {
+    // Arrange
+    const profile = makeLegacyProfile({ phototype: 'type_1_2' });
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.skinConditions).toEqual([]);
+  });
+
+  it('never derives a skin condition from the eczema concern', () => {
+    // Arrange — 'eczema' exists in both vocabularies; they stay independent
+    const profile = makeLegacyProfile({ concerns: ['eczema'] });
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.skinConditions).toEqual([]);
+  });
+
+  it('preserves already-selected skin conditions', () => {
+    // Arrange
+    const profile = makeLegacyProfile({ skinConditions: ['rosacea'] });
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.skinConditions).toEqual(['rosacea']);
   });
 
   it('is idempotent — running twice returns the same reference', () => {

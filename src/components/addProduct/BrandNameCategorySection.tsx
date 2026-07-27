@@ -270,6 +270,28 @@ export function BrandNameCategorySection({
         onSelect={(type) => dispatch({ type: 'SET_CATEGORY', value: type, source: 'manual' })}
       />
 
+      {/* SPF strength — only meaningful for sunscreens (US-29). Optional: a
+          product saves fine without it, the adequacy check simply skips it. */}
+      {draft.productType === 'spf' ? (
+        <Input
+          label="SPF (optional)"
+          value={draft.spfValue === null ? '' : String(draft.spfValue)}
+          onChangeText={(text) => {
+            const digits = text.replace(/[^0-9]/g, '');
+            const parsed = Number.parseInt(digits, 10);
+            dispatch({
+              type: 'SET_SPF_VALUE',
+              value: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
+            });
+          }}
+          placeholder="e.g. 50"
+          keyboardType="number-pad"
+          maxLength={3}
+          returnKeyType="done"
+          accessibilityLabel="SPF value"
+        />
+      ) : null}
+
       <CameraCaptureModal
         mode="label"
         visible={readingLabel}

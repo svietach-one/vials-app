@@ -37,6 +37,7 @@ function makeNotice(overrides: Partial<RehabNotice> = {}): RehabNotice {
     totalDays: 14,
     barrierStatus: 'disrupted',
     restrictions: [],
+    aggressive: false,
     ...overrides,
   };
 }

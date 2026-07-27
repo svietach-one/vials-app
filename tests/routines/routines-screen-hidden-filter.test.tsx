@@ -132,6 +132,8 @@ jest.mock('@/store/settingsStore', () => ({
       routineCycleType: 'fixed',
       routineAccordion: null,
       setRoutineAccordion: jest.fn(),
+      rehabNoticeCollapsed: {},
+      setRehabNoticeCollapsed: jest.fn(),
     }),
   ),
 }));

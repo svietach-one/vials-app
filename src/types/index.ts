@@ -36,6 +36,34 @@ export interface ActiveIngredient {
   displayName: string;
 }
 
+/**
+ * Non-conflict, presence-only ingredient groups consumed by the recommendation
+ * layer only (PRD v1.2 §5.2). Deliberately a SEPARATE key space from
+ * {@link ActiveIngredientKey}: barrier tags must never reach the pairwise
+ * conflict matrix or an ActiveIngredientKey[] array. See
+ * src/utils/barrierTags.ts for the parser.
+ */
+export type BarrierIngredientKey =
+  | 'CERA' // Ceramides
+  | 'PANT' // Panthenol
+  | 'GLYC' // Glycerin / humectant glycols
+  | 'NIAC' // Niacinamide
+  | 'ZPCA' // Zinc PCA
+  | 'HYAL'; // Hyaluronic acid / sodium hyaluronate
+
+/**
+ * Ordered three-level advisory scale (PRD v1.2 §5.2) used by the v1.2
+ * recommendation layers — condition modifiers and density insights — only.
+ *
+ * The production conflict matrix keeps its own two-level
+ * {@link ConflictSeverity} ('caution' | 'avoid') and is NEVER rewritten to this
+ * scale. The two meet at one documented projection in
+ * src/utils/skinConditionModifiers.ts (`caution` ↔ medium, `avoid` ↔ high), so
+ * a one-level escalation of a rendered pairwise conflict means
+ * caution → avoid, and an `avoid` pair renders unchanged (capped).
+ */
+export type AdvisorySeverity = 'low' | 'medium' | 'high';
+
 /** Functional grouping used to color-code active-ingredient badges on the shelf card. */
 export type ActiveBadgeCategory = 'exfoliant' | 'soothing' | 'hydrator' | 'other';
 
@@ -127,6 +155,17 @@ export interface CityLocation {
 
 export type SkinType = 'oily' | 'dry' | 'combination' | 'normal';
 
+/**
+ * Optional, self-reported skin conditions (PRD v1.2 §4.2.2, US-23). Presence
+ * only — no severity level in v1, and NOT a diagnosis. Deliberately kept
+ * separate from {@link SkinConcern} (which shares an `eczema` member): concerns
+ * are symptoms the user reports to steer product selection, conditions are risk
+ * modifiers that make existing warnings more conservative and never more
+ * permissive. Whether the two should be merged is an open product question
+ * (PRD §5.1) — until it is answered, nothing derives one from the other.
+ */
+export type SkinConditionType = 'eczema' | 'seborrheic_dermatitis' | 'rosacea';
+
 export type SkinConcern =
   | 'acne'
   | 'dryness'
@@ -172,6 +211,13 @@ export interface UserProfile {
   /** Selected city for weather-driven season masks; null until the user picks one. */
   city: CityLocation | null;
   concerns: SkinConcern[];
+  /**
+   * Self-reported skin conditions (v1.2, US-23). Default `[]` — an empty list
+   * is the guaranteed no-op state (US-27): every v1.2 condition layer returns
+   * an empty result and the engine behaves exactly as it did before the
+   * feature shipped.
+   */
+  skinConditions: SkinConditionType[];
   /**
    * Primary care goal driving treatment selection (V2.1 Step 0). Defaults to
    * 'maintenance'; heuristically derived from concerns for pre-goal profiles.
@@ -262,6 +308,13 @@ export interface Product {
   openedDate: string | null;
   /** Period-After-Opening in months. Combined with openedDate to compute expiry. */
   paoMonths: number | null;
+  /**
+   * Labelled sun protection factor, only meaningful when
+   * `productType === 'spf'` (v1.2, US-29). Optional by design: `null` /
+   * absent means "unknown", which the SPF adequacy check treats as "can't
+   * check", never as "assume the worst".
+   */
+  spfValue?: number | null;
   /** EAN/UPC barcode scanned during add flow. Null when skipped or entered manually. */
   barcode?: string | null;
   /**
@@ -398,6 +451,14 @@ export interface RehabNotice {
   totalDays: number;
   barrierStatus: 'disrupted' | 'sensitive';
   restrictions: string[];
+  /**
+   * True when every merged procedure is in the aggressive set (deep peel,
+   * energy-based lifting, injectable micro-wounding — see
+   * AGGRESSIVE_PROCEDURES in src/utils/skinConditionModifiers.ts). Drives the
+   * eczema/rosacea recovery caution line (US-25), which never appears for
+   * Botox- or filler-only rehab. Derived per render, never persisted.
+   */
+  aggressive: boolean;
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
@@ -494,6 +555,13 @@ export interface AppSettings {
    * 3+ = 3rd/every-30 tier. Drives the next reminder threshold (5/15/30/30…).
    */
   reminderCountShown: number;
+  /**
+   * Per-procedure RehabNoticeCard collapse state on the Routines screen,
+   * keyed by RehabNotice.key, so a manual collapse survives a re-visit for
+   * the rest of the skincare day — mirrors `routineAccordion`'s day-scoping.
+   * Re-decided (defaults to expanded) once a new skincare day starts.
+   */
+  rehabNoticeCollapsed: Record<string, RehabNoticeCollapseEntry>;
 }
 
 /**
@@ -510,6 +578,12 @@ export interface RoutineAccordionSettings {
   date: string;
   morningExpanded: boolean;
   eveningExpanded: boolean;
+}
+
+export interface RehabNoticeCollapseEntry {
+  /** Skincare-day date string (see getSkincareDateString) this decision applies to. */
+  date: string;
+  collapsed: boolean;
 }
 
 // ─── Catalog filters ──────────────────────────────────────────────────────────
@@ -557,6 +631,13 @@ export interface AddProductDraft {
    * reads — so it lives on the draft. null until a photo is taken/chosen.
    */
   localImageUri: string | null;
+
+  /**
+   * Labelled SPF, captured only when productType is 'spf' (US-29). Null =
+   * unknown; the adequacy check skips the product rather than assuming a
+   * worst case. Cleared when the category moves away from SPF.
+   */
+  spfValue: number | null;
 
   // Section 2 — barcode
   barcode: string | null; // null = skipped, never blocks progress

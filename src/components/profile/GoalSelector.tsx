@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GOAL_LABELS } from '@/constants/labels';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, radius, space, typography } from '@/constants/tokens';
 import type { SkinGoal } from '@/types';
 
 /**
@@ -10,6 +10,12 @@ import type { SkinGoal } from '@/types';
  * selected is the primary, the second the secondary. No selection means
  * maintenance — deliberately not a chip, it is the absence of a goal, and the
  * engine's treatment slot stays empty for it.
+ *
+ * Not built on the shared FilterChip (whose children must be a plain string)
+ * because the primary chip needs a second, separately-queryable "Primary"
+ * label alongside the goal name — so the visual tokens below are copied from
+ * FilterChip 1:1 (radius, height, colors) to keep every pill in the app
+ * looking identical without forcing incompatible content through one component.
  */
 
 const SELECTABLE_GOALS: SkinGoal[] = [
@@ -85,32 +91,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[2],
+    height: space[8],
     paddingHorizontal: space[3],
-    paddingVertical: space[2] - 1,
-    borderRadius: radius.sm,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.borderStrong,
     backgroundColor: colors.surfaceRaised,
   },
   chipActive: {
-    backgroundColor: palette.black,
-    borderColor: palette.black,
+    backgroundColor: colors.controlFill,
+    borderColor: colors.controlFill,
   },
   chipDim: {
     opacity: 0.45,
   },
   label: {
-    ...typography.bodySmall,
+    fontSize: typography.bodySmall.fontSize,
+    lineHeight: typography.bodySmall.lineHeight,
     fontFamily: 'DMSans-Medium',
+    includeFontPadding: false,
     color: colors.textSecondary,
   },
   labelActive: {
-    color: palette.white,
+    color: colors.controlOn,
   },
   primaryTag: {
     ...typography.caption,
     fontFamily: 'DMSans-Medium',
-    color: palette.white,
+    color: colors.controlOn,
     opacity: 0.75,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
@@ -8,6 +8,22 @@ import type { RehabNotice } from '@/types';
 export interface RehabNoticeCardProps {
   /** One merged rehab notice (see buildRehabNotices). */
   notice: RehabNotice;
+  /**
+   * Additive eczema/rosacea recovery line (US-25), or null when it does not
+   * apply. Computed by the caller via getRecoveryConditionCaution — copy-only:
+   * it never changes the rehab window, the restrictions, or the card's tone.
+   */
+  conditionCaution?: string | null;
+  /**
+   * Controlled collapse state, resolved by the caller from the persisted
+   * per-day snapshot (src/utils/rehabNoticeCollapse.ts) so a manual collapse
+   * survives a re-visit for the rest of the skincare day instead of
+   * re-expanding on every remount. Defaults to expanded for callers that
+   * don't need day-scoped persistence (e.g. presentational tests).
+   */
+  collapsed?: boolean;
+  /** Fires on header tap; the caller owns persisting the new value. */
+  onToggleCollapse?: () => void;
 }
 
 const BARRIER_COPY: Record<RehabNotice['barrierStatus'], string> = {
@@ -25,17 +41,17 @@ const BARRIER_COPY: Record<RehabNotice['barrierStatus'], string> = {
  * render of a RehabNotice — self-destructs when the window ends and the
  * notice is gone.
  */
-export function RehabNoticeCard({ notice }: RehabNoticeCardProps) {
-  // Local UI only — collapses the card down to its header + "Day X of Y"
-  // status line to save space; the day count stays visible either way so the
-  // user can track recovery progress without expanding the card.
-  const [collapsed, setCollapsed] = useState(false);
-
+export function RehabNoticeCard({
+  notice,
+  conditionCaution = null,
+  collapsed = false,
+  onToggleCollapse,
+}: RehabNoticeCardProps) {
   return (
     <View style={styles.card} accessibilityRole="summary">
       <Pressable
         style={styles.headerRow}
-        onPress={() => setCollapsed((c) => !c)}
+        onPress={onToggleCollapse}
         accessibilityRole="button"
         accessibilityState={{ expanded: !collapsed }}
         accessibilityLabel={`Rehabilitation: ${notice.procedureName}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
@@ -73,6 +89,10 @@ export function RehabNoticeCard({ notice }: RehabNoticeCardProps) {
                 </View>
               ))}
             </View>
+          ) : null}
+
+          {conditionCaution ? (
+            <Text style={styles.conditionCaution}>{conditionCaution}</Text>
           ) : null}
         </>
       ) : null}
@@ -133,5 +153,13 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.statusWarning,
     flex: 1,
+  },
+  // Additive advisory line — same Amber caution family as the card, set apart
+  // from the restriction list so it never reads as another restriction.
+  conditionCaution: {
+    ...typography.bodySmall,
+    color: colors.statusWarning,
+    marginTop: space[2],
+    fontStyle: 'italic',
   },
 });

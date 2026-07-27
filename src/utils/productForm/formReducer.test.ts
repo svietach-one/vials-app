@@ -25,6 +25,57 @@ describe('initialDraft', () => {
     expect(draft.openedDate).toBeNull();
     expect(draft.paoMonths).toBeNull();
     expect(draft.localImageUri).toBeNull();
+    expect(draft.spfValue).toBeNull();
+  });
+});
+
+describe('SET_SPF_VALUE — sunscreen strength (US-29)', () => {
+  it('records a captured SPF value', () => {
+    // Arrange / Act
+    const draft = apply(
+      initialDraft(),
+      { type: 'SET_CATEGORY', value: 'spf', source: 'manual' },
+      { type: 'SET_SPF_VALUE', value: 50 },
+    );
+    // Assert
+    expect(draft.spfValue).toBe(50);
+  });
+
+  it('accepts null for an unknown SPF — the check skips it rather than guessing', () => {
+    const draft = apply(
+      initialDraft(),
+      { type: 'SET_CATEGORY', value: 'spf', source: 'manual' },
+      { type: 'SET_SPF_VALUE', value: 30 },
+      { type: 'SET_SPF_VALUE', value: null },
+    );
+    expect(draft.spfValue).toBeNull();
+  });
+
+  it('clears the value when the category moves away from SPF', () => {
+    // Arrange
+    const withSpf = apply(
+      initialDraft(),
+      { type: 'SET_CATEGORY', value: 'spf', source: 'manual' },
+      { type: 'SET_SPF_VALUE', value: 50 },
+    );
+    // Act
+    const recategorised = apply(withSpf, {
+      type: 'SET_CATEGORY',
+      value: 'serum',
+      source: 'manual',
+    });
+    // Assert
+    expect(recategorised.spfValue).toBeNull();
+  });
+
+  it('keeps the value when the category is re-confirmed as SPF', () => {
+    const draft = apply(
+      initialDraft(),
+      { type: 'SET_CATEGORY', value: 'spf', source: 'manual' },
+      { type: 'SET_SPF_VALUE', value: 50 },
+      { type: 'SET_CATEGORY', value: 'spf', source: 'manual' },
+    );
+    expect(draft.spfValue).toBe(50);
   });
 });
 

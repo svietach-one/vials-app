@@ -111,7 +111,13 @@ jest.mock('@/store/proceduresStore', () => ({
 }));
 jest.mock('@/store/settingsStore', () => ({
   useSettingsStore: jest.fn((selector: any) =>
-    selector({ routineCycleType: 'fixed', routineAccordion: null, setRoutineAccordion: jest.fn() }),
+    selector({
+      routineCycleType: 'fixed',
+      routineAccordion: null,
+      setRoutineAccordion: jest.fn(),
+      rehabNoticeCollapsed: {},
+      setRehabNoticeCollapsed: jest.fn(),
+    }),
   ),
 }));
 jest.mock('@/store/trackingStore', () => ({
@@ -142,6 +148,7 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     fitzpatrick: null,
     city: null,
     concerns: ['wrinkles'],
+    skinConditions: [],
     primaryGoal: 'aging',
     secondaryGoal: null,
     goalNeedsConfirmation: true,

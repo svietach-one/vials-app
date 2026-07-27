@@ -52,3 +52,25 @@ export const BARCODE_SCANNER_ENABLED = true;
  * Separate from the step-2 gate so the two can move independently.
  */
 export const BARCODE_HUB_ENTRY_ENABLED = false;
+
+/**
+ * The four "proposed" v1.2 collision rows from PRD §5.2 that are NOT in
+ * production: `benzoyl_peroxide` + acids, `benzoyl_peroxide` + copper
+ * peptides, `azelaic_acid` + acids, and pure-vitamin-C + benzoyl peroxide.
+ * (`benzoyl_peroxide` + retinoid and vitamin-C-derivative + benzoyl peroxide
+ * already shipped in actives.json long before v1.2 and are untouched by this
+ * flag.)
+ *
+ * **OFF.** These rows are a research proposal sourced at the same confidence
+ * level already judged insufficient for the §5.3 procedure-spacing table, and
+ * PRD §6 routes them through one combined clinical sign-off pass. BPO/AZA tag
+ * DETECTION ships regardless — the single-ingredient condition-risk checks in
+ * skinConditionModifiers.ts and the density tiers in activeIngredientDensity.ts
+ * both use those tags today.
+ *
+ * Flip to true once sign-off lands: the pairs are declared in
+ * PROPOSED_V12_PAIR_RULES (src/constants/rulesets/proposedPairRules.ts) ready
+ * to append to the effective ruleset, so this is a one-line change, not a
+ * re-implementation.
+ */
+export const PROPOSED_V12_PAIR_RULES_ENABLED = false;

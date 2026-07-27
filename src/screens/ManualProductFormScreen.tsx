@@ -46,6 +46,7 @@ import type {
   ActiveIngredient,
   ActiveIngredientKey,
   Product,
+  ProductSource,
   ProductType,
 } from '@/types';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
@@ -444,10 +445,18 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [brand, setBrand] = useState('');
   const [productType, setProductType] = useState<ProductType | null>(null);
+  // Labelled SPF, captured only for sunscreens (US-29). Empty = unknown.
+  const [spfText, setSpfText] = useState('');
   const [selectedIngredients, setSelectedIngredients] = useState<ActiveIngredient[]>([]);
   const [fullIngredientText, setFullIngredientText] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
   const [obfId, setObfId] = useState<string | null>(null);
+  // Provenance of a corpus/search-result prefill (obf_import, vials_seed, or
+  // community) — distinct from `obfId`, which only fires for OBF rows.
+  // Gates the manual-entry contribution-consent flow below: any corpus
+  // prefill is a database pick, not a genuinely manual entry, regardless of
+  // which of the three corpus sources it came from.
+  const [prefillSource, setPrefillSource] = useState<ProductSource | null>(null);
   const [showOcrScanner, setShowOcrScanner] = useState(false);
   const [ocrScanned, setOcrScanned] = useState(false);
   const [schedulerProduct, setSchedulerProduct] = useState<Product | null>(null);
@@ -487,6 +496,11 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       setName(editingProduct.name);
       setBrand(editingProduct.brand ?? '');
       setProductType(editingProduct.productType);
+      setSpfText(
+        editingProduct.spfValue !== null && editingProduct.spfValue !== undefined
+          ? String(editingProduct.spfValue)
+          : '',
+      );
       setFullIngredientText(editingProduct.fullIngredientText ?? '');
       setObfId(editingProduct.openBeautyFactsId);
       setImageUrl(editingProduct.imageUrl);
@@ -513,6 +527,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       setFullIngredientText(p.inciRaw ?? '');
       setObfId(p.source === 'obf_import' ? p.uid : null);
       setShowObfAttribution(p.source === 'obf_import');
+      setPrefillSource(p.source);
       setCorpusProductUrl(p.url);
       setProductType(resolveProductType(p.type));
 
@@ -602,9 +617,13 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       notes: null,
       openedDate: isOpened ? openedDate : null,
       paoMonths: resolvedPaoMonths,
-      // Edits preserve the original provenance; new records split on
-      // whether they came from an OBF result or pure manual entry.
-      source: editingProduct?.source ?? (obfId ? 'obf_import' : 'user_local'),
+      // Only meaningful on a sunscreen; anything unparseable stays unknown so
+      // the adequacy check skips the product rather than guessing.
+      spfValue: productType === 'spf' ? (parseInt(spfText, 10) || null) : null,
+      // Edits preserve the original provenance; new records take the
+      // corpus row's own source (obf_import / vials_seed / community) when
+      // prefilled, or 'user_local' for a genuinely manual entry.
+      source: editingProduct?.source ?? prefillSource ?? 'user_local',
       // Set once at save time, never mutated afterward on edits.
       contributionOptIn: editingProduct?.contributionOptIn ?? contributionOptIn,
     };
@@ -740,10 +759,13 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     }
 
     // Contribution consent only governs genuinely manual entries — a
-    // corpus/OBF-prefilled save keeps today's unconditional background sync,
-    // unchanged by this flow (see scope decisions in
-    // docs/specs/contribution-consent-flow/00-IMPLEMENTATION-PROMPT.md).
-    if (obfId) {
+    // corpus-prefilled save (obf_import, vials_seed, or community) keeps
+    // today's unconditional background sync, unchanged by this flow (see
+    // scope decisions in
+    // docs/specs/contribution-consent-flow/00-IMPLEMENTATION-PROMPT.md §"No
+    // consent flow for editing/completing existing database-sourced
+    // products").
+    if (prefillSource) {
       const product = buildProduct();
       addProduct(product);
       void shareProduct(product);
@@ -894,6 +916,20 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
                   ))}
                 </View>
               </View>
+
+              {/* SPF strength — sunscreens only (US-29). Optional: leaving it
+                  blank means "unknown", never "assume the worst". */}
+              {productType === 'spf' ? (
+                <Input
+                  label="SPF (optional)"
+                  value={spfText}
+                  onChangeText={(t) => setSpfText(t.replace(/[^0-9]/g, ''))}
+                  placeholder="e.g. 50"
+                  keyboardType="number-pad"
+                  maxLength={3}
+                  returnKeyType="done"
+                />
+              ) : null}
             </View>
           </Card>
 
@@ -947,7 +983,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         </ScrollView>
 
         <View style={s.footer}>
-          {!isEditMode && !obfId && contributionConsentStatus !== 'disabled' && contributionConsentStatus !== 'unset' ? (
+          {!isEditMode && !prefillSource && contributionConsentStatus !== 'disabled' && contributionConsentStatus !== 'unset' ? (
             <ContributionToggle checked={shareToggleOn} onValueChange={setShareToggleOn} />
           ) : null}
           <ShareStatus

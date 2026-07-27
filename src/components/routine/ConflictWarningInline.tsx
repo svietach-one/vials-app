@@ -4,47 +4,157 @@ import { Icon } from '@/components/ui/Icon';
 
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, space } from '@/constants/tokens';
+import {
+  applyConditionDensityModifiers,
+  getActiveDensityFindings,
+  type DensityFinding,
+} from '@/utils/activeIngredientDensity';
 import { ConflictEngine } from '@/utils/conflictEngine';
-import type { Product, Routine } from '@/types';
+import {
+  applyConditionSeverityModifiers,
+  getConditionRiskWarnings,
+  type ConditionAdvisory,
+  type ModifiedConflict,
+} from '@/utils/skinConditionModifiers';
+import type { Product, RoutineStep, SkinConditionType } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ConflictWarningInlineProps {
-  routines: Routine[];
+  /**
+   * The morning steps the user is actually looking at — already filtered for
+   * the selected day, hidden steps, hidden products, and clinical freezes.
+   * Taking rendered steps rather than whole routines is deliberate: warning
+   * about a step the screen has removed (a retinoid frozen during peel rehab)
+   * names products that are not in today's routine.
+   */
+  morningSteps: RoutineStep[];
+  /** The evening steps the user is actually looking at. Same contract. */
+  eveningSteps: RoutineStep[];
   products: Product[];
+  /**
+   * Self-reported conditions from the profile. Default `[]` — with none
+   * selected this component renders exactly the pairwise conflict rows it
+   * rendered before v1.2 (US-27).
+   */
+  skinConditions?: SkinConditionType[];
+}
+
+// ─── Rows ─────────────────────────────────────────────────────────────────────
+
+function ConflictRow({ conflict }: { conflict: ModifiedConflict }) {
+  const { rule } = conflict.result;
+  return (
+    <InlineAlert
+      tone="warning"
+      icon={<Icon name="alert-triangle" size={14} color={colors.statusWarningAccent} />}
+      title="Ingredient conflict"
+    >
+      {`${rule.explanation}\n\n${rule.suggestion}${
+        conflict.escalated
+          ? '\n\nFlagged more strongly because of a skin condition in your profile.'
+          : ''
+      }`}
+    </InlineAlert>
+  );
+}
+
+function AdvisoryRow({ advisory }: { advisory: ConditionAdvisory }) {
+  return (
+    <InlineAlert
+      tone="warning"
+      icon={<Icon name="alert-circle" size={14} color={colors.statusWarningAccent} />}
+      title={`Sensitivity note · ${advisory.conditionLabels.join(' + ')}`}
+    >
+      {`${advisory.message}\n\nIn your routine: ${advisory.productNames.join(', ')}.`}
+    </InlineAlert>
+  );
+}
+
+function DensityRow({ finding }: { finding: DensityFinding }) {
+  const isWarning = finding.tier === 'warning';
+  return (
+    <InlineAlert
+      tone={isWarning ? 'warning' : 'info'}
+      icon={
+        <Icon
+          name={isWarning ? 'alert-circle' : 'info'}
+          size={14}
+          color={isWarning ? colors.statusWarningAccent : colors.statusInfo}
+        />
+      }
+      title={isWarning ? 'Ingredient overlap' : 'Routine insight'}
+    >
+      {`${finding.message}\n\n${finding.period === 'morning' ? 'Morning' : 'Evening'}: ${finding.productNames.join(', ')}.`}
+    </InlineAlert>
+  );
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
- * Renders an InlineAlert (amber) for each unique ingredient conflict found
- * across all steps in the provided routines. Returns null when no conflicts exist.
+ * The routine's advisory stack, in descending seriousness:
+ *
+ * | Row kind | Tone | Source |
+ * |---|---|---|
+ * | `conflict` | Amber | pairwise matrix, severity possibly escalated (US-24) |
+ * | `condition-advisory` | Amber | single ingredient + a selected condition (US-24) |
+ * | `density-warning` | Amber | 2+ irritant-tier products in one period (US-28) |
+ * | `density-insight` | **Cobalt** | 2+ mild-active products in one period (US-28) |
+ *
+ * None of these block anything, and all four are visually distinct from the
+ * Cabernet (`sos`) hard blocks used for clinical seasonal/spacing rules — an
+ * advisory must never be mistakable for a block (US-26). The insight row is
+ * Cobalt on purpose: rendering "you have two vitamin C serums" in warning
+ * colours would defeat the whole tier split.
  */
-export function ConflictWarningInline({ routines, products }: ConflictWarningInlineProps) {
-  const allSteps = routines.flatMap((r) => r.steps);
-  const conflicts = ConflictEngine.detectConflicts(allSteps, products);
-
-  if (conflicts.length === 0) return null;
+export function ConflictWarningInline({
+  morningSteps,
+  eveningSteps,
+  products,
+  skinConditions = [],
+}: ConflictWarningInlineProps) {
+  const allSteps = [...morningSteps, ...eveningSteps];
 
   // De-duplicate: one alert per unique rule (same pair may appear multiple times)
   const seen = new Set<string>();
-  const unique = conflicts.filter((c) => {
-    if (seen.has(c.rule.id)) return false;
-    seen.add(c.rule.id);
+  const conflicts = applyConditionSeverityModifiers(
+    ConflictEngine.detectConflicts(allSteps, products),
+    skinConditions,
+  ).filter((c) => {
+    if (seen.has(c.result.rule.id)) return false;
+    seen.add(c.result.rule.id);
     return true;
   });
 
+  const scheduledProducts = products.filter((product) =>
+    allSteps.some((step) => step.productId === product.id),
+  );
+  const advisories = getConditionRiskWarnings(scheduledProducts, skinConditions);
+
+  const density = applyConditionDensityModifiers(
+    getActiveDensityFindings(
+      [
+        { period: 'morning', steps: morningSteps },
+        { period: 'evening', steps: eveningSteps },
+      ],
+      products,
+    ),
+    skinConditions,
+  );
+
+  if (conflicts.length === 0 && advisories.length === 0 && density.length === 0) return null;
+
   return (
     <View style={styles.wrap}>
-      {unique.map((c) => (
-        <InlineAlert
-          key={c.rule.id}
-          tone="warning"
-          icon={<Icon name="alert-triangle" size={14} color={colors.statusWarningAccent} />}
-          title="Ingredient conflict"
-        >
-          {`${c.rule.explanation}\n\n${c.rule.suggestion}`}
-        </InlineAlert>
+      {conflicts.map((c) => (
+        <ConflictRow key={c.result.rule.id} conflict={c} />
+      ))}
+      {advisories.map((advisory) => (
+        <AdvisoryRow key={advisory.id} advisory={advisory} />
+      ))}
+      {density.map((finding) => (
+        <DensityRow key={finding.id} finding={finding} />
       ))}
     </View>
   );

@@ -32,9 +32,9 @@ import { RoutineCalendarView } from '@/components/routine/RoutineCalendarView';
 import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineStepActionSheet } from '@/components/routine/RoutineStepActionSheet';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
-import { ContributionConsentMigrationBanner } from '@/components/routine/ContributionConsentMigrationBanner';
 import { GoalConfirmBanner } from '@/components/routine/GoalConfirmBanner';
 import { PhototypeConfirmBanner } from '@/components/routine/PhototypeConfirmBanner';
+import { ConflictWarningInline } from '@/components/routine/ConflictWarningInline';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
@@ -56,6 +56,7 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
+import { getRecoveryConditionCaution } from '@/utils/skinConditionModifiers';
 import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
 import { isScheduledOnDay } from '@/utils/routineSchedule';
 import {
@@ -64,6 +65,10 @@ import {
   toPersistedAccordionState,
   type AccordionState,
 } from '@/utils/routineAccordion';
+import {
+  resolveRehabNoticeCollapsed,
+  toRehabNoticeCollapseEntry,
+} from '@/utils/rehabNoticeCollapse';
 import { getAdaptationStatus } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { getDailyView, type FrozenStepView } from '@/utils/routineEngine/dailyView';
@@ -125,8 +130,6 @@ export default function RoutinesScreen({ navigation }: Props) {
   const profile = useProfileStore((s) => s.profile);
   const updateProfile = useProfileStore((s) => s.updateProfile);
   const cycleType = useSettingsStore((s) => s.routineCycleType);
-  const dismissedBanners = useSettingsStore((s) => s.dismissedBanners);
-  const dismissBanner = useSettingsStore((s) => s.dismissBanner);
   const applicationStats = useTrackingStore((s) => s.applicationStats);
   const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
   const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
@@ -134,6 +137,8 @@ export default function RoutinesScreen({ navigation }: Props) {
   const setStepHidden = useRoutinesStore((s) => s.setStepHidden);
   const persistedAccordion = useSettingsStore((s) => s.routineAccordion);
   const setRoutineAccordion = useSettingsStore((s) => s.setRoutineAccordion);
+  const persistedRehabCollapse = useSettingsStore((s) => s.rehabNoticeCollapsed);
+  const setRehabNoticeCollapsed = useSettingsStore((s) => s.setRehabNoticeCollapsed);
 
   const [viewMode, setViewMode] = useState<RoutineViewMode>('list');
   // The AM/PM auto-decision (before 15:00 Morning open, after it Evening) only
@@ -438,9 +443,23 @@ export default function RoutinesScreen({ navigation }: Props) {
         {/* One merged card per procedure in rehab (shield + acute lifestyle
             restrictions in a single card; the two former cards would read as
             needlessly anxious). Self-destructs when its window ends. */}
-        {rehabNotices.map((notice) => (
-          <RehabNoticeCard key={notice.key} notice={notice} />
-        ))}
+        {rehabNotices.map((notice) => {
+          const collapsed = resolveRehabNoticeCollapsed(persistedRehabCollapse[notice.key]);
+          return (
+            <RehabNoticeCard
+              key={notice.key}
+              notice={notice}
+              collapsed={collapsed}
+              onToggleCollapse={() =>
+                setRehabNoticeCollapsed(notice.key, toRehabNoticeCollapseEntry(!collapsed))
+              }
+              conditionCaution={getRecoveryConditionCaution(profile?.skinConditions ?? [], {
+                aggressive: notice.aggressive,
+                phase: 'rehab',
+              })}
+            />
+          );
+        })}
         {profile?.goalNeedsConfirmation === true && (
           <GoalConfirmBanner
             goalLabel={GOAL_LABELS[profile.primaryGoal]}
@@ -455,18 +474,21 @@ export default function RoutinesScreen({ navigation }: Props) {
             onAdjust={() => navigation.navigate('Profile' as never)}
           />
         )}
-        {profile?.contributionConsent?.timestamp === null &&
-          !(dismissedBanners ?? []).includes('contribution_consent_migration') && (
-            <ContributionConsentMigrationBanner
-              onGoToSettings={() => navigation.navigate('Profile' as never)}
-              onDismiss={() => dismissBanner('contribution_consent_migration')}
-            />
-          )}
         <SeasonalNoticeBanner />
         <DuplicateSlotWarningInline
           routines={routines}
           products={products}
           onPressGroup={handlePressDuplicateGroup}
+        />
+        {/* Pairwise conflicts + (v1.2) condition advisories and density
+            insights. Fed the SAME visible steps the list renders — so it can
+            never warn about a step a clinical freeze has already removed.
+            Advisory only — never blocks. */}
+        <ConflictWarningInline
+          morningSteps={amSteps}
+          eveningSteps={pmSteps}
+          products={products}
+          skinConditions={profile?.skinConditions ?? []}
         />
       </View>
     ),
@@ -476,13 +498,15 @@ export default function RoutinesScreen({ navigation }: Props) {
       handleDaySelect,
       rehabNotices,
       routines,
+      amSteps,
+      pmSteps,
       products,
       handlePressDuplicateGroup,
       profile,
       updateProfile,
       navigation,
-      dismissedBanners,
-      dismissBanner,
+      persistedRehabCollapse,
+      setRehabNoticeCollapsed,
     ],
   );
 

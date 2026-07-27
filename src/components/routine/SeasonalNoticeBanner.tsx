@@ -1,10 +1,14 @@
 import React from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
-import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
-import { colors } from '@/constants/tokens';
+import { colors, space } from '@/constants/tokens';
+import { useProductsStore } from '@/store/productsStore';
+import { useProfileStore } from '@/store/profileStore';
+import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { getSpfAdequacyFinding, SPF_ADEQUACY_TITLE } from '@/utils/spfAdequacy';
 import { getCurrentSeason } from '@/utils/timeHelpers';
 
 // ─── Season content ───────────────────────────────────────────────────────────
@@ -32,35 +36,88 @@ const SEASON_MESSAGE: Record<Season, string> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
- * Dismissible seasonal skincare tip. Suppressed after the user dismisses it
- * for the current year + season (stored in settingsStore.dismissedBanners).
+ * Dismissible seasonal skincare tips. Two independent Cobalt notices, each
+ * with its own season-scoped dismiss key:
+ *
+ *  - the standing seasonal tip, and
+ *  - (v1.2, US-29) the SPF adequacy recommendation, shown only to Light/Fair
+ *    phototypes in summer whose scheduled morning sunscreen is below SPF 30.
+ *
+ * Both render Cobalt (`info`), never Amber: this is proactive information, not
+ * a caution about an interaction. Neither blocks anything, and both reappear
+ * next season because the dismiss key carries the season and year.
  */
 export function SeasonalNoticeBanner() {
   const dismissedBanners = useSettingsStore((s) => s.dismissedBanners);
   const dismissBanner = useSettingsStore((s) => s.dismissBanner);
+  const routines = useRoutinesStore((s) => s.routines);
+  const products = useProductsStore((s) => s.products);
+  const profile = useProfileStore((s) => s.profile);
 
   const season = getCurrentSeason();
   const year = new Date().getFullYear();
   const bannerKey = `banner_${year}_${season}`;
 
-  if (dismissedBanners.includes(bannerKey)) return null;
+  const spfFinding = getSpfAdequacyFinding({
+    routines,
+    products,
+    fitzpatrick: profile?.fitzpatrick ?? null,
+    phototype: profile?.phototype ?? null,
+  });
+  const showSpf = spfFinding !== null && !dismissedBanners.includes(spfFinding.dismissKey);
+  const showSeasonal = !dismissedBanners.includes(bannerKey);
+
+  if (!showSeasonal && !showSpf) return null;
 
   return (
-    <InlineAlert
-      tone="info"
-      icon={<Icon name="sun" size={14} color={colors.statusInfo} />}
-      title={SEASON_TITLE[season]}
-      action={
-        <IconButton
-          icon={<Icon name="x" size={16} color={colors.statusInfo} />}
-          label="Dismiss seasonal tip"
-          variant="ghost"
-          size="xs"
-          onPress={() => dismissBanner(bannerKey)}
-        />
-      }
-    >
-      {SEASON_MESSAGE[season]}
-    </InlineAlert>
+    <View style={styles.wrap}>
+      {showSeasonal ? (
+        <InlineAlert
+          tone="info"
+          icon={<Icon name="sun" size={14} color={colors.statusInfo} />}
+          title={SEASON_TITLE[season]}
+          action={
+            // Bare icon + hitSlop, same footprint as RehabNoticeCard's
+            // chevron — IconButton's fixed 32px box was taller than the
+            // title's own line-height, so alignItems:'center' inflated the
+            // whole header row to fit it and visibly pushed the icon/title.
+            <Pressable
+              onPress={() => dismissBanner(bannerKey)}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss seasonal tip"
+            >
+              <Icon name="x" size={16} color={colors.statusInfo} />
+            </Pressable>
+          }
+        >
+          {SEASON_MESSAGE[season]}
+        </InlineAlert>
+      ) : null}
+
+      {showSpf && spfFinding ? (
+        <InlineAlert
+          tone="info"
+          icon={<Icon name="shield" size={14} color={colors.statusInfo} />}
+          title={SPF_ADEQUACY_TITLE}
+          action={
+            <Pressable
+              onPress={() => dismissBanner(spfFinding.dismissKey)}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss sunscreen recommendation"
+            >
+              <Icon name="x" size={16} color={colors.statusInfo} />
+            </Pressable>
+          }
+        >
+          {spfFinding.message}
+        </InlineAlert>
+      ) : null}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  wrap: { gap: space[3] },
+});

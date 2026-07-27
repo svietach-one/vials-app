@@ -26,6 +26,12 @@ export type RulesetReasonCode =
   | 'vitamin_c_acid_conflict'
   | 'vitamin_c_copper_conflict'
   | 'vitamin_c_benzoyl_conflict'
+  // pair-rule conflicts proposed in PRD v1.2 §5.2, gated OFF pending clinical
+  // sign-off (see src/constants/rulesets/proposedPairRules.ts). Declared here
+  // so the rules compile today and enabling them stays a one-line flag flip.
+  | 'benzoyl_acid_conflict'
+  | 'benzoyl_copper_peptide_conflict'
+  | 'azelaic_acid_conflict'
   // phototype modifiers
   | 'phototype_pih_risk'
   | 'phototype_pih_exfoliant_cap'
@@ -105,6 +111,9 @@ export const REASON_TEXT = {
   vitamin_c_acid_conflict: 'Layering pure vitamin C with acids over-lowers pH — kept apart.',
   vitamin_c_copper_conflict: 'Pure vitamin C oxidises copper peptides — kept apart.',
   vitamin_c_benzoyl_conflict: 'Benzoyl peroxide degrades vitamin C — kept apart.',
+  benzoyl_acid_conflict: 'Benzoyl peroxide and exfoliating acids dry the skin together — kept apart.',
+  benzoyl_copper_peptide_conflict: 'Benzoyl peroxide deactivates copper peptides — kept apart.',
+  azelaic_acid_conflict: 'Azelaic acid stacked with exfoliating acids adds up — kept apart.',
   // ── phototype ────────────────────────────────────────────────────────────
   phototype_pih_risk: 'Higher pigmentation risk for your skin tone — this pair is treated more cautiously.',
   phototype_pih_exfoliant_cap: 'Exfoliation limited to protect against dark marks on your skin tone.',

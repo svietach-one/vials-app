@@ -21,7 +21,7 @@ import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingr
  */
 
 /** Current persisted schema version. Bumped whenever a migration is added. */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /** Version assumed for installs that predate the schemaVersion key. */
 export const BASELINE_SCHEMA_VERSION = 1;
@@ -94,13 +94,16 @@ export function migrateProfile(profile: UserProfile): UserProfile {
   const phototypeConfirmationPresent = profile.phototypeNeedsConfirmation !== undefined;
   // Pre-v4 profiles lack contribution consent entirely (contribution-consent task).
   const contributionConsentPresent = profile.contributionConsent !== undefined;
+  // Pre-v5 profiles lack the self-reported skin conditions (v1.2, US-23).
+  const skinConditionsPresent = profile.skinConditions !== undefined;
 
   if (
     cityPresent &&
     fitzpatrickCurrent &&
     goalsPresent &&
     phototypeConfirmationPresent &&
-    contributionConsentPresent
+    contributionConsentPresent &&
+    skinConditionsPresent
   ) {
     return profile;
   }
@@ -127,6 +130,10 @@ export function migrateProfile(profile: UserProfile): UserProfile {
     contributionConsent: contributionConsentPresent
       ? profile.contributionConsent
       : { granted: false, timestamp: null },
+    // Never inferred from `concerns` (which has its own `eczema` member): a
+    // condition flag is opt-in, and defaulting it on would escalate warnings
+    // for users who never asked for it (US-27's no-op guarantee).
+    skinConditions: skinConditionsPresent ? profile.skinConditions : [],
   };
 }
 

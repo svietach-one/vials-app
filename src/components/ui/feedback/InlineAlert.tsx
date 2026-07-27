@@ -64,11 +64,23 @@ export function InlineAlert({
     <View style={[styles.container, { backgroundColor: bg, borderColor: border }, style]}>
       {/* Main row: icon + content + action */}
       <View style={styles.row}>
-        {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
+        {/* With a title, icon + title + action all share one centered row
+            so a close/X control (often a larger tap-target box than the
+            title's line-height) lines up against both the title text and
+            the icon, instead of centering itself against the whole card.
+            Body text then renders full-width below, unindented — the same
+            pattern RehabNoticeCard's header/body split already uses. With
+            no title, the icon keeps its original position beside the body
+            column, unchanged for those callers. */}
+        {!title && icon ? <View style={styles.iconWrap}>{icon}</View> : null}
 
         <View style={styles.body}>
           {title ? (
-            <Text style={[styles.title, { color: textColor }]}>{title}</Text>
+            <View style={styles.titleRow}>
+              {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
+              <Text style={[styles.title, styles.titleText, { color: textColor }]}>{title}</Text>
+              {action ? <View style={styles.actionInline}>{action}</View> : null}
+            </View>
           ) : null}
           {children != null ? (
             typeof children === 'string' ? (
@@ -79,7 +91,7 @@ export function InlineAlert({
           ) : null}
         </View>
 
-        {action ? <View style={styles.actionWrap}>{action}</View> : null}
+        {!title && action ? <View style={styles.actionWrap}>{action}</View> : null}
       </View>
     </View>
   );
@@ -107,9 +119,20 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: space[1],
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
   title: {
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
+  },
+  titleText: {
+    flex: 1,
+  },
+  actionInline: {
+    flexShrink: 0,
   },
   bodyText: {
     ...typography.bodySmall,
