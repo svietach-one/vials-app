@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   subtitle: {
-    ...typography.bodySmall,
+    ...typography.body,
     color: colors.textSecondary,
   },
   list: {
