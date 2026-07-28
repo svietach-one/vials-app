@@ -145,11 +145,19 @@ function MainTabs() {
     >
       {/* Routines is the first tab: the daily execution loop is the app's default view */}
       <Tab.Screen name="Routines" component={RoutinesScreen} options={{ headerShown: false }} />
-      {/* My Shelf tab: headerShown:false because CatalogNavigator provides its own header */}
+      {/* My Shelf tab: headerShown:false because CatalogNavigator provides its own header.
+          tabPress always resets the nested stack to Catalog — otherwise React
+          Navigation's default per-tab stack preservation leaves you on
+          whatever screen (e.g. ProductDetail) you last drilled into. */}
       <Tab.Screen
         name="My Shelf"
         component={CatalogNavigator}
         options={{ headerShown: false }}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate('My Shelf', { screen: 'Catalog' });
+          },
+        })}
       />
       <Tab.Screen name="Clinic" component={ClinicNavigator} options={{ headerShown: false }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
