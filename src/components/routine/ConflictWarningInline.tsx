@@ -47,7 +47,7 @@ function ConflictRow({ conflict }: { conflict: ModifiedConflict }) {
   return (
     <InlineAlert
       tone="warning"
-      icon={<Icon name="alert-triangle" size={14} color={colors.statusWarningAccent} />}
+      icon={<Icon name="alert-triangle" size={16} color={colors.statusWarningAccent} />}
       title="Ingredient conflict"
     >
       {`${rule.explanation}\n\n${rule.suggestion}${
@@ -63,7 +63,7 @@ function AdvisoryRow({ advisory }: { advisory: ConditionAdvisory }) {
   return (
     <InlineAlert
       tone="warning"
-      icon={<Icon name="alert-circle" size={14} color={colors.statusWarningAccent} />}
+      icon={<Icon name="alert-circle" size={16} color={colors.statusWarningAccent} />}
       title={`Sensitivity note · ${advisory.conditionLabels.join(' + ')}`}
     >
       {`${advisory.message}\n\nIn your routine: ${advisory.productNames.join(', ')}.`}
@@ -79,7 +79,7 @@ function DensityRow({ finding }: { finding: DensityFinding }) {
       icon={
         <Icon
           name={isWarning ? 'alert-circle' : 'info'}
-          size={14}
+          size={16}
           color={isWarning ? colors.statusWarningAccent : colors.statusInfo}
         />
       }

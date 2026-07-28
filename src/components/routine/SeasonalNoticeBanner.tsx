@@ -74,7 +74,7 @@ export function SeasonalNoticeBanner() {
       {showSeasonal ? (
         <InlineAlert
           tone="info"
-          icon={<Icon name="sun" size={14} color={colors.statusInfo} />}
+          icon={<Icon name="sun" size={16} color={colors.statusInfo} />}
           title={SEASON_TITLE[season]}
           onDismiss={() => dismissBanner(bannerKey)}
           dismissAccessibilityLabel="Dismiss seasonal tip"
@@ -86,7 +86,7 @@ export function SeasonalNoticeBanner() {
       {showSpf && spfFinding ? (
         <InlineAlert
           tone="info"
-          icon={<Icon name="shield" size={14} color={colors.statusInfo} />}
+          icon={<Icon name="shield" size={16} color={colors.statusInfo} />}
           title={SPF_ADEQUACY_TITLE}
           onDismiss={() => dismissBanner(spfFinding.dismissKey)}
           dismissAccessibilityLabel="Dismiss sunscreen recommendation"
