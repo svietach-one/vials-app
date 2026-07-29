@@ -162,6 +162,41 @@ export function AddProcedureModal({
     [selectedKey, profile?.phototype],
   );
 
+  const pregnancyResult = useMemo(
+    () =>
+      isCustom
+        ? null
+        : ConflictEngine.checkPregnancyConflict(selectedKey, profile?.pregnantOrBreastfeeding ?? false),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedKey, profile?.pregnantOrBreastfeeding],
+  );
+
+  // Memoized element (not just the data): the mount-time reset effect below
+  // commits twice (initial state, then its own batched setState calls), and
+  // botox — the default selection — is itself an avoid-severity procedure, so
+  // unlike the three pre-existing checks (all null for the untouched default)
+  // this alert can be non-null on that very first commit. Caching the element
+  // itself lets React bail out of re-invoking InlineAlert on the second,
+  // data-unchanged commit instead of rendering the identical alert twice.
+  const pregnancyAlert = useMemo(() => {
+    if (!pregnancyResult) return null;
+    return (
+      <InlineAlert
+        tone={pregnancyResult.severity === 'avoid' ? 'sos' : 'warning'}
+        icon={
+          <Icon
+            name="alert-circle"
+            size={14}
+            color={pregnancyResult.severity === 'avoid' ? colors.statusSOS : colors.statusWarningAccent}
+          />
+        }
+        title="Pregnancy / breastfeeding advisory"
+      >
+        {`${pregnancyResult.explanation}\n\n${pregnancyResult.suggestion}`}
+      </InlineAlert>
+    );
+  }, [pregnancyResult]);
+
   // ── Save ──────────────────────────────────────────────────────────────────
 
   function handleSave() {
@@ -459,6 +494,8 @@ export function AddProcedureModal({
                 {`${phototypeResult.explanation}\n\n${phototypeResult.suggestion}`}
               </InlineAlert>
             ) : null}
+
+            {pregnancyAlert}
           </ScrollView>
 
           {/* Footer */}

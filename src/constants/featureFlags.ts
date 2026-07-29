@@ -74,3 +74,24 @@ export const BARCODE_HUB_ENTRY_ENABLED = false;
  * re-implementation.
  */
 export const PROPOSED_V12_PAIR_RULES_ENABLED = false;
+
+/**
+ * Acting-on-pregnancy behavior: excludes retinoid-class products from
+ * generated routines / the Today screen, and surfaces a pregnancy-specific
+ * advisory in AddProcedureModal. `UserProfile.pregnantOrBreastfeeding`
+ * itself (schema v6) is always collected and stored — this flag gates only
+ * whether anything ACTS on it.
+ *
+ * **OFF.** The draft retinoid-freeze class list and procedure-severity map
+ * (src/constants/rulesets/pregnancy.ts, PREGNANCY_PROCEDURE_SEVERITY in
+ * conflictRulesDb.ts) have not had clinical sign-off. This is a health-
+ * adjacent safety feature, so it stays inert — no freeze, no advisory,
+ * byte-identical routine generation for a pregnant vs. non-pregnant profile
+ * — until that sign-off lands (see docs/specs/pregnancy-safety-handling.md
+ * §10).
+ *
+ * Flip to true once sign-off lands: every consumer (pregnancy.ts,
+ * ConflictEngine.checkPregnancyConflict) already self-gates on this flag, so
+ * enabling it is a one-line change, not a re-implementation.
+ */
+export const PREGNANCY_SAFETY_ENABLED = false;

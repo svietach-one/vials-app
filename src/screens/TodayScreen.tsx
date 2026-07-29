@@ -5,6 +5,7 @@ import { Icon } from '@/components/ui/Icon';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { colors, radius, space, typography } from '@/constants/tokens';
+import { reasonText } from '@/constants/decisionReasons';
 import { performDailyCheckIn } from '@/domain/trackingActions';
 import { getActiveSeasonMask } from '@/domain/seasonActions';
 import { useProceduresStore } from '@/store/proceduresStore';
@@ -45,7 +46,10 @@ export default function TodayScreen() {
   const dynamicInput = useMemo(
     () => ({
       procedures,
-      profile: { fitzpatrick: profile?.fitzpatrick ?? null },
+      profile: {
+        fitzpatrick: profile?.fitzpatrick ?? null,
+        pregnantOrBreastfeeding: profile?.pregnantOrBreastfeeding ?? false,
+      },
       seasonMask: getActiveSeasonMask(),
       ...(cycleType === 'dynamic'
         ? { cycle: { type: cycleType, state: cycleState } }
@@ -156,7 +160,8 @@ function RoutineBlock({ view, products }: { view: DailyRoutineView; products: Pr
         <View key={item.stepId} style={styles.stepRow}>
           <Icon name="pause-circle" size={14} color={colors.textTertiary} />
           <Text style={styles.pausedName} numberOfLines={1}>
-            {nameOf(item.productId)} — paused until {item.until}
+            {nameOf(item.productId)} —{' '}
+            {item.until ? `paused until ${item.until}` : reasonText(item.reasonCode)}
           </Text>
         </View>
       ))}

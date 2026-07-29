@@ -321,6 +321,22 @@ describe('ConflictEngine.checkSeasonalConflict', () => {
   });
 });
 
+// ─── checkPregnancyConflict (guard rail — real shipped flag) ──────────────────
+
+describe('ConflictEngine.checkPregnancyConflict — flag off (pending clinical sign-off)', () => {
+  it('returns null for an avoid-severity procedure even when the profile is pregnant', () => {
+    const result = ConflictEngine.checkPregnancyConflict('botox', true);
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when the profile is not pregnant, regardless of procedure', () => {
+    const result = ConflictEngine.checkPregnancyConflict('botox', false);
+
+    expect(result).toBeNull();
+  });
+});
+
 // ─── checkPhototypeConflict ────────────────────────────────────────────────────
 
 describe('ConflictEngine.checkPhototypeConflict', () => {

@@ -158,7 +158,10 @@ export function validateRoutines(routines: Routine[], input: EngineInput): Valid
   const facts = buildShelfFacts(input.products, now);
   const context = buildRoutineContext({
     procedures: input.procedures,
-    profile: { fitzpatrick: input.profile.fitzpatrick },
+    profile: {
+      fitzpatrick: input.profile.fitzpatrick,
+      pregnantOrBreastfeeding: input.profile.pregnantOrBreastfeeding,
+    },
     seasonMask: input.seasonMask,
     now,
   });
@@ -175,8 +178,9 @@ export function validateRoutines(routines: Routine[], input: EngineInput): Valid
   const savedProducts = input.products.filter((p) => savedIds.has(p.id));
   for (const rejection of applyEligibilityGates(savedProducts, facts, context).rejections) {
     if (rejection.gate === 'hidden') continue;
+    const isFreeze = rejection.gate === 'clinical_freeze' || rejection.gate === 'pregnancy_freeze';
     findings.push({
-      severity: rejection.gate === 'clinical_freeze' ? 'avoid' : 'caution',
+      severity: isFreeze ? 'avoid' : 'caution',
       reasonCode: rejection.reasonCode,
       productIds: [rejection.productId],
     });

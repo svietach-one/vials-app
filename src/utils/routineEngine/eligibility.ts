@@ -3,7 +3,7 @@ import type { DecisionReasonCode } from '@/constants/decisionReasons';
 import type { RoutineContext } from '@/utils/routineEngine/context';
 import type { ProductFacts } from '@/utils/routineEngine/productFacts';
 import { periodsForProduct } from '@/utils/routineEngine/slotting';
-import { matchesRuleTargets } from '@/utils/routineEngine/targeting';
+import { findMatchingRule } from '@/utils/routineEngine/targeting';
 
 /**
  * Pipeline step 3 — Eligibility. Hard gates only; every rejection carries an
@@ -15,13 +15,15 @@ export type EligibilityGate =
   | 'hidden'
   | 'pao_expired'
   | 'clinical_freeze'
+  | 'pregnancy_freeze'
   | 'no_allowed_period';
 
 export interface EligibilityRejection {
   productId: string;
   gate: EligibilityGate;
   reasonCode: DecisionReasonCode;
-  /** Skincare date the gate expires — clinical freezes only. */
+  /** Skincare date the gate expires — day-windowed clinical freezes only;
+   * absent for freezes with no natural expiry (e.g. pregnancy_freeze). */
   until?: string;
 }
 
@@ -41,6 +43,7 @@ export function applyEligibilityGates(
 ): EligibilityResult {
   const eligible: Product[] = [];
   const rejections: EligibilityRejection[] = [];
+  const procedureFreezeRules = context.procedureRules.filter((rule) => rule.action === 'freeze');
 
   for (const product of products) {
     const f = facts.get(product.id);
@@ -56,15 +59,26 @@ export function applyEligibilityGates(
       continue;
     }
 
-    const freeze = context.procedureRules.find(
-      (rule) => rule.action === 'freeze' && matchesRuleTargets(product.productType, f, rule.targets),
-    );
+    const freeze = findMatchingRule(product.productType, f, procedureFreezeRules);
     if (freeze) {
       rejections.push({
         productId: product.id,
         gate: 'clinical_freeze',
         reasonCode: freeze.reasonCode,
         until: freeze.untilDate,
+      });
+      continue;
+    }
+
+    // pregnancy_freeze runs right after clinical_freeze (tech design FE-5):
+    // same structural non-overridability — a rejection here never reaches
+    // selectSkeleton's reserve/userOverrides pool.
+    const pregnancyFreeze = findMatchingRule(product.productType, f, context.pregnancyRules);
+    if (pregnancyFreeze) {
+      rejections.push({
+        productId: product.id,
+        gate: 'pregnancy_freeze',
+        reasonCode: pregnancyFreeze.reasonCode,
       });
       continue;
     }
