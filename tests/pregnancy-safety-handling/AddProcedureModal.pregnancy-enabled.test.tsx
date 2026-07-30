@@ -18,6 +18,21 @@
  * explanation/suggestion copy is draft text pending clinical review (spec
  * §10) and is only matched loosely (mentions pregnancy/breastfeeding),
  * never asserted verbatim.
+ *
+ * Mock-history bookkeeping note (2026-07-29 qa-lead follow-up): the modal's
+ * default selection is the hardcoded `'botox'`, which is itself avoid-severity
+ * per FE-8's own table, so a pregnant profile always fires one real,
+ * expected `InlineAlert` call on mount before any test interacts with the
+ * picker. `beforeEach`'s `mockClear()` runs before `renderModal()`, so that
+ * mount-time call is never cleared automatically — tests that care about
+ * only the alert produced by a specific `selectProcedure()` call clear the
+ * mock again right after `renderModal()`. The one exception is re-selecting
+ * `'botox'` itself: since it's already the active state, pressing it again
+ * is a React no-op (`Object.is` bails out of the state update, no re-render,
+ * no new `InlineAlert` call), so that case asserts directly against the
+ * mount-time call instead of clearing it away. See progress/
+ * pregnancy-safety-handling.md's 2026-07-29 engineer/tech-lead log entries
+ * for the full root-cause analysis this fix is based on.
  */
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
@@ -84,6 +99,15 @@ describe('Story 3 AC1: avoid-severity procedures render an avoid-tone pregnancy 
   ])('renders exactly one sos-tone pregnancy InlineAlert for %s', (key) => {
     // Arrange
     renderModal();
+    // The mount-time alert (default selection 'botox', itself avoid-severity)
+    // is real and expected. Isolate the alert produced by this test's own
+    // selection by clearing it here — except for the 'botox' case itself,
+    // where re-selecting the already-active default is a no-op re-render
+    // (no fresh InlineAlert call to isolate), so the mount-time call IS the
+    // one under test.
+    if (key !== 'botox') {
+      (InlineAlert as jest.Mock).mockClear();
+    }
 
     // Act
     selectProcedure(key);
@@ -97,6 +121,9 @@ describe('Story 3 AC2: mechanical_facial renders a caution-tone pregnancy adviso
   it('renders exactly one warning-tone pregnancy InlineAlert', () => {
     // Arrange
     renderModal();
+    // Clear the mount-time botox (sos) alert so this test isolates only the
+    // alert produced by selecting mechanical_facial.
+    (InlineAlert as jest.Mock).mockClear();
 
     // Act
     selectProcedure('mechanical_facial');
@@ -113,6 +140,9 @@ describe('Story 3 AC3: the pregnancy advisory renders alongside another applicab
     // independent of the real device date.
     mockProfile = makeModalProfile({ pregnantOrBreastfeeding: true, phototype: 'type_5_6' });
     renderModal();
+    // Clear the mount-time botox (sos) alert so the count below isolates only
+    // the alert produced by selecting chemical_peel_deep.
+    (InlineAlert as jest.Mock).mockClear();
 
     // Act
     selectProcedure('chemical_peel_deep');
@@ -130,6 +160,9 @@ describe('Story 3 AC4: a custom procedure runs no clinical checks at all, pregna
   it('renders no pregnancy advisory once "Custom Procedure" is selected', () => {
     // Arrange
     renderModal();
+    // Clear the mount-time botox (sos) alert — otherwise it lingers in the
+    // mock history and the assertion below would see 1 instead of 0.
+    (InlineAlert as jest.Mock).mockClear();
 
     // Act
     fireEvent.press(screen.getByText('Custom Procedure'));

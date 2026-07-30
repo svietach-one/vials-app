@@ -1,13 +1,20 @@
 /**
- * Component tests — Surface B (clinic), PREGNANCY_SAFETY_ENABLED OFF (the
- * real shipped default — @/constants/featureFlags is NOT mocked here).
+ * Component tests — Surface B (clinic), PREGNANCY_SAFETY_ENABLED mocked OFF.
  * Spec: docs/specs/pregnancy-safety-handling.md §4 Story 3 AC5 (flag half)
  * Tech design: docs/tech-design/pregnancy-safety-handling.md §3 FE-9
  *
- * Proves `ConflictEngine.checkPregnancyConflict` stays inert under the
- * ACTUAL shipped configuration, mirroring the pregnancy-freeze-disabled.test.ts
- * guard-rail style for Surface A.
+ * Clinical sign-off landed 2026-07-30 (spec §10) and the flag now ships
+ * `true` (see AddProcedureModal.pregnancy-enabled.test.tsx, which now
+ * exercises the real shipped configuration). This suite continues to prove
+ * `ConflictEngine.checkPregnancyConflict` stays inert whenever the flag IS
+ * off, via an explicit mock — mirroring pregnancy-freeze-disabled.test.ts's
+ * updated style for Surface A.
  */
+jest.mock('@/constants/featureFlags', () => ({
+  ...jest.requireActual('@/constants/featureFlags'),
+  PREGNANCY_SAFETY_ENABLED: false,
+}));
+
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 

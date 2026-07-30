@@ -36,8 +36,24 @@ export interface FrozenItem {
   reasonCode: DecisionReasonCode;
   /** Pair rule that froze it, when applicable. */
   ruleId?: string;
-  /** Skincare date the freeze expires (clinical freezes only). */
+  /**
+   * Skincare date the freeze expires. Purely descriptive of whether this
+   * particular freeze happens to be day-windowed — an unrelated fact from
+   * `overridesPin` below. Do not infer pin-override from this field's
+   * presence (pregnancy-pin-survival-fix): a freeze can be safety-critical
+   * and persistent (no `until`) at the same time, e.g. `pregnancy_freeze`.
+   */
   until?: string;
+  /**
+   * Whether this freeze is safety-tier and must drop a `userPinned` saved
+   * step on the next Draft->Save commit ("safety beats preference"), as
+   * opposed to preference-tier (pair-rule / cumulative-active-cap), where a
+   * pin survives. The sole authority `buildStepsFromPlan` (planApply.ts)
+   * reads for that decision — required, not derived from `until` or
+   * `ruleId`, so every future freeze source must declare it explicitly
+   * (pregnancy-pin-survival-fix tech design Assumption 2).
+   */
+  overridesPin: boolean;
 }
 
 /** A mandated slot the shelf cannot satisfy (e.g. missing SPF). */

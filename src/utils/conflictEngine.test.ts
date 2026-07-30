@@ -321,17 +321,49 @@ describe('ConflictEngine.checkSeasonalConflict', () => {
   });
 });
 
-// ─── checkPregnancyConflict (guard rail — real shipped flag) ──────────────────
+// ─── checkPregnancyConflict ────────────────────────────────────────────────────
+// Clinical sign-off landed 2026-07-30 (docs/specs/pregnancy-safety-handling.md
+// §10) and PREGNANCY_SAFETY_ENABLED now ships `true` — the "flag on" block
+// below exercises the real, unmocked module. The "flag off" block mocks it
+// back to `false`, scoped to its own describe via jest.doMock/resetModules
+// (rather than a file-level jest.mock, since this file's other suites above
+// share the same static ConflictEngine import and don't touch the flag), to
+// keep proving the off-path stays inert independent of what ships today.
 
-describe('ConflictEngine.checkPregnancyConflict — flag off (pending clinical sign-off)', () => {
-  it('returns null for an avoid-severity procedure even when the profile is pregnant', () => {
+describe('ConflictEngine.checkPregnancyConflict — flag on (post clinical sign-off)', () => {
+  it('returns a result for an avoid-severity procedure when the profile is pregnant', () => {
     const result = ConflictEngine.checkPregnancyConflict('botox', true);
+
+    expect(result?.severity).toBe('avoid');
+  });
+
+  it('returns null when the profile is not pregnant, regardless of procedure', () => {
+    const result = ConflictEngine.checkPregnancyConflict('botox', false);
+
+    expect(result).toBeNull();
+  });
+});
+
+describe('ConflictEngine.checkPregnancyConflict — flag mocked off', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.doMock('@/constants/featureFlags', () => ({
+      ...jest.requireActual('@/constants/featureFlags'),
+      PREGNANCY_SAFETY_ENABLED: false,
+    }));
+  });
+  afterEach(() => jest.dontMock('@/constants/featureFlags'));
+
+  it('returns null for an avoid-severity procedure even when the profile is pregnant', () => {
+    const { ConflictEngine: MockedConflictEngine } = require('@/utils/conflictEngine');
+    const result = MockedConflictEngine.checkPregnancyConflict('botox', true);
 
     expect(result).toBeNull();
   });
 
   it('returns null when the profile is not pregnant, regardless of procedure', () => {
-    const result = ConflictEngine.checkPregnancyConflict('botox', false);
+    const { ConflictEngine: MockedConflictEngine } = require('@/utils/conflictEngine');
+    const result = MockedConflictEngine.checkPregnancyConflict('botox', false);
 
     expect(result).toBeNull();
   });

@@ -197,7 +197,7 @@ describe('Story 2 AC: a partial commit that reintroduces a pinned, pair-frozen p
       periods: { morning: [], evening: [
         { productId: aha.id, productType: 'serum', scheduledDays: [], slotIndex: 5, score: 0, addedAt: '2026-01-01' },
       ] },
-      frozen: [{ productId: retinoid.id, reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha' }],
+      frozen: [{ productId: retinoid.id, reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha', overridesPin: false }],
       reserve: [],
       placeholders: [],
       decisions: [],

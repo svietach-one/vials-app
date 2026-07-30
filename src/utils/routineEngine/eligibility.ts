@@ -33,6 +33,20 @@ export interface EligibilityResult {
 }
 
 /**
+ * Whether an eligibility gate is safety-tier ("safety beats preference") —
+ * a rejection here must drop a `userPinned` saved step on the next
+ * Draft->Save commit (`planApply.ts`'s `overridesPin`) and must be reported
+ * as an `avoid`-severity finding (`validate.ts`). `clinical_freeze` and
+ * `pregnancy_freeze` share the same structural non-overridability guarantee;
+ * `pao_expired`/`no_allowed_period` do not (pregnancy-pin-survival-fix spec
+ * §3 Non-Goals — matches `dailyView.ts`'s existing `findFrozenByAnySource`
+ * bucket, which also excludes both).
+ */
+export function isSafetyFreezeGate(gate: EligibilityGate): boolean {
+  return gate === 'clinical_freeze' || gate === 'pregnancy_freeze';
+}
+
+/**
  * Applies the hard gates in a fixed order (hidden → PAO → clinical freeze →
  * no allowed period) so each product reports exactly one, deterministic cause.
  */

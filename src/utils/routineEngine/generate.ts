@@ -10,7 +10,7 @@ import type {
 import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
 import { collectAdaptationLimits, collectTolerability } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
-import { applyEligibilityGates } from '@/utils/routineEngine/eligibility';
+import { applyEligibilityGates, isSafetyFreezeGate } from '@/utils/routineEngine/eligibility';
 import { applyMandates } from '@/utils/routineEngine/mandates';
 import type {
   DecisionLogEntry,
@@ -204,6 +204,7 @@ export function generatePlan(input: EngineInput): RoutinePlan {
     productId: r.productId,
     reasonCode: r.reasonCode,
     ...(r.until ? { until: r.until } : {}),
+    overridesPin: isSafetyFreezeGate(r.gate),
   }));
   const gateDecisions: DecisionLogEntry[] = gatedOut.map((r) => ({
     action: 'freeze',

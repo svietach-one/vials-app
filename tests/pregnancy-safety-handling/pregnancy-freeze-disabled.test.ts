@@ -1,15 +1,22 @@
 /**
- * Integration tests — Surface A (routine engine), PREGNANCY_SAFETY_ENABLED OFF
- * (the real shipped default — @/constants/featureFlags is NOT mocked here).
+ * Integration tests — Surface A (routine engine), PREGNANCY_SAFETY_ENABLED
+ * mocked OFF.
  * Spec: docs/specs/pregnancy-safety-handling.md §4 Story 1 AC4, Story 2 (flag off)
  * Tech design: docs/tech-design/pregnancy-safety-handling.md §3 FE-1
  *
- * This is the most important suite for a safety feature that must not
- * activate before clinical sign-off (spec §2/§3): it proves the mechanism is
- * truly inert under the ACTUAL configuration this app ships with today, not
- * a simulated one. Mirrors the guard-rail style of
- * src/constants/rulesets/proposedPairRules.test.ts.
+ * Clinical sign-off landed 2026-07-30 (spec §10) and the flag now ships
+ * `true` (see pregnancy-freeze-enabled.test.ts, which now exercises the real
+ * shipped configuration, not a simulated one). This suite continues to
+ * exercise the off-path in isolation via an explicit mock, mirroring
+ * pregnancy-freeze-enabled.test.ts's own mocking style — proving the
+ * mechanism stays truly inert whenever the flag IS off, independent of what
+ * it happens to ship as today.
  */
+jest.mock('@/constants/featureFlags', () => ({
+  ...jest.requireActual('@/constants/featureFlags'),
+  PREGNANCY_SAFETY_ENABLED: false,
+}));
+
 import { PREGNANCY_SAFETY_ENABLED } from '@/constants/featureFlags';
 import { getDailyView } from '@/utils/routineEngine/dailyView';
 import { generatePlan } from '@/utils/routineEngine/generate';
@@ -25,7 +32,7 @@ import {
 
 beforeEach(() => resetFixtureCounters());
 
-describe('Guard rail: PREGNANCY_SAFETY_ENABLED ships off pending clinical sign-off (spec §10)', () => {
+describe('Guard rail: this suite is exercising the off-path (mocked)', () => {
   it('is false', () => {
     expect(PREGNANCY_SAFETY_ENABLED).toBe(false);
   });

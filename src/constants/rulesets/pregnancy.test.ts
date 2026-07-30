@@ -1,27 +1,47 @@
 /**
  * Guards the clinical-sign-off gate on the pregnancy-safety-handling draft
- * ruleset: it must stay OUT of context.ts's resolved pregnancyRules until
- * PREGNANCY_SAFETY_ENABLED flips true (spec §10), and the underlying rule
- * data itself must target exactly what the tech design (FE-2) declared.
- * Mirrors src/constants/rulesets/proposedPairRules.test.ts's guard-rail style.
+ * ruleset: `getPregnancyRules()` must return real rules only while
+ * PREGNANCY_SAFETY_ENABLED is true, and stay empty whenever it's false
+ * (spec §10). Clinical sign-off landed 2026-07-30
+ * (docs/specs/pregnancy-safety-handling.md §10) and the flag now ships
+ * `true` — the "gating" block below mocks it back to `false` to keep
+ * exercising the off-path in isolation, the same way the sibling
+ * pregnancy-freeze-enabled/-disabled.test.ts suites do; it is no longer a
+ * live guard-rail on the real default (that's now covered by "flag ships on"
+ * below). The rule DATA tests further down are independent of the flag's
+ * value either way. Mirrors src/constants/rulesets/proposedPairRules.test.ts's
+ * guard-rail style.
  */
 
-import { PREGNANCY_SAFETY_ENABLED } from '@/constants/featureFlags';
 import { PREGNANCY_RULESET, getPregnancyRules } from '@/constants/rulesets/pregnancy';
 
 describe('pregnancy ruleset gating', () => {
-  it('is disabled pending clinical sign-off (spec §10)', () => {
-    // Arrange / Act / Assert
-    expect(PREGNANCY_SAFETY_ENABLED).toBe(false);
-    expect(getPregnancyRules()).toEqual([]);
+  it('flag ships on, post clinical sign-off (spec §10)', () => {
+    // Arrange / Act / Assert — the real, unmocked module.
+const { PREGNANCY_SAFETY_ENABLED } = require('@/constants/featureFlags');
+    expect(PREGNANCY_SAFETY_ENABLED).toBe(true);
+    expect(getPregnancyRules()).toEqual(PREGNANCY_RULESET.rules);
   });
 
-  it('returns a frozen empty array, not a mutable reference into PREGNANCY_RULESET', () => {
-    // Act
-    const result = getPregnancyRules();
+  describe('when mocked off', () => {
+    beforeEach(() => {
+      jest.resetModules();
+      jest.doMock('@/constants/featureFlags', () => ({
+        ...jest.requireActual('@/constants/featureFlags'),
+        PREGNANCY_SAFETY_ENABLED: false,
+      }));
+    });
+    afterEach(() => jest.dontMock('@/constants/featureFlags'));
 
-    // Assert — flag-off callers can never accidentally read/mutate real rules
-    expect(result).toHaveLength(0);
+    it('returns a frozen empty array, not a mutable reference into PREGNANCY_RULESET', () => {
+      // Act — re-require after the mock so this module resolves the mocked flag.
+    const { getPregnancyRules: getPregnancyRulesMocked } = require('@/constants/rulesets/pregnancy');
+      const result = getPregnancyRulesMocked();
+
+      // Assert — flag-off callers can never accidentally read/mutate real rules
+      expect(result).toEqual([]);
+      expect(result).toHaveLength(0);
+    });
   });
 });
 

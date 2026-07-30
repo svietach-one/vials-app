@@ -1,4 +1,4 @@
-Status: PR_REVIEW — tech-lead ACCEPT (2026-07-29); ready for human merge; qa-lead follow-up needed on 7 test assertions (QA-test defect, not an implementation gap)
+Status: SHIPPED — tech-lead ACCEPT (2026-07-29); QA follow-up RESOLVED (2026-07-29); PREGNANCY_SAFETY_ENABLED flipped true (2026-07-30), after the pregnancy-pin-survival-fix prerequisite (tech-lead ACCEPT) closed the override gap this file's own review flagged as Point C
 Tech Design: docs/tech-design/pregnancy-safety-handling.md
 Code: FE-1..FE-10 implemented, uncommitted on specific-screens
 
@@ -329,3 +329,55 @@ Code: FE-1..FE-10 implemented, uncommitted on specific-screens
   Verdict: ACCEPT. No blockers found. 2 items to route as follow-ups (qa-lead: fix the 7 test assertions;
   product/tech-lead: planApply.ts pin-survival ticket, resolve by the time PREGNANCY_SAFETY_ENABLED ever
   flips true). Ready for human merge.
+
+2026-07-29 — qa-lead: follow-up fix for the 7 disputed test failures in `tests/pregnancy-safety-handling/
+  AddProcedureModal.pregnancy-enabled.test.tsx`, per the engineer's and tech-lead's independently confirmed
+  root-cause analysis above. Read the test file and `src/components/clinic/AddProcedureModal.tsx` directly
+  before touching anything, and reran the suite pre-fix to confirm the exact same 7 failures (`AC1` for
+  fillers/smas_lifting/mesotherapy/chemical_peel_deep, `AC2`, `AC3`, `AC4`; `botox`'s `AC1` case and `AC5`
+  already passed) with the exact mock-history shape described in the log (2 entries, not 3 — confirming the
+  engineer's `useMemo` double-commit fix holds).
+
+  Fix applied — the tech-lead's recommended option (a), `(InlineAlert as jest.Mock).mockClear()` inserted
+  between `renderModal()` and the test's own selection action, in all 4 straightforward cases (`AC2`, `AC3`,
+  `AC4`, and 4 of the 5 `AC1` `it.each` keys). One necessary exception within the `AC1` `it.each`: the
+  `botox` key is the component's hardcoded default, so re-selecting it is a React state no-op (`Object.is`
+  bails out, no re-render, no fresh `InlineAlert` call) — clearing the mock before that no-op would zero out
+  the very mount-time alert the case is meant to verify, not isolate a fresh one. That single case is
+  conditionally exempted from the `mockClear()` and asserts directly against the mount-time call instead.
+  No test's assertions changed semantically — avoid-tone (`sos`) is still verified for botox/fillers/
+  smas_lifting/mesotherapy/chemical_peel_deep, caution-tone (`warning`) for mechanical_facial, co-existence
+  with the phototype alert, and the `isCustom` guard all assert the identical outcomes as before; only the
+  mock call-history bookkeeping around the real, expected mount-time alert was corrected.
+
+  Verified: `npx jest tests/pregnancy-safety-handling` — 4 suites, 24/24 passed (was 17/24). `npx tsc
+  --noEmit` — clean, 0 errors, repo-wide. Left unstaged, as instructed.
+
+2026-07-30 — orchestrating session: `PREGNANCY_SAFETY_ENABLED` flipped `false` → `true` in
+  `src/constants/featureFlags.ts`, per direct human confirmation that clinical sign-off on the draft
+  retinoid-freeze/procedure-severity data (spec §10) has been obtained. This task's tech-lead review
+  (2026-07-29) recommended resolving the Point C pin-survival gap "before or alongside" any such flip; the
+  human chose to resolve it first, as its own full-cycle follow-up task —
+  `docs/specs/pregnancy-pin-survival-fix.md` / `progress/pregnancy-pin-survival-fix.md`, tech-lead ACCEPT
+  2026-07-30. That fix landed and was verified before this flag flip.
+
+  Flipping the flag turned several existing guard-rail tests, which asserted the REAL (previously-false)
+  default rather than a mocked one, from correct into stale — they were testing "what the flag currently
+  ships as," and that answer changed. Updated 5 files to mock the flag off explicitly instead (preserving
+  the exact same off-path test intent, matching the sibling `-enabled` files' existing mocking convention):
+  `src/constants/rulesets/pregnancy.test.ts`, `src/utils/conflictEngine.test.ts`,
+  `tests/pregnancy-safety-handling/pregnancy-freeze-disabled.test.ts`,
+  `tests/pregnancy-safety-handling/AddProcedureModal.pregnancy-disabled.test.tsx`, and
+  `tests/pregnancy-pin-survival-fix/pregnancy-flag-disabled.test.ts`. Each also gained (or, for
+  `pregnancy.test.ts`/`conflictEngine.test.ts`, kept alongside the mocked-off block) a case exercising the
+  real, unmocked, now-true flag, so the on-path is covered against actual shipped configuration too, not
+  only simulated.
+
+  Verified after both the flag flip and the test updates: `npx tsc --noEmit` clean, 0 errors, repo-wide.
+  `npx jest tests/pregnancy-safety-handling tests/pregnancy-pin-survival-fix src/constants/rulesets/
+  pregnancy.test.ts src/utils/conflictEngine.test.ts` — 10 suites, 72 tests, all passing. Full repo sweep
+  (`npx jest --testPathIgnorePatterns="worktrees"`): 10 failing suites remain, all pre-existing and
+  unrelated (a `palette`/`shadow.sm` tokens-refactor-in-progress issue tied to other uncommitted work
+  already on this branch before this task began — `ProductShelfCard.tsx`, `ProductDetailScreen.tsx`,
+  `AddProductHubScreen.tsx` and the `CatalogScreen` import chain; confirmed zero overlap with this task's
+  files). Left unstaged for human commit.
