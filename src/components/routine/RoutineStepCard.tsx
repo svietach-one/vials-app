@@ -55,6 +55,7 @@ export function RoutineStepCard({
   displayProductType,
 }: RoutineStepCardProps) {
   const hasConflict = !!conflictingProductName;
+  const hasTrailingRow = hasConflict || adaptationWeek != null;
   const productType = displayProductType ?? product.productType;
 
   const activeKey = product.activeTags?.[0] ?? product.activeIngredients?.[0]?.key ?? null;
@@ -81,7 +82,7 @@ export function RoutineStepCard({
     <View style={styles.mainRow}>
       {/* Leading product photo — placeholder when none, edge-to-edge with
           the card's left/top/bottom (matches the shelf card) */}
-      <ProductThumbnail product={product} fill />
+      <ProductThumbnail product={product} fill squareBottomLeft={hasTrailingRow} />
 
       {/* Content area */}
       <View style={styles.contentArea}>
