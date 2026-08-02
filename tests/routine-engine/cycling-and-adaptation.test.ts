@@ -182,6 +182,7 @@ describe('Story 5 AC: cross-store domain actions (performDailyCheckIn / cycleSta
         secondaryGoal: null, goalNeedsConfirmation: false, phototypeNeedsConfirmation: false, spfSensitivity: false,
         onboardingCompleted: true, individualDurationMonths: {},
         contributionConsent: { granted: false, timestamp: null },
+        hormoneTherapy: false, pregnantOrBreastfeeding: false,
       },
       hydrated: true,
     });

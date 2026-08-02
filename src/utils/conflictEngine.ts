@@ -1,4 +1,9 @@
-import { PROCEDURE_COLLISION_RULES } from '@/constants/conflictRulesDb';
+import {
+  PREGNANCY_PROCEDURE_COPY,
+  PREGNANCY_PROCEDURE_SEVERITY,
+  PROCEDURE_COLLISION_RULES,
+} from '@/constants/conflictRulesDb';
+import { PREGNANCY_SAFETY_ENABLED } from '@/constants/featureFlags';
 import { ACTIVES_RULESET, type PairRule } from '@/constants/rulesets/rulesetTypes';
 import {
   ActiveIngredientKey,
@@ -204,6 +209,26 @@ export class ConflictEngine {
     }
 
     return null;
+  }
+
+  /**
+   * Pregnancy / breastfeeding advisory (Procedure + profile flag).
+   * Mirrors checkSeasonalConflict's shape/self-gating philosophy: self-gates
+   * on PREGNANCY_SAFETY_ENABLED internally (tech design FE-9) so callers like
+   * AddProcedureModal never need their own flag check. Draft severity/copy
+   * (conflictRulesDb.ts), pending clinical sign-off — spec §10.
+   */
+  static checkPregnancyConflict(
+    procedure: CosmeticProcedureKey,
+    isPregnantOrBreastfeeding: boolean,
+  ): ClinicalConflictResult | null {
+    if (!PREGNANCY_SAFETY_ENABLED || !isPregnantOrBreastfeeding) return null;
+
+    const severity = PREGNANCY_PROCEDURE_SEVERITY[procedure];
+    const copy = PREGNANCY_PROCEDURE_COPY[procedure];
+    if (!severity || !copy) return null;
+
+    return { severity, explanation: copy.explanation, suggestion: copy.suggestion };
   }
 
   /** Lifestyle restrictions for the Today screen during rehab (Phase 1). */

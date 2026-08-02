@@ -55,7 +55,7 @@ export function RehabNoticeCard({
     <View accessibilityRole="summary">
       <InlineAlert
         tone="warning"
-        icon={<Icon name="shield" size={14} color={colors.statusWarning} />}
+        icon={<Icon name="shield" size={16} color={colors.statusWarning} />}
         title={`Rehabilitation: ${notice.procedureName}`}
         collapsed={collapsed}
         onToggleCollapse={onToggleCollapse}

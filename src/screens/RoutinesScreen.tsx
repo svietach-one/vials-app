@@ -40,6 +40,7 @@ import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { getSlotCategoryLabel, GOAL_LABELS } from '@/constants/labels';
+import { reasonText } from '@/constants/decisionReasons';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import {
@@ -283,7 +284,10 @@ export default function RoutinesScreen({ navigation }: Props) {
 
     const views = getDailyView(routines, products, {
       procedures,
-      profile: { fitzpatrick: profile?.fitzpatrick ?? null },
+      profile: {
+        fitzpatrick: profile?.fitzpatrick ?? null,
+        pregnantOrBreastfeeding: profile?.pregnantOrBreastfeeding ?? false,
+      },
       seasonMask: getActiveSeasonMask(),
     });
     const frozen = new Map<string, FrozenStepView[]>();
@@ -847,7 +851,7 @@ function PausedSteps({ frozen, products }: { frozen: FrozenStepView[]; products:
           <View key={item.stepId} style={pausedStyles.row}>
             <Icon name="pause-circle" size={14} color={colors.textTertiary} />
             <Text style={pausedStyles.text} numberOfLines={1}>
-              {name} — paused until {item.until}
+              {name} — {item.until ? `paused until ${item.until}` : reasonText(item.reasonCode)}
             </Text>
           </View>
         );

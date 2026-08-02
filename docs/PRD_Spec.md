@@ -83,11 +83,10 @@ The viewport system eliminates layout clutter by routing all configurations into
 
 ### 4.1. Onboarding Flow (Pre-Navigation Stack)
 * **`MarketingSlidesScreen`:** 3 text-driven, spacious swipeable cards. Card 1 pitches the app's value proposition; Card 2 discloses the on-device-by-default data model, distinguishing personal data (stays on-device) from anonymized product metadata contributed via manual entry (joins the shared Vials database, see §4.3); Card 3 explains routine-specific conflict warnings and requires the user to check a medical-disclaimer consent box (`US-23`) before the primary CTA is enabled — no skip path, recorded via `settingsStore.acceptMedicalDisclaimer`.
-* **`SkinProfileSetupScreen`:** Age/Gender select layers and Skin Type selectors.
-  * **`PhototypeSelector` (`US-03`):** 3 geometric option cards based on UV sensitivity metrics. **Visually unlabeled** (icon/shade-only), but each card carries a full `accessibilityLabel` (e.g. "Light or fair skin tone, burns easily, high sensitivity") for screen readers — visual minimalism must not become an accessibility gap.
-    1. *Card 1:* Light / Fair — Burns easily, high sensitivity.
-    2. *Card 2:* Medium / Olive — Tans moderately, prone to dark spots.
-    3. *Card 3:* Dark / Deep — Rarely burns, elevated laser/peel risk.
+* **`SkinProfileSetupScreen`:** A 5-step flow (skin type → goals → sun reaction/phototype → about you → additional info) with a step-progress ring, each step independently skippable — see `docs/tech-design/onboarding-5-step-redesign.md`.
+  * **`FitzpatrickCard` (`US-03`, sun-reaction step):** 6 geometric option cards, Fitzpatrick I–VI, each with a small color swatch — supersedes the earlier 3-grouped-card version. **Visually unlabeled beyond numeral/swatch** (no racial or ethnic labels), but each card carries a full `accessibilityLabel` (e.g. "Type one: very fair skin, always burns, never tans, highest UV sensitivity") for screen readers — visual minimalism must not become an accessibility gap.
+  * **About-you step:** optional age, binary gender (Female/Male), and a "Currently on hormone therapy" toggle (`UserProfile.hormoneTherapy`) — collected for future sebum/sensitivity personalization, no downstream logic reads it yet.
+  * **Additional-info step:** an amber-accented "Pregnant or breastfeeding" toggle (`UserProfile.pregnantOrBreastfeeding`) above the existing skin-conditions/concerns pills. Planned but not-yet-built follow-ups: a conflict-engine warning for retinoids/high-concentration acids, and a clinic-procedure block for invasive procedure types — both need clinical sign-off on exact copy/ingredient list first (same open item as §6's procedure-spacing table).
 * **`FirstProductScreen`:** Embedded quick-search bar allowing users to input their first item to instantiate the store before unlocking the tabs. **Includes a secondary "Skip for now" outline button** — the store can instantiate empty, and `CatalogList` renders its standard empty-state on first launch of Tab 2.
 
 ### 4.2. Tab 1: Routine Hub (Super-Tab)
@@ -143,7 +142,7 @@ All states run fully offline on the device hardware layer.
   * `Product`: `id, brand, name, type, inciTags[], openedDate, paoMonths, source ('api'|'manual')`
   * `RoutineStep`: `id, productId, period ('AM'|'PM'), order, days[] ('mon'..'sun' | 'every'), hidden:boolean`
   * `Procedure`: `id, type, date, expectedDurationMonths, realDuration?, status ('rehab'|'active'|'fading'|'overdue'|'archived')`
-  * `Profile`: `age, gender, phototype, skinIssues[], gamificationOn:boolean, individualDurationMonths: { [procedureType]: number }`
+  * `Profile` (`UserProfile` in `src/types/index.ts`): `age, gender, skinType, phototype, fitzpatrick, concerns[], skinConditions[], primaryGoal, secondaryGoal, hormoneTherapy:boolean, pregnantOrBreastfeeding:boolean, individualDurationMonths: { [procedureType]: number }` — gamification is a `settingsStore` field, not on `Profile`.
 
 ### 5.2. Local Conflict Matrix & INCI Parsing (`utils/conflictEngine.ts`)
 When a raw ingredient text string (INCI) is inputted or loaded from the API, a regex scanner parses text sequences in lowercase to map unindexed internal biomarkers:

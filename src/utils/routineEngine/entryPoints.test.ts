@@ -99,7 +99,7 @@ describe('generatePlan', () => {
 
     expect(plan.periods.evening).toHaveLength(0);
     expect(plan.frozen).toEqual([
-      { productId: aha.id, reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-18' },
+      { productId: aha.id, reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-18', overridesPin: true },
     ]);
   });
 

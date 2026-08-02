@@ -74,3 +74,21 @@ export const BARCODE_HUB_ENTRY_ENABLED = false;
  * re-implementation.
  */
 export const PROPOSED_V12_PAIR_RULES_ENABLED = false;
+
+/**
+ * Acting-on-pregnancy behavior: excludes retinoid-class products from
+ * generated routines / the Today screen, and surfaces a pregnancy-specific
+ * advisory in AddProcedureModal. `UserProfile.pregnantOrBreastfeeding`
+ * itself (schema v6) is always collected and stored — this flag gates only
+ * whether anything ACTS on it.
+ *
+ * **ON.** Clinical sign-off on the draft retinoid-freeze class list and
+ * procedure-severity map (src/constants/rulesets/pregnancy.ts,
+ * PREGNANCY_PROCEDURE_SEVERITY in conflictRulesDb.ts) has been obtained
+ * (2026-07-30, docs/specs/pregnancy-safety-handling.md §10). The
+ * pin-survival gap in the non-overridable guarantee (buildStepsFromPlan
+ * previously keying off `until` instead of `overridesPin`, tech-lead Point C
+ * on 2026-07-29) was closed first, as a prerequisite — see
+ * docs/specs/pregnancy-pin-survival-fix.md, tech-lead ACCEPT 2026-07-30.
+ */
+export const PREGNANCY_SAFETY_ENABLED = true;

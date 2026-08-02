@@ -1,7 +1,7 @@
 import type { ConflictSeverity } from '@/types';
 import type { Routine } from '@/types';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
-import { applyEligibilityGates } from '@/utils/routineEngine/eligibility';
+import { applyEligibilityGates, isSafetyFreezeGate } from '@/utils/routineEngine/eligibility';
 import { generatePlan, type EngineInput, type RoutinePlan } from '@/utils/routineEngine/generate';
 import { applyMandates } from '@/utils/routineEngine/mandates';
 import type { PlannedStep } from '@/utils/routineEngine/planTypes';
@@ -158,7 +158,10 @@ export function validateRoutines(routines: Routine[], input: EngineInput): Valid
   const facts = buildShelfFacts(input.products, now);
   const context = buildRoutineContext({
     procedures: input.procedures,
-    profile: { fitzpatrick: input.profile.fitzpatrick },
+    profile: {
+      fitzpatrick: input.profile.fitzpatrick,
+      pregnantOrBreastfeeding: input.profile.pregnantOrBreastfeeding,
+    },
     seasonMask: input.seasonMask,
     now,
   });
@@ -175,8 +178,9 @@ export function validateRoutines(routines: Routine[], input: EngineInput): Valid
   const savedProducts = input.products.filter((p) => savedIds.has(p.id));
   for (const rejection of applyEligibilityGates(savedProducts, facts, context).rejections) {
     if (rejection.gate === 'hidden') continue;
+    const isFreeze = isSafetyFreezeGate(rejection.gate);
     findings.push({
-      severity: rejection.gate === 'clinical_freeze' ? 'avoid' : 'caution',
+      severity: isFreeze ? 'avoid' : 'caution',
       reasonCode: rejection.reasonCode,
       productIds: [rejection.productId],
     });

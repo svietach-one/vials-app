@@ -36,7 +36,10 @@ export function findSubstitute(
   const facts = buildShelfFacts(input.products, now);
   const context = buildRoutineContext({
     procedures: input.procedures,
-    profile: { fitzpatrick: input.profile.fitzpatrick },
+    profile: {
+      fitzpatrick: input.profile.fitzpatrick,
+      pregnantOrBreastfeeding: input.profile.pregnantOrBreastfeeding,
+    },
     seasonMask: input.seasonMask,
     now,
   });

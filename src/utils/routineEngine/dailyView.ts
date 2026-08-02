@@ -8,7 +8,7 @@ import type {
   UserProcedureLog,
   UserProfile,
 } from '@/types';
-import { buildRoutineContext } from '@/utils/routineEngine/context';
+import { buildRoutineContext, type RoutineContext } from '@/utils/routineEngine/context';
 import {
   DYNAMIC_UNAVAILABLE_REASON,
   isDynamicCyclingAvailable,
@@ -16,7 +16,7 @@ import {
   type CyclePhase,
 } from '@/utils/routineEngine/cycleState';
 import { buildShelfFacts, type ProductFacts } from '@/utils/routineEngine/productFacts';
-import { matchesRuleTargets } from '@/utils/routineEngine/targeting';
+import { findFrozenByAnySource } from '@/utils/routineEngine/targeting';
 import { isScheduledOnDay } from '@/utils/routineSchedule';
 import { getSkincareDateString } from '@/utils/timeHelpers';
 
@@ -31,20 +31,24 @@ import { getSkincareDateString } from '@/utils/timeHelpers';
 
 export interface DailyViewInput {
   procedures: UserProcedureLog[];
-  profile: Pick<UserProfile, 'fitzpatrick'>;
+  /** Pregnancy field optional so pre-existing callers keep compiling; absent ⇒ not pregnant. */
+  profile: Pick<UserProfile, 'fitzpatrick'> & Partial<Pick<UserProfile, 'pregnantOrBreastfeeding'>>;
   seasonMask: SeasonMask;
   /** Dynamic-cycling mask input; absent = fixed mode (weekday scheduling only). */
   cycle?: { type: RoutineCycleType; state: CycleState };
   now?: Date;
 }
 
-/** A step masked by an active clinical freeze — rendered as a dimmed row. */
+/** A step masked by an active freeze source — rendered as a dimmed row. */
 export interface FrozenStepView {
   stepId: string;
   productId: string;
   reasonCode: string;
-  /** Skincare date the step silently returns. */
-  until: string;
+  /** Skincare date the step silently returns. Absent for freeze sources with
+   * no natural expiry (e.g. a pregnancy freeze) — renderers fall back to the
+   * reasonCode's dictionary text, mirroring DraftPreviewScreen's FrozenItem
+   * handling. */
+  until?: string;
 }
 
 /** A step not on tonight's cycle phase (dynamic mode) — not frozen, just not tonight. */
@@ -102,14 +106,14 @@ export function availableCycleClasses(
   products: Product[],
   facts: Map<string, ProductFacts>,
   freezeRules: ProjectionContext['freezeRules'],
+  pregnancyRules: RoutineContext['pregnancyRules'],
   dayOfWeek: number,
 ): Set<string> {
   const available = new Set<string>();
   for (const product of products) {
     const f = facts.get(product.id);
     if (!f || !f.eligible) continue;
-    const frozen = freezeRules.some((rule) => matchesRuleTargets(product.productType, f, rule.targets));
-    if (frozen) continue;
+    if (findFrozenByAnySource(product.productType, f, freezeRules, pregnancyRules)) continue;
     for (const cls of cycleClassesOf(f)) available.add(cls);
   }
   return available;
@@ -139,7 +143,10 @@ export function getDynamicCycleStatus(
   const facts = buildShelfFacts(products, now);
   const context = buildRoutineContext({
     procedures: input.procedures,
-    profile: { fitzpatrick: input.profile.fitzpatrick },
+    profile: {
+      fitzpatrick: input.profile.fitzpatrick,
+      pregnantOrBreastfeeding: input.profile.pregnantOrBreastfeeding,
+    },
     seasonMask: input.seasonMask,
     now,
   });
@@ -148,6 +155,7 @@ export function getDynamicCycleStatus(
     products,
     facts,
     freezeRules,
+    context.pregnancyRules,
     new Date(getSkincareDateString(now)).getUTCDay(),
   );
   const isAvailable = isDynamicCyclingAvailable(available);
@@ -165,6 +173,7 @@ interface ProjectionContext {
   facts: Map<string, ProductFacts>;
   productById: Map<string, Product>;
   freezeRules: ReturnType<typeof buildRoutineContext>['procedureRules'];
+  pregnancyRules: ReturnType<typeof buildRoutineContext>['pregnancyRules'];
   dynamicPhase: CyclePhase | null;
 }
 
@@ -191,7 +200,7 @@ function projectRoutine(routine: Routine, ctx: ProjectionContext): DailyRoutineV
     // Deleted-product steps stay visible — the UI renders its empty-slot state
     const freeze =
       product && f
-        ? ctx.freezeRules.find((rule) => matchesRuleTargets(product.productType, f, rule.targets))
+        ? findFrozenByAnySource(product.productType, f, ctx.freezeRules, ctx.pregnancyRules)
         : undefined;
 
     if (freeze && product) {
@@ -221,7 +230,10 @@ export function getDailyView(
   const date = getSkincareDateString(now);
   const context = buildRoutineContext({
     procedures: input.procedures,
-    profile: { fitzpatrick: input.profile.fitzpatrick },
+    profile: {
+      fitzpatrick: input.profile.fitzpatrick,
+      pregnantOrBreastfeeding: input.profile.pregnantOrBreastfeeding,
+    },
     seasonMask: input.seasonMask,
     now,
   });
@@ -237,7 +249,7 @@ export function getDailyView(
     input.cycle?.type === 'dynamic'
       ? resolveCyclePhase(
           input.cycle.state,
-          availableCycleClasses(products, facts, freezeRules, dayOfWeek),
+          availableCycleClasses(products, facts, freezeRules, context.pregnancyRules, dayOfWeek),
         )
       : null;
 
@@ -247,6 +259,7 @@ export function getDailyView(
     facts,
     productById: new Map(products.map((p) => [p.id, p])),
     freezeRules,
+    pregnancyRules: context.pregnancyRules,
     dynamicPhase,
   };
 

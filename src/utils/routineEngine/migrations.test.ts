@@ -55,8 +55,8 @@ function makeRoutine(steps: Routine['steps']): Routine {
 // ─── Schema version ───────────────────────────────────────────────────────────
 
 describe('CURRENT_SCHEMA_VERSION', () => {
-  it('is 5 after adding skinConditions (routine-engine-v2.2 US-23)', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(5);
+  it('is 6 after adding hormoneTherapy/pregnantOrBreastfeeding (onboarding-5-step-redesign)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(6);
   });
 });
 
@@ -173,6 +173,38 @@ describe('migrateProfile', () => {
     const twice = migrateProfile(once);
     // Assert
     expect(twice).toBe(once);
+  });
+
+  it('defaults hormoneTherapy to false on a pre-v6 profile', () => {
+    // Arrange
+    const profile = makeLegacyProfile({ phototype: 'type_1_2' });
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.hormoneTherapy).toBe(false);
+  });
+
+  it('defaults pregnantOrBreastfeeding to false on a pre-v6 profile', () => {
+    // Arrange
+    const profile = makeLegacyProfile({ phototype: 'type_1_2' });
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.pregnantOrBreastfeeding).toBe(false);
+  });
+
+  it('preserves already-set hormoneTherapy and pregnantOrBreastfeeding values', () => {
+    // Arrange
+    const profile = makeLegacyProfile({
+      phototype: 'type_1_2',
+      hormoneTherapy: true,
+      pregnantOrBreastfeeding: true,
+    });
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.hormoneTherapy).toBe(true);
+    expect(result.pregnantOrBreastfeeding).toBe(true);
   });
 });
 
