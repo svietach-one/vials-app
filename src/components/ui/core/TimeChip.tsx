@@ -32,7 +32,7 @@ export function TimeChip({ icon, label, active, onPress, disabled, style }: Time
       accessibilityState={{ checked: active, disabled }}
       accessibilityLabel={label}
     >
-      <Icon name={icon} size={15} color={active ? palette.white : colors.textSecondary} />
+      <Icon name={icon} size={15} color={active ? palette.plum : colors.textSecondary} />
       <Text style={[styles.label, active && styles.labelActive]}>{label}</Text>
     </Pressable>
   );
@@ -54,8 +54,8 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   chipActive: {
-    backgroundColor: palette.black,
-    borderColor: palette.black,
+    backgroundColor: palette.plumTintLight,
+    borderColor: palette.plum,
   },
   chipDisabled: {
     opacity: 0.4,
@@ -66,6 +66,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   labelActive: {
-    color: palette.white,
+    color: palette.plum,
   },
 });

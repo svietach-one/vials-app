@@ -11,7 +11,7 @@ import {
   type SelectOption,
   type SelectOptionTone,
 } from '@/components/ui/forms/Select';
-import { colors, radius, shadow, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { Product } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -181,14 +181,18 @@ function OptionRow({
 }) {
   return (
     <Pressable
-      style={styles.optionRow}
+      style={({ pressed }) => [
+        styles.optionRow,
+        selected && styles.optionRowSelected,
+        pressed && styles.optionRowPressed,
+      ]}
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
       accessibilityLabel={option.reason ? `${option.title} — ${option.reason}` : option.title}
     >
       <View style={[styles.radio, selected && styles.radioSelected]}>
-        {selected ? <Icon name="check" size={13} color={colors.bgBase} /> : null}
+        {selected ? <View style={styles.radioDot} /> : null}
       </View>
 
       {product ? <ProductThumbnail product={product} size={52} /> : null}
@@ -281,19 +285,35 @@ const styles = StyleSheet.create({
     paddingVertical: space[2],
     paddingHorizontal: space[2],
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderDivider,
+    backgroundColor: colors.bgBase,
+  },
+  optionRowSelected: {
+    borderColor: palette.plum,
+    backgroundColor: palette.plumTintLight,
+  },
+  optionRowPressed: {
+    backgroundColor: palette.plumTintLight,
   },
   radio: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     borderRadius: radius.pill,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   radioSelected: {
-    backgroundColor: colors.textPrimary,
-    borderColor: colors.textPrimary,
+    borderColor: palette.plum,
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: palette.plum,
   },
   optionText: {
     flex: 1,

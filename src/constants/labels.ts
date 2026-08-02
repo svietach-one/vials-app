@@ -1,3 +1,4 @@
+import type { BadgeStatus } from '@/components/ui/feedback/Badge';
 import type { ActiveIngredientKey, FunctionalBenefit, ProductType, SkinGoal } from '@/types';
 
 export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
@@ -58,6 +59,41 @@ export function getSlotCategoryLabel(productType: ProductType): string {
 export function getSlotCategoryLabelPlural(productType: ProductType): string {
   const label = getSlotCategoryLabel(productType);
   return label.endsWith('s') ? label : `${label}s`;
+}
+
+/**
+ * Product-type -> Badge status, grouping types into the category hues used
+ * everywhere a productType pill is rendered (My Shelf, Routines, product
+ * detail): Cobalt for liquid actives, Green for emollients/moisturizers,
+ * Amber for exfoliating/treatment steps, Golden for sun protection (spf),
+ * Cian for cleansing steps (cleanser, makeup_remover), Cabernet for peeling,
+ * Coffee for rich emollients (cream, balm, eye_cream). Types not listed here
+ * (currently other) fall back to Default (neutral gray) via
+ * {@link getProductTypeBadgeStatus}.
+ */
+export const PRODUCT_TYPE_BADGE_STATUS: Partial<Record<ProductType, BadgeStatus>> = {
+  serum: 'Cobalt',
+  ampoule: 'Cobalt',
+  essence: 'Cobalt',
+  gel: 'Cobalt',
+  cleanser: 'Cian',
+  makeup_remover: 'Cian',
+  toner: 'Green',
+  moisturizer: 'Green',
+  cream: 'Coffee',
+  lotion: 'Green',
+  oil: 'Green',
+  eye_cream: 'Coffee',
+  balm: 'Coffee',
+  spf: 'Golden',
+  mask: 'Amber',
+  peeling: 'Cabernet',
+  spot_treatment: 'Amber',
+};
+
+/** Resolves the Badge status for a product type, defaulting to neutral gray. */
+export function getProductTypeBadgeStatus(productType: ProductType): BadgeStatus {
+  return PRODUCT_TYPE_BADGE_STATUS[productType] ?? 'Default';
 }
 
 export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {

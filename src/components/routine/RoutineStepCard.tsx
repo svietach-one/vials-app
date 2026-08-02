@@ -5,34 +5,12 @@ import { Icon } from '@/components/ui/Icon';
 
 import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { Badge } from '@/components/ui/feedback/Badge';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
-import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { ACTIVE_INGREDIENT_LABELS, getProductTypeBadgeStatus, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
 import type { Product, ProductType } from '@/types';
-
-// ─── Product type → badge color ───────────────────────────────────────────────
-
-const TYPE_COLORS: Partial<Record<ProductType, { bg: string; text: string }>> = {
-  serum:         { bg: palette.cobaltTint,       text: palette.cobalt },
-  ampoule:       { bg: palette.cobaltTint,       text: palette.cobalt },
-  essence:       { bg: palette.cobaltTint,       text: palette.cobalt },
-  gel:           { bg: palette.cobaltTint,       text: palette.cobalt },
-  cleanser:      { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  toner:         { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  moisturizer:   { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  cream:         { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  lotion:        { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  oil:           { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  spf:           { bg: palette.amberTint,        text: palette.amber },
-  eye_cream:     { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  mask:          { bg: palette.amberTint,        text: palette.amber },
-  peeling:       { bg: palette.amberTint,        text: palette.amber },
-  spot_treatment:{ bg: palette.amberTint,        text: palette.amber },
-  balm:          { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-};
-
-const DEFAULT_TYPE_COLOR = { bg: palette.zinc100, text: palette.zinc600 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,7 +65,7 @@ export function RoutineStepCard({
   const showAliasIcon = hasAliasOverride(activeMatches);
 
   const typeLabel = PRODUCT_TYPE_LABELS[productType] ?? productType;
-  const typeColor = TYPE_COLORS[productType] ?? DEFAULT_TYPE_COLOR;
+  const typeBadgeStatus = getProductTypeBadgeStatus(productType);
 
   const cardStyle = [styles.card, hasConflict && styles.cardConflict];
 
@@ -119,11 +97,7 @@ export function RoutineStepCard({
             corner, on the brand's line (see below) */}
         <View style={styles.bottomRow}>
           <View style={styles.badgesRow}>
-            <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
-              <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
-                {typeLabel}
-              </Text>
-            </View>
+            <Badge status={typeBadgeStatus} type="Light">{typeLabel}</Badge>
             {activeLabel && activeKey ? (
               <Pressable
                 testID={`active-badge-${activeKey}`}
@@ -135,14 +109,14 @@ export function RoutineStepCard({
                 {/* Compact routine surface: a lightning glyph signals "has
                     actives" — full biomarker tags live on the shelf card only.
                     The glyph stays tappable so INCI attribution is preserved. */}
-                <Icon name="zap" size={12} color={palette.zinc600} />
+                <Icon name="zap" size={16} color={palette.zinc600} />
                 {showAliasIcon ? (
                   <View
                     testID={`active-badge-alias-icon-${activeKey}`}
                     accessibilityLabel="Detected via regional ingredient name"
                     style={styles.aliasIconWrap}
                   >
-                    <Icon name="globe" size={10} color={palette.zinc500} />
+                    <Icon name="globe" size={16} color={palette.zinc500} />
                   </View>
                 ) : null}
               </Pressable>
@@ -169,7 +143,7 @@ export function RoutineStepCard({
 
   const conflictRow = hasConflict ? (
     <View style={styles.conflictRow}>
-      <Icon name="alert-triangle" size={11} color={palette.amber} />
+      <Icon name="alert-triangle" size={16} color={colors.statusWarningAccent} />
       <Text style={styles.conflictText} numberOfLines={1}>
         Conflicts with {conflictingProductName}
       </Text>
@@ -180,8 +154,9 @@ export function RoutineStepCard({
   const adaptationRow =
     adaptationWeek != null ? (
       <View style={styles.adaptationRow}>
+        <Icon name="clock" size={18} color={palette.zinc600} />
         <Text style={styles.adaptationText} numberOfLines={2}>
-          ⏳ Adaptation Phase (Week {adaptationWeek} of 4) — frequency managed to
+          Adaptation Phase (Week {adaptationWeek} of 4) — frequency managed to
           prevent purging
         </Text>
       </View>
@@ -257,7 +232,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardConflict: {
-    borderColor: palette.amber,
+    borderColor: palette.amberLine,
   },
 
   // No padding here — the leading photo bleeds flush to the row's
@@ -312,27 +287,21 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexWrap: 'wrap',
   },
-  typeBadge: {
-    borderRadius: radius.pill,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  typeBadgeText: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: typography.bodySmall.fontSize,
-    lineHeight: typography.bodySmall.lineHeight,
-    includeFontPadding: false,
-  },
   // Neutral gray fill — matches the shelf card's active-badge treatment
   // (one color for all actives on a light gray backing), no colored border.
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     backgroundColor: colors.surfaceSunken,
     borderRadius: radius.pill,
+    // Fixed height + minWidth match the neighboring type Badge's rendered
+    // height (space[1] padding + caption line-height ≈ 28px); minWidth keeps
+    // the common single-icon case a perfect circle, not an oval.
+    height: 28,
+    minWidth: 28,
     paddingHorizontal: 6,
-    paddingVertical: 2,
   },
   aliasIconWrap: {
     alignItems: 'center',
@@ -350,18 +319,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: space[2],
     paddingTop: space[2],
+    paddingBottom: space[2],
+    paddingHorizontal: space[3],
     borderTopWidth: 1,
     borderTopColor: palette.amberLine,
   },
   adaptationRow: {
+    flexDirection: 'row',
+    // flex-start, not center: the text can wrap to 2 lines, and centering
+    // the icon against the whole wrapped block pulls it away from the first
+    // line — top-aligned keeps it level with the text's first line.
+    alignItems: 'flex-start',
+    gap: space[2],
     marginTop: space[2],
     paddingTop: space[2],
+    paddingBottom: space[2],
+    paddingHorizontal: space[3],
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
   },
-  adaptationText: { ...typography.bodySmall, color: colors.textSecondary },
+  adaptationText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
   conflictText: {
     ...typography.bodySmall,
     color: palette.amber,

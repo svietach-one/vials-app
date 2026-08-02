@@ -100,61 +100,59 @@ export function InlineAlert({
     action
   );
 
-  const titleRowContent = (
+  // icon + title + action always share one row, whether or not a title is
+  // given, so a close/X (often a larger tap target than the title's
+  // line-height) lines up against the icon the same way everywhere. When
+  // title is absent, an invisible flex:1 spacer still pushes a trailing
+  // action to the end. Body text renders full-width below, never indented
+  // to match the icon — the same pattern RehabNoticeCard's header/body
+  // split already used, now applied uniformly instead of only when a title
+  // happens to be present.
+  const headerRowContent = (
     <>
       {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
-      <Text style={[styles.title, styles.titleText, { color: textColor }]}>{title}</Text>
+      {title ? (
+        <Text style={[styles.title, styles.titleText, { color: textColor }]}>{title}</Text>
+      ) : (
+        <View style={styles.titleText} />
+      )}
       {resolvedAction ? <View style={styles.actionInline}>{resolvedAction}</View> : null}
     </>
   );
+  const hasHeaderRow = !!(icon || title || resolvedAction);
 
   return (
     <View style={[styles.container, { backgroundColor: bg, borderColor: border }, style]}>
-      {/* Main row: icon + content + action */}
-      <View style={styles.row}>
-        {/* With a title, icon + title + action all share one centered row
-            so a close/X control (often a larger tap-target box than the
-            title's line-height) lines up against both the title text and
-            the icon, instead of centering itself against the whole card.
-            Body text then renders full-width below, unindented — the same
-            pattern RehabNoticeCard's header/body split already uses. With
-            no title, the icon keeps its original position beside the body
-            column, unchanged for those callers. */}
-        {!title && icon ? <View style={styles.iconWrap}>{icon}</View> : null}
-
-        <View style={styles.body}>
-          {title ? (
-            isCollapsible ? (
-              <Pressable
-                style={styles.titleRow}
-                onPress={onToggleCollapse}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: !collapsed }}
-                accessibilityLabel={collapseAccessibilityLabel ?? title}
-              >
-                {titleRowContent}
-              </Pressable>
-            ) : (
-              <View style={styles.titleRow}>{titleRowContent}</View>
-            )
-          ) : null}
-          {summary != null ? (
-            typeof summary === 'string' ? (
-              <Text style={[styles.bodyText, { color: textColor }]}>{summary}</Text>
-            ) : (
-              summary
-            )
-          ) : null}
-          {(!isCollapsible || !collapsed) && children != null ? (
-            typeof children === 'string' ? (
-              <Text style={[styles.bodyText, { color: textColor }]}>{children}</Text>
-            ) : (
-              children
-            )
-          ) : null}
-        </View>
-
-        {!title && resolvedAction ? <View style={styles.actionWrap}>{resolvedAction}</View> : null}
+      <View style={styles.body}>
+        {hasHeaderRow ? (
+          isCollapsible ? (
+            <Pressable
+              style={styles.titleRow}
+              onPress={onToggleCollapse}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: !collapsed }}
+              accessibilityLabel={collapseAccessibilityLabel ?? title}
+            >
+              {headerRowContent}
+            </Pressable>
+          ) : (
+            <View style={styles.titleRow}>{headerRowContent}</View>
+          )
+        ) : null}
+        {summary != null ? (
+          typeof summary === 'string' ? (
+            <Text style={[styles.bodyText, { color: textColor }]}>{summary}</Text>
+          ) : (
+            summary
+          )
+        ) : null}
+        {(!isCollapsible || !collapsed) && children != null ? (
+          typeof children === 'string' ? (
+            <Text style={[styles.bodyText, { color: textColor }]}>{children}</Text>
+          ) : (
+            children
+          )
+        ) : null}
       </View>
     </View>
   );
@@ -169,17 +167,11 @@ const styles = StyleSheet.create({
     paddingVertical: space[3],
     paddingHorizontal: space[4],
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: space[3],
-  },
   iconWrap: {
     marginTop: 2,
     flexShrink: 0,
   },
   body: {
-    flex: 1,
     gap: space[1],
   },
   titleRow: {
@@ -199,9 +191,5 @@ const styles = StyleSheet.create({
   },
   bodyText: {
     ...typography.bodySmall,
-  },
-  actionWrap: {
-    flexShrink: 0,
-    marginLeft: space[2],
   },
 });
