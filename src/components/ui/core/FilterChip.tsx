@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import type { PressableProps, StyleProp, ViewStyle } from 'react-native';
 
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,7 +68,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[2],
   },
   selected: {
-    backgroundColor: colors.controlFill,
+    backgroundColor: palette.plumTintLight,
+    borderWidth: 1,
+    borderColor: palette.plum,
   },
   unselected: {
     backgroundColor: colors.surfaceRaised,
@@ -85,7 +87,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   labelSelected: {
-    color: colors.controlOn,
+    color: palette.plum,
   },
   labelUnselected: {
     color: colors.textSecondary,
@@ -93,7 +95,7 @@ const styles = StyleSheet.create({
   subLabel: {
     ...typography.caption,
     fontFamily: 'DMSans-Medium',
-    color: colors.controlOn,
+    color: palette.plum,
     opacity: 0.75,
   },
 });

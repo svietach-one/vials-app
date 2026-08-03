@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
@@ -16,7 +15,8 @@ import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { Textarea } from '@/components/ui/forms/Textarea';
+import { colors, space, typography } from '@/constants/tokens';
 import type { ClinicStackParamList } from '@/navigation/AppNavigator';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { formatIsoToDateInput, parseDateInput } from '@/utils/dateInput';
@@ -100,18 +100,13 @@ export default function ProcedureDetailScreen({ route, navigation }: Props) {
             returnKeyType="done"
           />
 
-          <View style={styles.noteBlock}>
-            <Text style={styles.noteLabel}>NOTE</Text>
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              placeholder="Add a comment about this procedure…"
-              placeholderTextColor={colors.textTertiary}
-              style={styles.noteInput}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
+          <Textarea
+            label="NOTE"
+            value={note}
+            onChangeText={setNote}
+            placeholder="Add a comment about this procedure…"
+            minHeight={120}
+          />
         </ScrollView>
 
         <View style={styles.footer}>
@@ -142,23 +137,6 @@ const styles = StyleSheet.create({
   procName: {
     ...typography.h3,
     color: colors.textPrimary,
-  },
-  noteBlock: {
-    gap: 7,
-  },
-  noteLabel: {
-    ...typography.label,
-    color: colors.textPrimary,
-  },
-  noteInput: {
-    ...typography.body,
-    color: colors.textPrimary,
-    minHeight: 120,
-    borderWidth: 1,
-    borderColor: colors.borderInput,
-    borderRadius: radius.md,
-    paddingHorizontal: space[3] + 2,
-    paddingVertical: space[3],
   },
   footer: {
     paddingHorizontal: space.gutterScreen,

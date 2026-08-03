@@ -15,6 +15,7 @@ import { Icon } from '@/components/ui/Icon';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Input } from '@/components/ui/forms/Input';
 import { Button } from '@/components/ui/core/Button';
+import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
@@ -322,7 +323,11 @@ export function AddProcedureModal({
                   <Pressable
                     key={opt.key}
                     onPress={() => setSelectedKey(opt.key)}
-                    style={[optStyles.row, active && optStyles.rowActive]}
+                    style={({ pressed }) => [
+                      optStyles.row,
+                      active && optStyles.rowActive,
+                      pressed && optStyles.rowPressed,
+                    ]}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: active }}
                   >
@@ -390,7 +395,11 @@ export function AddProcedureModal({
                         setSymptomPreset(active ? null : preset.key);
                         setRecoveryError(null);
                       }}
-                      style={[optStyles.row, active && optStyles.rowActive]}
+                      style={({ pressed }) => [
+                        optStyles.row,
+                        active && optStyles.rowActive,
+                        pressed && optStyles.rowPressed,
+                      ]}
                       accessibilityRole="radio"
                       accessibilityState={{ selected: active }}
                     >
@@ -423,23 +432,16 @@ export function AddProcedureModal({
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Treated Zones</Text>
               <View style={styles.zoneRow}>
-                {ZONE_OPTIONS.map(({ key, label }) => {
-                  const active = zones.includes(key);
-                  return (
-                    <Pressable
-                      key={key}
-                      onPress={() => toggleZone(key)}
-                      style={[styles.zoneChip, active && styles.zoneChipActive]}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: active }}
-                      accessibilityLabel={`${label} zone`}
-                    >
-                      <Text style={[styles.zoneChipText, active && styles.zoneChipTextActive]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {ZONE_OPTIONS.map(({ key, label }) => (
+                  <FilterChip
+                    key={key}
+                    selected={zones.includes(key)}
+                    onPress={() => toggleZone(key)}
+                    accessibilityLabel={`${label} zone`}
+                  >
+                    {label}
+                  </FilterChip>
+                ))}
               </View>
               <Text style={styles.fieldHint}>
                 Routines are face routines — a procedure that does not touch the face never pauses your products.
@@ -577,26 +579,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: space[2],
   },
-  zoneChip: {
-    paddingHorizontal: space[3],
-    paddingVertical: space[2],
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
-    backgroundColor: colors.bgBase,
-  },
-  zoneChipActive: {
-    borderColor: palette.black,
-    backgroundColor: colors.bgSubtle,
-  },
-  zoneChipText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  zoneChipTextActive: {
-    fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
-  },
   footer: {
     paddingHorizontal: space.gutterScreen,
     paddingVertical: space[4],
@@ -619,8 +601,11 @@ const optStyles = StyleSheet.create({
     backgroundColor: colors.bgBase,
   },
   rowActive: {
-    borderColor: palette.black,
-    backgroundColor: colors.bgSubtle,
+    borderColor: palette.plum,
+    backgroundColor: palette.plumTintLight,
+  },
+  rowPressed: {
+    backgroundColor: palette.plumTintLight,
   },
   radio: {
     width: 20,
@@ -633,13 +618,13 @@ const optStyles = StyleSheet.create({
     flexShrink: 0,
   },
   radioActive: {
-    borderColor: palette.black,
+    borderColor: palette.plum,
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: palette.black,
+    backgroundColor: palette.plum,
   },
   content: {
     flex: 1,

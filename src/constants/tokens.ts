@@ -27,6 +27,9 @@ export const palette = {
   // but clearly lighter, so a fading procedure reads as losing strength.
   plumFade: '#9C6B90',
   plumTint: '#E5DBE3',
+  // Very light wash — background fill for selected/pressed states where
+  // plumTint would read too saturated (e.g. radio cards).
+  plumTintLight: '#FBF5FA',
   plumLine: '#D8CBD5',
 
   zinc50: '#FAFAFA',
@@ -42,26 +45,35 @@ export const palette = {
 
   cabernet: '#800C2E',
   red: '#B40018',
+  // Sole orange/warm shade. Doubles as the "morning" accent everywhere a sun
+  // glyph appears: Routines period headers, calendar lanes — as well as
+  // warning status (statusWarning*). My Shelf's sun badge uses golden instead.
   amber: '#A84C0E',
-  // Warm orange. Doubles as the "morning" accent everywhere a sun glyph
-  // appears: Routines period headers, My Shelf card badges, calendar lanes.
-  marigold: '#EB970D',
+  // Muted yellow-gold — My Shelf's sun (morning) badge specifically.
+  golden: '#B38A00',
   bottleGreen: '#0F4C3A',
   cobalt: '#1E3A8A',
+  cian: '#025A64',
+  coffee: '#644445',
 
   // Tints (15–18% saturation on white — approximated as flat values)
   cabernetTint: '#F8E9ED',
   redTint: '#F9E6E8',
   amberTint: '#FDF0E6',
-  marigoldTint: '#FCEFDB',
+  goldenTint: '#FFF7DD',
   bottleGreenTint: '#EBF4F1',
   cobaltTint: '#EBF0FA',
+  cianTint: '#E5F6F8',
+  coffeeTint: '#F5EDEA',
 
   // Hairlines (22% saturation)
   cabernetLine: '#DDB8C3',
   amberLine: '#E6C4AB',
+  goldenLine: '#F1E0AA',
   bottleGreenLine: '#B8D4CC',
   cobaltLine: '#B8C8E6',
+  cianLine: '#ABD9DE',
+  coffeeLine: '#E5DDDD',
 } as const;
 
 export const colors = {
@@ -100,9 +112,9 @@ export const colors = {
   statusErrorTint: palette.redTint,
   statusSOS: palette.cabernet,
   statusWarning: palette.amber,
-  // Warning accent for icons and borders — brighter than statusWarning, which
-  // stays amber for text where #EB970D lacks contrast.
-  statusWarningAccent: palette.marigold,
+  // Warning accent for icons and borders. Same hue as statusWarning now that
+  // marigold was folded into the single amber shade.
+  statusWarningAccent: palette.amber,
   statusSafe: palette.bottleGreen,
   statusInfo: palette.cobalt,
 
@@ -112,7 +124,7 @@ export const colors = {
   statusInfoTint: palette.cobaltTint,
 
   statusSOSLine: palette.cabernetLine,
-  statusWarningLine: palette.marigold,
+  statusWarningLine: palette.amberLine,
   statusSafeLine: palette.bottleGreenLine,
   statusInfoLine: palette.cobaltLine,
 } as const;

@@ -2,11 +2,11 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, TextStyle, ViewProps, ViewStyle } from 'react-native';
 
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type BadgeStatus = 'Default' | 'Green' | 'Cobalt' | 'Cabernet' | 'Amber';
+export type BadgeStatus = 'Default' | 'Green' | 'Cobalt' | 'Cabernet' | 'Amber' | 'Golden' | 'Cian' | 'Coffee';
 export type BadgeType = 'Light' | 'Dark';
 
 export interface BadgeProps extends Omit<ViewProps, 'style'> {
@@ -32,6 +32,12 @@ const bgStyles = StyleSheet.create({
   Cabernet_Dark:  { backgroundColor: colors.statusSOS },
   Amber_Light:    { backgroundColor: colors.statusWarningTint },
   Amber_Dark:     { backgroundColor: colors.statusWarning },
+  Golden_Light:   { backgroundColor: palette.goldenTint },
+  Golden_Dark:    { backgroundColor: palette.golden },
+  Cian_Light:     { backgroundColor: palette.cianTint },
+  Cian_Dark:      { backgroundColor: palette.cian },
+  Coffee_Light:   { backgroundColor: palette.coffeeTint },
+  Coffee_Dark:    { backgroundColor: palette.coffee },
 });
 
 const fgStyles = StyleSheet.create({
@@ -45,6 +51,12 @@ const fgStyles = StyleSheet.create({
   Cabernet_Dark:  { color: colors.controlOn },
   Amber_Light:    { color: colors.statusWarning },
   Amber_Dark:     { color: colors.controlOn },
+  Golden_Light:   { color: palette.golden },
+  Golden_Dark:    { color: colors.controlOn },
+  Cian_Light:     { color: palette.cian },
+  Cian_Dark:      { color: colors.controlOn },
+  Coffee_Light:   { color: palette.coffee },
+  Coffee_Dark:    { color: colors.controlOn },
 });
 
 type VariantKey = keyof typeof bgStyles;
