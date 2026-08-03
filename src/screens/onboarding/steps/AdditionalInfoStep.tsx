@@ -3,12 +3,9 @@ import React, { useState } from 'react';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Switch } from '@/components/ui/forms/Switch';
 import { SkinConcernsSelector } from '@/components/profile/SkinConcernsSelector';
+import { PREGNANCY_HINT, PREGNANCY_LABEL } from '@/constants/labels';
 import type { SkinConcern, SkinConditionType, UserProfile } from '@/types';
 import { StepLayout } from './StepLayout';
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const PREGNANCY_LABEL = 'Pregnant or breastfeeding';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,7 +59,7 @@ export function AdditionalInfoStep({
           />
         }
       >
-        We'll flag retinoids and other restricted actives.
+        {PREGNANCY_HINT}
       </InlineAlert>
 
       <SkinConcernsSelector

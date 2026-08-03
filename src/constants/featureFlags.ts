@@ -92,3 +92,13 @@ export const PROPOSED_V12_PAIR_RULES_ENABLED = false;
  * docs/specs/pregnancy-pin-survival-fix.md, tech-lead ACCEPT 2026-07-30.
  */
 export const PREGNANCY_SAFETY_ENABLED = true;
+
+/**
+ * "Stored locally on this device" InlineAlert in Profile → Your Data,
+ * warning that Vials doesn't sync to the cloud and prompting a manual
+ * export.
+ *
+ * **OFF.** Parked mid-iteration on the local-storage/export messaging —
+ * revisit before re-enabling. Export All Data itself is unaffected.
+ */
+export const LOCAL_STORAGE_NOTICE_ENABLED = false;

@@ -21,6 +21,7 @@ import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { ListRow } from '@/components/ui/core/ListRow';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
+import { LOCAL_STORAGE_NOTICE_ENABLED } from '@/constants/featureFlags';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { switchCycleType } from '@/domain/trackingActions';
 import { useProceduresStore } from '@/store/proceduresStore';
@@ -455,13 +456,15 @@ export default function ProfileScreen() {
         {/* ── Data ─────────────────────────────────────────────────────── */}
         <View style={styles.section}>
           <SectionHeader title="Your Data" />
-          <InlineAlert
-            tone="info"
-            icon={<Icon name="hard-drive" size={14} color={colors.statusInfo} />}
-            title="Stored locally on this device"
-          >
-            Vials does not sync to the cloud. Export your data regularly to avoid losing it if you switch devices or reinstall the app.
-          </InlineAlert>
+          {LOCAL_STORAGE_NOTICE_ENABLED ? (
+            <InlineAlert
+              tone="info"
+              icon={<Icon name="hard-drive" size={14} color={colors.statusInfo} />}
+              title="Stored locally on this device"
+            >
+              Vials does not sync to the cloud. Export your data regularly to avoid losing it if you switch devices or reinstall the app.
+            </InlineAlert>
+          ) : null}
           <View style={styles.card}>
             <ListRow
               leading={<Icon name="upload-cloud" size={18} color={colors.textSecondary} />}

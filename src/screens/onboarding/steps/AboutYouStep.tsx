@@ -6,18 +6,14 @@ import { ListRow } from '@/components/ui/core/ListRow';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { colors, space, typography } from '@/constants/tokens';
+import {
+  GENDER_CAPTION,
+  GENDER_OPTIONS,
+  HORMONE_THERAPY_HINT,
+  HORMONE_THERAPY_LABEL,
+} from '@/constants/labels';
 import type { UserProfile } from '@/types';
 import { StepLayout } from './StepLayout';
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const GENDER_OPTIONS: { value: 'female' | 'male' | null; label: string }[] = [
-  { value: 'female', label: 'Female' },
-  { value: 'male', label: 'Male' },
-  { value: null, label: 'Prefer not to say' },
-];
-
-const HORMONE_LABEL = 'Currently on hormone therapy';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,22 +83,19 @@ export function AboutYouStep({
         ))}
       </View>
 
-      <Text style={styles.caption}>
-        Skin differs physiologically between men and women — this affects how products perform. We
-        ask to personalize, not out of curiosity.
-      </Text>
+      <Text style={styles.caption}>{GENDER_CAPTION}</Text>
 
       <View style={styles.divider} />
 
       <ListRow
-        title={HORMONE_LABEL}
-        subtitle="Affects oil production and sensitivity, regardless of the gender selected above."
+        title={HORMONE_THERAPY_LABEL}
+        subtitle={HORMONE_THERAPY_HINT}
         divider={false}
         trailing={
           <Switch
             checked={hormoneTherapy}
             onValueChange={setHormoneTherapy}
-            accessibilityLabel={HORMONE_LABEL}
+            accessibilityLabel={HORMONE_THERAPY_LABEL}
           />
         }
       />

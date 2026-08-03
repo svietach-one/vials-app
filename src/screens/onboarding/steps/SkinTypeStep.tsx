@@ -3,17 +3,9 @@ import { StyleSheet, View } from 'react-native';
 
 import { FilterChip } from '@/components/ui/core/FilterChip';
 import { space } from '@/constants/tokens';
+import { SKIN_TYPE_OPTIONS } from '@/constants/labels';
 import type { SkinType, UserProfile } from '@/types';
 import { StepLayout } from './StepLayout';
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const SKIN_TYPES: { value: SkinType; label: string }[] = [
-  { value: 'oily', label: 'Oily' },
-  { value: 'dry', label: 'Dry' },
-  { value: 'combination', label: 'Combination' },
-  { value: 'normal', label: 'Normal' },
-];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,7 +33,7 @@ export function SkinTypeStep({ initialSkinType, onNext, onSkip, progressRing }: 
       progressRing={progressRing}
     >
       <View style={styles.chipRow}>
-        {SKIN_TYPES.map((t) => (
+        {SKIN_TYPE_OPTIONS.map((t) => (
           <FilterChip key={t.value} selected={skinType === t.value} onPress={() => setSkinType(t.value)}>
             {t.label}
           </FilterChip>
