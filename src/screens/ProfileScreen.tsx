@@ -472,13 +472,17 @@ export default function ProfileScreen() {
               }
               divider={false}
             />
+            <InlineAlert tone="neutral">
+              <View style={styles.settingsHintStack}>
+                <Text style={styles.settingsHintText}>
+                  Previously shared photos remain in the database.
+                </Text>
+                <Text style={styles.settingsHintText}>
+                  Turning this off stops future contributions. Products already shared stay in the database.
+                </Text>
+              </View>
+            </InlineAlert>
           </View>
-          <Text style={styles.settingsHint}>
-            Previously shared photos remain in the database.
-          </Text>
-          <Text style={styles.settingsHint}>
-            Turning this off stops future contributions. Products already shared stay in the database.
-          </Text>
         </View>
 
         {/* ── Weather & Seasons ────────────────────────────────────────── */}
@@ -615,8 +619,10 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    // Matches the card padding (space[4]) + ListRow's own inset (space[1])
+    // so this icon lines up with every leading icon below it (e.g. Settings).
     paddingVertical: space[4],
+    paddingLeft: space[4] + space[1],
     gap: space[3],
   },
   statDivider: {
@@ -638,8 +644,9 @@ const styles = StyleSheet.create({
 
   section: { gap: space[2] },
 
-  settingsHint: {
-    ...typography.caption,
-    color: colors.textTertiary,
+  settingsHintStack: { gap: space[1] },
+  settingsHintText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
 });
