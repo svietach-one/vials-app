@@ -119,6 +119,10 @@ jest.mock('@/store/settingsStore', () => ({
       setRehabNoticeCollapsed: jest.fn(),
       routineNoticeCollapsed: {},
       setRoutineNoticeCollapsed: jest.fn(),
+      // GoalCoverageBanner (engine4.1 §3) is not mocked out like
+      // SeasonalNoticeBanner is above, so it reads these for real.
+      dismissedBanners: [],
+      dismissBanner: jest.fn(),
     }),
   ),
 }));

@@ -1,7 +1,7 @@
 {
   "task": "routine-engine-v2-2",
-  "phase": "engineer",
-  "status": "IMPLEMENTED",
+  "phase": "tech-lead",
+  "status": "SHIPPED",
   "flags": {
     "backend_layer": false,
     "frontend_layer": true,
@@ -99,6 +99,25 @@
       "US-26 lint coverage in advisoryCopy.test.ts (collector must reach every template table)",
       "RehabNotice.aggressive added to a render-only derived type",
       "ConflictWarningInline's prop contract: it takes RENDERED steps, never routines — the frozen-step fix depends on callers keeping that"
+    ]
+  },
+  "tech_lead_review": {
+    "verdict": "ACCEPT",
+    "date": "2026-08-04",
+    "reviewed_commit": "9078369",
+    "branch_reviewed_on": "goal-coverage-safety-guard",
+    "checklist": {
+      "us27_no_op_guarantee": "PASS - 10-case pair matrix in skinConditionModifiers.test.ts asserts equality vs forced-empty conditions; density/spf gate tests confirm silence outside trigger conditions",
+      "us26_banned_phrase_lint_coverage": "PASS - advisoryCopy.test.ts allTemplates() scans CONDITION_MODIFIERS, RECOVERY_CAUTIONS, DENSITY_MESSAGES, CONDITION_DISCLAIMER, and buildSpfAdequacyMessage (all 3 features), guarded by length>15 assertion",
+      "no_cabernet_no_blocking": "PASS - grep confirms tone=sos never used by ConflictWarningInline/RehabNoticeCard/ProcedureLifespanCard/SeasonalNoticeBanner; only pre-existing AddProcedureModal.tsx uses sos; no advisory function output feeds a disabled prop",
+      "tsc_noemit": "clean, 0 errors",
+      "jest": "138/148 suites, 1583/1666 tests, 2 todo. All Phase 8-10-owned suites pass. Baseline's 4 pre-existing failures unchanged. 6 additional failures traced via git log to post-9078369 commits (fcee49a5, 2b67aa14) touching labels.ts/ProductShelfCard.tsx/ProductDetailScreen.tsx/WeeklyPlanView.tsx/RoutineCalendarView - none are Phase 8-10 files, no regression attributable to this task",
+      "architecture_review": "PASS - no AsyncStorage/fetch/React-import layer violations, no hardcoded colors, no TODO/FIXME/HACK, no console.log/debugger, no genuine type duplication (local types match established ConflictResult/planTypes.ts/rulesetTypes.ts convention). WARNING (non-blocking): getConditionRiskWarnings (~55 lines) and ConflictWarningInline main component (~77 lines incl. JSX) exceed the 50-line guideline"
+    },
+    "notes": [
+      "Branch-wide jest baseline has drifted to 10 pre-existing failures (not the 4 recorded when this task baseline was captured) due to later, unrelated commits landing on this branch after 9078369 - flagged for whoever owns branch test health, not a blocker for this task",
+      "Design fidelity confirmed: src/types/index.ts diff matches the engineer log exactly (AdvisorySeverity, SkinConditionType, BarrierIngredientKey, Product.spfValue, RehabNotice.aggressive, UserProfile.skinConditions), no extra/missing fields",
+      "Engineer's own self-review pass (2026-07-26) already caught and fixed 2 real blockers and 2 warnings before this review - both fixes re-verified present in current source"
     ]
   }
 }

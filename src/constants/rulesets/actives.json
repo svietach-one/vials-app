@@ -336,6 +336,24 @@
         "dark_spots"
       ]
     },
+    "hydroquinone": {
+      "displayName": "Hydroquinone",
+      "matchers": [
+        {
+          "pattern": "\\bhydroquinone\\b",
+          "potency": "rx"
+        }
+      ],
+      "properties": {
+        "photosensitizing": true,
+        "exfoliating": false,
+        "irritancy": 3,
+        "barrierRepair": false
+      },
+      "allowedPeriods": [
+        "pm"
+      ]
+    },
     "copper_peptides": {
       "displayName": "Copper Peptides",
       "matchers": [

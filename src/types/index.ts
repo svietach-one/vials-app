@@ -17,6 +17,13 @@ export type ActiveIngredientKey =
   | 'niacinamide'
   | 'benzoyl_peroxide'
   | 'azelaic_acid'
+  /**
+   * Pregnancy-restricted skin-lightening agent (ACOG/AAD-consensus tier,
+   * engine4.1 handoff §4). Not wired into `actives.json`'s `goals` block —
+   * this class exists so the pregnancy freeze can see it, not to compete for
+   * treatment-slot selection.
+   */
+  | 'hydroquinone'
   | 'copper_peptides'
   | 'peptide_signal'
   | 'peptide_neuro'

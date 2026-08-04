@@ -32,14 +32,26 @@ export {
 } from '../routine-engine/fixtures';
 
 /**
- * A product carrying the retinoid class — the only class this task freezes
- * (spec §3 non-goals explicitly excludes AHA/BHA/benzoyl_peroxide/
- * hydroquinone). `usageTime: 'evening'` matches how a real retinoid product
- * would be tagged (PM-only class, period-safety.test.ts).
+ * A product carrying the retinoid class, one of the two classes the pregnancy
+ * freeze targets (spec §3 non-goals explicitly excludes AHA/BHA/benzoyl_
+ * peroxide/salicylic acid — concentration-dependent, engine can't dose-
+ * distinguish; hydroquinone was added in engine4.1 handoff §4, see
+ * `makeHydroquinoneProduct`). `usageTime: 'evening'` matches how a real
+ * retinoid product would be tagged (PM-only class, period-safety.test.ts).
  */
 export function makeRetinoidProduct(overrides: Partial<Product> = {}): Product {
   return makeProduct({
     activeTags: ['retinoid'],
+    productType: 'serum',
+    usageTime: 'evening',
+    ...overrides,
+  });
+}
+
+/** A product carrying the hydroquinone class — the second pregnancy-freeze target (engine4.1 handoff §4). PM-only, same as retinoid. */
+export function makeHydroquinoneProduct(overrides: Partial<Product> = {}): Product {
+  return makeProduct({
+    activeTags: ['hydroquinone'],
     productType: 'serum',
     usageTime: 'evening',
     ...overrides,

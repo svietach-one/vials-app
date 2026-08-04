@@ -1,4 +1,4 @@
-Status: IMPLEMENTED (awaiting tech-lead review)
+Status: SHIPPED — tech-lead ACCEPT (2026-08-04)
 Tech Design: docs/specs/routine-engine-v2.2/ (PRD_Spec.md v1.2, USER_STORIES.md US-23–US-29, IMPLEMENTATION_PLAN.md Phases 8–10)
 Code: Phases 8, 9, 10 complete — see log
 
@@ -7,7 +7,7 @@ Code: Phases 8, 9, 10 complete — see log
 - [x] Technical design (spec package provided directly, no planner pass)
 - [x] QA tests (component tests in tests/skin-conditions/, added by engineer — no qa-lead pass)
 - [x] Implementation (engineer)
-- [ ] Architecture review (tech-lead)
+- [x] Architecture review (tech-lead)
 
 ## Log
 
@@ -182,3 +182,77 @@ and diverging would be worse than the inconsistency.
   PRE-EXISTING on this branch — verified identical (same 4 suites, same 3 test
   failures, same `shadow.sm` module-mock error) before any file in this task was
   touched. Baseline before this work: 116/120 suites, 1366 tests passing.
+
+## Tech-lead review
+
+2026-08-04 — tech-lead: ACCEPT. Reviewed commit `9078369` on `goal-coverage-safety-guard`
+(branched from `dev`, includes that commit) against the checklist below. No code changes
+requested.
+
+1. **US-27 no-op guarantee** — verified. `src/utils/skinConditionModifiers.test.ts`'s
+   `describe('US-27 no-op guarantee...')` runs a 10-case ingredient-pair matrix (avoid-tier,
+   caution-tier, non-conflicting, out-of-matrix, and inert pairs) through
+   `applyConditionSeverityModifiers`/`getConditionRiskWarnings` and asserts the rendered
+   severity equals the raw engine projection with `escalated: false` and no advisory rows —
+   plus a "never mutates the engine result" test and a recovery-caution no-op test. Density
+   (`activeIngredientDensity.test.ts`) and SPF (`spfAdequacy.test.ts`) both have separate,
+   passing gate/threshold tests proving silence outside their trigger conditions (< 2 shared
+   actives; non-Light/Fair phototype; non-summer; unknown/adequate SPF). All three suites pass.
+2. **US-26 banned-phrase lint coverage** — verified. `src/utils/advisoryCopy.test.ts`'s
+   `allTemplates()` collects `CONDITION_MODIFIERS` (labels + advisories), `RECOVERY_CAUTIONS`,
+   `DENSITY_MESSAGES` (all groups/tiers), `CONDITION_DISCLAIMER`, and
+   `buildSpfAdequacyMessage(...)` — all three shipped features' copy — scans each against
+   `BANNED_ADVISORY_PHRASES` (cannot/can't/must not/forbidden/unsafe/do not use/you should
+   not/never use, plus prohibited), and guards against a silently-shrinking collector
+   (`length > 15`). `findBannedPhrases` scans every occurrence, not just the first (regression
+   test for the self-reviewed indexOf bug included).
+3. **No Cabernet / no blocking** — verified by reading source + `grep -rn "'sos'"`.
+   `ConflictWarningInline`'s `ConflictRow`/`AdvisoryRow`/`DensityRow`, `RehabNoticeCard`
+   (incl. `conditionCaution`), `ProcedureLifespanCard` (incl. `conditionCaution`, plain Amber
+   `Text`, no `InlineAlert`), and `SeasonalNoticeBanner`'s SPF banner never pass `tone="sos"` —
+   the only 3 `sos` usages in `src/` are pre-existing clinical checks in `AddProcedureModal.tsx`,
+   untouched by this task. Traced every call site of the new advisory functions
+   (`applyConditionSeverityModifiers`, `getConditionRiskWarnings`, `getRecoveryConditionCaution`,
+   `getActiveDensityFindings`, `applyConditionDensityModifiers`, `getSpfAdequacyFinding`) — none
+   feed a `disabled` prop; Save buttons gate on unrelated state (e.g. `!name.trim()`).
+4. **`npx tsc --noEmit`** — clean, 0 errors.
+5. **`npx jest --testPathIgnorePatterns="worktrees"`** — 138/148 suites, 1583/1666 tests,
+   2 todo. All Phase 8-10-owned suites pass (`skinConditionModifiers`, `barrierTags`,
+   `activeIngredientDensity`, `spfAdequacy`, `advisoryCopy`, `proposedPairRules`,
+   `conflictEngine`, `routineEngine/migrations`, `routineEngine/rehabFilter`,
+   `tests/skin-conditions/*`). The 4 suites recorded as pre-existing in this log
+   (`shelf-filtering/PaoChip.integration`, `catalog/catalog-screen`, `catalog/product-detail`,
+   `catalog/add-product-hub`) are still failing with the same root cause. 6 additional suites
+   now fail on this branch (`catalog/catalog-screen-hide-toggle.integration`,
+   `catalog/product-shelf-card-hidden`, `product-shelf-card/ProductShelfCard`,
+   `routines/weekly-plan-view-hidden-filter`, `product-images/RoutineCalendarView`,
+   `inci-attribution-highlighting/DetectedActiveBadgeWiring`) — traced via `git log --follow`
+   to `getProductTypeBadgeStatus` (added in `fcee49a5`, product-detail/badge-category redesign)
+   and an `EmptyState` copy change (`2b67aa14`), both **after** `9078369` and touching only
+   `labels.ts` / `ProductShelfCard.tsx` / `ProductDetailScreen.tsx` / `WeeklyPlanView.tsx` /
+   `RoutineCalendarView` — none of which this task modified. No regression attributable to
+   Phases 8-10. Flagging for whoever owns branch-wide test health: this branch's true baseline
+   has drifted to 10 pre-existing failures, not 4 — worth a refresh pass outside this task.
+6. **Architecture pass** (`.claude/rules/architecture-review.md`, scoped to the 25 files this
+   commit touched) — no direct `AsyncStorage` outside `services/storage.ts`, no React imports
+   in the new `src/utils/*.ts` modules, no `fetch(` outside `src/services/`, no hardcoded hex
+   colors in the touched screens/components, no `TODO`/`FIXME`/`HACK`, no `console.log`/
+   `debugger`. Local exported interfaces in `skinConditionModifiers.ts`/
+   `activeIngredientDensity.ts`/`spfAdequacy.ts` (`ConditionAdvisory`, `DensityFinding`,
+   `SpfAdequacyFinding`, etc.) mirror the codebase's existing convention of colocating
+   module-computed shapes near their producer (cf. `ConflictResult` sibling pattern,
+   `routineEngine/planTypes.ts`, `rulesets/rulesetTypes.ts`) — true cross-cutting domain
+   additions (`AdvisorySeverity`, `SkinConditionType`, `BarrierIngredientKey`,
+   `Product.spfValue`, `RehabNotice.aggressive`, `UserProfile.skinConditions`) are correctly in
+   `src/types/index.ts`, confirmed against the commit diff. WARNING (non-blocking, per the
+   severity matrix): `getConditionRiskWarnings` (skinConditionModifiers.ts:282-337, ~55 lines)
+   and `ConflictWarningInline`'s main component (~77 lines incl. JSX) are over the 50-line
+   guideline — both single-purpose and readable; no action required to merge.
+7. **Design fidelity** — diffed `src/types/index.ts` against the commit; new fields match the
+   engineer's log exactly, no extra/missing fields. The engineer's own self-review pass (logged
+   above, dated 2026-07-26) had already caught and fixed 2 real blockers
+   (frozen-step/`frozenStepIds` mismatch, `findBannedPhrases` single-occurrence bug) and 2
+   warnings before this review — re-verified both fixes are present in the current source.
+
+Verdict: **ACCEPT**. No blockers. One informational note (branch-wide jest baseline drift,
+unrelated to this task) and one non-blocking WARNING (function length) carried forward above.

@@ -107,6 +107,7 @@ export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   niacinamide: 'Niacinamide',
   benzoyl_peroxide: 'Benzoyl Peroxide',
   azelaic_acid: 'Azelaic Acid',
+  hydroquinone: 'Hydroquinone',
   copper_peptides: 'Copper Peptides',
   peptide_signal: 'Signal Peptides',
   peptide_neuro: 'Neuro Peptides',

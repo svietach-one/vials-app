@@ -28,6 +28,7 @@ import { reasonText } from '@/constants/decisionReasons';
 import { getDailyView } from '@/utils/routineEngine/dailyView';
 import { generatePlan } from '@/utils/routineEngine/generate';
 import {
+  makeHydroquinoneProduct,
   makePregnancyDailyViewInput,
   makePregnancyEngineInput,
   makeProduct,
@@ -115,6 +116,38 @@ describe('Story 1 AC5: a non-pregnant profile contributes no pregnancy freeze, e
     // so the retinoid must be either scheduled or in ordinary (non-frozen) reserve.
     expect(plan.frozen).toHaveLength(0);
     expect(plan.reserve.some((r) => r.productId === retinoid.id)).toBe(true);
+  });
+});
+
+describe('engine4.1 §4: hydroquinone is frozen the same way retinoid is', () => {
+  it('excludes a hydroquinone product from both periods, with reasonCode pregnancy_blocked in plan.frozen', () => {
+    // Arrange
+    const hydroquinone = makeHydroquinoneProduct();
+    const cleanser = makeProduct({ productType: 'cleanser' });
+
+    // Act
+    const plan = generatePlan(makePregnancyEngineInput([cleanser, hydroquinone], true));
+
+    // Assert
+    expect(plan.periods.morning.map((s) => s.productId)).not.toContain(hydroquinone.id);
+    expect(plan.periods.evening.map((s) => s.productId)).not.toContain(hydroquinone.id);
+    expect(plan.frozen).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ productId: hydroquinone.id, reasonCode: 'pregnancy_blocked' }),
+      ]),
+    );
+  });
+
+  it('never rejects hydroquinone for pregnancy when the profile is not pregnant, even with the flag on', () => {
+    // Arrange
+    const hydroquinone = makeHydroquinoneProduct();
+
+    // Act
+    const plan = generatePlan(makePregnancyEngineInput([hydroquinone], false));
+
+    // Assert
+    expect(plan.frozen).toHaveLength(0);
+    expect(plan.reserve.some((r) => r.productId === hydroquinone.id)).toBe(true);
   });
 });
 
