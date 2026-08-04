@@ -70,11 +70,11 @@ describe('AdditionalInfoStep — copy (SCREENS_onboarding_spec.md Step 5 of 5)',
     });
   });
 
-  it('labels the primary footer button "Finish", not "Next" — this is always the last step', () => {
+  it('labels the primary footer button "Next" — the city step follows it', () => {
     renderStep();
 
-    expect(screen.getByText('Finish')).toBeTruthy();
-    expect(screen.queryByText('Next')).toBeNull();
+    expect(screen.getByText('Next')).toBeTruthy();
+    expect(screen.queryByText('Finish')).toBeNull();
   });
 });
 
@@ -98,23 +98,23 @@ describe('AdditionalInfoStep — pregnancy toggle renders in a warning-tone Inli
 });
 
 describe('AdditionalInfoStep — pregnancy toggle persists to pregnantOrBreastfeeding (spec Story 6 AC2/AC3)', () => {
-  it('calls onNext with pregnantOrBreastfeeding: true after turning the toggle on and pressing Finish', () => {
+  it('calls onNext with pregnantOrBreastfeeding: true after turning the toggle on and pressing Next', () => {
     const props = renderStep();
 
     fireEvent.press(screen.getByRole('switch', { name: PREGNANCY_LABEL }));
-    fireEvent.press(screen.getByText('Finish'));
+    fireEvent.press(screen.getByText('Next'));
 
     expect(props.onNext).toHaveBeenCalledTimes(1);
     expect((props.onNext as jest.Mock).mock.calls[0][0]).toMatchObject({ pregnantOrBreastfeeding: true });
   });
 
-  it('is off by default and is not required to Finish', () => {
+  it('is off by default and is not required to advance', () => {
     const props = renderStep();
 
     expect(
       screen.getByRole('switch', { name: PREGNANCY_LABEL }).props.accessibilityState.checked,
     ).toBe(false);
-    fireEvent.press(screen.getByText('Finish'));
+    fireEvent.press(screen.getByText('Next'));
     expect(props.onNext).toHaveBeenCalledTimes(1);
   });
 

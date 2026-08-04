@@ -110,12 +110,15 @@ const styles = StyleSheet.create({
   },
   header: { gap: space[2] },
   title: { ...typography.h2, color: colors.textPrimary },
-  subtitle: { ...typography.body, color: colors.textSecondary },
+  subtitle: { ...typography.body, color: colors.textPrimary },
   footer: {
     flexDirection: 'row',
     paddingHorizontal: space.gutterScreen,
+    paddingTop: space[4],
     paddingBottom: space[8],
     gap: space[2],
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
   },
   footerButton: {
     flex: 1,
