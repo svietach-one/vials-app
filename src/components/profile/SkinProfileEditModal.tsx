@@ -197,15 +197,17 @@ export function SkinProfileEditModal({
             <View style={styles.divider} />
 
             {/* Age */}
-            <Input
-              label="Age"
-              value={ageText}
-              onChangeText={setAgeText}
-              placeholder="e.g. 28"
-              keyboardType="number-pad"
-              maxLength={3}
-              returnKeyType="done"
-            />
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Age</Text>
+              <Input
+                value={ageText}
+                onChangeText={setAgeText}
+                placeholder="e.g. 28"
+                keyboardType="number-pad"
+                maxLength={3}
+                returnKeyType="done"
+              />
+            </View>
 
             {/* Gender */}
             <View style={styles.field}>
