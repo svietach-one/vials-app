@@ -331,14 +331,13 @@ export function AddProcedureModal({
                     accessibilityRole="radio"
                     accessibilityState={{ selected: active }}
                   >
-                    <View style={[optStyles.radio, active && optStyles.radioActive]}>
-                      {active ? <View style={optStyles.radioDot} /> : null}
-                    </View>
                     <View style={optStyles.content}>
                       <Text style={[optStyles.label, active && optStyles.labelActive]}>
                         {opt.label}
                       </Text>
-                      <Text style={optStyles.meta}>{opt.meta}</Text>
+                      <Text style={[optStyles.meta, active && optStyles.metaActive]}>
+                        {opt.meta}
+                      </Text>
                     </View>
                   </Pressable>
                 );
@@ -403,14 +402,13 @@ export function AddProcedureModal({
                       accessibilityRole="radio"
                       accessibilityState={{ selected: active }}
                     >
-                      <View style={[optStyles.radio, active && optStyles.radioActive]}>
-                        {active ? <View style={optStyles.radioDot} /> : null}
-                      </View>
                       <View style={optStyles.content}>
                         <Text style={[optStyles.label, active && optStyles.labelActive]}>
                           {preset.label}
                         </Text>
-                        <Text style={optStyles.meta}>{preset.meta}</Text>
+                        <Text style={[optStyles.meta, active && optStyles.metaActive]}>
+                          {preset.meta}
+                        </Text>
                       </View>
                     </Pressable>
                   );
@@ -607,25 +605,6 @@ const optStyles = StyleSheet.create({
   rowPressed: {
     backgroundColor: palette.plumTintLight,
   },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: colors.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  radioActive: {
-    borderColor: palette.plum,
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: palette.plum,
-  },
   content: {
     flex: 1,
     gap: 2,
@@ -641,5 +620,11 @@ const optStyles = StyleSheet.create({
   meta: {
     ...typography.caption,
     color: colors.textTertiary,
+  },
+  // Same darker gray as ReplaceStepSheet's selected-row secondary text
+  // (optionBrand) — the light tertiary gray reads too faint once the card
+  // itself is already highlighted (plum border + tint).
+  metaActive: {
+    color: colors.textSecondary,
   },
 });

@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Switch } from '@/components/ui/forms/Switch';
 import { SkinConcernsSelector } from '@/components/profile/SkinConcernsSelector';
+import { colors } from '@/constants/tokens';
+import { PREGNANCY_HINT, PREGNANCY_LABEL } from '@/constants/labels';
 import type { SkinConcern, SkinConditionType, UserProfile } from '@/types';
 import { StepLayout } from './StepLayout';
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const PREGNANCY_LABEL = 'Pregnant or breastfeeding';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +50,15 @@ export function AdditionalInfoStep({
       nextLabel="Finish"
       progressRing={progressRing}
     >
+      <SkinConcernsSelector
+        concerns={concerns}
+        skinConditions={skinConditions}
+        onChangeConcerns={setConcerns}
+        onChangeConditions={setSkinConditions}
+      />
+
+      <View style={styles.divider} />
+
       <InlineAlert
         tone="warning"
         title={PREGNANCY_LABEL}
@@ -62,15 +70,14 @@ export function AdditionalInfoStep({
           />
         }
       >
-        We'll flag retinoids and other restricted actives.
+        {PREGNANCY_HINT}
       </InlineAlert>
-
-      <SkinConcernsSelector
-        concerns={concerns}
-        skinConditions={skinConditions}
-        onChangeConcerns={setConcerns}
-        onChangeConditions={setSkinConditions}
-      />
     </StepLayout>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  divider: { height: 1, backgroundColor: colors.borderDivider },
+});

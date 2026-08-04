@@ -67,9 +67,9 @@ import {
   type AccordionState,
 } from '@/utils/routineAccordion';
 import {
-  resolveRehabNoticeCollapsed,
-  toRehabNoticeCollapseEntry,
-} from '@/utils/rehabNoticeCollapse';
+  resolveNoticeCollapsed,
+  toNoticeCollapseEntry,
+} from '@/utils/noticeCollapse';
 import { getAdaptationStatus } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { getDailyView, type FrozenStepView } from '@/utils/routineEngine/dailyView';
@@ -448,14 +448,14 @@ export default function RoutinesScreen({ navigation }: Props) {
             restrictions in a single card; the two former cards would read as
             needlessly anxious). Self-destructs when its window ends. */}
         {rehabNotices.map((notice) => {
-          const collapsed = resolveRehabNoticeCollapsed(persistedRehabCollapse[notice.key]);
+          const collapsed = resolveNoticeCollapsed(persistedRehabCollapse[notice.key]);
           return (
             <RehabNoticeCard
               key={notice.key}
               notice={notice}
               collapsed={collapsed}
               onToggleCollapse={() =>
-                setRehabNoticeCollapsed(notice.key, toRehabNoticeCollapseEntry(!collapsed))
+                setRehabNoticeCollapsed(notice.key, toNoticeCollapseEntry(!collapsed))
               }
               conditionCaution={getRecoveryConditionCaution(profile?.skinConditions ?? [], {
                 aggressive: notice.aggressive,

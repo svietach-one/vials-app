@@ -117,6 +117,8 @@ jest.mock('@/store/settingsStore', () => ({
       setRoutineAccordion: jest.fn(),
       rehabNoticeCollapsed: {},
       setRehabNoticeCollapsed: jest.fn(),
+      routineNoticeCollapsed: {},
+      setRoutineNoticeCollapsed: jest.fn(),
     }),
   ),
 }));

@@ -29,7 +29,7 @@ export const palette = {
   plumTint: '#E5DBE3',
   // Very light wash — background fill for selected/pressed states where
   // plumTint would read too saturated (e.g. radio cards).
-  plumTintLight: '#FBF5FA',
+  plumTintLight: '#F9F0F8',
   plumLine: '#D8CBD5',
 
   zinc50: '#FAFAFA',

@@ -75,7 +75,6 @@ export function SkinConcernsSelector({
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.disclaimer}>{SKIN_CONCERNS_DISCLAIMER}</Text>
       <View style={styles.chipRow}>
         {OPTIONS.map((option) => {
           const active =
@@ -93,6 +92,7 @@ export function SkinConcernsSelector({
           );
         })}
       </View>
+      <Text style={styles.disclaimer}>{SKIN_CONCERNS_DISCLAIMER}</Text>
     </View>
   );
 }
@@ -106,6 +106,6 @@ const styles = StyleSheet.create({
   },
   disclaimer: {
     ...typography.caption,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
   },
 });

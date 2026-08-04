@@ -6,6 +6,7 @@ import {
   View,
   type PressableProps,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
@@ -19,7 +20,11 @@ export interface ListRowProps {
   title: string;
   /** Overrides the title's default text color (e.g. a destructive row). */
   titleColor?: string;
+  /** Overrides the title's default size/weight (e.g. a bigger section heading). */
+  titleStyle?: StyleProp<TextStyle>;
   subtitle?: string | null;
+  /** Max lines before the title truncates with an ellipsis. 0 disables truncation (wraps instead). Default 1. */
+  titleNumberOfLines?: number;
   trailing?: React.ReactNode;
   /** Renders a trailing chevron icon. */
   chevron?: boolean;
@@ -35,7 +40,9 @@ export function ListRow({
   leading,
   title,
   titleColor,
+  titleStyle,
   subtitle,
+  titleNumberOfLines = 1,
   trailing,
   chevron = false,
   divider = true,
@@ -50,7 +57,10 @@ export function ListRow({
       {leading ? <View style={styles.leadingSlot}>{leading}</View> : null}
 
       <View style={styles.content}>
-        <Text style={[styles.title, titleColor ? { color: titleColor } : null]} numberOfLines={1}>
+        <Text
+          style={[styles.title, titleColor ? { color: titleColor } : null, titleStyle]}
+          numberOfLines={titleNumberOfLines}
+        >
           {title}
         </Text>
         {subtitle ? (

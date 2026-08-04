@@ -1,5 +1,5 @@
 import type { BadgeStatus } from '@/components/ui/feedback/Badge';
-import type { ActiveIngredientKey, FunctionalBenefit, ProductType, SkinGoal } from '@/types';
+import type { ActiveIngredientKey, FunctionalBenefit, ProductType, SkinGoal, SkinType } from '@/types';
 
 export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
   cleanser: 'Cleanser',
@@ -121,6 +121,36 @@ export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   vitamin_c: 'Vitamin C',
   spf_chemical: 'SPF (Chemical)',
 };
+
+/**
+ * Skin-profile field options and copy, shared by onboarding (SkinTypeStep,
+ * AboutYouStep, AdditionalInfoStep) and the profile editor
+ * (SkinProfileEditModal) so the two entry points into the same fields can't
+ * drift apart — a change here shows up in both places.
+ */
+export const SKIN_TYPE_OPTIONS: { value: SkinType; label: string }[] = [
+  { value: 'oily', label: 'Oily' },
+  { value: 'dry', label: 'Dry' },
+  { value: 'combination', label: 'Combination' },
+  { value: 'normal', label: 'Normal' },
+];
+
+export const GENDER_OPTIONS: { value: 'female' | 'male' | null; label: string }[] = [
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
+  { value: null, label: 'Prefer not to say' },
+];
+
+export const GENDER_CAPTION =
+  'Skin differs physiologically between men and women — this affects how products perform. We ' +
+  'ask to personalize, not out of curiosity.';
+
+export const HORMONE_THERAPY_LABEL = 'Currently on hormone therapy';
+export const HORMONE_THERAPY_HINT =
+  'Affects oil production and sensitivity, regardless of the gender selected above.';
+
+export const PREGNANCY_LABEL = 'Pregnant or breastfeeding';
+export const PREGNANCY_HINT = "We'll flag retinoids and other restricted actives.";
 
 /** Care-goal display names (V2.1 Step 0 goal selector + confirmation banner). */
 export const GOAL_LABELS: Record<SkinGoal, string> = {

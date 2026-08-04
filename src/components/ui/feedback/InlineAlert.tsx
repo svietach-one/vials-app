@@ -13,7 +13,7 @@ import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type AlertTone = 'sos' | 'warning' | 'safe' | 'info';
+export type AlertTone = 'sos' | 'warning' | 'safe' | 'info' | 'neutral';
 
 export interface InlineAlertProps {
   tone?: AlertTone;
@@ -48,6 +48,7 @@ const toneBackground: Record<AlertTone, string> = {
   warning: colors.statusWarningTint,
   safe:    colors.statusSafeTint,
   info:    colors.statusInfoTint,
+  neutral: colors.surfaceSunken,
 };
 
 const toneBorder: Record<AlertTone, string> = {
@@ -55,6 +56,7 @@ const toneBorder: Record<AlertTone, string> = {
   warning: colors.statusWarningLine,
   safe:    colors.statusSafeLine,
   info:    colors.statusInfoLine,
+  neutral: colors.borderStrong,
 };
 
 const toneText: Record<AlertTone, string> = {
@@ -62,6 +64,7 @@ const toneText: Record<AlertTone, string> = {
   warning: colors.statusWarning,
   safe:    colors.statusSafe,
   info:    colors.statusInfo,
+  neutral: colors.textSecondary,
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -176,7 +179,12 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // flex-start, not center: centering against the row would center the
+    // icon on the whole title block once it wraps to 2+ lines. flex-start
+    // plus iconWrap/actionInline's marginTop instead pins both to the
+    // vertical center of the title's first line specifically, regardless of
+    // how many lines it wraps to.
+    alignItems: 'flex-start',
     gap: space[2],
   },
   title: {
@@ -187,6 +195,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionInline: {
+    marginTop: 2,
     flexShrink: 0,
   },
   bodyText: {

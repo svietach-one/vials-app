@@ -191,10 +191,6 @@ function OptionRow({
       accessibilityState={{ checked: selected }}
       accessibilityLabel={option.reason ? `${option.title} — ${option.reason}` : option.title}
     >
-      <View style={[styles.radio, selected && styles.radioSelected]}>
-        {selected ? <View style={styles.radioDot} /> : null}
-      </View>
-
       {product ? <ProductThumbnail product={product} size={52} /> : null}
 
       <View style={styles.optionText}>
@@ -295,25 +291,6 @@ const styles = StyleSheet.create({
   },
   optionRowPressed: {
     backgroundColor: palette.plumTintLight,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: colors.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  radioSelected: {
-    borderColor: palette.plum,
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: palette.plum,
   },
   optionText: {
     flex: 1,

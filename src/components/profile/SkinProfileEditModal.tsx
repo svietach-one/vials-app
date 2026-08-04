@@ -17,9 +17,19 @@ import { SkinConcernsSelector } from '@/components/profile/SkinConcernsSelector'
 import { Button } from '@/components/ui/core/Button';
 import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { ListRow } from '@/components/ui/core/ListRow';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { colors, space, typography } from '@/constants/tokens';
+import {
+  GENDER_CAPTION,
+  GENDER_OPTIONS,
+  HORMONE_THERAPY_HINT,
+  HORMONE_THERAPY_LABEL,
+  PREGNANCY_HINT,
+  PREGNANCY_LABEL,
+  SKIN_TYPE_OPTIONS,
+} from '@/constants/labels';
 import type {
   FitzpatrickType,
   SkinConcern,
@@ -30,18 +40,6 @@ import type {
 } from '@/types';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-
-const GENDER_OPTIONS: { value: 'female' | 'male'; label: string }[] = [
-  { value: 'female', label: 'Female' },
-  { value: 'male', label: 'Male' },
-];
-
-const SKIN_TYPES: { value: SkinType; label: string }[] = [
-  { value: 'oily', label: 'Oily' },
-  { value: 'dry', label: 'Dry' },
-  { value: 'combination', label: 'Combination' },
-  { value: 'normal', label: 'Normal' },
-];
 
 const FITZPATRICK_TYPES: FitzpatrickType[] = [1, 2, 3, 4, 5, 6];
 
@@ -62,45 +60,51 @@ export function SkinProfileEditModal({
   onClose,
   onSave,
 }: SkinProfileEditModalProps) {
-  const [gender, setGender] = useState<'female' | 'male' | null>(null);
-  const [ageText, setAgeText] = useState('');
   const [skinType, setSkinType] = useState<SkinType | null>(null);
-  const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(null);
-  const [concerns, setConcerns] = useState<SkinConcern[]>([]);
-  const [skinConditions, setSkinConditions] = useState<SkinConditionType[]>([]);
   const [primaryGoal, setPrimaryGoal] = useState<SkinGoal>('maintenance');
   const [secondaryGoal, setSecondaryGoal] = useState<SkinGoal | null>(null);
+  const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(null);
+  const [ageText, setAgeText] = useState('');
+  const [gender, setGender] = useState<'female' | 'male' | null>(null);
+  const [hormoneTherapy, setHormoneTherapy] = useState(false);
+  const [pregnantOrBreastfeeding, setPregnantOrBreastfeeding] = useState(false);
+  const [concerns, setConcerns] = useState<SkinConcern[]>([]);
+  const [skinConditions, setSkinConditions] = useState<SkinConditionType[]>([]);
   const [spfSensitivity, setSpfSensitivity] = useState(false);
 
   // Pre-fill from current profile on open
   useEffect(() => {
     if (!visible) return;
-    setGender(profile?.gender ?? null);
-    setAgeText(profile?.age != null ? String(profile.age) : '');
     setSkinType(profile?.skinType ?? null);
-    setFitzpatrick(profile?.fitzpatrick ?? null);
-    setConcerns(profile?.concerns ?? []);
-    setSkinConditions(profile?.skinConditions ?? []);
     setPrimaryGoal(profile?.primaryGoal ?? 'maintenance');
     setSecondaryGoal(profile?.secondaryGoal ?? null);
+    setFitzpatrick(profile?.fitzpatrick ?? null);
+    setAgeText(profile?.age != null ? String(profile.age) : '');
+    setGender(profile?.gender ?? null);
+    setHormoneTherapy(profile?.hormoneTherapy ?? false);
+    setPregnantOrBreastfeeding(profile?.pregnantOrBreastfeeding ?? false);
+    setConcerns(profile?.concerns ?? []);
+    setSkinConditions(profile?.skinConditions ?? []);
     setSpfSensitivity(profile?.spfSensitivity ?? false);
   }, [visible, profile]);
 
   function handleSave() {
     const parsedAge = parseInt(ageText, 10);
     onSave({
-      gender,
-      age: Number.isFinite(parsedAge) && parsedAge > 0 ? parsedAge : null,
       skinType,
-      fitzpatrick,
-      concerns,
-      skinConditions,
       primaryGoal,
       secondaryGoal,
       // Saving from the editor IS the user choosing — no confirmation owed
       goalNeedsConfirmation: false,
+      fitzpatrick,
       // Choosing on the 6-card selector IS confirming the skin tone.
       phototypeNeedsConfirmation: false,
+      age: Number.isFinite(parsedAge) && parsedAge > 0 ? parsedAge : null,
+      gender,
+      hormoneTherapy,
+      pregnantOrBreastfeeding,
+      concerns,
+      skinConditions,
       spfSensitivity,
     });
   }
@@ -135,38 +139,13 @@ export function SkinProfileEditModal({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Gender */}
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Gender</Text>
-              <View style={styles.chipRow}>
-                {GENDER_OPTIONS.map(({ value, label }) => (
-                  <FilterChip
-                    key={value}
-                    selected={gender === value}
-                    onPress={() => setGender(gender === value ? null : value)}
-                  >
-                    {label}
-                  </FilterChip>
-                ))}
-              </View>
-            </View>
-
-            {/* Age */}
-            <Input
-              label="Age"
-              value={ageText}
-              onChangeText={setAgeText}
-              placeholder="e.g. 28"
-              keyboardType="number-pad"
-              maxLength={3}
-              returnKeyType="done"
-            />
-
-            {/* Skin type */}
+            {/* Skin type — order below mirrors the onboarding flow (SkinTypeStep
+                → GoalsStep → PhototypeStep → AboutYouStep → AdditionalInfoStep)
+                field for field, so editing here matches what onboarding asked. */}
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Skin Type</Text>
               <View style={styles.chipRow}>
-                {SKIN_TYPES.map(({ value, label }) => (
+                {SKIN_TYPE_OPTIONS.map(({ value, label }) => (
                   <FilterChip
                     key={value}
                     selected={skinType === value}
@@ -178,20 +157,7 @@ export function SkinProfileEditModal({
               </View>
             </View>
 
-            {/* Phototype */}
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Skin Tone (Fitzpatrick)</Text>
-              <View style={styles.phototypeRow}>
-                {FITZPATRICK_TYPES.map((ft) => (
-                  <FitzpatrickCard
-                    key={ft}
-                    type={ft}
-                    selected={fitzpatrick === ft}
-                    onSelect={() => setFitzpatrick(fitzpatrick === ft ? null : ft)}
-                  />
-                ))}
-              </View>
-            </View>
+            <View style={styles.divider} />
 
             {/* Care goals (V2.1 Step 0) */}
             <View style={styles.field}>
@@ -210,6 +176,90 @@ export function SkinProfileEditModal({
               />
             </View>
 
+            <View style={styles.divider} />
+
+            {/* Phototype */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Skin Tone (Fitzpatrick)</Text>
+              <View style={styles.phototypeRow}>
+                {FITZPATRICK_TYPES.map((ft) => (
+                  <FitzpatrickCard
+                    key={ft}
+                    type={ft}
+                    selected={fitzpatrick === ft}
+                    onSelect={() => setFitzpatrick(fitzpatrick === ft ? null : ft)}
+                    style={styles.phototypeCard}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Age */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Age</Text>
+              <Input
+                value={ageText}
+                onChangeText={setAgeText}
+                placeholder="e.g. 28"
+                keyboardType="number-pad"
+                maxLength={3}
+                returnKeyType="done"
+              />
+            </View>
+
+            {/* Gender */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Gender</Text>
+              <View style={styles.chipRow}>
+                {GENDER_OPTIONS.map(({ value, label }) => (
+                  <FilterChip
+                    key={value ?? 'unspecified'}
+                    selected={gender === value}
+                    onPress={() => setGender(value)}
+                  >
+                    {label}
+                  </FilterChip>
+                ))}
+              </View>
+              <Text style={styles.fieldHint}>{GENDER_CAPTION}</Text>
+            </View>
+
+            {/* Hormone therapy */}
+            <ListRow
+              title={HORMONE_THERAPY_LABEL}
+              titleStyle={styles.fieldLabel}
+              subtitle={HORMONE_THERAPY_HINT}
+              divider={false}
+              style={styles.listRowFlush}
+              trailing={
+                <Switch
+                  checked={hormoneTherapy}
+                  onValueChange={setHormoneTherapy}
+                  accessibilityLabel={HORMONE_THERAPY_LABEL}
+                />
+              }
+            />
+
+            <View style={styles.divider} />
+
+            {/* Pregnant or breastfeeding */}
+            <ListRow
+              title={PREGNANCY_LABEL}
+              titleStyle={styles.fieldLabel}
+              subtitle={PREGNANCY_HINT}
+              divider={false}
+              style={styles.listRowFlush}
+              trailing={
+                <Switch
+                  checked={pregnantOrBreastfeeding}
+                  onValueChange={setPregnantOrBreastfeeding}
+                  accessibilityLabel={PREGNANCY_LABEL}
+                />
+              }
+            />
+
             {/* Skin concerns — merges skin concerns with skin conditions (v1.2,
                 US-23) into one deduplicated chip list; shared with onboarding
                 (SkinProfileSetupScreen) so the two screens can't drift apart. */}
@@ -223,7 +273,11 @@ export function SkinProfileEditModal({
               />
             </View>
 
-            {/* SPF sensitivity */}
+            <View style={styles.divider} />
+
+            {/* SPF sensitivity — profile-only setting, no onboarding step asks
+                for it, so it stays last rather than slotted into the mirrored
+                order above. */}
             <View style={styles.switchRow}>
               <View style={styles.switchContent}>
                 <Text style={styles.switchTitle}>SPF Sensitivity</Text>
@@ -280,15 +334,24 @@ const styles = StyleSheet.create({
     gap: space[5],
   },
   field: { gap: space[2] },
+  divider: { height: 1, backgroundColor: colors.borderDivider },
+  // Block heading — one step up from the app's default `label`/`body` sizes,
+  // shared by every section title in this sheet (field labels, and the
+  // hormone-therapy / pregnancy / SPF row titles via `titleStyle`/`switchTitle`
+  // below) so the heading level reads consistently throughout.
   fieldLabel: {
     fontFamily: 'DMSans-Medium',
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 18,
+    lineHeight: 24,
     color: colors.textPrimary,
   },
+  // Neutralizes ListRow's own internal padding so its distance to the
+  // surrounding divider matches every other block, which relies solely on
+  // `content`'s gap for spacing.
+  listRowFlush: { paddingVertical: 0, paddingHorizontal: 0 },
   fieldHint: {
     ...typography.bodySmall,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
   },
   chipRow: {
     flexDirection: 'row',
@@ -298,23 +361,31 @@ const styles = StyleSheet.create({
   phototypeRow: {
     flexDirection: 'row',
     gap: space[3],
-    height: 96,
+  },
+  // Same fixed-height, non-square shape as onboarding's PhototypeStep cards
+  // (flex:0 + aspectRatio:undefined + explicit height) — just shorter, since
+  // six sit in one compact row here instead of a 2-column grid.
+  phototypeCard: {
+    flex: 1,
+    aspectRatio: undefined,
+    height: 72,
   },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[3],
-    paddingVertical: space[1],
   },
   switchContent: { flex: 1, gap: 2 },
+  // Same block-heading size as fieldLabel — see comment above.
   switchTitle: {
-    ...typography.body,
     fontFamily: 'DMSans-Medium',
+    fontSize: 18,
+    lineHeight: 24,
     color: colors.textPrimary,
   },
   switchDesc: {
     ...typography.caption,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
   },
   footer: {
     flexDirection: 'row',
