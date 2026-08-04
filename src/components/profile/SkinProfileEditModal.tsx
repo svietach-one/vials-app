@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   listRowFlush: { paddingVertical: 0, paddingHorizontal: 0 },
   fieldHint: {
     ...typography.bodySmall,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
   },
   chipRow: {
     flexDirection: 'row',
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   },
   switchDesc: {
     ...typography.caption,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
   },
   footer: {
     flexDirection: 'row',

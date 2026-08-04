@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, palette, radius, shadow, typography } from '@/constants/tokens';
+import { colors, palette, radius, typography } from '@/constants/tokens';
 import type { FitzpatrickType, SkinPhototype } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -115,16 +115,14 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: radius.lg,
     backgroundColor: colors.surfaceCard,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.borderDivider,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadow.sm,
   },
   cardSelected: {
+    backgroundColor: palette.plumTintLight,
     borderColor: palette.plum,
-    borderWidth: 2,
-    ...shadow.md,
   },
   cardPressed: {
     opacity: 0.8,
@@ -133,11 +131,15 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: radius.pill,
+    borderWidth: 3,
+    borderColor: colors.bgBase,
   },
   swatchSmall: {
     width: 36,
     height: 36,
     borderRadius: radius.pill,
+    borderWidth: 3,
+    borderColor: colors.bgBase,
   },
   numeral: {
     ...typography.bodySmall,

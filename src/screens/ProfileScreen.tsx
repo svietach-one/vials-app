@@ -119,6 +119,8 @@ const iconCircleStyles = StyleSheet.create({
     height: 40,
     borderRadius: radius.pill,
     backgroundColor: palette.plumTint,
+    borderWidth: 1,
+    borderColor: colors.bgBase,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
