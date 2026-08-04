@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: { ...typography.label, color: colors.textSecondary },
   title: { ...typography.h1, color: colors.textPrimary },
-  subtitle: { ...typography.body, color: colors.textSecondary },
+  subtitle: { ...typography.body, color: colors.textPrimary },
 
   searchWrap: {
     paddingHorizontal: space.gutterScreen,

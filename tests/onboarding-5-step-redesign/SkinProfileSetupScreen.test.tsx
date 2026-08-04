@@ -113,56 +113,64 @@ function advanceAboutYou() {
   fireEvent.press(screen.getByText('Next'));
 }
 
-function finishAdditionalInfo() {
+function advanceAdditionalInfo() {
   fireEvent.press(screen.getByRole('switch', { name: 'Pregnant or breastfeeding' }));
+  fireEvent.press(screen.getByText('Next'));
+}
+
+function finishCityStep() {
   fireEvent.press(screen.getByText('Finish'));
 }
 
 // ── Story 1: step order and progress ────────────────────────────────────────────
 
-describe('SkinProfileSetupScreen — renders the 5 steps in order with a live progress indicator (Story 1)', () => {
-  it('shows step 1 (Skin type) with "Step 1 of 5" on first render', () => {
+describe('SkinProfileSetupScreen — renders the 6 steps in order with a live progress indicator (Story 1)', () => {
+  it('shows step 1 (Skin type) with "Step 1 of 6" on first render', () => {
     renderScreen();
 
-    expect(screen.getByText('Step 1 of 5')).toBeTruthy();
+    expect(screen.getByText('Step 1 of 6')).toBeTruthy();
     expect(screen.getByText("What's your skin type?")).toBeTruthy();
   });
 
-  it('advances through all 5 steps in order, updating the progress text on every Next', () => {
+  it('advances through all 6 steps in order, updating the progress text on every Next', () => {
     renderScreen();
 
-    expect(screen.getByText('Step 1 of 5')).toBeTruthy();
+    expect(screen.getByText('Step 1 of 6')).toBeTruthy();
     advanceSkinType();
 
-    expect(screen.getByText('Step 2 of 5')).toBeTruthy();
+    expect(screen.getByText('Step 2 of 6')).toBeTruthy();
     expect(screen.getByText('What would you like to improve?')).toBeTruthy();
     advanceGoals();
 
-    expect(screen.getByText('Step 3 of 5')).toBeTruthy();
+    expect(screen.getByText('Step 3 of 6')).toBeTruthy();
     expect(screen.getByText('How does your skin react to the sun?')).toBeTruthy();
     advancePhototype();
 
-    expect(screen.getByText('Step 4 of 5')).toBeTruthy();
+    expect(screen.getByText('Step 4 of 6')).toBeTruthy();
     expect(screen.getByText('A little about you')).toBeTruthy();
     advanceAboutYou();
 
-    expect(screen.getByText('Step 5 of 5')).toBeTruthy();
+    expect(screen.getByText('Step 5 of 6')).toBeTruthy();
     expect(screen.getByText('Anything we should know?')).toBeTruthy();
+    advanceAdditionalInfo();
+
+    expect(screen.getByText('Step 6 of 6')).toBeTruthy();
+    expect(screen.getByText('Where are you based?')).toBeTruthy();
   });
 });
 
 // ── Story 1 AC2: Back navigation ────────────────────────────────────────────────
 
 describe('SkinProfileSetupScreen — Back returns to the previous step and updates the ring (Story 1 AC2)', () => {
-  it('re-shows step 1 and "Step 1 of 5" when Back is pressed from step 2, without persisting anything new', () => {
+  it('re-shows step 1 and "Step 1 of 6" when Back is pressed from step 2, without persisting anything new', () => {
     renderScreen();
     advanceSkinType();
-    expect(screen.getByText('Step 2 of 5')).toBeTruthy();
+    expect(screen.getByText('Step 2 of 6')).toBeTruthy();
     const callsBeforeBack = mockUpdateProfile.mock.calls.length;
 
     fireEvent.press(screen.getByLabelText('Back'));
 
-    expect(screen.getByText('Step 1 of 5')).toBeTruthy();
+    expect(screen.getByText('Step 1 of 6')).toBeTruthy();
     expect(screen.getByText("What's your skin type?")).toBeTruthy();
     expect(mockUpdateProfile).toHaveBeenCalledTimes(callsBeforeBack);
   });
@@ -185,11 +193,11 @@ describe('SkinProfileSetupScreen — Skip advances without persisting that step\
     fireEvent.press(screen.getByText('Oily')); // choose a value, then Skip anyway
     fireEvent.press(screen.getByText('Skip'));
 
-    expect(screen.getByText('Step 2 of 5')).toBeTruthy();
+    expect(screen.getByText('Step 2 of 6')).toBeTruthy();
     expect(mockUpdateProfile).not.toHaveBeenCalled();
   });
 
-  it('still persists steps 2-5 correctly after step 1 was skipped — skipping never discards later data (Story 2 AC2)', () => {
+  it('still persists steps 2-6 correctly after step 1 was skipped — skipping never discards later data (Story 2 AC2)', () => {
     renderScreen();
 
     fireEvent.press(screen.getByText('Skip')); // skip step 1 entirely
@@ -198,10 +206,11 @@ describe('SkinProfileSetupScreen — Skip advances without persisting that step\
     advanceGoals();
     advancePhototype();
     advanceAboutYou();
-    finishAdditionalInfo();
+    advanceAdditionalInfo();
+    finishCityStep();
 
-    // Exactly 4 commits — one per step 2-5 — step 1 never contributed a call.
-    expect(mockUpdateProfile).toHaveBeenCalledTimes(4);
+    // Exactly 5 commits — one per step 2-6 — step 1 never contributed a call.
+    expect(mockUpdateProfile).toHaveBeenCalledTimes(5);
     mockUpdateProfile.mock.calls.forEach(([patch]) => {
       expect(patch).not.toHaveProperty('skinType');
     });
@@ -211,20 +220,22 @@ describe('SkinProfileSetupScreen — Skip advances without persisting that step\
     expect(patches.some((p) => p.fitzpatrick === 3)).toBe(true);
     expect(patches.some((p) => p.hormoneTherapy === true)).toBe(true);
     expect(patches.some((p) => p.pregnantOrBreastfeeding === true)).toBe(true);
+    expect(patches.some((p) => p.city === null)).toBe(true);
   });
 });
 
-// ── Regression pin: Step 5 Finish target (tech design Assumption 4) ─────────────
+// ── Regression pin: Step 6 Finish target (tech design Assumption 4) ─────────────
 
 describe('SkinProfileSetupScreen — Finish navigates to ContributionConsent, never FirstProduct or onboardingCompleted (tech design Assumption 4)', () => {
-  it('calls navigation.replace("ContributionConsent") when Finish is pressed on step 5', () => {
+  it('calls navigation.replace("ContributionConsent") when Finish is pressed on step 6', () => {
     const navigation = renderScreen();
 
     advanceSkinType();
     advanceGoals();
     advancePhototype();
     advanceAboutYou();
-    finishAdditionalInfo();
+    advanceAdditionalInfo();
+    finishCityStep();
 
     expect(navigation.replace).toHaveBeenCalledWith('ContributionConsent');
     expect(navigation.replace).not.toHaveBeenCalledWith('FirstProduct');
@@ -237,7 +248,8 @@ describe('SkinProfileSetupScreen — Finish navigates to ContributionConsent, ne
     advanceGoals();
     advancePhototype();
     advanceAboutYou();
-    finishAdditionalInfo();
+    advanceAdditionalInfo();
+    finishCityStep();
 
     mockUpdateProfile.mock.calls.forEach(([patch]) => {
       expect(patch).not.toHaveProperty('onboardingCompleted');
@@ -252,8 +264,35 @@ describe('SkinProfileSetupScreen — Finish navigates to ContributionConsent, ne
     fireEvent.press(screen.getByText('Skip'));
     fireEvent.press(screen.getByText('Skip'));
     fireEvent.press(screen.getByText('Skip'));
+    fireEvent.press(screen.getByText('Skip'));
 
     expect(mockUpdateProfile).not.toHaveBeenCalled();
+    expect(navigation.replace).toHaveBeenCalledWith('ContributionConsent');
+  });
+});
+
+// ── CityStep (step 6 of 6) — weather-driven seasonal rules ──────────────────────
+
+describe('SkinProfileSetupScreen — CityStep persists the selected city (Story 6, tech design §1.7)', () => {
+  it('commits the selected city and finishes onto ContributionConsent', () => {
+    const navigation = renderScreen();
+
+    advanceSkinType();
+    advanceGoals();
+    advancePhototype();
+    advanceAboutYou();
+    advanceAdditionalInfo();
+
+    fireEvent.changeText(
+      screen.UNSAFE_getByProps({ placeholder: 'Search your city…' }),
+      'Warsaw',
+    );
+    fireEvent.press(screen.getByLabelText('Select Warsaw, Poland'));
+    fireEvent.press(screen.getByText('Finish'));
+
+    expect(mockUpdateProfile).toHaveBeenCalledWith({
+      city: expect.objectContaining({ name: 'Warsaw, Poland' }),
+    });
     expect(navigation.replace).toHaveBeenCalledWith('ContributionConsent');
   });
 });

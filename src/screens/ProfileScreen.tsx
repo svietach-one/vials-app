@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  Pressable,
   SafeAreaView,
   ScrollView,
   Share,
@@ -13,13 +12,13 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 
 import { DebugAccountSyncCard } from '@/components/debug/DebugAccountSyncCard';
 import { DebugOnboardingPreview } from '@/components/debug/DebugOnboardingPreview';
+import { CityPicker } from '@/components/profile/CityPicker';
 import { SkinProfileEditModal } from '@/components/profile/SkinProfileEditModal';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { ListRow } from '@/components/ui/core/ListRow';
-import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { LOCAL_STORAGE_NOTICE_ENABLED } from '@/constants/featureFlags';
 import { GOAL_LABELS } from '@/constants/labels';
@@ -30,11 +29,9 @@ import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import { searchCities } from '@/utils/citySearch';
 import { setContributionConsent } from '@/utils/contributionConsent';
 import { contributedProductsCount } from '@/utils/contributionConsentFlow';
 import type {
-  CityLocation,
   SkinPhototype,
   SkinType,
   UserProfile,
@@ -210,90 +207,6 @@ const gridStyles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     letterSpacing: -0.16,
-    color: colors.textPrimary,
-  },
-});
-
-// ─── City autocomplete (offline, research §1.7 — no GPS, no network) ──────────
-
-function CityField({
-  city,
-  onSelect,
-  onClear,
-}: {
-  city: CityLocation | null;
-  onSelect: (city: CityLocation) => void;
-  onClear: () => void;
-}) {
-  const [query, setQuery] = useState('');
-  const suggestions = searchCities(query, 5);
-
-  if (city) {
-    return (
-      <View style={cityStyles.selectedRow}>
-        <Icon name="map-pin" size={16} color={colors.textSecondary} />
-        <Text style={cityStyles.selectedName}>{city.name}</Text>
-        <IconButton
-          icon={<Icon name="x" size={16} color={colors.textTertiary} />}
-          label="Clear city"
-          variant="ghost"
-          size="xs"
-          onPress={onClear}
-        />
-      </View>
-    );
-  }
-
-  return (
-    <View style={cityStyles.wrap}>
-      <Input
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search your city…"
-        autoCorrect={false}
-        returnKeyType="search"
-      />
-      {suggestions.map((suggestion) => (
-        <Pressable
-          key={suggestion.name}
-          onPress={() => {
-            onSelect(suggestion);
-            setQuery('');
-          }}
-          style={cityStyles.suggestionRow}
-          accessibilityRole="button"
-          accessibilityLabel={`Select ${suggestion.name}`}
-        >
-          <Icon name="map-pin" size={14} color={colors.textTertiary} />
-          <Text style={cityStyles.suggestionText}>{suggestion.name}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
-const cityStyles = StyleSheet.create({
-  wrap: { gap: space[1] },
-  selectedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    paddingVertical: space[2],
-  },
-  selectedName: {
-    ...typography.body,
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  suggestionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    paddingVertical: space[2],
-    paddingHorizontal: space[2],
-  },
-  suggestionText: {
-    ...typography.bodySmall,
     color: colors.textPrimary,
   },
 });
@@ -497,7 +410,7 @@ export default function ProfileScreen() {
               subtitle="Follow seasonal routine rules based on real weather."
               divider={false}
             />
-            <CityField
+            <CityPicker
               city={profile?.city ?? null}
               onSelect={(city) => updateProfile({ city })}
               onClear={() => updateProfile({ city: null })}

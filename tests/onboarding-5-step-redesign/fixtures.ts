@@ -180,10 +180,10 @@ export function makeAboutYouStepProps(
   };
 }
 
-// ─── AdditionalInfoStep (FE-8, step 5 of 5) ────────────────────────────────────
+// ─── AdditionalInfoStep (FE-8, step 5 of 6) ────────────────────────────────────
 // InlineAlert tone="warning" wraps the pregnancy/breastfeeding Switch in its
 // `action` slot; SkinConcernsSelector (conditions + concerns) renders below.
-// Footer button reads "Finish", not "Next" — always the last step.
+// Footer button reads "Next" — CityStep (step 6) follows it.
 
 export interface AdditionalInfoStepProps {
   initialPregnantOrBreastfeeding: boolean;

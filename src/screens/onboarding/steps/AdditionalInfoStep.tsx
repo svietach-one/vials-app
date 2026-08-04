@@ -24,7 +24,7 @@ export interface AdditionalInfoStepProps {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-/** Step 5 of 5 — anything we should know. Always the last step; footer reads "Finish". */
+/** Step 5 of 6 — anything we should know. */
 export function AdditionalInfoStep({
   initialPregnantOrBreastfeeding,
   initialSkinConditions,
@@ -47,7 +47,6 @@ export function AdditionalInfoStep({
       onBack={onBack}
       onSkip={onSkip}
       onNext={() => onNext({ pregnantOrBreastfeeding, skinConditions, concerns })}
-      nextLabel="Finish"
       progressRing={progressRing}
     >
       <SkinConcernsSelector
