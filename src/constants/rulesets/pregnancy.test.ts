@@ -46,19 +46,24 @@ const { PREGNANCY_SAFETY_ENABLED } = require('@/constants/featureFlags');
 });
 
 describe('pregnancy ruleset data (PREGNANCY_RULESET)', () => {
-  it('declares exactly one freeze rule targeting the retinoid class', () => {
+  it('declares exactly two freeze rules, targeting retinoid and hydroquinone', () => {
     // Act / Assert
-    expect(PREGNANCY_RULESET.rules).toHaveLength(1);
-    const [rule] = PREGNANCY_RULESET.rules;
-    expect(rule.then.action).toBe('freeze');
-    expect(rule.then.targets).toEqual({ classes: ['retinoid'] });
+    expect(PREGNANCY_RULESET.rules).toHaveLength(2);
+    const retinoid = PREGNANCY_RULESET.rules.find((r) => r.id === 'pregnancy_retinoid_freeze');
+    const hydroquinone = PREGNANCY_RULESET.rules.find(
+      (r) => r.id === 'pregnancy_hydroquinone_freeze',
+    );
+    expect(retinoid?.then.action).toBe('freeze');
+    expect(retinoid?.then.targets).toEqual({ classes: ['retinoid'] });
+    expect(hydroquinone?.then.action).toBe('freeze');
+    expect(hydroquinone?.then.targets).toEqual({ classes: ['hydroquinone'] });
   });
 
-  it('carries the pregnancy_blocked reason code, decoupled from the rule id', () => {
+  it('carries the pregnancy_blocked reason code on every rule, decoupled from the rule id', () => {
     // Act / Assert
-    const [rule] = PREGNANCY_RULESET.rules;
-    expect(rule.reasonCode).toBe('pregnancy_blocked');
-    expect(rule.id).toBe('pregnancy_retinoid_freeze');
+    for (const rule of PREGNANCY_RULESET.rules) {
+      expect(rule.reasonCode).toBe('pregnancy_blocked');
+    }
   });
 
   it('gives every rule a non-empty, unique id', () => {

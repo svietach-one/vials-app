@@ -16,6 +16,14 @@ import {
   RECOVERY_CAUTIONS,
 } from '@/utils/skinConditionModifiers';
 import { buildSpfAdequacyMessage } from '@/utils/spfAdequacy';
+import {
+  buildNotOwnedMessage,
+  buildOnShelfMessage,
+  buildSafetyRedirectMessage,
+  goalCoverageNotOwnedTitle,
+  GOAL_COVERAGE_ON_SHELF_TITLE,
+  GOAL_COVERAGE_SAFETY_TITLE,
+} from '@/utils/goalCoverage';
 
 /** Every user-visible advisory string, labelled by where it comes from. */
 function allTemplates(): { source: string; text: string }[] {
@@ -47,6 +55,28 @@ function allTemplates(): { source: string; text: string }[] {
   for (const spf of [15, 20, 29]) {
     templates.push({ source: `buildSpfAdequacyMessage(${spf})`, text: buildSpfAdequacyMessage(spf) });
   }
+
+  // engine4.1 §3 goal-coverage copy — also generated, lint representative
+  // renderings across every tone (not_owned / on_shelf / safety_redirect).
+  templates.push({
+    source: 'buildNotOwnedMessage(acne)',
+    text: buildNotOwnedMessage('acne', ['retinoid', 'bha']),
+  });
+  templates.push({
+    source: 'buildOnShelfMessage(dehydration)',
+    text: buildOnShelfMessage('dehydration', ['hyaluronic_acid']),
+  });
+  templates.push({
+    source: 'buildSafetyRedirectMessage(aging)',
+    text: buildSafetyRedirectMessage('aging', ['retinoid'], ['peptide_signal', 'vitamin_c_pure']),
+  });
+  templates.push({
+    source: 'buildSafetyRedirectMessage(aging, no alternative)',
+    text: buildSafetyRedirectMessage('aging', ['retinoid'], []),
+  });
+  templates.push({ source: 'goalCoverageNotOwnedTitle(pigmentation)', text: goalCoverageNotOwnedTitle('pigmentation') });
+  templates.push({ source: 'GOAL_COVERAGE_ON_SHELF_TITLE', text: GOAL_COVERAGE_ON_SHELF_TITLE });
+  templates.push({ source: 'GOAL_COVERAGE_SAFETY_TITLE', text: GOAL_COVERAGE_SAFETY_TITLE });
 
   return templates;
 }

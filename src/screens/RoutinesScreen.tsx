@@ -33,6 +33,7 @@ import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineStepActionSheet } from '@/components/routine/RoutineStepActionSheet';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
 import { GoalConfirmBanner } from '@/components/routine/GoalConfirmBanner';
+import { GoalCoverageBanner } from '@/components/routine/GoalCoverageBanner';
 import { PhototypeConfirmBanner } from '@/components/routine/PhototypeConfirmBanner';
 import { ConflictWarningInline } from '@/components/routine/ConflictWarningInline';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
@@ -79,6 +80,7 @@ import { findPreCleanseReminder } from '@/utils/routineEngine/preCleanseReminder
 import { buildProductFacts, buildShelfFacts } from '@/utils/routineEngine/productFacts';
 import { buildRehabNotices } from '@/utils/routineEngine/rehabFilter';
 import type { ValidationResult } from '@/utils/routineEngine/validate';
+import type { GoalCoverageInput } from '@/utils/goalCoverage';
 import type { Product, RoutineStep } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -432,6 +434,39 @@ export default function RoutinesScreen({ navigation }: Props) {
 
   const allFrozen = useMemo(() => [...frozenRows.values()].flat(), [frozenRows]);
 
+  // engine4.1 §3: resolves goals + pregnancyRules ONCE via buildRoutineContext
+  // (never per-goal — that would break the barrier_repair cross-goal
+  // modifier), then feeds it plus the currently-visible steps and the full
+  // shelf to getGoalCoverageFindings. amSteps/pmSteps are already the
+  // frozen/hidden-filtered visible list, so "covered" can never credit a
+  // product the routine isn't actually showing today.
+  const goalCoverageInput = useMemo((): GoalCoverageInput | null => {
+    if (!profile) return null;
+    const context = buildRoutineContext({
+      procedures,
+      profile: {
+        fitzpatrick: profile.fitzpatrick,
+        primaryGoal: profile.primaryGoal,
+        secondaryGoal: profile.secondaryGoal,
+        pregnantOrBreastfeeding: profile.pregnantOrBreastfeeding,
+      },
+      seasonMask: getActiveSeasonMask(),
+    });
+    const scheduledProducts = [...amSteps, ...pmSteps]
+      .map((s) => (s.productId ? products.find((p) => p.id === s.productId) : undefined))
+      .filter((p): p is Product => p !== undefined);
+
+    return {
+      primaryGoal: profile.primaryGoal,
+      secondaryGoal: profile.secondaryGoal,
+      goalNeedsConfirmation: profile.goalNeedsConfirmation,
+      treatmentClassRanking: context.treatmentClassRanking,
+      scheduledProducts,
+      products,
+      pregnancyRules: context.pregnancyRules,
+    };
+  }, [profile, procedures, amSteps, pmSteps, products]);
+
   const listHeader = useMemo(
     () => (
       <View style={styles.listHeader}>
@@ -479,6 +514,7 @@ export default function RoutinesScreen({ navigation }: Props) {
           />
         )}
         <SeasonalNoticeBanner />
+        {goalCoverageInput ? <GoalCoverageBanner input={goalCoverageInput} /> : null}
         <DuplicateSlotWarningInline
           routines={routines}
           products={products}
@@ -511,6 +547,7 @@ export default function RoutinesScreen({ navigation }: Props) {
       navigation,
       persistedRehabCollapse,
       setRehabNoticeCollapsed,
+      goalCoverageInput,
     ],
   );
 
