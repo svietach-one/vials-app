@@ -23,6 +23,8 @@ export interface ListRowProps {
   /** Overrides the title's default size/weight (e.g. a bigger section heading). */
   titleStyle?: StyleProp<TextStyle>;
   subtitle?: string | null;
+  /** Max lines before the title truncates with an ellipsis. 0 disables truncation (wraps instead). Default 1. */
+  titleNumberOfLines?: number;
   trailing?: React.ReactNode;
   /** Renders a trailing chevron icon. */
   chevron?: boolean;
@@ -40,6 +42,7 @@ export function ListRow({
   titleColor,
   titleStyle,
   subtitle,
+  titleNumberOfLines = 1,
   trailing,
   chevron = false,
   divider = true,
@@ -56,7 +59,7 @@ export function ListRow({
       <View style={styles.content}>
         <Text
           style={[styles.title, titleColor ? { color: titleColor } : null, titleStyle]}
-          numberOfLines={1}
+          numberOfLines={titleNumberOfLines}
         >
           {title}
         </Text>
