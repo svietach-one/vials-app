@@ -10,7 +10,7 @@ import {
 import {
   AppSettings,
   ContributionConsentStatus,
-  RehabNoticeCollapseEntry,
+  NoticeCollapseEntry,
   RoutineAccordionSettings,
   RoutineCycleType,
 } from '@/types';
@@ -27,7 +27,12 @@ interface SettingsState extends AppSettings {
   /** Overwrites today's Routines screen accordion snapshot. */
   setRoutineAccordion: (snapshot: RoutineAccordionSettings) => void;
   /** Overwrites one RehabNoticeCard's collapse decision, keyed by RehabNotice.key. */
-  setRehabNoticeCollapsed: (key: string, entry: RehabNoticeCollapseEntry) => void;
+  setRehabNoticeCollapsed: (key: string, entry: NoticeCollapseEntry) => void;
+  /**
+   * Overwrites one ConflictWarningInline row's collapse decision on the
+   * Routines screen, keyed by the row's own stable id.
+   */
+  setRoutineNoticeCollapsed: (key: string, entry: NoticeCollapseEntry) => void;
   /** Records acceptance of the onboarding medical disclaimer (slide 3). */
   acceptMedicalDisclaimer: (version: number) => void;
   /**
@@ -50,6 +55,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   communityContributionCount: 0,
   routineAccordion: null,
   rehabNoticeCollapsed: {},
+  routineNoticeCollapsed: {},
   medicalDisclaimerAcceptedAt: null,
   medicalDisclaimerVersion: 0,
   contributionConsentStatus: 'unset',
@@ -66,6 +72,7 @@ function pickSettings(s: SettingsState): AppSettings {
     communityContributionCount: s.communityContributionCount,
     routineAccordion: s.routineAccordion,
     rehabNoticeCollapsed: s.rehabNoticeCollapsed,
+    routineNoticeCollapsed: s.routineNoticeCollapsed,
     medicalDisclaimerAcceptedAt: s.medicalDisclaimerAcceptedAt,
     medicalDisclaimerVersion: s.medicalDisclaimerVersion,
     contributionConsentStatus: s.contributionConsentStatus,
@@ -130,6 +137,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const next = { ...get().rehabNoticeCollapsed, [key]: entry };
     set({ rehabNoticeCollapsed: next });
     void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), rehabNoticeCollapsed: next }));
+  },
+
+  setRoutineNoticeCollapsed: (key, entry) => {
+    const next = { ...get().routineNoticeCollapsed, [key]: entry };
+    set({ routineNoticeCollapsed: next });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), routineNoticeCollapsed: next }));
   },
 
   acceptMedicalDisclaimer: (version) => {

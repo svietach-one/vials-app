@@ -17,7 +17,7 @@ export interface RehabNoticeCardProps {
   conditionCaution?: string | null;
   /**
    * Controlled collapse state, resolved by the caller from the persisted
-   * per-day snapshot (src/utils/rehabNoticeCollapse.ts) so a manual collapse
+   * per-day snapshot (src/utils/noticeCollapse.ts) so a manual collapse
    * survives a re-visit for the rest of the skincare day instead of
    * re-expanding on every remount. Defaults to expanded for callers that
    * don't need day-scoped persistence (e.g. presentational tests).

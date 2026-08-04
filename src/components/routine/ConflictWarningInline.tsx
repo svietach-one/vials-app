@@ -4,12 +4,14 @@ import { Icon } from '@/components/ui/Icon';
 
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, space } from '@/constants/tokens';
+import { useSettingsStore } from '@/store/settingsStore';
 import {
   applyConditionDensityModifiers,
   getActiveDensityFindings,
   type DensityFinding,
 } from '@/utils/activeIngredientDensity';
 import { ConflictEngine } from '@/utils/conflictEngine';
+import { resolveNoticeCollapsed, toNoticeCollapseEntry } from '@/utils/noticeCollapse';
 import {
   applyConditionSeverityModifiers,
   getConditionRiskWarnings,
@@ -42,13 +44,26 @@ export interface ConflictWarningInlineProps {
 
 // ─── Rows ─────────────────────────────────────────────────────────────────────
 
-function ConflictRow({ conflict }: { conflict: ModifiedConflict }) {
+interface RowCollapseProps {
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}
+
+function ConflictRow({
+  conflict,
+  collapsed,
+  onToggleCollapse,
+}: { conflict: ModifiedConflict } & RowCollapseProps) {
   const { rule } = conflict.result;
+  const title = 'Ingredient conflict';
   return (
     <InlineAlert
       tone="warning"
       icon={<Icon name="alert-triangle" size={16} color={colors.statusWarningAccent} />}
-      title="Ingredient conflict"
+      title={title}
+      collapsed={collapsed}
+      onToggleCollapse={onToggleCollapse}
+      collapseAccessibilityLabel={`${title}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
     >
       {`${rule.explanation}\n\n${rule.suggestion}${
         conflict.escalated
@@ -59,20 +74,33 @@ function ConflictRow({ conflict }: { conflict: ModifiedConflict }) {
   );
 }
 
-function AdvisoryRow({ advisory }: { advisory: ConditionAdvisory }) {
+function AdvisoryRow({
+  advisory,
+  collapsed,
+  onToggleCollapse,
+}: { advisory: ConditionAdvisory } & RowCollapseProps) {
+  const title = `Sensitivity note · ${advisory.conditionLabels.join(' + ')}`;
   return (
     <InlineAlert
       tone="warning"
       icon={<Icon name="alert-circle" size={16} color={colors.statusWarningAccent} />}
-      title={`Sensitivity note · ${advisory.conditionLabels.join(' + ')}`}
+      title={title}
+      collapsed={collapsed}
+      onToggleCollapse={onToggleCollapse}
+      collapseAccessibilityLabel={`${title}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
     >
       {`${advisory.message}\n\nIn your routine: ${advisory.productNames.join(', ')}.`}
     </InlineAlert>
   );
 }
 
-function DensityRow({ finding }: { finding: DensityFinding }) {
+function DensityRow({
+  finding,
+  collapsed,
+  onToggleCollapse,
+}: { finding: DensityFinding } & RowCollapseProps) {
   const isWarning = finding.tier === 'warning';
+  const title = isWarning ? 'Ingredient overlap' : 'Routine insight';
   return (
     <InlineAlert
       tone={isWarning ? 'warning' : 'info'}
@@ -83,7 +111,10 @@ function DensityRow({ finding }: { finding: DensityFinding }) {
           color={isWarning ? colors.statusWarningAccent : colors.statusInfo}
         />
       }
-      title={isWarning ? 'Ingredient overlap' : 'Routine insight'}
+      title={title}
+      collapsed={collapsed}
+      onToggleCollapse={onToggleCollapse}
+      collapseAccessibilityLabel={`${title}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
     >
       {`${finding.message}\n\n${finding.period === 'morning' ? 'Morning' : 'Evening'}: ${finding.productNames.join(', ')}.`}
     </InlineAlert>
@@ -114,6 +145,21 @@ export function ConflictWarningInline({
   products,
   skinConditions = [],
 }: ConflictWarningInlineProps) {
+  // Each row collapses independently and persists for the rest of the
+  // skincare day (same day-scoped pattern as RehabNoticeCard) — with a
+  // pairwise conflict, a condition advisory, and 2+ density findings all
+  // possible at once, an all-expanded stack would otherwise pin the whole
+  // screen until every one of them is resolved.
+  const persistedCollapse = useSettingsStore((s) => s.routineNoticeCollapsed);
+  const setRoutineNoticeCollapsed = useSettingsStore((s) => s.setRoutineNoticeCollapsed);
+  const collapseProps = (key: string): RowCollapseProps => {
+    const collapsed = resolveNoticeCollapsed(persistedCollapse[key]);
+    return {
+      collapsed,
+      onToggleCollapse: () => setRoutineNoticeCollapsed(key, toNoticeCollapseEntry(!collapsed)),
+    };
+  };
+
   const allSteps = [...morningSteps, ...eveningSteps];
 
   // De-duplicate: one alert per unique rule (same pair may appear multiple times)
@@ -148,13 +194,25 @@ export function ConflictWarningInline({
   return (
     <View style={styles.wrap}>
       {conflicts.map((c) => (
-        <ConflictRow key={c.result.rule.id} conflict={c} />
+        <ConflictRow
+          key={c.result.rule.id}
+          conflict={c}
+          {...collapseProps(`conflict:${c.result.rule.id}`)}
+        />
       ))}
       {advisories.map((advisory) => (
-        <AdvisoryRow key={advisory.id} advisory={advisory} />
+        <AdvisoryRow
+          key={advisory.id}
+          advisory={advisory}
+          {...collapseProps(`advisory:${advisory.id}`)}
+        />
       ))}
       {density.map((finding) => (
-        <DensityRow key={finding.id} finding={finding} />
+        <DensityRow
+          key={finding.id}
+          finding={finding}
+          {...collapseProps(`density:${finding.id}`)}
+        />
       ))}
     </View>
   );

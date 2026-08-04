@@ -574,7 +574,18 @@ export interface AppSettings {
    * the rest of the skincare day — mirrors `routineAccordion`'s day-scoping.
    * Re-decided (defaults to expanded) once a new skincare day starts.
    */
-  rehabNoticeCollapsed: Record<string, RehabNoticeCollapseEntry>;
+  rehabNoticeCollapsed: Record<string, NoticeCollapseEntry>;
+  /**
+   * Per-row collapse state for ConflictWarningInline's conflict /
+   * condition-advisory / density rows on the Routines screen, keyed by each
+   * row's own stable id (rule id, advisory id, or finding id, prefixed by
+   * row kind). Same day-scoped shape and semantics as `rehabNoticeCollapsed`:
+   * a manual collapse/expand survives a re-visit for the rest of the
+   * skincare day, and re-decides (defaults to expanded) once a new one
+   * starts. Kept as a separate map from `rehabNoticeCollapsed` since row ids
+   * are not guaranteed unique across the two features.
+   */
+  routineNoticeCollapsed: Record<string, NoticeCollapseEntry>;
 }
 
 /**
@@ -593,7 +604,11 @@ export interface RoutineAccordionSettings {
   eveningExpanded: boolean;
 }
 
-export interface RehabNoticeCollapseEntry {
+/**
+ * Shared day-scoped collapse decision shape for Routines-screen advisory
+ * rows — used by `rehabNoticeCollapsed` and `routineNoticeCollapsed`.
+ */
+export interface NoticeCollapseEntry {
   /** Skincare-day date string (see getSkincareDateString) this decision applies to. */
   date: string;
   collapsed: boolean;
