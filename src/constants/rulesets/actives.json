@@ -646,6 +646,20 @@
       "attribution": {
         "requireWithinPosition": 5
       }
+    },
+    "physical_exfoliant": {
+      "displayName": "Physical Exfoliant",
+      "matchers": [],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": true,
+        "irritancy": 2,
+        "barrierRepair": false
+      },
+      "allowedPeriods": [
+        "am",
+        "pm"
+      ]
     }
   },
   "pairRules": [

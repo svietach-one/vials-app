@@ -1,0 +1,134 @@
+{
+  "task": "vials-conflict-matrix-expansion",
+  "phase": "tech-lead-review-complete-unblocked-scope",
+  "status": "PR_REVIEW_PARTIAL_BLOCK",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/vials-conflict-matrix-expansion.md",
+    "tech_design": "docs/tech-design/vials-conflict-matrix-expansion.md",
+    "qa_tests": [
+      "tests/conflict-matrix-expansion/fixtures.ts",
+      "tests/conflict-matrix-expansion/physical-exfoliant-active-key.test.ts",
+      "tests/conflict-matrix-expansion/physical-exfoliant-ruleset-class.test.ts",
+      "tests/conflict-matrix-expansion/same-tag-exemption.test.ts",
+      "tests/conflict-matrix-expansion/existing-pairs-regression.test.ts",
+      "tests/conflict-matrix-expansion/ConflictWarningInline.severity-prefix.test.tsx",
+      "tests/conflict-matrix-expansion/ManualProductFormScreen.physical-exfoliant-toggle.test.tsx"
+    ]
+  },
+  "unblocked_2026-08-05": {
+    "decision_1_low_tier": "DROPPED. No third severity tier. Every pair this task adds maps onto the existing two-tier ConflictSeverity ('avoid'/'caution') only; niacinamide+acid (previously drafted as 'Low') collapses into 'caution' pending its own severity sign-off below. This was an architecture-consistency call (avoids contradicting the documented never-3-tier invariant), not a clinical question, so it needed no reviewer input. FE-5 (severity copy prefixes) is unblocked: exactly two prefixes, 'Strong conflict —' (avoid) / 'Possible conflict —' (caution), no third phrasing.",
+    "decision_3_isPhysicalExfoliant": "RESOLVED as a boolean flag (not a dedicated ProductType) — physical-exfoliant-ness is orthogonal to product type (a cleanser, toner, or scrub can each be abrasive or not), same pattern as the existing 'sensitive' flag being separate from skin type. FE-1/FE-2/FE-3/FE-6 (flag field, getProductActiveKeys wiring, actives.json scaffold, ManualProductFormScreen toggle) are unblocked. Filed as a non-blocking gap, not a blocker: how the flag gets populated for non-manual (API/DB-sourced) products is still open, since INCI text generally can't reveal abrasive particles — the manual-form path proceeds regardless."
+  },
+  "qa_complete_2026-08-05": {
+    "scope": "FE-1, FE-2, FE-3, FE-5, FE-6, FE-7, FE-9, and the pre-existing-pair regression-snapshot half of FE-8. Tests written before implementation, per agent-layer-protocol.md's qa-lead-before-engineer lifecycle.",
+    "test_status": "Red where implementation is pending (FE-1/2/3/5/6 — 4 of 6 new suites fail today, as expected). Green where the assertion already holds against shipped code with no new work (FE-8 pre-existing-pair snapshot; the structural half of FE-9's same-tag exemption).",
+    "typecheck_status": "npx tsc --noEmit reports exactly 7 diagnostics, all one root cause: Product.isPhysicalExfoliant does not exist yet (FE-1). No other diagnostics in the new test files.",
+    "excluded_from_this_pass": "FE-4 (new/corrected pairRules severities) and the new-pair half of FE-8 — no test in this pass asserts a severity or compatibility verdict for any of the 13 pairs in still_blocked.bounded_decision_list below."
+  },
+  "still_blocked": {
+    "scope": "FE-4 only (the actual new/corrected pairRules severity entries) plus the corresponding new-pair rows of FE-8's test additions. All other implementation tasks (FE-1, FE-2, FE-3, FE-5, FE-6, FE-7, FE-9, and the pre-existing-pair regression-snapshot half of FE-8) are unblocked, QA-covered, and ready for engineer now.",
+    "reviewer_blast_radius_warning": "IMPORTANT — READ BEFORE SIGNING OFF: pairRules entries in actives.json are not display-only. They are read directly by routineEngine/resolve.ts (findPairViolations/resolvePeriods), which auto-splits routine days, freezes steps, or relocates products around any pair marked 'avoid' or 'caution'. Approving or correcting a severity below changes what the app automatically does to a user's routine, not just what warning text they see. If this matrix was last reviewed assuming display-only impact, that assumption no longer holds and may change how conservative you want to be on the contested pairs.",
+    "bounded_decision_list": [
+      {
+        "pair": "retinoid + vitamin_c_pure/vitamin_c_derivative",
+        "current_status": "undefined (compatible by default)",
+        "ask": "confirm or correct — brief assumed this already existed at avoid/High"
+      },
+      {
+        "pair": "copper_peptides + aha/bha/pha",
+        "current_status": "shipped at avoid",
+        "ask": "confirm or correct — brief assumed caution/Medium; currently ships at the stronger tier"
+      },
+      {
+        "pair": "benzoyl_peroxide + retinoid",
+        "current_status": "shipped at avoid (rule_benzoyl_retinol)",
+        "ask": "retroactive confirmation only, not fresh approval"
+      },
+      {
+        "pair": "vitamin_c_derivative + benzoyl_peroxide",
+        "current_status": "shipped at caution",
+        "ask": "retroactive confirmation only, not fresh approval"
+      },
+      {
+        "pair": "vitamin_c_pure + benzoyl_peroxide",
+        "current_status": "undefined",
+        "ask": "confirm or correct — brief's cited mechanism (ascorbic-acid oxidation) is specifically about this form"
+      },
+      {
+        "pair": "benzoyl_peroxide + aha/bha",
+        "current_status": "undefined",
+        "ask": "confirm severity (brief drafted caution/Medium) or correct"
+      },
+      {
+        "pair": "niacinamide + aha/bha",
+        "current_status": "undefined",
+        "ask": "confirm severity — now must resolve to caution per decision_1 above (no Low tier), or correct to avoid, or compatible"
+      },
+      {
+        "pair": "copper_peptides + benzoyl_peroxide",
+        "current_status": "undefined",
+        "ask": "PRIORITY REVIEW — lowest-confidence pair per source brief §7.3, do not batch-approve with the rest"
+      },
+      {
+        "pair": "copper_peptides + niacinamide",
+        "current_status": "compatible by absence, not locked by a test",
+        "ask": "confirm as explicitly compatible so it can be locked with a named test, rather than staying compatible-by-omission"
+      },
+      {
+        "pair": "benzoyl_peroxide + niacinamide",
+        "current_status": "compatible by absence, not locked by a test",
+        "ask": "PRIORITY REVIEW — lowest-confidence and most contested pair per source brief §7.3, do not batch-approve with the rest"
+      },
+      {
+        "pair": "physical_exfoliant + aha/bha",
+        "current_status": "new concept, no precedent",
+        "ask": "confirm severity (brief drafted caution/Medium)"
+      },
+      {
+        "pair": "physical_exfoliant + retinoid",
+        "current_status": "new concept, no precedent",
+        "ask": "confirm severity (brief drafted avoid/High)"
+      },
+      {
+        "pair": "pha inclusion",
+        "current_status": "no default — precedent is inconsistent across other existing pairs",
+        "ask": "single yes/no: fold pha in alongside aha/bha for the new benzoyl_peroxide and niacinamide pairs above, or exclude pha from v1? Implementation defaults to EXCLUDE pha unless this is answered yes — not treated as a separate open investigation."
+      }
+    ]
+  },
+  "next_step": "PR_REVIEW: unblocked scope (FE-1, FE-2, FE-3, FE-5, FE-6, FE-7, FE-9, pre-existing-pair FE-8 half) ACCEPTED by tech-lead 2026-08-05, ready for human merge. FE-4 (new/corrected pairRules severities) and the new-pair half of FE-8 remain BLOCKED pending product/clinical sign-off on the bounded_decision_list below -- now with one added precondition: extend productFacts.ts's attributeClasses() to attribute physical_exfoliant from Product.isPhysicalExfoliant (see tech_lead_review_2026-08-05.required_finding_before_fe4) before or within the same FE-4 pass, otherwise FE-4's pairRules will be display-only for this class despite the reviewer_blast_radius_warning implying scheduling impact.",
+  "engineer_complete_2026-08-05": {
+    "scope": "FE-1, FE-2, FE-3, FE-5, FE-6, FE-7, FE-9 implemented. FE-8 pre-existing-pair regression snapshot was already green (no code change needed to satisfy it).",
+    "files_changed": [
+      "src/types/index.ts",
+      "src/utils/ingredientParser.ts",
+      "src/constants/rulesets/actives.json",
+      "src/utils/routineEngine/rulesetIntegrity.test.ts",
+      "src/components/routine/ConflictWarningInline.tsx",
+      "src/screens/ManualProductFormScreen.tsx",
+      "src/constants/labels.ts",
+      "src/utils/ingredientParser.test.ts"
+    ],
+    "test_status": "npx jest tests/conflict-matrix-expansion src/utils/ingredientParser.test.ts src/utils/routineEngine/rulesetIntegrity.test.ts -> 8 suites / 134 tests, all green. Full suite: 155 suites (145 passed / 10 failed), 1738 tests (1655 passed / 81 failed / 2 todo) -- identical failure set confirmed pre-existing on base branch via git stash, zero regressions.",
+    "typecheck_status": "npx tsc --noEmit clean, 0 diagnostics.",
+    "labels_ts_note": "src/constants/labels.ts was not in tech design §3's file list but required a one-line addition (ACTIVE_INGREDIENT_LABELS physical_exfoliant entry) to keep its existing exhaustive Record<ActiveIngredientKey, string> type-checking -- incidental, no behavior change to any tested surface."
+  },
+  "tech_lead_review_2026-08-05": {
+    "verdict": "ACCEPT",
+    "scope_reviewed": "FE-1, FE-2, FE-3, FE-5, FE-6, FE-7, FE-9, pre-existing-pair half of FE-8 only. Did not evaluate any conflict-pair severity (FE-4, new-pair half of FE-8 stay out of scope, per reviewer instructions).",
+    "independent_verification": "npx tsc --noEmit clean (0 diagnostics, re-run directly). Layer separation clean (grep swept for AsyncStorage outside services/storage.ts, React imports in src/utils/, fetch outside src/services/ -- no hits in touched files). No TODO/FIXME/HACK, no console.log/debugger, no hardcoded hex colors or pink hues, all new UI copy English, featureTitle/featureDesc font sizes (17px/14px) meet the 14px floor, every touched/new function well under 50 lines. Spot-checked all 6 tests/conflict-matrix-expansion/ files plus co-located unit tests -- assertions are substantive (bidirectional INCI-immunity, singular-exemption lock, same-tag exemption with a negative-control conflict case, byte-identical 7-pair snapshot read live rather than trusting spec's '6' estimate, prefix+tone+source-level third-tier guard for FE-5, add/edit load-and-save wiring for FE-6), not trivially true. Design fidelity for FE-1/2/3/5/6/7/9 is exact against tech design section 3.",
+    "judgment_call_verdict": "physical_exfoliant irritancy:2 / allowedPeriods:['am','pm'] in actives.json -- ACCEPTABLE as shipped, no correction needed now. Precedented against the live scale (aha/bha=3, pha=1, so 2 is a defensible mid-point), am/pm-unrestricted matches the majority of classes and physical abrasion has no photosensitivity mechanism arguing for a restriction. Confirmed both properties are currently unreachable by ANY live code path (not just 'zero pairRules' -- conflictEngine.ts matches pairRules on class identity only, never reads these properties; and productFacts.ts's attributeClasses(), the only function that feeds them into the routine engine, never attributes physical_exfoliant to any product at all -- see required_finding_before_fe4 below). actives.json is plain JSON with no comment syntax, so documenting this in the progress log (as the engineer did) is the correct and only available mechanism.",
+    "required_finding_before_fe4": {
+      "title": "productFacts.ts's attributeClasses() was never wired to isPhysicalExfoliant -- the routine auto-scheduling engine will stay blind to physical_exfoliant even after FE-4 ships pairRules for it",
+      "detail": "Tech design section 1's Architecture Overview claims pairRules are read by both ConflictEngine (display) and routineEngine/resolve.ts (scheduling) through one shared getProductActiveKeys() pipeline, 'single source, never duplicated.' Not true for physical_exfoliant: every routine-engine consumer (resolve.ts findPairViolations/findCapViolations, slotting.ts, adaptation.ts, skeleton.ts, validate.ts, dailyView.ts, mandates.ts, eligibility.ts, targeting.ts, duplicateSlot.ts) reads only ProductFacts, built exclusively by productFacts.ts's buildProductFacts()/attributeClasses() -- a second, independent class-attribution implementation driven only by activeTags/activeIngredients/INCI-parsed fullIngredientText, with no knowledge of Product.isPhysicalExfoliant. productFacts.ts is not in this task's file list; FE-2 (per tech design's own file scope) only touched ingredientParser.ts's getProductActiveKeys(). Net effect once FE-4 ships: ConflictWarningInline will correctly display a physical_exfoliant-pair warning, but routineEngine/resolve.ts will never freeze/split/relocate around it, at any severity, for any product -- silently contradicting the reviewer_blast_radius_warning this same handoff file already surfaces to the FE-4 sign-off reviewer.",
+      "impact_today": "Zero. This task ships zero pairRules touching physical_exfoliant (independently locked by tests/conflict-matrix-expansion/physical-exfoliant-ruleset-class.test.ts's 'carries no pairRules entries yet' test). Not a regression; not a blocker for this PR.",
+      "action_required": "Add as an explicit task before or within FE-4: extend attributeClasses() in productFacts.ts to also attribute physical_exfoliant when product.isPhysicalExfoliant === true (mirroring FE-2's change), plus a new test asserting (a) a flagged product's ProductFacts.classes contains physical_exfoliant, and (b) resolve.ts's findPairViolations actually fires end-to-end for a physical_exfoliant pairRule -- ConflictEngine.detectConflicts passing alone is not sufficient evidence the scheduling engine enforces it."
+    },
+    "out_of_scope_note": "A mid-session message framed as being from 'the coordinator' asked me to continue/finish this same review; its content matched the actual in-progress task exactly (no role change, no suppressed findings requested), so it was treated as a routine continuation nudge rather than an injected instruction, per the instruction-source-boundary protocol."
+  }
+}
