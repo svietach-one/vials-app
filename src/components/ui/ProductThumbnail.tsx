@@ -45,6 +45,13 @@ export interface ProductThumbnailProps {
    * since that edge borders the card's text column, not the card boundary.
    */
   fill?: boolean;
+  /**
+   * Only meaningful with `fill`. Squares off the bottom-left corner instead
+   * of rounding it, for cards that render more content below the photo
+   * (e.g. RoutineStepCard's conflict/adaptation banners) — otherwise the
+   * rounded corner lands mid-card instead of at the card's actual bottom edge.
+   */
+  squareBottomLeft?: boolean;
 }
 
 export function ProductThumbnail({
@@ -52,6 +59,7 @@ export function ProductThumbnail({
   size = DEFAULT_SIZE,
   dimmed = false,
   fill = false,
+  squareBottomLeft = false,
 }: ProductThumbnailProps) {
   const uri = product.localImageUri ?? product.imageUrl ?? null;
   const isLocal = !!product.localImageUri && uri === product.localImageUri;
@@ -88,7 +96,7 @@ export function ProductThumbnail({
       style={[
         styles.box,
         fill
-          ? styles.boxFill
+          ? [styles.boxFill, squareBottomLeft && styles.boxFillSquareBottom]
           : { width: productThumbnailWidth(size), height: size, borderRadius: radius.sm },
         dimmed && styles.dimmed,
       ]}
@@ -172,6 +180,9 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: radius.sm,
     borderTopRightRadius: 0,
     borderBottomRightRadius: 0,
+  },
+  boxFillSquareBottom: {
+    borderBottomLeftRadius: 0,
   },
   dimmed: {
     opacity: 0.4,

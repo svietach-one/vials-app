@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[3] + 2, // 14px
     gap: 10,
     backgroundColor: colors.surfaceRaised,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderRadius: radius.sm,
   },
   fieldDisabled: {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -11,7 +11,7 @@ export interface WeeklySchedulePickerProps {
   onUpdate?: (days: number[]) => void;
   /** When true, chips are display-only (not pressable). */
   readOnly?: boolean;
-  /** Active chip fill color. Defaults to controlFill (black). */
+  /** Active chip fill color. Defaults to the plum tint (plumTintLight / plum border). */
   accentColor?: string;
 }
 
@@ -42,7 +42,11 @@ export function WeeklySchedulePicker({
   accentColor,
 }: WeeklySchedulePickerProps) {
   const isEveryDay = scheduledDays.length === 0;
-  const fill = accentColor ?? colors.controlFill;
+  // Custom accentColor (e.g. period colors) keeps the solid-fill/white-text
+  // treatment; the default falls back to the plum tint + text pairing.
+  const fill = accentColor ?? palette.plumTintLight;
+  const borderColor = accentColor ?? palette.plum;
+  const labelActiveColor = accentColor ? colors.textOnDark : palette.plum;
 
   function isDayActive(dow: number): boolean {
     return isEveryDay || scheduledDays.includes(dow);
@@ -67,13 +71,14 @@ export function WeeklySchedulePicker({
       {DAY_CHIPS.map(({ dow, label }) => {
         const active = isDayActive(dow);
         const activeStyle = active
-          ? { backgroundColor: fill, borderColor: fill }
+          ? { backgroundColor: fill, borderColor }
           : undefined;
+        const activeLabelStyle = active ? { color: labelActiveColor } : undefined;
 
         if (readOnly) {
           return (
             <View key={dow} style={[styles.chip, activeStyle]}>
-              <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
+              <Text style={[styles.chipLabel, activeLabelStyle]}>
                 {label}
               </Text>
             </View>
@@ -90,7 +95,7 @@ export function WeeklySchedulePicker({
             accessibilityLabel={`${label}, ${active ? 'selected' : 'not selected'}`}
             hitSlop={4}
           >
-            <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
+            <Text style={[styles.chipLabel, activeLabelStyle]}>
               {label}
             </Text>
           </Pressable>
@@ -111,7 +116,7 @@ const styles = StyleSheet.create({
   chip: {
     flex: 1,
     height: 30,
-    borderRadius: radius.sm,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.borderStrong,
     backgroundColor: colors.surfaceRaised,
@@ -122,8 +127,5 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontFamily: 'DMSans-Medium',
     color: colors.textSecondary,
-  },
-  chipLabelActive: {
-    color: colors.textOnDark,
   },
 });

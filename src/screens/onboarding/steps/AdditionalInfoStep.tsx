@@ -1,0 +1,82 @@
+import React, { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+
+import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
+import { Switch } from '@/components/ui/forms/Switch';
+import { SkinConcernsSelector } from '@/components/profile/SkinConcernsSelector';
+import { colors } from '@/constants/tokens';
+import { PREGNANCY_HINT, PREGNANCY_LABEL } from '@/constants/labels';
+import type { SkinConcern, SkinConditionType, UserProfile } from '@/types';
+import { StepLayout } from './StepLayout';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface AdditionalInfoStepProps {
+  initialPregnantOrBreastfeeding: boolean;
+  initialSkinConditions: SkinConditionType[];
+  initialConcerns: SkinConcern[];
+  onNext: (patch: Partial<UserProfile>) => void;
+  onSkip: () => void;
+  onBack: () => void;
+  /** The container's OnboardingProgressRing, forwarded into the header row next to Back. */
+  progressRing?: React.ReactNode;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+/** Step 5 of 6 — anything we should know. */
+export function AdditionalInfoStep({
+  initialPregnantOrBreastfeeding,
+  initialSkinConditions,
+  initialConcerns,
+  onNext,
+  onSkip,
+  onBack,
+  progressRing,
+}: AdditionalInfoStepProps) {
+  const [pregnantOrBreastfeeding, setPregnantOrBreastfeeding] = useState(
+    initialPregnantOrBreastfeeding,
+  );
+  const [skinConditions, setSkinConditions] = useState<SkinConditionType[]>(initialSkinConditions);
+  const [concerns, setConcerns] = useState<SkinConcern[]>(initialConcerns);
+
+  return (
+    <StepLayout
+      title="Anything we should know?"
+      subtitle="Select anything that applies. This helps us avoid ingredients or procedures that may not be right for your skin."
+      onBack={onBack}
+      onSkip={onSkip}
+      onNext={() => onNext({ pregnantOrBreastfeeding, skinConditions, concerns })}
+      progressRing={progressRing}
+    >
+      <SkinConcernsSelector
+        concerns={concerns}
+        skinConditions={skinConditions}
+        onChangeConcerns={setConcerns}
+        onChangeConditions={setSkinConditions}
+      />
+
+      <View style={styles.divider} />
+
+      <InlineAlert
+        tone="warning"
+        title={PREGNANCY_LABEL}
+        action={
+          <Switch
+            checked={pregnantOrBreastfeeding}
+            onValueChange={setPregnantOrBreastfeeding}
+            accessibilityLabel={PREGNANCY_LABEL}
+          />
+        }
+      >
+        {PREGNANCY_HINT}
+      </InlineAlert>
+    </StepLayout>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  divider: { height: 1, backgroundColor: colors.borderDivider },
+});

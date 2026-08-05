@@ -1,0 +1,123 @@
+{
+  "task": "routine-engine-v2-2",
+  "phase": "tech-lead",
+  "status": "SHIPPED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/routine-engine-v2.2/ (PRD_Spec.md v1.2, USER_STORIES.md US-23-US-29, IMPLEMENTATION_PLAN.md Phases 8-10, SCREENS.md, CLAUDE_CODE_KICKOFF_PROMPT.md)",
+    "tech_design": "none — spec package provided directly, no planner pass",
+    "tests": [
+      "src/utils/skinConditionModifiers.test.ts",
+      "src/utils/barrierTags.test.ts",
+      "src/utils/activeIngredientDensity.test.ts",
+      "src/utils/spfAdequacy.test.ts",
+      "src/utils/advisoryCopy.test.ts",
+      "src/constants/rulesets/proposedPairRules.test.ts",
+      "tests/skin-conditions/fixtures.ts",
+      "tests/skin-conditions/condition-advisory-rows.test.tsx",
+      "tests/skin-conditions/condition-selector.test.tsx",
+      "tests/skin-conditions/spf-adequacy-banner.test.tsx"
+    ]
+  },
+  "engineer_notes": {
+    "files_added": [
+      "src/utils/skinConditionModifiers.ts",
+      "src/utils/barrierTags.ts",
+      "src/utils/activeIngredientDensity.ts",
+      "src/utils/spfAdequacy.ts",
+      "src/utils/advisoryCopy.ts",
+      "src/components/profile/ConditionSelector.tsx",
+      "src/constants/rulesets/proposedPairRules.ts",
+      "progress/routine-engine-v2-2.md"
+    ],
+    "files_modified": [
+      "src/types/index.ts",
+      "src/store/profileStore.ts",
+      "src/utils/routineEngine/migrations.ts",
+      "src/utils/routineEngine/migrations.test.ts",
+      "src/utils/routineEngine/rehabFilter.ts",
+      "src/constants/decisionReasons.ts",
+      "src/constants/featureFlags.ts",
+      "src/components/routine/ConflictWarningInline.tsx",
+      "src/components/routine/SeasonalNoticeBanner.tsx",
+      "src/components/routine/RehabNoticeCard.tsx",
+      "src/components/clinic/ProcedureLifespanCard.tsx",
+      "src/components/profile/SkinProfileEditModal.tsx",
+      "src/components/addProduct/BrandNameCategorySection.tsx",
+      "src/screens/RoutinesScreen.tsx",
+      "src/screens/ClinicScreen.tsx",
+      "src/screens/ManualProductFormScreen.tsx",
+      "src/screens/onboarding/SkinProfileSetupScreen.tsx",
+      "src/utils/productForm/formReducer.ts",
+      "src/utils/productForm/saveProduct.ts"
+    ],
+    "test_fixture_fallout_fixed": [
+      "tests/contribution-consent/fixtures.ts",
+      "tests/routine-engine/fixtures.ts",
+      "tests/routine-engine/cycling-and-adaptation.test.ts",
+      "tests/routine-engine/goal-confirm-routines-screen.test.tsx",
+      "tests/routine-engine/rehab-widget-ui.test.tsx"
+    ],
+    "schema": "CURRENT_SCHEMA_VERSION 4 -> 5 (UserProfile.skinConditions default [])",
+    "deviations_logged_in_progress_md": 7,
+    "tsc_status": "clean, 0 errors, including tests/",
+    "jest_status": "125/129 suites, 1548/1553 tests passed, 2 todo (--testPathIgnorePatterns=worktrees). 4 failing suites are pre-existing on this branch, verified identical before this task: shelf-filtering/PaoChip.integration, catalog/catalog-screen, catalog/product-detail, catalog/add-product-hub",
+    "not_touched_per_instructions": [
+      "actives.json pairRules — production matrix untouched; the proposed v1.2 rows live in src/constants/rulesets/proposedPairRules.ts behind PROPOSED_V12_PAIR_RULES_ENABLED=false",
+      "no catalog texture/occlusivity field added (seborrheic check ships as documented no-op)",
+      "no Supabase/remote spf_value migration — this repo has no backend layer",
+      "no commit created — changes left unstaged for review"
+    ],
+    "self_review": {
+      "standard": ".claude/rules/architecture-review.md",
+      "findings_fixed": 4,
+      "blockers_fixed": [
+        "ConflictWarningInline took whole routines and ignored RoutinesScreen's frozenStepIds — warned about steps removed from the visible list; props are now the rendered morningSteps/eveningSteps and getActiveDensityFindings takes PeriodSteps[]",
+        "findBannedPhrases (US-26 enforcement) checked only the first occurrence, so a leading false positive masked a real violation"
+      ],
+      "warnings_fixed": [
+        "duplicate condition-advisory rows when two conditions target one tag — now one row per tag",
+        "ConflictWarningInline over the 50-line rule (split into three row components) + missing SET_SPF_VALUE / buildProductFromDraft spfValue tests"
+      ],
+      "left_as_is": "spfAdequacy uses now.getDay() rather than the 04:00 skincare-day boundary — consistent with RoutinesScreen's selectedDow"
+    }
+  },
+  "open_questions_for_product": [
+    "UserProfile.concerns (contains 'eczema') vs. new skinConditions[] overlap — kept separate, nothing derives one from the other (PRD §5.1)",
+    "AGGRESSIVE_PROCEDURES mapping: chemical_peel_deep + smas_lifting + mesotherapy chosen as this catalog's equivalent of deep peel / laser resurfacing / microneedling; botox and fillers excluded per US-25",
+    "Density findings render day-scoped in the merged Routines tab (this app has no separate Weekly Plan sub-view)",
+    "Seborrheic 'rich/occlusive format' check needs a Product texture/occlusivity field before it can do anything"
+  ],
+  "for_tech_lead": {
+    "review_focus": [
+      "AdvisorySeverity vs ConflictSeverity projection in skinConditionModifiers.ts (deviation 1) — the deliberate alternative to rewriting the matrix",
+      "US-27 no-op harness in skinConditionModifiers.test.ts",
+      "US-26 lint coverage in advisoryCopy.test.ts (collector must reach every template table)",
+      "RehabNotice.aggressive added to a render-only derived type",
+      "ConflictWarningInline's prop contract: it takes RENDERED steps, never routines — the frozen-step fix depends on callers keeping that"
+    ]
+  },
+  "tech_lead_review": {
+    "verdict": "ACCEPT",
+    "date": "2026-08-04",
+    "reviewed_commit": "9078369",
+    "branch_reviewed_on": "goal-coverage-safety-guard",
+    "checklist": {
+      "us27_no_op_guarantee": "PASS - 10-case pair matrix in skinConditionModifiers.test.ts asserts equality vs forced-empty conditions; density/spf gate tests confirm silence outside trigger conditions",
+      "us26_banned_phrase_lint_coverage": "PASS - advisoryCopy.test.ts allTemplates() scans CONDITION_MODIFIERS, RECOVERY_CAUTIONS, DENSITY_MESSAGES, CONDITION_DISCLAIMER, and buildSpfAdequacyMessage (all 3 features), guarded by length>15 assertion",
+      "no_cabernet_no_blocking": "PASS - grep confirms tone=sos never used by ConflictWarningInline/RehabNoticeCard/ProcedureLifespanCard/SeasonalNoticeBanner; only pre-existing AddProcedureModal.tsx uses sos; no advisory function output feeds a disabled prop",
+      "tsc_noemit": "clean, 0 errors",
+      "jest": "138/148 suites, 1583/1666 tests, 2 todo. All Phase 8-10-owned suites pass. Baseline's 4 pre-existing failures unchanged. 6 additional failures traced via git log to post-9078369 commits (fcee49a5, 2b67aa14) touching labels.ts/ProductShelfCard.tsx/ProductDetailScreen.tsx/WeeklyPlanView.tsx/RoutineCalendarView - none are Phase 8-10 files, no regression attributable to this task",
+      "architecture_review": "PASS - no AsyncStorage/fetch/React-import layer violations, no hardcoded colors, no TODO/FIXME/HACK, no console.log/debugger, no genuine type duplication (local types match established ConflictResult/planTypes.ts/rulesetTypes.ts convention). WARNING (non-blocking): getConditionRiskWarnings (~55 lines) and ConflictWarningInline main component (~77 lines incl. JSX) exceed the 50-line guideline"
+    },
+    "notes": [
+      "Branch-wide jest baseline has drifted to 10 pre-existing failures (not the 4 recorded when this task baseline was captured) due to later, unrelated commits landing on this branch after 9078369 - flagged for whoever owns branch test health, not a blocker for this task",
+      "Design fidelity confirmed: src/types/index.ts diff matches the engineer log exactly (AdvisorySeverity, SkinConditionType, BarrierIngredientKey, Product.spfValue, RehabNotice.aggressive, UserProfile.skinConditions), no extra/missing fields",
+      "Engineer's own self-review pass (2026-07-26) already caught and fixed 2 real blockers and 2 warnings before this review - both fixes re-verified present in current source"
+    ]
+  }
+}

@@ -54,7 +54,7 @@ const SLIDES = [
 ] as const;
 
 const CONSENT_LABEL =
-  "I understand Vials is a planning tool, not a medical app. It doesn't replace a consultation with a doctor or aesthetician, and it doesn't diagnose. Decisions about which products to use and procedures to undergo — and responsibility for their outcome, including possible allergic reactions — are mine to make.";
+  "I understand Vials is a planning tool, not a medical app. It doesn't replace a consultation with a doctor or aesthetician, and it doesn't diagnose. Decisions about which products to use and procedures to undergo are mine to make.";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -72,7 +72,7 @@ describe('buildStepsFromPlan', () => {
   it('drops a pinned step under a clinical freeze — safety beats preference', () => {
     const existing = [makeStep('pinned', { userPinned: true })];
     const frozen: FrozenItem[] = [
-      { productId: 'pinned', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-18' },
+      { productId: 'pinned', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-18', overridesPin: true },
     ];
     const steps = buildStepsFromPlan([], existing, frozen, makeIdFactory());
     expect(steps).toHaveLength(0);
@@ -81,7 +81,34 @@ describe('buildStepsFromPlan', () => {
   it('keeps a pinned step frozen by a pair rule (no expiry) — pins beat preferences', () => {
     const existing = [makeStep('pinned', { userPinned: true })];
     const frozen: FrozenItem[] = [
-      { productId: 'pinned', reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha' },
+      { productId: 'pinned', reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha', overridesPin: false },
+    ];
+    const steps = buildStepsFromPlan([], existing, frozen, makeIdFactory());
+    expect(steps.map((s) => s.productId)).toEqual(['pinned']);
+  });
+
+  it('drops a pinned step under a pregnancy freeze (no expiry, overridesPin: true) — the regression this fix closes', () => {
+    const existing = [makeStep('pinned', { userPinned: true })];
+    const frozen: FrozenItem[] = [
+      { productId: 'pinned', reasonCode: 'pregnancy_blocked', overridesPin: true },
+    ];
+    const steps = buildStepsFromPlan([], existing, frozen, makeIdFactory());
+    expect(steps).toHaveLength(0);
+  });
+
+  it('drops a pinned step when overridesPin is true even though until is also present', () => {
+    const existing = [makeStep('pinned', { userPinned: true })];
+    const frozen: FrozenItem[] = [
+      { productId: 'pinned', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-18', overridesPin: true },
+    ];
+    const steps = buildStepsFromPlan([], existing, frozen, makeIdFactory());
+    expect(steps).toHaveLength(0);
+  });
+
+  it('keeps a pinned step when overridesPin is false even though until is also present — overridesPin is the sole authority', () => {
+    const existing = [makeStep('pinned', { userPinned: true })];
+    const frozen: FrozenItem[] = [
+      { productId: 'pinned', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-18', overridesPin: false },
     ];
     const steps = buildStepsFromPlan([], existing, frozen, makeIdFactory());
     expect(steps.map((s) => s.productId)).toEqual(['pinned']);
@@ -149,7 +176,7 @@ describe('buildDraftSummaryLines', () => {
 
   it('summarizes paused products with the short unfreeze date', () => {
     const plan = makePlan({
-      frozen: [{ productId: 'aha', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-17' }],
+      frozen: [{ productId: 'aha', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-17', overridesPin: true }],
       reserve: [],
     });
     const lines = buildDraftSummaryLines(plan, [], products);
@@ -158,7 +185,7 @@ describe('buildDraftSummaryLines', () => {
 
   it('narrates pair-rule freezes (no expiry) instead of letting products vanish silently', () => {
     const plan = makePlan({
-      frozen: [{ productId: 'aha', reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha' }],
+      frozen: [{ productId: 'aha', reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha', overridesPin: false }],
       reserve: [],
     });
     const lines = buildDraftSummaryLines(plan, [], products);
@@ -180,7 +207,7 @@ describe('buildDraftSummaryLines', () => {
         { action: 'day_split', productId: 'aha' },
         { action: 'day_split', productId: 'ret' },
       ],
-      frozen: [{ productId: 'vitc', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-20' }],
+      frozen: [{ productId: 'vitc', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-20', overridesPin: true }],
       reserve: [],
     });
     const diff: PlanDiffEntry[] = [

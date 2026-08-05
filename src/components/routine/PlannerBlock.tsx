@@ -2,7 +2,8 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
-import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
+import { PillToggle } from '@/components/ui/core/PillToggle';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,42 +70,32 @@ export function PlannerBlock({
   return (
     <View style={styles.card}>
       {/* List ⇄ calendar segmented pill */}
-      <View style={styles.toggleGroup}>
-        <Pressable
-          style={[styles.toggleBtn, viewMode === 'list' && styles.toggleBtnActive]}
-          onPress={() => onViewModeChange('list')}
-          accessibilityRole="button"
-          accessibilityState={{ selected: viewMode === 'list' }}
-          accessibilityLabel="List view"
-          hitSlop={4}
-        >
-          <Icon
-            name="list"
-            size={16}
-            color={viewMode === 'list' ? palette.white : colors.textSecondary}
-          />
-          <Text style={[styles.toggleLabel, viewMode === 'list' && styles.toggleLabelActive]}>
-            List
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.toggleBtn, viewMode === 'calendar' && styles.toggleBtnActive]}
-          onPress={() => onViewModeChange('calendar')}
-          accessibilityRole="button"
-          accessibilityState={{ selected: viewMode === 'calendar' }}
-          accessibilityLabel="Calendar view"
-          hitSlop={4}
-        >
-          <Icon
-            name="calendar"
-            size={16}
-            color={viewMode === 'calendar' ? palette.white : colors.textSecondary}
-          />
-          <Text style={[styles.toggleLabel, viewMode === 'calendar' && styles.toggleLabelActive]}>
-            Calendar
-          </Text>
-        </Pressable>
-      </View>
+      <PillToggle
+        value={viewMode}
+        onValueChange={(v) => onViewModeChange(v as RoutineViewMode)}
+        options={[
+          {
+            value: 'list',
+            label: 'List',
+            accessibilityLabel: 'List view',
+            icon: (active) => (
+              <Icon name="list" size={16} color={active ? palette.white : colors.textSecondary} />
+            ),
+          },
+          {
+            value: 'calendar',
+            label: 'Calendar',
+            accessibilityLabel: 'Calendar view',
+            icon: (active) => (
+              <Icon
+                name="calendar"
+                size={16}
+                color={active ? palette.white : colors.textSecondary}
+              />
+            ),
+          },
+        ]}
+      />
 
       {/* Mo … Su week strip — single active day, tapping changes selection */}
       {showWeekStrip ? (
@@ -143,37 +134,6 @@ export function PlannerBlock({
 const styles = StyleSheet.create({
   card: {
     gap: space[3],
-  },
-
-  toggleGroup: {
-    flexDirection: 'row',
-    gap: space[1],
-    backgroundColor: palette.white,
-    borderRadius: radius.pill,
-    padding: space[1],
-    ...shadow.sm,
-  },
-  toggleBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[1],
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: palette.white,
-  },
-  toggleBtnActive: {
-    backgroundColor: palette.plum,
-  },
-  toggleLabel: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 18,
-    color: colors.textSecondary,
-  },
-  toggleLabelActive: {
-    color: palette.white,
   },
 
   dayRow: {

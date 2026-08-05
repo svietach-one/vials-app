@@ -13,8 +13,6 @@
  * Reason codes are DECOUPLED from pair-rule ids (§4.4 ruling): a rule's `id`
  * is renameable provenance carried as `ruleId`; its `reasonCode` is a stable
  * member of this union. `rule_*` ids must never appear here.
- *
- * `pregnancy_blocked` is intentionally absent — deferred with Phase 3 §4.3.
  */
 
 /** Reason codes authored in the ruleset JSON (procedures / seasons / actives). */
@@ -26,6 +24,12 @@ export type RulesetReasonCode =
   | 'vitamin_c_acid_conflict'
   | 'vitamin_c_copper_conflict'
   | 'vitamin_c_benzoyl_conflict'
+  // pair-rule conflicts proposed in PRD v1.2 §5.2, gated OFF pending clinical
+  // sign-off (see src/constants/rulesets/proposedPairRules.ts). Declared here
+  // so the rules compile today and enabling them stays a one-line flag flip.
+  | 'benzoyl_acid_conflict'
+  | 'benzoyl_copper_peptide_conflict'
+  | 'azelaic_acid_conflict'
   // phototype modifiers
   | 'phototype_pih_risk'
   | 'phototype_pih_exfoliant_cap'
@@ -52,7 +56,10 @@ export type RulesetReasonCode =
   | 'facial_rehab_no_exfoliants'
   | 'custom_rehab_recovery'
   | 'custom_rehab_conservative'
-  | 'custom_rehab_spf';
+  | 'custom_rehab_spf'
+  // pregnancy / breastfeeding freeze (src/constants/rulesets/pregnancy.ts,
+  // pregnancy-safety-handling — draft, flagged off pending clinical sign-off)
+  | 'pregnancy_blocked';
 
 /** Reason codes emitted by engine code (not authored in JSON). */
 export type EngineReasonCode =
@@ -105,6 +112,9 @@ export const REASON_TEXT = {
   vitamin_c_acid_conflict: 'Layering pure vitamin C with acids over-lowers pH — kept apart.',
   vitamin_c_copper_conflict: 'Pure vitamin C oxidises copper peptides — kept apart.',
   vitamin_c_benzoyl_conflict: 'Benzoyl peroxide degrades vitamin C — kept apart.',
+  benzoyl_acid_conflict: 'Benzoyl peroxide and exfoliating acids dry the skin together — kept apart.',
+  benzoyl_copper_peptide_conflict: 'Benzoyl peroxide deactivates copper peptides — kept apart.',
+  azelaic_acid_conflict: 'Azelaic acid stacked with exfoliating acids adds up — kept apart.',
   // ── phototype ────────────────────────────────────────────────────────────
   phototype_pih_risk: 'Higher pigmentation risk for your skin tone — this pair is treated more cautiously.',
   phototype_pih_exfoliant_cap: 'Exfoliation limited to protect against dark marks on your skin tone.',
@@ -132,6 +142,9 @@ export const REASON_TEXT = {
   custom_rehab_recovery: 'Gentle care is prioritised during your recovery window.',
   custom_rehab_conservative: 'Strong actives are paused during your recovery window.',
   custom_rehab_spf: 'Daily SPF is required during your recovery window.',
+  // ── pregnancy / breastfeeding ────────────────────────────────────────────
+  pregnancy_blocked:
+    'Commonly avoided during pregnancy or breastfeeding — paused. Check with your doctor.',
   // ── eligibility ──────────────────────────────────────────────────────────
   product_hidden: 'You hid this product.',
   pao_expired: 'Past its opened-shelf-life — replace it before using.',

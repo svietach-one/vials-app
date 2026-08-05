@@ -3,7 +3,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -14,44 +13,33 @@ import { Icon } from '@/components/ui/Icon';
 
 import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
 import { GoalSelector } from '@/components/profile/GoalSelector';
+import { SkinConcernsSelector } from '@/components/profile/SkinConcernsSelector';
 import { Button } from '@/components/ui/core/Button';
+import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { ListRow } from '@/components/ui/core/ListRow';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, space, typography } from '@/constants/tokens';
+import {
+  GENDER_CAPTION,
+  GENDER_OPTIONS,
+  HORMONE_THERAPY_HINT,
+  HORMONE_THERAPY_LABEL,
+  PREGNANCY_HINT,
+  PREGNANCY_LABEL,
+  SKIN_TYPE_OPTIONS,
+} from '@/constants/labels';
 import type {
   FitzpatrickType,
   SkinConcern,
+  SkinConditionType,
   SkinGoal,
   SkinType,
   UserProfile,
 } from '@/types';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-
-const GENDER_OPTIONS: { value: 'female' | 'male'; label: string }[] = [
-  { value: 'female', label: 'Female' },
-  { value: 'male', label: 'Male' },
-];
-
-const SKIN_TYPES: { value: SkinType; label: string }[] = [
-  { value: 'oily', label: 'Oily' },
-  { value: 'dry', label: 'Dry' },
-  { value: 'combination', label: 'Combination' },
-  { value: 'normal', label: 'Normal' },
-];
-
-const CONCERNS: { value: SkinConcern; label: string }[] = [
-  { value: 'acne', label: 'Acne' },
-  { value: 'dryness', label: 'Dryness' },
-  { value: 'wrinkles', label: 'Wrinkles' },
-  { value: 'sensitivity', label: 'Sensitivity' },
-  { value: 'redness', label: 'Redness' },
-  { value: 'hyperpigmentation', label: 'Hyperpigmentation' },
-  { value: 'pores', label: 'Pores' },
-  { value: 'dark_spots', label: 'Dark spots' },
-  { value: 'eczema', label: 'Eczema' },
-];
 
 const FITZPATRICK_TYPES: FitzpatrickType[] = [1, 2, 3, 4, 5, 6];
 
@@ -72,48 +60,51 @@ export function SkinProfileEditModal({
   onClose,
   onSave,
 }: SkinProfileEditModalProps) {
-  const [gender, setGender] = useState<'female' | 'male' | null>(null);
-  const [ageText, setAgeText] = useState('');
   const [skinType, setSkinType] = useState<SkinType | null>(null);
-  const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(null);
-  const [concerns, setConcerns] = useState<SkinConcern[]>([]);
   const [primaryGoal, setPrimaryGoal] = useState<SkinGoal>('maintenance');
   const [secondaryGoal, setSecondaryGoal] = useState<SkinGoal | null>(null);
+  const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(null);
+  const [ageText, setAgeText] = useState('');
+  const [gender, setGender] = useState<'female' | 'male' | null>(null);
+  const [hormoneTherapy, setHormoneTherapy] = useState(false);
+  const [pregnantOrBreastfeeding, setPregnantOrBreastfeeding] = useState(false);
+  const [concerns, setConcerns] = useState<SkinConcern[]>([]);
+  const [skinConditions, setSkinConditions] = useState<SkinConditionType[]>([]);
   const [spfSensitivity, setSpfSensitivity] = useState(false);
 
   // Pre-fill from current profile on open
   useEffect(() => {
     if (!visible) return;
-    setGender(profile?.gender ?? null);
-    setAgeText(profile?.age != null ? String(profile.age) : '');
     setSkinType(profile?.skinType ?? null);
-    setFitzpatrick(profile?.fitzpatrick ?? null);
-    setConcerns(profile?.concerns ?? []);
     setPrimaryGoal(profile?.primaryGoal ?? 'maintenance');
     setSecondaryGoal(profile?.secondaryGoal ?? null);
+    setFitzpatrick(profile?.fitzpatrick ?? null);
+    setAgeText(profile?.age != null ? String(profile.age) : '');
+    setGender(profile?.gender ?? null);
+    setHormoneTherapy(profile?.hormoneTherapy ?? false);
+    setPregnantOrBreastfeeding(profile?.pregnantOrBreastfeeding ?? false);
+    setConcerns(profile?.concerns ?? []);
+    setSkinConditions(profile?.skinConditions ?? []);
     setSpfSensitivity(profile?.spfSensitivity ?? false);
   }, [visible, profile]);
-
-  function toggleConcern(c: SkinConcern) {
-    setConcerns((prev) =>
-      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
-    );
-  }
 
   function handleSave() {
     const parsedAge = parseInt(ageText, 10);
     onSave({
-      gender,
-      age: Number.isFinite(parsedAge) && parsedAge > 0 ? parsedAge : null,
       skinType,
-      fitzpatrick,
-      concerns,
       primaryGoal,
       secondaryGoal,
       // Saving from the editor IS the user choosing — no confirmation owed
       goalNeedsConfirmation: false,
+      fitzpatrick,
       // Choosing on the 6-card selector IS confirming the skin tone.
       phototypeNeedsConfirmation: false,
+      age: Number.isFinite(parsedAge) && parsedAge > 0 ? parsedAge : null,
+      gender,
+      hormoneTherapy,
+      pregnantOrBreastfeeding,
+      concerns,
+      skinConditions,
       spfSensitivity,
     });
   }
@@ -148,100 +139,25 @@ export function SkinProfileEditModal({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Gender */}
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Gender</Text>
-              <View style={styles.chipRow}>
-                {GENDER_OPTIONS.map(({ value, label }) => {
-                  const active = gender === value;
-                  return (
-                    <Pressable
-                      key={value}
-                      onPress={() => setGender(active ? null : value)}
-                      style={[chipStyles.chip, active && chipStyles.chipActive]}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: active }}
-                    >
-                      <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Age */}
-            <Input
-              label="Age"
-              value={ageText}
-              onChangeText={setAgeText}
-              placeholder="e.g. 28"
-              keyboardType="number-pad"
-              maxLength={3}
-              returnKeyType="done"
-            />
-
-            {/* Skin type */}
+            {/* Skin type — order below mirrors the onboarding flow (SkinTypeStep
+                → GoalsStep → PhototypeStep → AboutYouStep → AdditionalInfoStep)
+                field for field, so editing here matches what onboarding asked. */}
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Skin Type</Text>
               <View style={styles.chipRow}>
-                {SKIN_TYPES.map(({ value, label }) => {
-                  const active = skinType === value;
-                  return (
-                    <Pressable
-                      key={value}
-                      onPress={() => setSkinType(active ? null : value)}
-                      style={[chipStyles.chip, active && chipStyles.chipActive]}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Phototype */}
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Skin Tone (Fitzpatrick)</Text>
-              <View style={styles.phototypeRow}>
-                {FITZPATRICK_TYPES.map((ft) => (
-                  <FitzpatrickCard
-                    key={ft}
-                    type={ft}
-                    selected={fitzpatrick === ft}
-                    onSelect={() => setFitzpatrick(fitzpatrick === ft ? null : ft)}
-                  />
+                {SKIN_TYPE_OPTIONS.map(({ value, label }) => (
+                  <FilterChip
+                    key={value}
+                    selected={skinType === value}
+                    onPress={() => setSkinType(skinType === value ? null : value)}
+                  >
+                    {label}
+                  </FilterChip>
                 ))}
               </View>
             </View>
 
-            {/* Concerns */}
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Skin Concerns</Text>
-              <View style={styles.concernWrap}>
-                {CONCERNS.map(({ value, label }) => {
-                  const active = concerns.includes(value);
-                  return (
-                    <Pressable
-                      key={value}
-                      onPress={() => toggleConcern(value)}
-                      style={[chipStyles.chip, active && chipStyles.chipActive]}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: active }}
-                    >
-                      <Text style={[chipStyles.label, active && chipStyles.labelActive]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
+            <View style={styles.divider} />
 
             {/* Care goals (V2.1 Step 0) */}
             <View style={styles.field}>
@@ -260,7 +176,108 @@ export function SkinProfileEditModal({
               />
             </View>
 
-            {/* SPF sensitivity */}
+            <View style={styles.divider} />
+
+            {/* Phototype */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Skin Tone (Fitzpatrick)</Text>
+              <View style={styles.phototypeRow}>
+                {FITZPATRICK_TYPES.map((ft) => (
+                  <FitzpatrickCard
+                    key={ft}
+                    type={ft}
+                    selected={fitzpatrick === ft}
+                    onSelect={() => setFitzpatrick(fitzpatrick === ft ? null : ft)}
+                    style={styles.phototypeCard}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Age */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Age</Text>
+              <Input
+                value={ageText}
+                onChangeText={setAgeText}
+                placeholder="e.g. 28"
+                keyboardType="number-pad"
+                maxLength={3}
+                returnKeyType="done"
+              />
+            </View>
+
+            {/* Gender */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Gender</Text>
+              <View style={styles.chipRow}>
+                {GENDER_OPTIONS.map(({ value, label }) => (
+                  <FilterChip
+                    key={value ?? 'unspecified'}
+                    selected={gender === value}
+                    onPress={() => setGender(value)}
+                  >
+                    {label}
+                  </FilterChip>
+                ))}
+              </View>
+              <Text style={styles.fieldHint}>{GENDER_CAPTION}</Text>
+            </View>
+
+            {/* Hormone therapy */}
+            <ListRow
+              title={HORMONE_THERAPY_LABEL}
+              titleStyle={styles.fieldLabel}
+              subtitle={HORMONE_THERAPY_HINT}
+              divider={false}
+              style={styles.listRowFlush}
+              trailing={
+                <Switch
+                  checked={hormoneTherapy}
+                  onValueChange={setHormoneTherapy}
+                  accessibilityLabel={HORMONE_THERAPY_LABEL}
+                />
+              }
+            />
+
+            <View style={styles.divider} />
+
+            {/* Pregnant or breastfeeding */}
+            <ListRow
+              title={PREGNANCY_LABEL}
+              titleStyle={styles.fieldLabel}
+              subtitle={PREGNANCY_HINT}
+              divider={false}
+              style={styles.listRowFlush}
+              trailing={
+                <Switch
+                  checked={pregnantOrBreastfeeding}
+                  onValueChange={setPregnantOrBreastfeeding}
+                  accessibilityLabel={PREGNANCY_LABEL}
+                />
+              }
+            />
+
+            {/* Skin concerns — merges skin concerns with skin conditions (v1.2,
+                US-23) into one deduplicated chip list; shared with onboarding
+                (SkinProfileSetupScreen) so the two screens can't drift apart. */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Skin concerns (optional)</Text>
+              <SkinConcernsSelector
+                concerns={concerns}
+                skinConditions={skinConditions}
+                onChangeConcerns={setConcerns}
+                onChangeConditions={setSkinConditions}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* SPF sensitivity — profile-only setting, no onboarding step asks
+                for it, so it stays last rather than slotted into the mirrored
+                order above. */}
             <View style={styles.switchRow}>
               <View style={styles.switchContent}>
                 <Text style={styles.switchTitle}>SPF Sensitivity</Text>
@@ -317,11 +334,21 @@ const styles = StyleSheet.create({
     gap: space[5],
   },
   field: { gap: space[2] },
-  // Matches the Input component's default field label
+  divider: { height: 1, backgroundColor: colors.borderDivider },
+  // Block heading — one step up from the app's default `label`/`body` sizes,
+  // shared by every section title in this sheet (field labels, and the
+  // hormone-therapy / pregnancy / SPF row titles via `titleStyle`/`switchTitle`
+  // below) so the heading level reads consistently throughout.
   fieldLabel: {
-    ...typography.label,
+    fontFamily: 'DMSans-Medium',
+    fontSize: 18,
+    lineHeight: 24,
     color: colors.textPrimary,
   },
+  // Neutralizes ListRow's own internal padding so its distance to the
+  // surrounding divider matches every other block, which relies solely on
+  // `content`'s gap for spacing.
+  listRowFlush: { paddingVertical: 0, paddingHorizontal: 0 },
   fieldHint: {
     ...typography.bodySmall,
     color: colors.textSecondary,
@@ -331,26 +358,29 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space[2],
   },
-  concernWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space[2],
-  },
   phototypeRow: {
     flexDirection: 'row',
     gap: space[3],
-    height: 96,
+  },
+  // Same fixed-height, non-square shape as onboarding's PhototypeStep cards
+  // (flex:0 + aspectRatio:undefined + explicit height) — just shorter, since
+  // six sit in one compact row here instead of a 2-column grid.
+  phototypeCard: {
+    flex: 1,
+    aspectRatio: undefined,
+    height: 72,
   },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[3],
-    paddingVertical: space[1],
   },
   switchContent: { flex: 1, gap: 2 },
+  // Same block-heading size as fieldLabel — see comment above.
   switchTitle: {
-    ...typography.body,
     fontFamily: 'DMSans-Medium',
+    fontSize: 18,
+    lineHeight: 24,
     color: colors.textPrimary,
   },
   switchDesc: {
@@ -367,27 +397,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgBase,
   },
   footerBtn: { flex: 1 },
-});
-
-const chipStyles = StyleSheet.create({
-  chip: {
-    paddingHorizontal: space[3],
-    paddingVertical: space[2] - 1,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceRaised,
-  },
-  chipActive: {
-    backgroundColor: palette.black,
-    borderColor: palette.black,
-  },
-  label: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textSecondary,
-  },
-  labelActive: {
-    color: palette.white,
-  },
 });

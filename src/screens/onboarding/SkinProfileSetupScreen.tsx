@@ -1,274 +1,140 @@
 import React, { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
-import { GoalSelector } from '@/components/profile/GoalSelector';
-import { Button } from '@/components/ui/core/Button';
-import { Input } from '@/components/ui/forms/Input';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { OnboardingProgressRing } from '@/components/onboarding/OnboardingProgressRing';
+import type { IconName } from '@/components/ui/Icon';
+import { colors } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
-import type { FitzpatrickType, SkinConcern, SkinGoal, SkinType } from '@/types';
+import type { UserProfile } from '@/types';
 import type { OnboardingStackParamList } from '@/navigation/AppNavigator';
+import { AboutYouStep } from './steps/AboutYouStep';
+import { AdditionalInfoStep } from './steps/AdditionalInfoStep';
+import { CityStep } from './steps/CityStep';
+import { GoalsStep } from './steps/GoalsStep';
+import { PhototypeStep } from './steps/PhototypeStep';
+import { SkinTypeStep } from './steps/SkinTypeStep';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'SkinProfileSetup'>;
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const SKIN_TYPES: { value: SkinType; label: string }[] = [
-  { value: 'oily', label: 'Oily' },
-  { value: 'dry', label: 'Dry' },
-  { value: 'combination', label: 'Combination' },
-  { value: 'normal', label: 'Normal' },
-];
-
-const CONCERNS: { value: SkinConcern; label: string }[] = [
-  { value: 'acne', label: 'Acne' },
-  { value: 'dryness', label: 'Dryness' },
-  { value: 'wrinkles', label: 'Wrinkles' },
-  { value: 'sensitivity', label: 'Sensitivity' },
-  { value: 'redness', label: 'Redness' },
-  { value: 'hyperpigmentation', label: 'Hyperpigmentation' },
-  { value: 'pores', label: 'Pores' },
-  { value: 'dark_spots', label: 'Dark spots' },
-];
-
-const FITZPATRICK_TYPES: FitzpatrickType[] = [1, 2, 3, 4, 5, 6];
+const TOTAL_STEPS = 6;
+const STEP_ICONS: Record<number, IconName> = {
+  1: 'droplet',
+  2: 'target',
+  3: 'sun',
+  4: 'user',
+  5: 'shield-check',
+  6: 'map-pin',
+};
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
+/**
+ * 6-step onboarding profile flow. This container is the sole `useProfileStore`
+ * caller — each step is presentational (props/callbacks only) and re-seeds
+ * its local state from the current profile whenever it (re)mounts, so
+ * Back/Skip never resurrect an abandoned edit. Skip advances without
+ * persisting; Next/Finish persists via `updateProfile` first.
+ */
 export default function SkinProfileSetupScreen({ navigation }: Props) {
+  const profile = useProfileStore((s) => s.profile);
   const updateProfile = useProfileStore((s) => s.updateProfile);
+  const [step, setStep] = useState(1);
 
-  const [gender, setGender] = useState<'female' | 'male' | null>(null);
-  const [ageText, setAgeText] = useState('');
-  const [skinType, setSkinType] = useState<SkinType | null>(null);
-  const [fitzpatrick, setFitzpatrick] = useState<FitzpatrickType | null>(null);
-  const [concerns, setConcerns] = useState<SkinConcern[]>([]);
-  const [primaryGoal, setPrimaryGoal] = useState<SkinGoal>('maintenance');
-  const [secondaryGoal, setSecondaryGoal] = useState<SkinGoal | null>(null);
-
-  function toggleConcern(c: SkinConcern) {
-    setConcerns((prev) =>
-      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
-    );
+  function advance() {
+    if (step === TOTAL_STEPS) {
+      navigation.replace('ContributionConsent');
+      return;
+    }
+    setStep((s) => s + 1);
   }
 
-  function buildProfilePatch() {
-    const age = parseInt(ageText, 10);
-    return {
-      gender,
-      age: Number.isFinite(age) && age > 0 ? age : null,
-      skinType,
-      fitzpatrick,
-      concerns,
-      primaryGoal,
-      secondaryGoal,
-      // Chosen (or deliberately left at maintenance) during onboarding —
-      // never prompt this user to confirm a derived goal.
-      goalNeedsConfirmation: false,
-      // Choosing on the 6-card selector IS confirming the skin tone.
-      phototypeNeedsConfirmation: false,
-    };
-  }
-
-  function handleContinue() {
-    updateProfile(buildProfilePatch());
-    navigation.replace('ContributionConsent');
+  function handleNext(patch: Partial<UserProfile>) {
+    updateProfile(patch);
+    advance();
   }
 
   function handleSkip() {
-    // Save whatever was entered so the user doesn't lose partial data
-    updateProfile(buildProfilePatch());
-    navigation.replace('ContributionConsent');
+    advance();
   }
 
-  const canContinue = skinType !== null && fitzpatrick !== null;
+  function handleBack() {
+    setStep((s) => s - 1);
+  }
+
+  // Rendered inside each step's header row, next to Back — not above the
+  // step content — so the two sit on the same line (Back left, ring right).
+  const progressRing = (
+    <OnboardingProgressRing step={step} totalSteps={TOTAL_STEPS} iconName={STEP_ICONS[step]} />
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.eyebrow}>Step 1 of 2</Text>
-            <Text style={styles.title}>Tell us about{'\n'}your skin.</Text>
-            <Text style={styles.subtitle}>
-              This helps Vials catch conflicts and suggest the right products.
-            </Text>
-          </View>
-
-          {/* Gender */}
-          <Section label="Gender (optional)">
-            <View style={styles.chipRow}>
-              {(['female', 'male'] as const).map((g) => (
-                <SelectChip
-                  key={g}
-                  label={g === 'female' ? 'Female' : 'Male'}
-                  selected={gender === g}
-                  onPress={() => setGender(gender === g ? null : g)}
-                />
-              ))}
-            </View>
-          </Section>
-
-          {/* Age — uses DS Input for consistent styling and future DS updates */}
-          <Section label="Age (optional)">
-            <Input
-              value={ageText}
-              onChangeText={setAgeText}
-              placeholder="e.g. 28"
-              keyboardType="number-pad"
-              maxLength={3}
-              returnKeyType="done"
-            />
-          </Section>
-
-          {/* Skin type */}
-          <Section label="Skin type">
-            <View style={styles.chipRow}>
-              {SKIN_TYPES.map((t) => (
-                <SelectChip
-                  key={t.value}
-                  label={t.label}
-                  selected={skinType === t.value}
-                  onPress={() => setSkinType(t.value)}
-                />
-              ))}
-            </View>
-          </Section>
-
-          {/* Concerns */}
-          <Section label="Skin concerns (optional)">
-            <View style={styles.chipWrap}>
-              {CONCERNS.map((c) => (
-                <SelectChip
-                  key={c.value}
-                  label={c.label}
-                  selected={concerns.includes(c.value)}
-                  onPress={() => toggleConcern(c.value)}
-                />
-              ))}
-            </View>
-          </Section>
-
-          {/* Care goals (V2.1 Step 0) */}
-          <Section
-            label="Care goals (optional)"
-            hint="Pick up to two. Routines are built around your primary goal; leave empty for maintenance care."
-          >
-            <GoalSelector
-              primaryGoal={primaryGoal}
-              secondaryGoal={secondaryGoal}
-              onChange={(primary, secondary) => {
-                setPrimaryGoal(primary);
-                setSecondaryGoal(secondary);
-              }}
-            />
-          </Section>
-
-          {/* Phototype — visually unlabeled cards (US-03) */}
-          <Section
-            label="UV sensitivity"
-            hint="Select the option that best describes how your skin reacts to sun."
-          >
-            <View style={styles.phototypeRow} accessibilityRole="radiogroup">
-              {FITZPATRICK_TYPES.map((p) => (
-                <FitzpatrickCard
-                  key={p}
-                  type={p}
-                  selected={fitzpatrick === p}
-                  onSelect={() => setFitzpatrick(p)}
-                />
-              ))}
-            </View>
-          </Section>
-        </ScrollView>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            disabled={!canContinue}
-            onPress={handleContinue}
-          >
-            Continue
-          </Button>
-          <Button
-            variant="ghost"
-            size="lg"
-            fullWidth
-            onPress={handleSkip}
-          >
-            Skip for now
-          </Button>
-        </View>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {step === 1 && (
+          <SkinTypeStep
+            initialSkinType={profile?.skinType ?? null}
+            onNext={handleNext}
+            onSkip={handleSkip}
+            progressRing={progressRing}
+          />
+        )}
+        {step === 2 && (
+          <GoalsStep
+            initialPrimaryGoal={profile?.primaryGoal ?? 'maintenance'}
+            initialSecondaryGoal={profile?.secondaryGoal ?? null}
+            onNext={handleNext}
+            onSkip={handleSkip}
+            onBack={handleBack}
+            progressRing={progressRing}
+          />
+        )}
+        {step === 3 && (
+          <PhototypeStep
+            initialFitzpatrick={profile?.fitzpatrick ?? null}
+            onNext={handleNext}
+            onSkip={handleSkip}
+            onBack={handleBack}
+            progressRing={progressRing}
+          />
+        )}
+        {step === 4 && (
+          <AboutYouStep
+            initialAge={profile?.age ?? null}
+            initialGender={profile?.gender ?? null}
+            initialHormoneTherapy={profile?.hormoneTherapy ?? false}
+            onNext={handleNext}
+            onSkip={handleSkip}
+            onBack={handleBack}
+            progressRing={progressRing}
+          />
+        )}
+        {step === 5 && (
+          <AdditionalInfoStep
+            initialPregnantOrBreastfeeding={profile?.pregnantOrBreastfeeding ?? false}
+            initialSkinConditions={profile?.skinConditions ?? []}
+            initialConcerns={profile?.concerns ?? []}
+            onNext={handleNext}
+            onSkip={handleSkip}
+            onBack={handleBack}
+            progressRing={progressRing}
+          />
+        )}
+        {step === 6 && (
+          <CityStep
+            initialCity={profile?.city ?? null}
+            onNext={handleNext}
+            onSkip={handleSkip}
+            onBack={handleBack}
+            progressRing={progressRing}
+          />
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
-  );
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function Section({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionLabel}>{label}</Text>
-      {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
-      {children}
-    </View>
-  );
-}
-
-function SelectChip({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.chip, selected && styles.chipSelected]}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected }}
-    >
-      <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -277,63 +143,4 @@ function SelectChip({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bgScreen },
   flex: { flex: 1 },
-  scroll: { flex: 1 },
-  content: {
-    paddingHorizontal: space.gutterScreen,
-    paddingTop: space[6],
-    paddingBottom: space[4],
-    gap: space[6],
-  },
-
-  header: { gap: space[2] },
-  eyebrow: { ...typography.label, color: colors.textSecondary },
-  title: { ...typography.h1, color: colors.textPrimary },
-  subtitle: { ...typography.body, color: colors.textSecondary },
-
-  section: { gap: space[2] },
-  // Matches the Input component's default field label
-  sectionLabel: {
-    ...typography.label,
-    color: colors.textPrimary,
-  },
-  sectionHint: { ...typography.bodySmall, color: colors.textTertiary },
-
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
-
-  chip: {
-    height: 36,
-    paddingHorizontal: space[3],
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceRaised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipSelected: {
-    backgroundColor: colors.controlFill,
-    borderColor: colors.controlFill,
-  },
-  chipLabel: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textPrimary,
-  },
-  chipLabelSelected: {
-    color: palette.white,
-  },
-
-  phototypeRow: {
-    flexDirection: 'row',
-    gap: space[3],
-    marginTop: space[1],
-  },
-
-  footer: {
-    paddingHorizontal: space.gutterScreen,
-    paddingBottom: space[8],
-    gap: space[2],
-  },
 });

@@ -17,6 +17,21 @@ export type ActiveIngredientKey =
   | 'niacinamide'
   | 'benzoyl_peroxide'
   | 'azelaic_acid'
+  /**
+   * Abrasive-particle signal, sourced ONLY from `Product.isPhysicalExfoliant`
+   * — never derived from INCI text (tech-design vials-conflict-matrix-
+   * expansion.md §3 FE-1/FE-2). The corresponding `actives.json` class is
+   * deliberately matcher-less (FE-3): an ingredient label can never, on its
+   * own, cause this key to be attributed to a product.
+   */
+  | 'physical_exfoliant'
+  /**
+   * Pregnancy-restricted skin-lightening agent (ACOG/AAD-consensus tier,
+   * engine4.1 handoff §4). Not wired into `actives.json`'s `goals` block —
+   * this class exists so the pregnancy freeze can see it, not to compete for
+   * treatment-slot selection.
+   */
+  | 'hydroquinone'
   | 'copper_peptides'
   | 'peptide_signal'
   | 'peptide_neuro'
@@ -35,6 +50,34 @@ export interface ActiveIngredient {
   key: ActiveIngredientKey;
   displayName: string;
 }
+
+/**
+ * Non-conflict, presence-only ingredient groups consumed by the recommendation
+ * layer only (PRD v1.2 §5.2). Deliberately a SEPARATE key space from
+ * {@link ActiveIngredientKey}: barrier tags must never reach the pairwise
+ * conflict matrix or an ActiveIngredientKey[] array. See
+ * src/utils/barrierTags.ts for the parser.
+ */
+export type BarrierIngredientKey =
+  | 'CERA' // Ceramides
+  | 'PANT' // Panthenol
+  | 'GLYC' // Glycerin / humectant glycols
+  | 'NIAC' // Niacinamide
+  | 'ZPCA' // Zinc PCA
+  | 'HYAL'; // Hyaluronic acid / sodium hyaluronate
+
+/**
+ * Ordered three-level advisory scale (PRD v1.2 §5.2) used by the v1.2
+ * recommendation layers — condition modifiers and density insights — only.
+ *
+ * The production conflict matrix keeps its own two-level
+ * {@link ConflictSeverity} ('caution' | 'avoid') and is NEVER rewritten to this
+ * scale. The two meet at one documented projection in
+ * src/utils/skinConditionModifiers.ts (`caution` ↔ medium, `avoid` ↔ high), so
+ * a one-level escalation of a rendered pairwise conflict means
+ * caution → avoid, and an `avoid` pair renders unchanged (capped).
+ */
+export type AdvisorySeverity = 'low' | 'medium' | 'high';
 
 /** Functional grouping used to color-code active-ingredient badges on the shelf card. */
 export type ActiveBadgeCategory = 'exfoliant' | 'soothing' | 'hydrator' | 'other';
@@ -127,6 +170,17 @@ export interface CityLocation {
 
 export type SkinType = 'oily' | 'dry' | 'combination' | 'normal';
 
+/**
+ * Optional, self-reported skin conditions (PRD v1.2 §4.2.2, US-23). Presence
+ * only — no severity level in v1, and NOT a diagnosis. Deliberately kept
+ * separate from {@link SkinConcern} (which shares an `eczema` member): concerns
+ * are symptoms the user reports to steer product selection, conditions are risk
+ * modifiers that make existing warnings more conservative and never more
+ * permissive. Whether the two should be merged is an open product question
+ * (PRD §5.1) — until it is answered, nothing derives one from the other.
+ */
+export type SkinConditionType = 'eczema' | 'seborrheic_dermatitis' | 'rosacea';
+
 export type SkinConcern =
   | 'acne'
   | 'dryness'
@@ -159,7 +213,8 @@ export interface UserProfile {
   age: number | null;
   skinType: SkinType | null;
   /**
-   * Grouped phototype (authoritative input while onboarding uses 3 cards).
+   * Grouped phototype, derived from the numeric {@link fitzpatrick} the
+   * 6-card onboarding selector writes (see `deriveGroupedPhototype`).
    * Critical for laser/peel safety checks.
    */
   phototype: SkinPhototype | null;
@@ -172,6 +227,13 @@ export interface UserProfile {
   /** Selected city for weather-driven season masks; null until the user picks one. */
   city: CityLocation | null;
   concerns: SkinConcern[];
+  /**
+   * Self-reported skin conditions (v1.2, US-23). Default `[]` — an empty list
+   * is the guaranteed no-op state (US-27): every v1.2 condition layer returns
+   * an empty result and the engine behaves exactly as it did before the
+   * feature shipped.
+   */
+  skinConditions: SkinConditionType[];
   /**
    * Primary care goal driving treatment selection (V2.1 Step 0). Defaults to
    * 'maintenance'; heuristically derived from concerns for pre-goal profiles.
@@ -200,6 +262,18 @@ export interface UserProfile {
    * `src/utils/contributionConsent.ts` for the gating helper.
    */
   contributionConsent: ContributionConsent;
+  /**
+   * Currently on hormone therapy (gender-affirming or otherwise), added in
+   * schema v6. Collected for future personalization (sebum/sensitivity
+   * weighting) — no downstream logic reads it yet.
+   */
+  hormoneTherapy: boolean;
+  /**
+   * Pregnant or breastfeeding, added in schema v6. Safety-relevant flag for
+   * a planned conflict-engine check (retinoids / high-concentration acids)
+   * and a clinic-procedure block — both separate, not-yet-built follow-ups.
+   */
+  pregnantOrBreastfeeding: boolean;
 }
 
 /** Consent to share a product photo in community contributions (schema v4). */
@@ -262,6 +336,13 @@ export interface Product {
   openedDate: string | null;
   /** Period-After-Opening in months. Combined with openedDate to compute expiry. */
   paoMonths: number | null;
+  /**
+   * Labelled sun protection factor, only meaningful when
+   * `productType === 'spf'` (v1.2, US-29). Optional by design: `null` /
+   * absent means "unknown", which the SPF adequacy check treats as "can't
+   * check", never as "assume the worst".
+   */
+  spfValue?: number | null;
   /** EAN/UPC barcode scanned during add flow. Null when skipped or entered manually. */
   barcode?: string | null;
   /**
@@ -299,6 +380,49 @@ export interface Product {
    * field existed; treat as false.
    */
   contributionOptIn?: boolean;
+  /**
+   * User-asserted "this product physically abrades the skin" signal (a
+   * scrub, an exfoliating cleansing tool) — orthogonal to `productType`, the
+   * same relationship the `sensitive` profile flag has to skin type. Never
+   * derived from `fullIngredientText`: abrasive particles generally do not
+   * show up in an ingredient list the way a chemical active does. Absent on
+   * records saved before this field; treat as false. Drives the
+   * `physical_exfoliant` key in {@link ActiveIngredientKey} via
+   * `getProductActiveKeys` (tech-design vials-conflict-matrix-expansion.md).
+   */
+  isPhysicalExfoliant?: boolean;
+  /**
+   * Cached result of the last EU fragrance-allergen scan of
+   * `fullIngredientText` (tech-design vials-eu-allergen-detection.md FE-2/
+   * FE-3). Only trustworthy when {@link allergenListVersion} equals the
+   * bundled seed's current `list_version` — `getProductAllergenMatches`
+   * recomputes live otherwise, so a JSON swap (26→82 substances) or a
+   * pre-existing product without this field both self-heal with no
+   * migration. Absent on records saved before this field existed.
+   */
+  detectedAllergens?: DetectedAllergenMatch[];
+  /**
+   * The seed list's `list_version` this product's {@link detectedAllergens}
+   * was computed against — read from `assets/eu_allergens_seed.json`, never
+   * hand-typed. `null`/absent means "never scanned" and is treated the same
+   * as a version mismatch: live recompute, not trusted as zero matches.
+   */
+  allergenListVersion?: string | null;
+}
+
+/**
+ * One matched EU-regulated fragrance allergen for a product (tech-design
+ * vials-eu-allergen-detection.md FE-2). `canonical` is the seed entry's
+ * display name; `restricted` mirrors that seed entry's own `restricted`
+ * flag (true only for the two banned-but-retained entries — Lilial and
+ * Lyral/HICC in the original 26-substance seed) and drives the Amber-vs-
+ * Cobalt badge precedence. Deliberately has no per-user dimension (no
+ * `isPersonal` flag) — personal-allergen flagging is a separate, descoped
+ * follow-up (see spec Non-Goals).
+ */
+export interface DetectedAllergenMatch {
+  canonical: string;
+  restricted: boolean;
 }
 
 
@@ -398,6 +522,14 @@ export interface RehabNotice {
   totalDays: number;
   barrierStatus: 'disrupted' | 'sensitive';
   restrictions: string[];
+  /**
+   * True when every merged procedure is in the aggressive set (deep peel,
+   * energy-based lifting, injectable micro-wounding — see
+   * AGGRESSIVE_PROCEDURES in src/utils/skinConditionModifiers.ts). Drives the
+   * eczema/rosacea recovery caution line (US-25), which never appears for
+   * Botox- or filler-only rehab. Derived per render, never persisted.
+   */
+  aggressive: boolean;
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
@@ -494,6 +626,24 @@ export interface AppSettings {
    * 3+ = 3rd/every-30 tier. Drives the next reminder threshold (5/15/30/30…).
    */
   reminderCountShown: number;
+  /**
+   * Per-procedure RehabNoticeCard collapse state on the Routines screen,
+   * keyed by RehabNotice.key, so a manual collapse survives a re-visit for
+   * the rest of the skincare day — mirrors `routineAccordion`'s day-scoping.
+   * Re-decided (defaults to expanded) once a new skincare day starts.
+   */
+  rehabNoticeCollapsed: Record<string, NoticeCollapseEntry>;
+  /**
+   * Per-row collapse state for ConflictWarningInline's conflict /
+   * condition-advisory / density rows on the Routines screen, keyed by each
+   * row's own stable id (rule id, advisory id, or finding id, prefixed by
+   * row kind). Same day-scoped shape and semantics as `rehabNoticeCollapsed`:
+   * a manual collapse/expand survives a re-visit for the rest of the
+   * skincare day, and re-decides (defaults to expanded) once a new one
+   * starts. Kept as a separate map from `rehabNoticeCollapsed` since row ids
+   * are not guaranteed unique across the two features.
+   */
+  routineNoticeCollapsed: Record<string, NoticeCollapseEntry>;
 }
 
 /**
@@ -510,6 +660,16 @@ export interface RoutineAccordionSettings {
   date: string;
   morningExpanded: boolean;
   eveningExpanded: boolean;
+}
+
+/**
+ * Shared day-scoped collapse decision shape for Routines-screen advisory
+ * rows — used by `rehabNoticeCollapsed` and `routineNoticeCollapsed`.
+ */
+export interface NoticeCollapseEntry {
+  /** Skincare-day date string (see getSkincareDateString) this decision applies to. */
+  date: string;
+  collapsed: boolean;
 }
 
 // ─── Catalog filters ──────────────────────────────────────────────────────────
@@ -557,6 +717,13 @@ export interface AddProductDraft {
    * reads — so it lives on the draft. null until a photo is taken/chosen.
    */
   localImageUri: string | null;
+
+  /**
+   * Labelled SPF, captured only when productType is 'spf' (US-29). Null =
+   * unknown; the adequacy check skips the product rather than assuming a
+   * worst case. Cleared when the category moves away from SPF.
+   */
+  spfValue: number | null;
 
   // Section 2 — barcode
   barcode: string | null; // null = skipped, never blocks progress

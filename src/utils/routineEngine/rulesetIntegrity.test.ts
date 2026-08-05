@@ -71,6 +71,17 @@ describe('actives.json ruleset integrity', () => {
     expect(activesRuleset.version).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  /**
+   * Every class must declare >=1 real INCI matcher — EXCEPT `physical_exfoliant`
+   * (tech-design vials-conflict-matrix-expansion.md §3/§4 FE-3), which is
+   * deliberately matcher-less: physical-exfoliant-ness cannot be read off an
+   * ingredient list (it's an abrasive-particle signal set only via
+   * `Product.isPhysicalExfoliant`), so it must never regex-match. This is a
+   * single, named, documented exemption — not a blanket weakening of the
+   * invariant. Every other class still requires a real matcher.
+   */
+  const MATCHERLESS_CLASS_EXEMPTIONS = ['physical_exfoliant'];
+
   it('compiles every matcher and negative pattern as a valid regex', () => {
     for (const [key, cls] of Object.entries(CLASSES)) {
       for (const matcher of cls.matchers) {
@@ -83,7 +94,11 @@ describe('actives.json ruleset integrity', () => {
       for (const negative of cls.negativePatterns ?? []) {
         expect(() => new RegExp(negative, 'gi')).not.toThrow();
       }
-      expect(cls.matchers.length).toBeGreaterThan(0);
+      if (MATCHERLESS_CLASS_EXEMPTIONS.includes(key)) {
+        expect(cls.matchers.length).toBe(0);
+      } else {
+        expect(cls.matchers.length).toBeGreaterThan(0);
+      }
       expect(key).toMatch(/^[a-z][a-z0-9_]*$/);
     }
   });

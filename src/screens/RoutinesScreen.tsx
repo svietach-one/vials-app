@@ -32,14 +32,16 @@ import { RoutineCalendarView } from '@/components/routine/RoutineCalendarView';
 import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineStepActionSheet } from '@/components/routine/RoutineStepActionSheet';
 import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
-import { ContributionConsentMigrationBanner } from '@/components/routine/ContributionConsentMigrationBanner';
 import { GoalConfirmBanner } from '@/components/routine/GoalConfirmBanner';
+import { GoalCoverageBanner } from '@/components/routine/GoalCoverageBanner';
 import { PhototypeConfirmBanner } from '@/components/routine/PhototypeConfirmBanner';
+import { ConflictWarningInline } from '@/components/routine/ConflictWarningInline';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { getSlotCategoryLabel, GOAL_LABELS } from '@/constants/labels';
+import { reasonText } from '@/constants/decisionReasons';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import {
@@ -56,6 +58,7 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
+import { getRecoveryConditionCaution } from '@/utils/skinConditionModifiers';
 import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
 import { isScheduledOnDay } from '@/utils/routineSchedule';
 import {
@@ -64,6 +67,10 @@ import {
   toPersistedAccordionState,
   type AccordionState,
 } from '@/utils/routineAccordion';
+import {
+  resolveNoticeCollapsed,
+  toNoticeCollapseEntry,
+} from '@/utils/noticeCollapse';
 import { getAdaptationStatus } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { getDailyView, type FrozenStepView } from '@/utils/routineEngine/dailyView';
@@ -73,6 +80,7 @@ import { findPreCleanseReminder } from '@/utils/routineEngine/preCleanseReminder
 import { buildProductFacts, buildShelfFacts } from '@/utils/routineEngine/productFacts';
 import { buildRehabNotices } from '@/utils/routineEngine/rehabFilter';
 import type { ValidationResult } from '@/utils/routineEngine/validate';
+import type { GoalCoverageInput } from '@/utils/goalCoverage';
 import type { Product, RoutineStep } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -94,18 +102,18 @@ type Period = 'morning' | 'evening';
 // distinct tints — two hues read fine on their own, but clash badly the
 // moment an amber notification card (PreCleanseReminderCard) sits inside one
 // of them. The sun/moon header icons keep their own color (PERIOD_ICON_COLOR)
-// so the periods stay visually distinguishable at a glance: marigold sun on a
-// light-orange disc, cobalt moon on a light-blue one — the same pairing the
+// so the periods stay visually distinguishable at a glance: golden sun on a
+// light-golden disc, cobalt moon on a light-blue one — the same pairing the
 // calendar lanes and My Shelf badges use.
 const PERIOD_CARD_BG = palette.boneDeep;
 const PERIOD_ICON_COLOR: Record<Period, string> = {
-  morning: palette.marigold,
+  morning: palette.golden,
   evening: palette.cobalt,
 };
 // Same circle treatment as the sun/moon overlay badges on My Shelf's
 // ProductShelfCard (circleBadge/circleBadgeSun/circleBadgeMoon).
 const PERIOD_ICON_BG: Record<Period, string> = {
-  morning: palette.marigoldTint,
+  morning: palette.goldenTint,
   evening: palette.cobaltTint,
 };
 const PERIOD_CARD_BORDER_COLOR = 'rgba(9, 9, 11, 0.08)';
@@ -125,8 +133,6 @@ export default function RoutinesScreen({ navigation }: Props) {
   const profile = useProfileStore((s) => s.profile);
   const updateProfile = useProfileStore((s) => s.updateProfile);
   const cycleType = useSettingsStore((s) => s.routineCycleType);
-  const dismissedBanners = useSettingsStore((s) => s.dismissedBanners);
-  const dismissBanner = useSettingsStore((s) => s.dismissBanner);
   const applicationStats = useTrackingStore((s) => s.applicationStats);
   const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
   const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
@@ -134,6 +140,8 @@ export default function RoutinesScreen({ navigation }: Props) {
   const setStepHidden = useRoutinesStore((s) => s.setStepHidden);
   const persistedAccordion = useSettingsStore((s) => s.routineAccordion);
   const setRoutineAccordion = useSettingsStore((s) => s.setRoutineAccordion);
+  const persistedRehabCollapse = useSettingsStore((s) => s.rehabNoticeCollapsed);
+  const setRehabNoticeCollapsed = useSettingsStore((s) => s.setRehabNoticeCollapsed);
 
   const [viewMode, setViewMode] = useState<RoutineViewMode>('list');
   // The AM/PM auto-decision (before 15:00 Morning open, after it Evening) only
@@ -278,7 +286,10 @@ export default function RoutinesScreen({ navigation }: Props) {
 
     const views = getDailyView(routines, products, {
       procedures,
-      profile: { fitzpatrick: profile?.fitzpatrick ?? null },
+      profile: {
+        fitzpatrick: profile?.fitzpatrick ?? null,
+        pregnantOrBreastfeeding: profile?.pregnantOrBreastfeeding ?? false,
+      },
       seasonMask: getActiveSeasonMask(),
     });
     const frozen = new Map<string, FrozenStepView[]>();
@@ -423,6 +434,39 @@ export default function RoutinesScreen({ navigation }: Props) {
 
   const allFrozen = useMemo(() => [...frozenRows.values()].flat(), [frozenRows]);
 
+  // engine4.1 §3: resolves goals + pregnancyRules ONCE via buildRoutineContext
+  // (never per-goal — that would break the barrier_repair cross-goal
+  // modifier), then feeds it plus the currently-visible steps and the full
+  // shelf to getGoalCoverageFindings. amSteps/pmSteps are already the
+  // frozen/hidden-filtered visible list, so "covered" can never credit a
+  // product the routine isn't actually showing today.
+  const goalCoverageInput = useMemo((): GoalCoverageInput | null => {
+    if (!profile) return null;
+    const context = buildRoutineContext({
+      procedures,
+      profile: {
+        fitzpatrick: profile.fitzpatrick,
+        primaryGoal: profile.primaryGoal,
+        secondaryGoal: profile.secondaryGoal,
+        pregnantOrBreastfeeding: profile.pregnantOrBreastfeeding,
+      },
+      seasonMask: getActiveSeasonMask(),
+    });
+    const scheduledProducts = [...amSteps, ...pmSteps]
+      .map((s) => (s.productId ? products.find((p) => p.id === s.productId) : undefined))
+      .filter((p): p is Product => p !== undefined);
+
+    return {
+      primaryGoal: profile.primaryGoal,
+      secondaryGoal: profile.secondaryGoal,
+      goalNeedsConfirmation: profile.goalNeedsConfirmation,
+      treatmentClassRanking: context.treatmentClassRanking,
+      scheduledProducts,
+      products,
+      pregnancyRules: context.pregnancyRules,
+    };
+  }, [profile, procedures, amSteps, pmSteps, products]);
+
   const listHeader = useMemo(
     () => (
       <View style={styles.listHeader}>
@@ -438,9 +482,23 @@ export default function RoutinesScreen({ navigation }: Props) {
         {/* One merged card per procedure in rehab (shield + acute lifestyle
             restrictions in a single card; the two former cards would read as
             needlessly anxious). Self-destructs when its window ends. */}
-        {rehabNotices.map((notice) => (
-          <RehabNoticeCard key={notice.key} notice={notice} />
-        ))}
+        {rehabNotices.map((notice) => {
+          const collapsed = resolveNoticeCollapsed(persistedRehabCollapse[notice.key]);
+          return (
+            <RehabNoticeCard
+              key={notice.key}
+              notice={notice}
+              collapsed={collapsed}
+              onToggleCollapse={() =>
+                setRehabNoticeCollapsed(notice.key, toNoticeCollapseEntry(!collapsed))
+              }
+              conditionCaution={getRecoveryConditionCaution(profile?.skinConditions ?? [], {
+                aggressive: notice.aggressive,
+                phase: 'rehab',
+              })}
+            />
+          );
+        })}
         {profile?.goalNeedsConfirmation === true && (
           <GoalConfirmBanner
             goalLabel={GOAL_LABELS[profile.primaryGoal]}
@@ -455,18 +513,22 @@ export default function RoutinesScreen({ navigation }: Props) {
             onAdjust={() => navigation.navigate('Profile' as never)}
           />
         )}
-        {profile?.contributionConsent?.timestamp === null &&
-          !(dismissedBanners ?? []).includes('contribution_consent_migration') && (
-            <ContributionConsentMigrationBanner
-              onGoToSettings={() => navigation.navigate('Profile' as never)}
-              onDismiss={() => dismissBanner('contribution_consent_migration')}
-            />
-          )}
         <SeasonalNoticeBanner />
+        {goalCoverageInput ? <GoalCoverageBanner input={goalCoverageInput} /> : null}
         <DuplicateSlotWarningInline
           routines={routines}
           products={products}
           onPressGroup={handlePressDuplicateGroup}
+        />
+        {/* Pairwise conflicts + (v1.2) condition advisories and density
+            insights. Fed the SAME visible steps the list renders — so it can
+            never warn about a step a clinical freeze has already removed.
+            Advisory only — never blocks. */}
+        <ConflictWarningInline
+          morningSteps={amSteps}
+          eveningSteps={pmSteps}
+          products={products}
+          skinConditions={profile?.skinConditions ?? []}
         />
       </View>
     ),
@@ -476,13 +538,16 @@ export default function RoutinesScreen({ navigation }: Props) {
       handleDaySelect,
       rehabNotices,
       routines,
+      amSteps,
+      pmSteps,
       products,
       handlePressDuplicateGroup,
       profile,
       updateProfile,
       navigation,
-      dismissedBanners,
-      dismissBanner,
+      persistedRehabCollapse,
+      setRehabNoticeCollapsed,
+      goalCoverageInput,
     ],
   );
 
@@ -571,25 +636,25 @@ export default function RoutinesScreen({ navigation }: Props) {
           </>
         )}
 
-        <View style={styles.addProductFooter}>
-          <PausedSteps frozen={allFrozen} products={products} />
-          <Button
-            variant="textActive"
-            size="md"
-            fullWidth
-            icon={<Icon name="plus" size={16} color={palette.plum} />}
-            onPress={handleOpenAddSheet}
-            accessibilityLabel="Add product to routine"
-          >
-            Add product
-          </Button>
-          {totalSteps > 0 ? (
+        {totalSteps > 0 ? (
+          <View style={styles.addProductFooter}>
+            <PausedSteps frozen={allFrozen} products={products} />
+            <Button
+              variant="textActive"
+              size="md"
+              fullWidth
+              icon={<Icon name="plus" size={16} color={palette.plum} />}
+              onPress={handleOpenAddSheet}
+              accessibilityLabel="Add product to routine"
+            >
+              Add product
+            </Button>
             <OptimizeStrip
               hasFindings={validation?.hasBlockingFindings ?? false}
               onPress={handleOpenDraftPreview}
             />
-          ) : null}
-        </View>
+          </View>
+        ) : null}
       </NestableScrollContainer>
       )}
 
@@ -823,7 +888,7 @@ function PausedSteps({ frozen, products }: { frozen: FrozenStepView[]; products:
           <View key={item.stepId} style={pausedStyles.row}>
             <Icon name="pause-circle" size={14} color={colors.textTertiary} />
             <Text style={pausedStyles.text} numberOfLines={1}>
-              {name} — paused until {item.until}
+              {name} — {item.until ? `paused until ${item.until}` : reasonText(item.reasonCode)}
             </Text>
           </View>
         );

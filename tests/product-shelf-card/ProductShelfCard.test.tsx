@@ -117,10 +117,10 @@ describe('Story 1 — Routine-member display (superseded 2026-07-22: icons moved
     expect(screen.queryByTestId('icon-hidden-from-routine')).toBeNull();
   });
 
-  it('renders the sun icon on an orange-on-light-yellow circle', () => {
+  it('renders the sun icon on a golden-on-light-golden circle', () => {
     renderCard({ isInRoutine: true, usageTime: 'morning' });
     const circle = flattenStyle(screen.getByTestId('icon-sun').props.style);
-    expect(circle.backgroundColor).toBe(palette.marigoldTint);
+    expect(circle.backgroundColor).toBe(palette.goldenTint);
   });
 
   it('renders the moon icon on a blue-on-light-blue circle', () => {

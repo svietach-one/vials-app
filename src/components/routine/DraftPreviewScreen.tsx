@@ -16,7 +16,7 @@ import { Tag } from '@/components/ui/core/Tag';
 import { ReplaceStepSheet, type ReplaceStepTarget } from '@/components/routine/ReplaceStepSheet';
 import { type SelectOption, type SelectOptionTone } from '@/components/ui/forms/Select';
 import { reasonText } from '@/constants/decisionReasons';
-import { getSlotCategoryLabel, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { getProductTypeBadgeStatus, getSlotCategoryLabel, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { PlanCommitScope } from '@/domain/routinePlanActions';
 import { useProductsStore } from '@/store/productsStore';
@@ -380,13 +380,13 @@ function PeriodSteps({
         <View
           style={[
             styles.periodIconCircle,
-            { backgroundColor: isMorning ? palette.marigoldTint : palette.cobaltTint },
+            { backgroundColor: isMorning ? palette.goldenTint : palette.cobaltTint },
           ]}
         >
           <Icon
             name={isMorning ? 'sun' : 'moon'}
             size={14}
-            color={isMorning ? palette.marigold : palette.cobalt}
+            color={isMorning ? palette.golden : palette.cobalt}
           />
         </View>
         <Text style={styles.periodLabel}>{label}</Text>
@@ -465,9 +465,9 @@ function StepCard({
       <View style={styles.titleLine}>
         <View style={styles.titleLineLeft}>
           <Text style={styles.stepNumber}>{position}.</Text>
-          <Text style={styles.stepCategory} numberOfLines={1}>
+          <Badge status={getProductTypeBadgeStatus(step.productType)} type="Light">
             {typeLabel}
-          </Text>
+          </Badge>
         </View>
         <Text style={styles.frequency} numberOfLines={1}>
           {formatScheduleDays(step.scheduledDays)}
@@ -660,11 +660,11 @@ const styles = StyleSheet.create({
     gap: space[3],
     paddingHorizontal: space[3],
     paddingTop: space[3],
-    paddingBottom: space[1],
+    paddingBottom: space[3],
   },
   titleLineLeft: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     gap: space[3],
     flexShrink: 1,
   },
@@ -672,11 +672,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: colors.textPrimary,
-  },
-  stepCategory: {
-    ...typography.body,
-    color: colors.textSecondary,
-    flexShrink: 1,
   },
   brand: {
     ...typography.bodySmall,

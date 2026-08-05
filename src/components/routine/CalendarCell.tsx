@@ -9,7 +9,7 @@ import { colors, palette, radius } from '@/constants/tokens';
  * product occupies two lanes — a morning lane and an evening lane — and this
  * renders a single lane's day.
  *
- * A scheduled cell is a ringed circle carrying its period's icon: a marigold
+ * A scheduled cell is a ringed circle carrying its period's icon: a golden
  * sun for morning, a cobalt moon for evening. An unscheduled cell keeps the
  * circle but drops the icon and fades to a neutral ring, so scanning a row
  * reads as "icon = on, hollow = off" rather than depending on colour alone.
@@ -34,14 +34,16 @@ export interface CalendarCellProps {
 
 const AM = {
   icon: 'sun',
-  color: palette.marigold,
-  tint: palette.marigoldTint,
+  color: palette.golden,
+  tint: palette.goldenTint,
+  line: palette.goldenLine,
 } as const;
 
 const PM = {
   icon: 'moon',
   color: palette.cobalt,
   tint: palette.cobaltTint,
+  line: palette.cobaltLine,
 } as const;
 
 function CalendarCellComponent({
@@ -76,7 +78,7 @@ function CalendarCellComponent({
             width: diameter,
             height: diameter,
             borderRadius: radius.pill,
-            borderColor: scheduled ? spec.color : colors.borderStrong,
+            borderColor: scheduled ? spec.line : colors.borderStrong,
             backgroundColor: scheduled ? spec.tint : 'transparent',
           },
         ]}

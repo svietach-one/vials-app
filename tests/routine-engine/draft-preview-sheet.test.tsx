@@ -93,7 +93,7 @@ function makePlan(overrides: Partial<RoutinePlan> = {}): RoutinePlan {
         { productId: CLEANSER.id, productType: 'cleanser', scheduledDays: [], slotIndex: 0, score: 0, addedAt: '2026-01-01' },
       ],
     },
-    frozen: [{ productId: RETINOID.id, reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-18' }],
+    frozen: [{ productId: RETINOID.id, reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-18', overridesPin: true }],
     reserve: [],
     placeholders: [],
     decisions: [],
@@ -379,7 +379,7 @@ describe('phase-07: reserve rows show the reason and an override action', () => 
         visible
         onClose={jest.fn()}
         plan={makePlan({
-          frozen: [{ productId: RETINOID.id, reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha' }],
+          frozen: [{ productId: RETINOID.id, reasonCode: 'retinoid_acid_conflict', ruleId: 'rule_retinol_aha', overridesPin: false }],
         })}
         diff={NO_DIFF}
         onCommit={jest.fn()}

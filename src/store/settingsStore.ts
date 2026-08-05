@@ -7,7 +7,13 @@ import {
   saveJson,
   STORAGE_KEYS,
 } from '@/services/storage';
-import { AppSettings, ContributionConsentStatus, RoutineAccordionSettings, RoutineCycleType } from '@/types';
+import {
+  AppSettings,
+  ContributionConsentStatus,
+  NoticeCollapseEntry,
+  RoutineAccordionSettings,
+  RoutineCycleType,
+} from '@/types';
 
 interface SettingsState extends AppSettings {
   hydrated: boolean;
@@ -20,6 +26,13 @@ interface SettingsState extends AppSettings {
   incrementCommunityContribution: () => void;
   /** Overwrites today's Routines screen accordion snapshot. */
   setRoutineAccordion: (snapshot: RoutineAccordionSettings) => void;
+  /** Overwrites one RehabNoticeCard's collapse decision, keyed by RehabNotice.key. */
+  setRehabNoticeCollapsed: (key: string, entry: NoticeCollapseEntry) => void;
+  /**
+   * Overwrites one ConflictWarningInline row's collapse decision on the
+   * Routines screen, keyed by the row's own stable id.
+   */
+  setRoutineNoticeCollapsed: (key: string, entry: NoticeCollapseEntry) => void;
   /** Records acceptance of the onboarding medical disclaimer (slide 3). */
   acceptMedicalDisclaimer: (version: number) => void;
   /**
@@ -41,6 +54,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   routineCycleType: 'fixed',
   communityContributionCount: 0,
   routineAccordion: null,
+  rehabNoticeCollapsed: {},
+  routineNoticeCollapsed: {},
   medicalDisclaimerAcceptedAt: null,
   medicalDisclaimerVersion: 0,
   contributionConsentStatus: 'unset',
@@ -56,6 +71,8 @@ function pickSettings(s: SettingsState): AppSettings {
     routineCycleType: s.routineCycleType,
     communityContributionCount: s.communityContributionCount,
     routineAccordion: s.routineAccordion,
+    rehabNoticeCollapsed: s.rehabNoticeCollapsed,
+    routineNoticeCollapsed: s.routineNoticeCollapsed,
     medicalDisclaimerAcceptedAt: s.medicalDisclaimerAcceptedAt,
     medicalDisclaimerVersion: s.medicalDisclaimerVersion,
     contributionConsentStatus: s.contributionConsentStatus,
@@ -114,6 +131,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setRoutineAccordion: (snapshot) => {
     set({ routineAccordion: snapshot });
     void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), routineAccordion: snapshot }));
+  },
+
+  setRehabNoticeCollapsed: (key, entry) => {
+    const next = { ...get().rehabNoticeCollapsed, [key]: entry };
+    set({ rehabNoticeCollapsed: next });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), rehabNoticeCollapsed: next }));
+  },
+
+  setRoutineNoticeCollapsed: (key, entry) => {
+    const next = { ...get().routineNoticeCollapsed, [key]: entry };
+    set({ routineNoticeCollapsed: next });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), routineNoticeCollapsed: next }));
   },
 
   acceptMedicalDisclaimer: (version) => {

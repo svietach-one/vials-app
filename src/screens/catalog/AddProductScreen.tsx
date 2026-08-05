@@ -1,12 +1,10 @@
 import React, { useReducer, useRef, useState } from 'react';
 import {
   Alert,
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  ToastAndroid,
 } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -163,12 +161,13 @@ export default function AddProductScreen({ navigation }: Props) {
     }
 
     // 2. Leave the screen and confirm immediately — nothing below is awaited.
-    navigation.goBack();
-    if (Platform.OS === 'android') {
-      // No cross-platform toast infra exists yet; on iOS the product visibly
-      // appearing on the shelf is the confirmation.
-      ToastAndroid.show('Product added to your shelf', ToastAndroid.SHORT);
-    }
+    // Land back on the shelf (not just one screen back, which would strand
+    // the user on the search hub) with the same one-shot "Saved" toast
+    // ManualProductFormScreen uses, so both manual-entry paths confirm the
+    // same way on every platform.
+    navigation.navigate('Catalog', {
+      toast: { savedAt: Date.now(), contributionOptIn: false, contributedCount: 0 },
+    });
 
     // 3. Share with the community database. The local save above is already
     //    committed and is never rolled back, so this only reports on itself.
@@ -258,7 +257,7 @@ export default function AddProductScreen({ navigation }: Props) {
         </SectionAccordion>
       </ScrollView>
 
-      <SaveBar enabled={canSave(draft)} onPress={handleSave} />
+      <SaveBar enabled={canSave(draft)} onPress={handleSave} privacyNote="" />
     </SafeAreaView>
   );
 }

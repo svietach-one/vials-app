@@ -457,7 +457,10 @@ function walkResolutionLadder(
   const primary = violations.find((v) => v.severity === 'avoid') ?? violations[0];
   const frozen: AdmitOutcome = {
     kind: 'frozen',
-    item: { productId: product.id, reasonCode: primary.reasonCode, ruleId: primary.ruleId },
+    // Pair-rule/cap freezes are preference-tier, not safety-tier — a pinned
+    // step keeps surviving this outcome (pregnancy-pin-survival-fix FE-4,
+    // behavior-preserving, now explicit instead of implicit-via-`until`-absence).
+    item: { productId: product.id, reasonCode: primary.reasonCode, ruleId: primary.ruleId, overridesPin: false },
   };
   const keepWithNote = (): AdmitOutcome => {
     decisions.push({
@@ -661,7 +664,9 @@ function retryRelocatedInAm(candidate: Candidate, run: ResolveRun): void {
   const item: FrozenItem =
     retry.kind === 'frozen'
       ? retry.item
-      : { productId: candidate.product.id, reasonCode: 'relocation_rejected' };
+      // relocation_rejected is also preference-tier — a pinned step survives
+      // it, same as any other pair-rule/cap outcome (FE-4).
+      : { productId: candidate.product.id, reasonCode: 'relocation_rejected', overridesPin: false };
   run.frozen.push(item);
   run.decisions.push({ action: 'freeze', productId: candidate.product.id, period: 'am', ruleId: item.ruleId });
 }

@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import type { PressableProps, StyleProp, ViewStyle } from 'react-native';
 
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -10,6 +10,8 @@ export interface FilterChipProps extends Omit<PressableProps, 'style' | 'childre
   children: string;
   selected?: boolean;
   size?: 'sm' | 'md';
+  /** Optional trailing sub-label (e.g. "Primary") shown after the main text. */
+  subLabel?: string;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -19,6 +21,7 @@ export function FilterChip({
   children,
   selected = false,
   size = 'md',
+  subLabel,
   accessibilityLabel,
   style,
   ...rest
@@ -40,6 +43,7 @@ export function FilterChip({
       <Text style={[styles.label, selected ? styles.labelSelected : styles.labelUnselected]}>
         {children}
       </Text>
+      {subLabel ? <Text style={styles.subLabel}>{subLabel}</Text> : null}
     </Pressable>
   );
 }
@@ -48,10 +52,12 @@ export function FilterChip({
 
 const styles = StyleSheet.create({
   chip: {
+    flexDirection: 'row',
     borderRadius: radius.pill,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'flex-start',
+    gap: space[2],
   },
   chipMd: {
     height: space[8],
@@ -62,7 +68,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[2],
   },
   selected: {
-    backgroundColor: colors.controlFill,
+    backgroundColor: palette.plumTintLight,
+    borderWidth: 1,
+    borderColor: palette.plum,
   },
   unselected: {
     backgroundColor: colors.surfaceRaised,
@@ -79,9 +87,15 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   labelSelected: {
-    color: colors.controlOn,
+    color: palette.plum,
   },
   labelUnselected: {
     color: colors.textSecondary,
+  },
+  subLabel: {
+    ...typography.caption,
+    fontFamily: 'DMSans-Medium',
+    color: palette.plum,
+    opacity: 0.75,
   },
 });

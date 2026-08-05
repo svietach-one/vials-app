@@ -356,6 +356,20 @@ export interface SeasonRuleset {
   climate: ClimateConfig;
 }
 
+// ─── pregnancy.ts (pregnancy-safety-handling) ──────────────────────────────
+
+/**
+ * A persistent boolean-condition freeze rule (tech design §4 Assumption 1):
+ * structurally the SeasonRule shape minus `seasons`/`if` — the condition is
+ * `profile.pregnantOrBreastfeeding`, not a phase, season, or day window, so
+ * the rule applies unconditionally while true, with no expiry.
+ */
+export interface PregnancyRule {
+  id: string;
+  then: { action: 'freeze'; targets: RuleTargets };
+  reasonCode: DecisionReasonCode;
+}
+
 // ─── Typed loaders ──────────────────────────────────────────────────────────
 
 export const ACTIVES_RULESET = activesRuleset as unknown as ActivesRuleset;

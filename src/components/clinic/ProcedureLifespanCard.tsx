@@ -12,7 +12,11 @@ import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { CLINIC_FADING_PROMPT_ENABLED } from '@/constants/featureFlags';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
-import type { CosmeticProcedureKey, UserProcedureLog } from '@/types';
+import type { CosmeticProcedureKey, SkinConditionType, UserProcedureLog } from '@/types';
+import {
+  getRecoveryConditionCaution,
+  isAggressiveProcedure,
+} from '@/utils/skinConditionModifiers';
 import {
   computeStatus,
   getProcedureDisplayName,
@@ -34,6 +38,11 @@ export interface ProcedureLifespanCardProps {
   onUpdate: (patch: Partial<UserProcedureLog>) => void;
   /** Opens the "…" action sheet (Details / Move to history / Delete). */
   onOpenMenu: () => void;
+  /**
+   * Self-reported skin conditions from the profile (US-25). Default `[]` —
+   * with none selected the card renders exactly as it did before v1.2.
+   */
+  skinConditions?: SkinConditionType[];
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -301,12 +310,26 @@ const barStyles = StyleSheet.create({
 
 // ─── Main card ────────────────────────────────────────────────────────────────
 
-export function ProcedureLifespanCard({ proc, onUpdate, onOpenMenu }: ProcedureLifespanCardProps) {
+export function ProcedureLifespanCard({
+  proc,
+  onUpdate,
+  onOpenMenu,
+  skinConditions = [],
+}: ProcedureLifespanCardProps) {
   const now = new Date();
   const status = computeStatus(proc, now);
   const progress = getProgress(proc, now);
   const procName = getProcedureDisplayName(proc);
   const isDone = DONE_STATUSES.has(status);
+  // Copy-only recovery caution for reactive skin after an aggressive
+  // procedure — changes nothing about the timeline or the deferral cap.
+  const conditionCaution =
+    status === 'fading'
+      ? getRecoveryConditionCaution(skinConditions, {
+          aggressive: isAggressiveProcedure(proc.procedureKey),
+          phase: 'fading',
+        })
+      : null;
 
   return (
     <View style={cardStyles.card}>
@@ -339,6 +362,10 @@ export function ProcedureLifespanCard({ proc, onUpdate, onOpenMenu }: ProcedureL
       {/* Time label */}
       <Text style={cardStyles.timeLabel}>{getTimeLabel(proc, status, now)}</Text>
 
+      {conditionCaution ? (
+        <Text style={cardStyles.conditionCaution}>{conditionCaution}</Text>
+      ) : null}
+
       {/* Fading prompt — feature-flagged off pending the feedback-flow decision */}
       {status === 'fading' && CLINIC_FADING_PROMPT_ENABLED ? (
         <FadingInteractivePrompt proc={proc} procName={procName} onUpdate={onUpdate} />
@@ -361,8 +388,6 @@ const cardStyles = StyleSheet.create({
   card: {
     backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
     padding: space[4],
     gap: space[3],
     ...shadow.sm,
@@ -408,6 +433,12 @@ const cardStyles = StyleSheet.create({
   timeLabel: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  // Amber caution family, distinct from the plum card chrome and from any
+  // Cabernet block — advisory copy must never read as a restriction.
+  conditionCaution: {
+    ...typography.caption,
+    color: colors.statusWarning,
   },
   footer: {
     borderTopWidth: 1,

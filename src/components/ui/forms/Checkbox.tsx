@@ -68,12 +68,7 @@ export function Checkbox({
       {hasText ? (
         <View style={styles.textBlock}>
           {label ? (
-            <Text
-              style={[
-                styles.label,
-                checked && styles.labelChecked,
-              ]}
-            >
+            <Text style={styles.label}>
               {label}
             </Text>
           ) : null}
@@ -126,11 +121,6 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     lineHeight: 20,
     color: colors.textPrimary,
-  },
-  // Strike-through when checked, using text decoration
-  labelChecked: {
-    textDecorationLine: 'line-through',
-    color: colors.textTertiary,
   },
   sublabel: { ...typography.bodySmall, color: colors.textSecondary },
 });

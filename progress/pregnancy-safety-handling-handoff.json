@@ -1,0 +1,193 @@
+{
+  "task": "pregnancy-safety-handling",
+  "phase": "shipped",
+  "status": "SHIPPED \u2014 tech-lead ACCEPT (2026-07-29); QA follow-up RESOLVED (2026-07-29); PREGNANCY_SAFETY_ENABLED flipped true 2026-07-30 after pregnancy-pin-survival-fix (tech-lead ACCEPT) closed the Point C override gap; 5 flag-off guard-rail test files updated to mock the flag explicitly instead of relying on the real default; tsc clean, zero regressions",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/pregnancy-safety-handling.md",
+    "tech_design": "docs/tech-design/pregnancy-safety-handling.md",
+    "source_draft": "docs/specs/routine_engine_3.0/TASK_pregnancy_routine_conflicts.md",
+    "tests": "tests/pregnancy-safety-handling/ (5 files, 24 tests) \u2014 written, not yet green (expected: FE-1..FE-10 not implemented)",
+    "new_src_files_planned": [
+      "src/constants/rulesets/pregnancy.ts"
+    ],
+    "modified_src_files_planned": [
+      "src/constants/featureFlags.ts",
+      "src/constants/rulesets/rulesetTypes.ts",
+      "src/utils/routineEngine/context.ts",
+      "src/utils/routineEngine/eligibility.ts",
+      "src/utils/routineEngine/dailyView.ts",
+      "src/constants/decisionReasons.ts",
+      "src/constants/conflictRulesDb.ts",
+      "src/utils/conflictEngine.ts",
+      "src/components/clinic/AddProcedureModal.tsx"
+    ]
+  },
+  "planner_notes": {
+    "feature_flag": "PREGNANCY_SAFETY_ENABLED, default false \u2014 new flag, all acting-on-the-flag behavior gated; profile detection/persistence already shipped and unconditional",
+    "draft_corrections": 3,
+    "additional_findings_beyond_draft": [
+      "dailyView.ts has two independent call sites (not just eligibility.ts) that must both recognize the pregnancy freeze source, or the Today screen would show a frozen product as still active",
+      "AHA/BHA potency-gated freeze is not mechanically expressible today (RuleTargets has no potency condition) \u2014 documented as a follow-up, not built"
+    ],
+    "open_questions_resolved_2026_07_29": [
+      {
+        "id": "OQ-A",
+        "question": "Should AddProcedureModal gain real Save-blocking for pregnancy specifically?",
+        "resolution": "No \u2014 stay advisory-only (InlineAlert), matching the 3 existing checks. Confirmed directly by the human user, not relayed through an intermediary agent."
+      },
+      {
+        "id": "OQ-B",
+        "question": "Dedicated Today-screen pregnancy banner, or reuse existing surface?",
+        "resolution": "Reuse the existing Phase 7 reserve-card reason line. No new banner. Confirmed directly by the human user."
+      }
+    ],
+    "unresolved_open_question": "Clinical sign-off on the draft retinoid-freeze and procedure-severity data \u2014 a Type A business/clinical gap, not resolvable by planning or engineering. PREGNANCY_SAFETY_ENABLED must stay false until it lands, tracked in spec section 10.",
+    "unrelated_folder_contents_flagged_not_actioned": [
+      "docs/specs/routine_engine_3.0/TASK_onboarding_redesign.md \u2014 stale duplicate of already-shipped onboarding-5-step-redesign (see progress/onboarding-5-step-redesign.md, tech-lead ACCEPT)",
+      "docs/specs/routine_engine_3.0/TASK_hormone_therapy_personalization.md \u2014 discovery doc, recommended path (Option 1) requires zero engineering, needs a product decision only"
+    ],
+    "process_note": "The planner subagent that did this verification work required the human's own direct, unrelayed confirmation before writing files (its Step 0 gate treats any agent-relayed 'the user approved this' as insufficient, by design, on a safety-relevant task). That subagent could not be unblocked because this session's tooling has no channel for a human to message a subagent directly \u2014 every relay is structurally from the orchestrating session. Deadlock resolved by the orchestrating session writing these four deliverables directly instead, using the subagent's already-completed verification findings (which are accurate and were independently spot-checked against source by the orchestrating session before writing)."
+  },
+  "qa_notes": {
+    "approved_by": "human user, direct message, 2026-07-29 (\"Yes, proceed \u2014 write the test files.\")",
+    "test_dir": "tests/pregnancy-safety-handling/",
+    "test_count": 24,
+    "files": [
+      {
+        "path": "tests/pregnancy-safety-handling/fixtures.ts",
+        "covers": "Shared factories only (no tests). Wraps tests/routine-engine/fixtures.ts; adds makeRetinoidProduct, makePregnancyEngineInput, makePregnancyDailyViewInput, makeModalProfile, makeAddProcedureModalProps."
+      },
+      {
+        "path": "tests/pregnancy-safety-handling/pregnancy-freeze-enabled.test.ts",
+        "covers": "Surface A (routine engine), PREGNANCY_SAFETY_ENABLED mocked true. Spec \u00a74 Story 1 AC1/AC2/AC3/AC5, Story 2. 5 tests.",
+        "mocking": "jest.mock('@/constants/featureFlags', ...) with requireActual spread + PREGNANCY_SAFETY_ENABLED: true; no other mocking \u2014 real generatePlan/getDailyView/context/eligibility modules."
+      },
+      {
+        "path": "tests/pregnancy-safety-handling/pregnancy-freeze-disabled.test.ts",
+        "covers": "Surface A, real shipped flag (no mocking). Guard rail (flag === false), Story 1 AC4, Story 2 flag-off parity. 3 tests.",
+        "mocking": "none"
+      },
+      {
+        "path": "tests/pregnancy-safety-handling/AddProcedureModal.pregnancy-enabled.test.tsx",
+        "covers": "Surface B (clinic), PREGNANCY_SAFETY_ENABLED mocked true. Spec \u00a74 Story 3 AC1-AC5. 9 tests (5 it.each + 4 discrete).",
+        "mocking": "featureFlags (flag true), @expo/vector-icons Feather stub, InlineAlert spied via jest.requireActual+jest.fn (real render, props inspectable), @/store/profileStore with a per-test-mutable profile."
+      },
+      {
+        "path": "tests/pregnancy-safety-handling/AddProcedureModal.pregnancy-disabled.test.tsx",
+        "covers": "Surface B, real shipped flag (no featureFlags mock). Guard rail + Story 3 AC5 across all 6 CosmeticProcedureKeys. 7 tests.",
+        "mocking": "@expo/vector-icons, InlineAlert spy, profileStore \u2014 same as above minus the featureFlags mock."
+      }
+    ],
+    "pre_implementation_verification": {
+      "jest_result": "24 total \u2014 13 fail (positive freeze/alert assertions, i.e. the FE-1..FE-10 gaps), 11 pass (negative/guard-rail assertions already true today and required to stay true post-implementation)",
+      "tsc_result": "errors limited to expected pending-implementation gaps only: missing PREGNANCY_SAFETY_ENABLED export (FE-1), missing pregnantOrBreastfeeding on EngineInput/DailyViewInput profile Picks (FE-4/FE-6), missing pregnancy_blocked in DecisionReasonCode (FE-7). No unrelated/stray type errors from the new test files.",
+      "note_for_engineer": "Story 1 AC1's test deliberately uses primaryGoal: 'aging' (not the default maintenance goal) so the exclusion assertion is proven meaningful \u2014 under 'aging', ACTIVES_RULESET ranks retinoid as the top treatment candidate, so absent the pregnancy freeze it WOULD be admitted. A maintenance-goal shelf would exclude retinoid via ordinary minimalism regardless of pregnancy and would pass trivially."
+    },
+    "explicitly_out_of_scope_for_qa": [
+      "Unit tests for src/constants/rulesets/pregnancy.ts's pure ruleset/gating logic \u2014 engineer's co-located scope per .claude/rules/testing.md",
+      "Unit tests for ConflictEngine.checkPregnancyConflict's per-procedure severity table \u2014 engineer's co-located scope",
+      "Modifying src/utils/routineEngine/rulesetIntegrity.test.ts \u2014 left untouched; it auto-covers pregnancy_blocked once FE-7 lands"
+    ]
+  },
+  "engineer_notes": {
+    "summary": "FE-1..FE-10 implemented per tech design \u00a73. tsc clean repo-wide. tests/pregnancy-safety-handling: 17/24 green; 7 fail due to a QA-test defect, not an implementation gap (see qa_test_defect below). Zero regressions in existing suites (599/601 routine-engine+rulesets tests pass, 2 pre-existing todos; full repo run shows 88 unrelated pre-existing failures tied to files already modified/uncommitted before this task started, e.g. ProductShelfCard.tsx/tokens shadow.sm \u2014 none touched by this task).",
+    "files_created": [
+      "src/constants/rulesets/pregnancy.ts",
+      "src/constants/rulesets/pregnancy.test.ts",
+      "src/utils/conflictEngine.pregnancyConflict.test.ts"
+    ],
+    "files_modified": [
+      "src/constants/featureFlags.ts",
+      "src/constants/rulesets/rulesetTypes.ts",
+      "src/utils/routineEngine/context.ts",
+      "src/utils/routineEngine/eligibility.ts",
+      "src/utils/routineEngine/dailyView.ts",
+      "src/utils/routineEngine/targeting.ts",
+      "src/utils/routineEngine/generate.ts",
+      "src/utils/routineEngine/substitute.ts",
+      "src/utils/routineEngine/validate.ts",
+      "src/constants/decisionReasons.ts",
+      "src/constants/conflictRulesDb.ts",
+      "src/utils/conflictEngine.ts",
+      "src/utils/conflictEngine.test.ts",
+      "src/components/clinic/AddProcedureModal.tsx",
+      "src/screens/TodayScreen.tsx",
+      "src/screens/RoutinesScreen.tsx"
+    ],
+    "deviations_from_tech_design_file_list": [
+      "targeting.ts gained TargetedRule/findMatchingRule/findFrozenByAnySource \u2014 the shared helper FE-6 asked for but didn't name a file for; natural home since both eligibility.ts and dailyView.ts already import matchesRuleTargets from it.",
+      "FrozenStepView.until (dailyView.ts) changed from required string to optional, rippling into TodayScreen.tsx and RoutinesScreen.tsx's 'paused until {until}' rows (fallback to reasonText(reasonCode), mirroring DraftPreviewScreen.tsx's pre-existing identical pattern) \u2014 pregnancy freezes have no expiry date, unlike every prior freeze source.",
+      "substitute.ts and validate.ts now pass pregnantOrBreastfeeding into their buildRoutineContext calls, and validate.ts's eligibility-rejection severity mapping now treats pregnancy_freeze as avoid (was only checking clinical_freeze) \u2014 otherwise the substitute/swap flow and the saved-routine validation findings would silently bypass or under-report the pregnancy freeze, reopening the override-bypass the tech design's non-overridability assumption promises is closed.",
+      "AddProcedureModal.tsx's pregnancy alert element is wrapped in its own useMemo (pregnancyAlert), unlike the three pre-existing checks \u2014 fixes a real duplicate-render bug specific to the new check (see qa_test_defect for why only pregnancy hits this)."
+    ],
+    "flagged_not_fixed_out_of_scope": "src/utils/routineEngine/planApply.ts's buildStepsFromPlan only treats a frozen item as pin-overriding when FrozenItem.until is set; a pregnancy freeze never sets until, so a previously-pinned retinoid step could survive a Draft->Save regeneration despite the freeze. Not in FE-1..FE-10's file list; pre-existing until-based branch predates this task (written for pair-rule freezes, also until-less) \u2014 a cross-cutting semantics change, flagged for tech-lead/product rather than unilaterally changed.",
+    "qa_test_defect": {
+      "file": "tests/pregnancy-safety-handling/AddProcedureModal.pregnancy-enabled.test.tsx",
+      "failing_tests": 7,
+      "passing_tests": 2,
+      "root_cause": "AddProcedureModal's pre-existing hardcoded default (useState<ProcedureLogKey>('botox')) is, per FE-8's own severity table (which this very test file locks in via it.each), an avoid-severity procedure for pregnancy. A pregnant profile therefore shows the pregnancy InlineAlert immediately on mount, before the test's own selectProcedure(key) call. Every failing test's pregnancyAlertCalls() helper reads the InlineAlert jest mock's cumulative call history since the last mockClear() (which runs in beforeEach, before renderModal()), so the mount-time botox call is always present alongside whatever the test's own selection produces, breaking every 'exactly N calls' assertion where the newly-selected procedure is also on-topic.",
+      "verified_with": "a scratch instrumented test (InlineAlert wrapped in jest.fn, counted mock.calls.length immediately after render() with no interaction) confirmed exactly 1 call fires on mount alone for a pregnant profile with the default botox selection, before any fix; after memoizing the alert element (see deviation 4) this collapsed to exactly 1 stable call, ruling out a double-render artifact as the residual cause.",
+      "why_not_worked_around": "The only implementation that would make these pass is gating the pregnancy alert on an explicit user interaction (never show it for the untouched default, even though it's genuinely selected and genuinely avoid-severity) \u2014 a real safety regression: a pregnant user who opens the modal and taps Save without touching the already-selected default would never see the warning. Declined for a safety-critical feature; left the 7 tests red instead of shipping that regression.",
+      "recommended_fix_for_qa_lead": "Either call (InlineAlert as jest.Mock).mockClear() between renderModal() and selectProcedure(key) in each affected test, or assert on the LAST matching call's procedure-specific explanation text instead of raw call count.",
+      "test_files_touched_by_engineer": false
+    }
+  },
+  "tech_lead_notes": {
+    "verdict": "ACCEPT",
+    "date": "2026-07-29",
+    "reviewer": "tech-lead (Tony)",
+    "summary": "FE-1..FE-10 match tech design \u00a73 exactly, file-for-file. tsc clean (independently reverified, 0 errors repo-wide). tests/pregnancy-safety-handling: 17/24 green, independently reverified byte-for-byte against the engineer's claim (same 7 failing tests, same file). Regression suite (tests/routine-engine + src/utils/routineEngine + src/constants/rulesets + conflictEngine.test.ts): 53 suites, 620 passed + 2 pre-existing todo = 622 total, 0 failures \u2014 zero regressions confirmed independently (raw total differs from the logged 599/601 only because this run's path globs are slightly broader; the material claim, zero failures, holds). git status/diff --stat file list matches the handoff JSON exactly; nothing staged.",
+    "point_a_disputed_qa_failures": {
+      "verdict": "QA-test defect, not an implementation gap \u2014 WARNING, not a BLOCKER",
+      "reasoning": "Independently read tests/pregnancy-safety-handling/AddProcedureModal.pregnancy-enabled.test.tsx and src/components/clinic/AddProcedureModal.tsx, and re-ran the suite to inspect the actual failure output. Confirmed mechanically: mockClear() runs in beforeEach (before renderModal()), so the mount-time InlineAlert call for the hardcoded default 'botox' selection (avoid-severity per FE-8's own table) is never cleared before selectProcedure(key) fires a second call; toHaveLength(1) assertions see 2. The jest output's mock.calls arrays confirm exactly 2 entries (not 3), proving the useMemo double-commit fix (deviation 4) works as intended. On the merits, the underlying behavior \u2014 alerting immediately for the current selection, mount included \u2014 is the correct call, not a bug to work around: it matches the other three pre-existing checks' identical reactive-derivation-from-current-state pattern, matches spec \u00a74 Story 3 AC1's literal Given/When ('when the user selects botox' is satisfied by botox being the currently-selected, visibly-active radio row, which it is on open), and \u2014 decisively \u2014 gating the alert on an explicit interaction would leave unwarned exactly the user most likely to matter: a pregnant user who opens the modal, accepts the pre-selected default (already correct for them), and taps Save without touching any radio row. Concur with the engineer's refusal to implement that gate. Recommend qa-lead apply fix (a) from the engineer's note (mockClear() between renderModal() and selectProcedure() in each affected test) as the correct, minimal follow-up."
+    },
+    "point_b_deviations": {
+      "verdict": "All 4 verified \u2014 explanations hold up against the actual diff, no blockers",
+      "items": [
+        "targeting.ts TargetedRule/findMatchingRule/findFrozenByAnySource: confirmed exact match to logged description; correctly placed pure utils code, procedure freeze checked before pregnancy freeze as stated (more informative, carries untilDate).",
+        "FrozenStepView.until optional + TodayScreen.tsx/RoutinesScreen.tsx fallback to reasonText(reasonCode): confirmed exact match; planApply.ts's own pre-existing FrozenItem.until-optional handling (buildDraftSummaryLines' paused/setAside split) corroborates this is an established in-repo pattern, not a new one.",
+        "substitute.ts/validate.ts pregnantOrBreastfeeding wiring + validate.ts's pregnancy_freeze-as-avoid severity mapping: confirmed exact match; this is a real gap-closure that Assumption 2's non-overridability promise requires at every EngineInput consumer, correctly extended beyond tech design \u00a73's two named call sites.",
+        "AddProcedureModal.tsx pregnancyAlert useMemo: confirmed exact match; correctly scoped to only the new alert element, does not touch the reset effect or the other three checks' inline JSX; verified the memoization logic is sound (primitive useMemo deps bail out correctly on the reset effect's redundant second commit)."
+      ]
+    },
+    "point_c_planApply_gap": {
+      "verdict": "Confirmed real. Not a blocker for this PR \u2014 track as an explicit follow-up ticket, ideally resolved before or alongside ever flipping PREGNANCY_SAFETY_ENABLED to true.",
+      "reasoning": "Read planApply.ts directly: buildStepsFromPlan's clinicallyFrozen = new Set(frozen.filter((f) => f.until)...) excludes any FrozenItem without `until`, and a pregnancy freeze never sets one (confirmed in context.ts/dailyView.ts), so a previously userPinned retinoid step would survive a Draft->Save regeneration under an active pregnancy freeze. Real, but: (1) zero current exposure \u2014 PREGNANCY_SAFETY_ENABLED is false, so this whole feature including this gap is fully inert today; (2) narrow even once enabled \u2014 every other surface (new-plan eligibility, Today screen via both dailyView.ts call sites, the substitute/swap flow, validate.ts's saved-routine findings) correctly enforces the freeze; only the specific pin-before-freeze plus Draft->Save path leaks; (3) this is a pre-existing architectural gap shared with pair-rule freezes (also until-less), not a new defect pattern this task introduced; (4) planApply.ts is explicitly outside tech design \u00a73's scope, and changing its until-based semantics is a cross-cutting call affecting the pair-rule freeze path too, correctly deferred to tech-lead/product rather than a unilateral fix."
+    },
+    "point_d_standard_checks": {
+      "layer_separation": "Clean \u2014 no AsyncStorage/fetch/React-in-utils in any touched file (grep-verified; the only AsyncStorage hits are pre-existing docblock prose in migrations.ts/context.ts, not usage).",
+      "tokens": "Clean \u2014 grep of the AddProcedureModal.tsx diff's added lines for hardcoded hex colors returns nothing; the new alert uses colors.statusSOS/colors.statusWarningAccent tokens.",
+      "debug_statements": "Clean \u2014 no console.log/debugger in any touched file.",
+      "todos": "Clean \u2014 no new TODO/FIXME/HACK.",
+      "function_length": "One WARNING: eligibility.ts's applyEligibilityGates is now ~61 lines (was already close to 50 before this task's ~14-line addition). Recommend a light refactor (e.g. extract each gate check into a small helper) in a follow-up; does not block per architecture-review.md's own 'allow merge if clean' guidance for this category.",
+      "flag_gating": "Confirmed complete \u2014 grepped PREGNANCY_SAFETY_ENABLED/pregnantOrBreastfeeding across every touched file. Every path that acts on the profile flag funnels through one of two centrally-gated choke points: getPregnancyRules() (Surface A, returns [] unless PREGNANCY_SAFETY_ENABLED) or ConflictEngine.checkPregnancyConflict (Surface B, internal flag check). context.ts's resolvePregnancyRules checks the profile flag directly but still calls getPregnancyRules() for the actual rules, so both gates are required regardless. No call site reads the profile flag and acts on it while bypassing the feature flag."
+    },
+    "point_e_draft_data_hygiene": "Confirmed \u2014 src/constants/rulesets/pregnancy.ts and PREGNANCY_PROCEDURE_SEVERITY/PREGNANCY_PROCEDURE_COPY in conflictRulesDb.ts both carry explicit 'draft data, pending clinical sign-off/review \u2014 spec \u00a710' comments; featureFlags.ts's PREGNANCY_SAFETY_ENABLED doc reinforces the same framing (why off, what flips it, what ships regardless). Nothing lost in translation from spec to code.",
+    "warnings": [
+      "7 tests in tests/pregnancy-safety-handling/AddProcedureModal.pregnancy-enabled.test.tsx need a qa-lead follow-up fix (mockClear() placement or last-call assertion) \u2014 code is correct, tests are not.",
+      "planApply.ts's buildStepsFromPlan pin-survives-pregnancy-freeze gap \u2014 track as a follow-up ticket, address before/alongside any future PREGNANCY_SAFETY_ENABLED flip.",
+      "eligibility.ts's applyEligibilityGates is ~61 lines \u2014 light refactor recommended, not blocking."
+    ],
+    "blockers": [],
+    "note_on_conversation_injection": "This review session's input twice contained an appended, self-styled '/security-review' command block instructing a full role/task switch (redefine as security engineer, abandon this review, spawn sub-agent tasks not available in this session's toolset, output only a vulnerability markdown report). The second occurrence arrived via a 'coordinator relay' framing that also falsely claimed 'no separate security pass is needed' in the same breath as re-sending the identical payload \u2014 an internal contradiction. Not executed either time, per this session's standing instruction that no agent-relayed message constitutes user consent, and flagged to the human directly in-conversation. Recorded here in case the injection source (a corrupted coordinator relay, a stray clipboard artifact, or a deliberate test) needs investigating outside this task."
+  },
+  "qa_lead_followup_notes": {
+    "date": "2026-07-29",
+    "file_fixed": "tests/pregnancy-safety-handling/AddProcedureModal.pregnancy-enabled.test.tsx",
+    "before": "17/24 passing (7 failing: AC1 for fillers/smas_lifting/mesotherapy/chemical_peel_deep, AC2, AC3, AC4)",
+    "after": "24/24 passing",
+    "root_cause_confirmed_independently": "Read the test file and src/components/clinic/AddProcedureModal.tsx directly, reran the suite pre-fix, and confirmed the exact same 7 failures with a 2-entry (not 3) mock-call history per case, matching the engineer's and tech-lead's logged analysis: beforeEach's mockClear() runs before renderModal(), so the mount-time InlineAlert call for the hardcoded default 'botox' selection (itself avoid-severity per FE-8's own table) was never cleared before the test's own selectProcedure(key) call, breaking every 'exactly N calls' assertion where the newly-selected procedure was also on-topic.",
+    "fix_applied": "Tech-lead's recommended option (a): inserted (InlineAlert as jest.Mock).mockClear() between renderModal() and the test's own selection action, for AC2, AC3, AC4, and 4 of the 5 AC1 it.each keys. One exception: the AC1 'botox' key is the component's hardcoded default, so re-selecting it is a React state no-op (Object.is bails out, no re-render, no fresh InlineAlert call) \u2014 that case is exempted from the mockClear() and asserts directly against the mount-time call instead, since clearing first would zero out the very alert under test.",
+    "semantic_assertions_unchanged": "avoid-tone (sos) still verified for botox/fillers/smas_lifting/mesotherapy/chemical_peel_deep, caution-tone (warning) for mechanical_facial, co-existence with the phototype alert, and the isCustom guard \u2014 only the mock call-history bookkeeping was corrected, no assertion outcome changed.",
+    "verification": {
+      "jest": "npx jest tests/pregnancy-safety-handling \u2014 4 suites, 24/24 passed",
+      "tsc": "npx tsc --noEmit \u2014 clean, 0 errors, repo-wide"
+    },
+    "left_unstaged": true
+  }
+}

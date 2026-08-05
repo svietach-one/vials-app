@@ -175,15 +175,23 @@ export function parseActiveIngredientDetails(inciText: string): ParsedActiveDeta
 
 /**
  * Returns canonical active keys from a product's wizard-confirmed tags,
- * parsed ingredient list, and full INCI text. Wizard-confirmed activeTags are
- * authoritative (same contract as buildProductFacts); explicit keys may still
- * carry legacy values from data persisted before the ruleset migration — they
- * are normalized here so every consumer compares in canonical key space.
+ * parsed ingredient list, full INCI text, and the `isPhysicalExfoliant` flag.
+ * Wizard-confirmed activeTags are authoritative (same contract as
+ * buildProductFacts); explicit keys may still carry legacy values from data
+ * persisted before the ruleset migration — they are normalized here so every
+ * consumer compares in canonical key space.
+ *
+ * `physical_exfoliant` is added ONLY when `isPhysicalExfoliant === true` —
+ * never derived from `parseActiveIngredientsFromInci` or any other INCI text
+ * matching, since abrasive particles generally do not show up in an
+ * ingredient list the way a chemical active does (tech-design
+ * vials-conflict-matrix-expansion.md §3 FE-1/FE-2).
  */
 export function getProductActiveKeys(product: {
   activeIngredients: { key: ActiveIngredientKey }[];
   activeTags?: ActiveIngredientKey[];
   fullIngredientText: string | null;
+  isPhysicalExfoliant?: boolean;
 }): ActiveIngredientKey[] {
   const keys = new Set<ActiveIngredientKey>(
     product.activeIngredients.map((ing) => normalizeActiveKey(ing.key)),
@@ -197,6 +205,10 @@ export function getProductActiveKeys(product: {
     for (const key of parseActiveIngredientsFromInci(product.fullIngredientText)) {
       keys.add(key);
     }
+  }
+
+  if (product.isPhysicalExfoliant === true) {
+    keys.add('physical_exfoliant');
   }
 
   return [...keys];

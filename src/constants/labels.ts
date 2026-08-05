@@ -1,4 +1,5 @@
-import type { ActiveIngredientKey, FunctionalBenefit, ProductType, SkinGoal } from '@/types';
+import type { BadgeStatus } from '@/components/ui/feedback/Badge';
+import type { ActiveIngredientKey, FunctionalBenefit, ProductType, SkinGoal, SkinType } from '@/types';
 
 export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
   cleanser: 'Cleanser',
@@ -60,6 +61,41 @@ export function getSlotCategoryLabelPlural(productType: ProductType): string {
   return label.endsWith('s') ? label : `${label}s`;
 }
 
+/**
+ * Product-type -> Badge status, grouping types into the category hues used
+ * everywhere a productType pill is rendered (My Shelf, Routines, product
+ * detail): Cobalt for liquid actives, Green for emollients/moisturizers,
+ * Amber for exfoliating/treatment steps, Golden for sun protection (spf),
+ * Cian for cleansing steps (cleanser, makeup_remover), Cabernet for peeling,
+ * Coffee for rich emollients (cream, balm, eye_cream). Types not listed here
+ * (currently other) fall back to Default (neutral gray) via
+ * {@link getProductTypeBadgeStatus}.
+ */
+export const PRODUCT_TYPE_BADGE_STATUS: Partial<Record<ProductType, BadgeStatus>> = {
+  serum: 'Cobalt',
+  ampoule: 'Cobalt',
+  essence: 'Cobalt',
+  gel: 'Cobalt',
+  cleanser: 'Cian',
+  makeup_remover: 'Cian',
+  toner: 'Green',
+  moisturizer: 'Green',
+  cream: 'Coffee',
+  lotion: 'Green',
+  oil: 'Green',
+  eye_cream: 'Coffee',
+  balm: 'Coffee',
+  spf: 'Golden',
+  mask: 'Amber',
+  peeling: 'Cabernet',
+  spot_treatment: 'Amber',
+};
+
+/** Resolves the Badge status for a product type, defaulting to neutral gray. */
+export function getProductTypeBadgeStatus(productType: ProductType): BadgeStatus {
+  return PRODUCT_TYPE_BADGE_STATUS[productType] ?? 'Default';
+}
+
 export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   // Canonical (actives.json classes)
   retinoid: 'Retinoids',
@@ -71,6 +107,7 @@ export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   niacinamide: 'Niacinamide',
   benzoyl_peroxide: 'Benzoyl Peroxide',
   azelaic_acid: 'Azelaic Acid',
+  hydroquinone: 'Hydroquinone',
   copper_peptides: 'Copper Peptides',
   peptide_signal: 'Signal Peptides',
   peptide_neuro: 'Neuro Peptides',
@@ -80,11 +117,42 @@ export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   glycerin_class: 'Glycerin & Humectants',
   panthenol: 'Panthenol',
   cica: 'Centella (Cica)',
+  physical_exfoliant: 'Physical Exfoliant',
   // Legacy (pre-ruleset persisted tags)
   retinol: 'Retinol',
   vitamin_c: 'Vitamin C',
   spf_chemical: 'SPF (Chemical)',
 };
+
+/**
+ * Skin-profile field options and copy, shared by onboarding (SkinTypeStep,
+ * AboutYouStep, AdditionalInfoStep) and the profile editor
+ * (SkinProfileEditModal) so the two entry points into the same fields can't
+ * drift apart — a change here shows up in both places.
+ */
+export const SKIN_TYPE_OPTIONS: { value: SkinType; label: string }[] = [
+  { value: 'oily', label: 'Oily' },
+  { value: 'dry', label: 'Dry' },
+  { value: 'combination', label: 'Combination' },
+  { value: 'normal', label: 'Normal' },
+];
+
+export const GENDER_OPTIONS: { value: 'female' | 'male' | null; label: string }[] = [
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
+  { value: null, label: 'Prefer not to say' },
+];
+
+export const GENDER_CAPTION =
+  'Skin differs physiologically between men and women — this affects how products perform. We ' +
+  'ask to personalize, not out of curiosity.';
+
+export const HORMONE_THERAPY_LABEL = 'Currently on hormone therapy';
+export const HORMONE_THERAPY_HINT =
+  'Affects oil production and sensitivity, regardless of the gender selected above.';
+
+export const PREGNANCY_LABEL = 'Pregnant or breastfeeding';
+export const PREGNANCY_HINT = "We'll flag retinoids and other restricted actives.";
 
 /** Care-goal display names (V2.1 Step 0 goal selector + confirmation banner). */
 export const GOAL_LABELS: Record<SkinGoal, string> = {

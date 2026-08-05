@@ -11,7 +11,7 @@ import {
   type SelectOption,
   type SelectOptionTone,
 } from '@/components/ui/forms/Select';
-import { colors, radius, shadow, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { Product } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -181,16 +181,16 @@ function OptionRow({
 }) {
   return (
     <Pressable
-      style={styles.optionRow}
+      style={({ pressed }) => [
+        styles.optionRow,
+        selected && styles.optionRowSelected,
+        pressed && styles.optionRowPressed,
+      ]}
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
       accessibilityLabel={option.reason ? `${option.title} — ${option.reason}` : option.title}
     >
-      <View style={[styles.radio, selected && styles.radioSelected]}>
-        {selected ? <Icon name="check" size={13} color={colors.bgBase} /> : null}
-      </View>
-
       {product ? <ProductThumbnail product={product} size={52} /> : null}
 
       <View style={styles.optionText}>
@@ -281,19 +281,16 @@ const styles = StyleSheet.create({
     paddingVertical: space[2],
     paddingHorizontal: space[2],
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderDivider,
+    backgroundColor: colors.bgBase,
   },
-  radio: {
-    width: 22,
-    height: 22,
-    borderRadius: radius.pill,
-    borderWidth: 2,
-    borderColor: colors.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
+  optionRowSelected: {
+    borderColor: palette.plum,
+    backgroundColor: palette.plumTintLight,
   },
-  radioSelected: {
-    backgroundColor: colors.textPrimary,
-    borderColor: colors.textPrimary,
+  optionRowPressed: {
+    backgroundColor: palette.plumTintLight,
   },
   optionText: {
     flex: 1,

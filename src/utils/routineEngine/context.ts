@@ -8,6 +8,7 @@ import {
   type RuleTargets,
   type SeasonMask,
 } from '@/constants/rulesets/rulesetTypes';
+import { getPregnancyRules } from '@/constants/rulesets/pregnancy';
 import type {
   ActiveIngredientKey,
   FitzpatrickType,
@@ -249,6 +250,35 @@ function mergeProcedureRules(rules: ActiveProcedureRule[]): ActiveProcedureRule[
   return [...byTarget.values()];
 }
 
+// ─── Pregnancy / breastfeeding freeze (pregnancy-safety-handling) ──────────
+
+/**
+ * A pregnancy rule resolved into context — minimal shape (tech design FE-4):
+ * just enough for eligibility.ts's and dailyView.ts's freeze checks.
+ * `untilDate` is always absent (pregnancy is a persistent condition, not
+ * day-windowed) but declared so callers read it uniformly alongside
+ * `ActiveProcedureRule` via targeting.ts's `TargetedRule`.
+ */
+export interface PregnancyFreezeRule {
+  targets: RuleTargets;
+  reasonCode: DecisionReasonCode;
+  untilDate?: string;
+}
+
+/**
+ * Resolves PREGNANCY_RULESET into context.pregnancyRules. `getPregnancyRules`
+ * already self-gates on PREGNANCY_SAFETY_ENABLED (pregnancy.ts); this only
+ * adds the profile-flag condition on top, so pregnancyRules is empty unless
+ * BOTH the flag is on AND the profile says pregnant/breastfeeding.
+ */
+function resolvePregnancyRules(pregnantOrBreastfeeding: boolean): PregnancyFreezeRule[] {
+  if (!pregnantOrBreastfeeding) return [];
+  return getPregnancyRules().map((rule) => ({
+    targets: rule.then.targets,
+    reasonCode: rule.reasonCode,
+  }));
+}
+
 // ─── Step 0 — Goals ─────────────────────────────────────────────────────────
 
 /** The user's resolved goal pair (Step 0). Absent profile fields ⇒ maintenance. */
@@ -340,9 +370,10 @@ export function resolveGoalContext(
 
 export interface RoutineContextInput {
   procedures: UserProcedureLog[];
-  /** Goal fields optional so pre-goal callers keep compiling; absent ⇒ maintenance. */
+  /** Goal/pregnancy fields optional so pre-existing callers keep compiling;
+   * absent goal ⇒ maintenance, absent pregnancy ⇒ not pregnant. */
   profile: Pick<UserProfile, 'fitzpatrick'> &
-    Partial<Pick<UserProfile, 'primaryGoal' | 'secondaryGoal'>>;
+    Partial<Pick<UserProfile, 'primaryGoal' | 'secondaryGoal' | 'pregnantOrBreastfeeding'>>;
   seasonMask: SeasonMask;
   now?: Date;
 }
@@ -353,6 +384,15 @@ export interface RoutineContext {
   fitzpatrick: FitzpatrickType | null;
   seasonMask: SeasonMask;
   procedureRules: ActiveProcedureRule[];
+  /**
+   * Pregnancy/breastfeeding freeze sources (pregnancy-safety-handling FE-4).
+   * Deliberately NOT folded into `effectiveRuleset` — that pipeline only ever
+   * carries phototype-derived data (tech design §4 Assumption 1), and
+   * pregnancy is a persistent condition, not a phase/day-windowed procedure
+   * rule either. Empty when PREGNANCY_SAFETY_ENABLED is off or the profile
+   * flag is false/absent.
+   */
+  pregnancyRules: PregnancyFreezeRule[];
   effectiveRuleset: EffectiveRuleset;
   /** Step-0 goal resolution (V2.1 phase-03). */
   goals: GoalContext;
@@ -373,6 +413,7 @@ export function buildRoutineContext(input: RoutineContextInput): RoutineContext 
     fitzpatrick: input.profile.fitzpatrick,
     seasonMask: input.seasonMask,
     procedureRules: resolveActiveProcedureRules(input.procedures, now),
+    pregnancyRules: resolvePregnancyRules(input.profile.pregnantOrBreastfeeding ?? false),
     effectiveRuleset: buildEffectiveRuleset(input.profile.fitzpatrick),
     goals: resolved.goals,
     treatmentClassRanking: resolved.treatmentClassRanking,

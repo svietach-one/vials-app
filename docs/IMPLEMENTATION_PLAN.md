@@ -55,7 +55,7 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 
 **Screens to build:**
 - `MarketingSlidesScreen` — 3 swipeable slides, black primary CTA; slide 3 adds a medical-disclaimer consent checkbox (`US-23`) that gates the CTA (disabled until checked, no skip path) and writes `settingsStore.acceptMedicalDisclaimer(version)` before advancing
-- `SkinProfileSetupScreen` — age, gender, skin type, phototype selector (3 unlabeled cards with accessibilityLabel)
+- `SkinProfileSetupScreen` — 5-step flow (skin type → goals → phototype → about you → additional info) behind an internal step state with an `OnboardingProgressRing`; phototype is the 6-card Fitzpatrick selector (unlabeled cards with accessibilityLabel), not the earlier 3-card version — see `docs/tech-design/onboarding-5-step-redesign.md`
 - `FirstProductScreen` — text search bar querying the Vials API (`searchByText`) + `UniversalScannerOverlay` camera button + `ProductForm` manual fallback + "Skip for now" outline button
 
 **Navigation change:** AppNavigator must check `profileStore.onboardingCompleted` on launch and route to the onboarding stack or main tabs accordingly.
@@ -158,7 +158,7 @@ AsyncStorage stays as the persistence layer for Phase 1 MVP so the app can run i
 - Add skeleton loaders for catalog list and clinic timeline
 - Wire error boundaries around Vials API calls
 - Add haptic feedback on checkbox toggle (via `expo-haptics`)
-- Replace all emoji icon stubs (`⚙️`, `⚠️`, `🔍`) with Feather icons from `@expo/vector-icons`
+- Replace all emoji icon stubs (`⚙️`, `⚠️`, `🔍`) with `lucide-react-native` icons via the shared `Icon` adapter (app-wide icon standard; this bullet previously said Feather/`@expo/vector-icons`, which is stale)
 - Replace all hardcoded Russian comment strings with English
 - Run `npx tsc --noEmit` to zero out TypeScript errors across src/
 

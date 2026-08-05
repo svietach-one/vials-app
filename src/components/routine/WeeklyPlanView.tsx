@@ -36,7 +36,8 @@ interface StepRowProps {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { Badge } from '@/components/ui/feedback/Badge';
+import { getProductTypeBadgeStatus, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 
 const PERIOD_OPTIONS = [
   { value: 'morning', label: 'Morning' },
@@ -89,11 +90,9 @@ function StepRow({ item, drag, isActive, products, onUpdateSchedule }: StepRowPr
       </View>
 
       {/* Product type pill */}
-      <View style={rowStyles.typePill}>
-        <Text style={rowStyles.typeText}>
-          {PRODUCT_TYPE_LABELS[item.productType] ?? item.productType}
-        </Text>
-      </View>
+      <Badge status={getProductTypeBadgeStatus(item.productType)} type="Light">
+        {PRODUCT_TYPE_LABELS[item.productType] ?? item.productType}
+      </Badge>
     </View>
   );
 }
@@ -140,19 +139,6 @@ const rowStyles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textSecondary,
     marginTop: 1,
-  },
-  typePill: {
-    paddingHorizontal: space[2],
-    paddingVertical: 3,
-    borderRadius: radius.xs,
-    backgroundColor: colors.surfaceSunken,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-    flexShrink: 0,
-  },
-  typeText: {
-    ...typography.caption,
-    color: colors.textSecondary,
   },
 });
 

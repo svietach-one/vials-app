@@ -78,7 +78,7 @@ export function DuplicateSlotWarningInline({ routines, products, onPressGroup }:
         >
           <InlineAlert
             tone="info"
-            icon={<Icon name="layers" size={14} color={colors.statusInfo} />}
+            icon={<Icon name="layers" size={16} color={colors.statusInfo} />}
           >
             {row.message}
           </InlineAlert>
