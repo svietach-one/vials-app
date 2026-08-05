@@ -1,0 +1,162 @@
+{
+  "$comment": "EU fragrance-allergen seed — docs/tasks/vials-eu-allergen-detection-task.md §1, docs/specs/vials-eu-allergen-detection.md §10. UNVERIFIED starting seed: the canonical names, synonyms, and CAS numbers below are assembled from multiple secondary sources plus the EMA appendix and SCCNFP opinion, NOT yet confirmed against the official Regulation (EC) No 1223/2009 Annex III text. GATED — must not be represented as release-ready until a regulatory-literate human reviewer signs off (same gating pattern as assets/brandDictionary/brandDictionary.json's own unverified-seed caveat). Covers the original/legacy 26-substance list only; the full 82-substance Annex III list (Regulation (EU) 2023/1545) is a separate, data-only follow-up that swaps this file and bumps list_version — the detection code must never hardcode any name from this list.",
+  "list_version": "eu-annex-iii-original",
+  "entries": [
+    {
+      "canonical": "Alpha-Isomethyl Ionone",
+      "synonyms": ["Alpha-isomethyl ionone", "Isomethyl ionone"],
+      "cas": ["127-51-5"],
+      "restricted": false
+    },
+    {
+      "canonical": "Amyl Cinnamal",
+      "synonyms": ["Amylcinnamaldehyde", "alpha-Amylcinnamic aldehyde"],
+      "cas": ["122-40-7"],
+      "restricted": false
+    },
+    {
+      "canonical": "Amylcinnamyl Alcohol",
+      "synonyms": ["alpha-Amylcinnamyl alcohol"],
+      "cas": ["101-85-9"],
+      "restricted": false
+    },
+    {
+      "canonical": "Anisyl Alcohol",
+      "synonyms": ["Anise alcohol", "p-Anisyl alcohol"],
+      "cas": ["105-13-5"],
+      "restricted": false
+    },
+    {
+      "canonical": "Benzyl Alcohol",
+      "synonyms": ["Phenylmethanol", "Phenylcarbinol"],
+      "cas": ["100-51-6"],
+      "restricted": false
+    },
+    {
+      "canonical": "Benzyl Benzoate",
+      "synonyms": [],
+      "cas": ["120-51-4"],
+      "restricted": false
+    },
+    {
+      "canonical": "Benzyl Cinnamate",
+      "synonyms": ["Cinnamein"],
+      "cas": ["103-41-3"],
+      "restricted": false
+    },
+    {
+      "canonical": "Benzyl Salicylate",
+      "synonyms": [],
+      "cas": ["118-58-1"],
+      "restricted": false
+    },
+    {
+      "canonical": "Butylphenyl Methylpropional",
+      "synonyms": ["Lilial", "BMHCA", "2-(4-tert-Butylbenzyl)propionaldehyde"],
+      "cas": ["80-54-6"],
+      "restricted": true
+    },
+    {
+      "canonical": "Cinnamal",
+      "synonyms": ["Cinnamaldehyde", "Cinnamic aldehyde"],
+      "cas": ["104-55-2"],
+      "restricted": false
+    },
+    {
+      "canonical": "Cinnamyl Alcohol",
+      "synonyms": ["3-Phenylallyl alcohol", "3-Phenyl-2-propen-1-ol"],
+      "cas": ["104-54-1"],
+      "restricted": false
+    },
+    {
+      "canonical": "Citral",
+      "synonyms": ["Geranial", "Neral"],
+      "cas": ["5392-40-5"],
+      "restricted": false
+    },
+    {
+      "canonical": "Citronellol",
+      "synonyms": ["Rhodinol"],
+      "cas": ["106-22-9"],
+      "restricted": false
+    },
+    {
+      "canonical": "Coumarin",
+      "synonyms": ["2H-Chromen-2-one", "5,6-Benzo-alpha-pyrone"],
+      "cas": ["91-64-5"],
+      "restricted": false
+    },
+    {
+      "canonical": "Eugenol",
+      "synonyms": ["4-Allyl-2-methoxyphenol"],
+      "cas": ["97-53-0"],
+      "restricted": false
+    },
+    {
+      "canonical": "Evernia Furfuracea (Treemoss) Extract",
+      "synonyms": ["Treemoss extract", "Evernia furfuracea extract"],
+      "cas": ["90028-67-4"],
+      "restricted": false
+    },
+    {
+      "canonical": "Evernia Prunastri (Oakmoss) Extract",
+      "synonyms": ["Oakmoss extract", "Evernia prunastri extract"],
+      "cas": ["90028-68-5"],
+      "restricted": false
+    },
+    {
+      "canonical": "Farnesol",
+      "synonyms": [],
+      "cas": ["4602-84-0"],
+      "restricted": false
+    },
+    {
+      "canonical": "Geraniol",
+      "synonyms": [],
+      "cas": ["106-24-1"],
+      "restricted": false
+    },
+    {
+      "canonical": "Hexyl Cinnamal",
+      "synonyms": ["Hexylcinnamaldehyde", "alpha-Hexylcinnamaldehyde"],
+      "cas": ["101-86-0"],
+      "restricted": false
+    },
+    {
+      "canonical": "Hydroxycitronellal",
+      "synonyms": [],
+      "cas": ["107-75-5"],
+      "restricted": false
+    },
+    {
+      "canonical": "Hydroxyisohexyl 3-Cyclohexene Carboxaldehyde",
+      "synonyms": ["Lyral", "HICC"],
+      "cas": ["31906-04-4"],
+      "restricted": true
+    },
+    {
+      "canonical": "Isoeugenol",
+      "synonyms": ["4-Propenyl-2-methoxyphenol"],
+      "cas": ["97-54-1"],
+      "restricted": false
+    },
+    {
+      "canonical": "Limonene",
+      "synonyms": ["d-Limonene"],
+      "cas": ["138-86-3", "5989-27-5", "5989-54-8"],
+      "restricted": false
+    },
+    {
+      "canonical": "Linalool",
+      "synonyms": [],
+      "cas": ["78-70-6"],
+      "restricted": false
+    },
+    {
+      "canonical": "Methyl 2-Octynoate",
+      "synonyms": ["Methyl heptine carbonate"],
+      "cas": ["111-12-6"],
+      "restricted": false
+    }
+  ]
+}

@@ -4,11 +4,13 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Icon } from '@/components/ui/Icon';
 
 import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
+import { AllergenBadge } from '@/components/ui/AllergenBadge';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Badge } from '@/components/ui/feedback/Badge';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { ACTIVE_INGREDIENT_LABELS, getProductTypeBadgeStatus, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { getProductAllergenMatches } from '@/utils/allergenDetector';
 import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
 import type { Product, ProductType } from '@/types';
 
@@ -64,6 +66,7 @@ export function RoutineStepCard({
   const [attributionVisible, setAttributionVisible] = useState(false);
   const activeMatches = activeKey ? getMatchesForKey(product.fullIngredientText, activeKey) : [];
   const showAliasIcon = hasAliasOverride(activeMatches);
+  const allergenMatches = getProductAllergenMatches(product);
 
   const typeLabel = PRODUCT_TYPE_LABELS[productType] ?? productType;
   const typeBadgeStatus = getProductTypeBadgeStatus(productType);
@@ -122,6 +125,7 @@ export function RoutineStepCard({
                 ) : null}
               </Pressable>
             ) : null}
+            <AllergenBadge matches={allergenMatches} />
           </View>
         </View>
       </View>

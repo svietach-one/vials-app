@@ -18,6 +18,14 @@ export type ActiveIngredientKey =
   | 'benzoyl_peroxide'
   | 'azelaic_acid'
   /**
+   * Abrasive-particle signal, sourced ONLY from `Product.isPhysicalExfoliant`
+   * — never derived from INCI text (tech-design vials-conflict-matrix-
+   * expansion.md §3 FE-1/FE-2). The corresponding `actives.json` class is
+   * deliberately matcher-less (FE-3): an ingredient label can never, on its
+   * own, cause this key to be attributed to a product.
+   */
+  | 'physical_exfoliant'
+  /**
    * Pregnancy-restricted skin-lightening agent (ACOG/AAD-consensus tier,
    * engine4.1 handoff §4). Not wired into `actives.json`'s `goals` block —
    * this class exists so the pregnancy freeze can see it, not to compete for
@@ -372,6 +380,49 @@ export interface Product {
    * field existed; treat as false.
    */
   contributionOptIn?: boolean;
+  /**
+   * User-asserted "this product physically abrades the skin" signal (a
+   * scrub, an exfoliating cleansing tool) — orthogonal to `productType`, the
+   * same relationship the `sensitive` profile flag has to skin type. Never
+   * derived from `fullIngredientText`: abrasive particles generally do not
+   * show up in an ingredient list the way a chemical active does. Absent on
+   * records saved before this field; treat as false. Drives the
+   * `physical_exfoliant` key in {@link ActiveIngredientKey} via
+   * `getProductActiveKeys` (tech-design vials-conflict-matrix-expansion.md).
+   */
+  isPhysicalExfoliant?: boolean;
+  /**
+   * Cached result of the last EU fragrance-allergen scan of
+   * `fullIngredientText` (tech-design vials-eu-allergen-detection.md FE-2/
+   * FE-3). Only trustworthy when {@link allergenListVersion} equals the
+   * bundled seed's current `list_version` — `getProductAllergenMatches`
+   * recomputes live otherwise, so a JSON swap (26→82 substances) or a
+   * pre-existing product without this field both self-heal with no
+   * migration. Absent on records saved before this field existed.
+   */
+  detectedAllergens?: DetectedAllergenMatch[];
+  /**
+   * The seed list's `list_version` this product's {@link detectedAllergens}
+   * was computed against — read from `assets/eu_allergens_seed.json`, never
+   * hand-typed. `null`/absent means "never scanned" and is treated the same
+   * as a version mismatch: live recompute, not trusted as zero matches.
+   */
+  allergenListVersion?: string | null;
+}
+
+/**
+ * One matched EU-regulated fragrance allergen for a product (tech-design
+ * vials-eu-allergen-detection.md FE-2). `canonical` is the seed entry's
+ * display name; `restricted` mirrors that seed entry's own `restricted`
+ * flag (true only for the two banned-but-retained entries — Lilial and
+ * Lyral/HICC in the original 26-substance seed) and drives the Amber-vs-
+ * Cobalt badge precedence. Deliberately has no per-user dimension (no
+ * `isPersonal` flag) — personal-allergen flagging is a separate, descoped
+ * follow-up (see spec Non-Goals).
+ */
+export interface DetectedAllergenMatch {
+  canonical: string;
+  restricted: boolean;
 }
 
 

@@ -18,7 +18,7 @@ import {
   type ConditionAdvisory,
   type ModifiedConflict,
 } from '@/utils/skinConditionModifiers';
-import type { Product, RoutineStep, SkinConditionType } from '@/types';
+import type { ConflictSeverity, Product, RoutineStep, SkinConditionType } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +49,19 @@ interface RowCollapseProps {
   onToggleCollapse: () => void;
 }
 
+/**
+ * Severity-driven copy prefix (tech-design vials-conflict-matrix-expansion.md
+ * §3 FE-5). Exactly two tiers — `ConflictSeverity` is deliberately never
+ * extended to a third ("Low"/"Minor") tier, so this map must stay exhaustive
+ * over the two-member union rather than growing a fallback branch. Tone stays
+ * `tone="warning"` (amber) for both — the prefix is the only visible
+ * distinction between an `avoid` and a `caution` row.
+ */
+const CONFLICT_SEVERITY_PREFIX: Record<ConflictSeverity, string> = {
+  avoid: 'Strong conflict — ',
+  caution: 'Possible conflict — ',
+};
+
 function ConflictRow({
   conflict,
   collapsed,
@@ -65,7 +78,7 @@ function ConflictRow({
       onToggleCollapse={onToggleCollapse}
       collapseAccessibilityLabel={`${title}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
     >
-      {`${rule.explanation}\n\n${rule.suggestion}${
+      {`${CONFLICT_SEVERITY_PREFIX[rule.severity]}${rule.explanation}\n\n${rule.suggestion}${
         conflict.escalated
           ? '\n\nFlagged more strongly because of a skin condition in your profile.'
           : ''

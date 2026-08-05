@@ -339,6 +339,35 @@ function OpenedDateField({ isOpened, dateValue, onToggle, onDateChange }: Opened
   );
 }
 
+interface PhysicalExfoliantFieldProps {
+  checked: boolean;
+  onToggle: (v: boolean) => void;
+}
+
+/**
+ * "Physical exfoliant" toggle (tech-design vials-conflict-matrix-expansion.md
+ * §3 FE-6) — off by default, wired to Product.isPhysicalExfoliant. Mirrors
+ * OpenedDateField's Switch pattern above: the flag cannot be read off the
+ * ingredient list, so it is a plain user-asserted signal, not derived state.
+ */
+function PhysicalExfoliantField({ checked, onToggle }: PhysicalExfoliantFieldProps) {
+  return (
+    <View style={s.subSection}>
+      <Text style={s.featureTitle}>Physical exfoliant</Text>
+      <Text style={s.featureDesc}>
+        Turn on if this product contains abrasive scrub particles or is an exfoliating tool —
+        this can&apos;t be detected from the ingredient list.
+      </Text>
+      <Switch
+        checked={checked}
+        onValueChange={onToggle}
+        size="md"
+        accessibilityLabel="Physical exfoliant"
+      />
+    </View>
+  );
+}
+
 /**
  * Honest reporting of the community-share outcome (US-3). Four distinct
  * states — sharing / shared / unavailable / failed — because the whole point
@@ -466,6 +495,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   const [paoError, setPaoError] = useState<string | null>(null);
   const [isOpened, setIsOpened] = useState(false);
   const [openedDate, setOpenedDate] = useState(todayIso());
+  const [isPhysicalExfoliant, setIsPhysicalExfoliant] = useState(false);
   const [showObfAttribution, setShowObfAttribution] = useState(false);
   const [corpusProductUrl, setCorpusProductUrl] = useState<string | null>(null);
   // Community-contribution state. Separate from the local save, which never
@@ -520,6 +550,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         setIsOpened(true);
         setOpenedDate(editingProduct.openedDate);
       }
+      setIsPhysicalExfoliant(editingProduct.isPhysicalExfoliant === true);
     } else if (prefillCorpusProduct) {
       const p = prefillCorpusProduct;
       setName(p.name);
@@ -617,6 +648,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       notes: null,
       openedDate: isOpened ? openedDate : null,
       paoMonths: resolvedPaoMonths,
+      isPhysicalExfoliant,
       // Only meaningful on a sunscreen; anything unparseable stays unknown so
       // the adequacy check skips the product rather than guessing.
       spfValue: productType === 'spf' ? (parseInt(spfText, 10) || null) : null,
@@ -977,6 +1009,13 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
                 dateValue={openedDate}
                 onToggle={setIsOpened}
                 onDateChange={setOpenedDate}
+              />
+
+              <View style={s.divider} />
+
+              <PhysicalExfoliantField
+                checked={isPhysicalExfoliant}
+                onToggle={setIsPhysicalExfoliant}
               />
             </View>
           </Card>

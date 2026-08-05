@@ -117,6 +117,7 @@ export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   glycerin_class: 'Glycerin & Humectants',
   panthenol: 'Panthenol',
   cica: 'Centella (Cica)',
+  physical_exfoliant: 'Physical Exfoliant',
   // Legacy (pre-ruleset persisted tags)
   retinol: 'Retinol',
   vitamin_c: 'Vitamin C',

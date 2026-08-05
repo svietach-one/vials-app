@@ -1,5 +1,6 @@
 import { ACTIVE_INGREDIENT_LABELS } from '../../constants/labels';
 import type { AddProductDraft, Product, SuggestPayload } from '../../types';
+import { detectAllergens, EU_ALLERGEN_LIST_VERSION } from '../allergenDetector';
 
 /**
  * Maps a completed wizard draft to a shelf Product. Pure — id and timestamp
@@ -40,6 +41,11 @@ export function buildProductFromDraft(
     // The wizard is the manual / barcode-not-found path by definition; the
     // OBF-prefill path lives in ManualProductFormScreen ('obf_import').
     source: 'user_local',
+    // EU fragrance-allergen scan (tech-design vials-eu-allergen-detection.md
+    // FE-8) — cached at save time; getProductAllergenMatches recomputes live
+    // if a future seed swap makes allergenListVersion stale.
+    detectedAllergens: detectAllergens(draft.inciRaw),
+    allergenListVersion: EU_ALLERGEN_LIST_VERSION,
   };
 }
 

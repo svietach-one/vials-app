@@ -360,6 +360,57 @@ describe('getProductActiveKeys', () => {
 
     expect(result).toHaveLength(0);
   });
+
+  // physical_exfoliant is a plain boolean signal, never derived from INCI
+  // text (tech-design vials-conflict-matrix-expansion.md §3 FE-1/FE-2) — see
+  // tests/conflict-matrix-expansion/physical-exfoliant-active-key.test.ts for
+  // the QA-owned acceptance contract this mirrors at the unit level.
+  it('should include physical_exfoliant when isPhysicalExfoliant is true, with no ingredient text', () => {
+    const product = {
+      activeIngredients: [],
+      fullIngredientText: null,
+      isPhysicalExfoliant: true,
+    };
+
+    const result = getProductActiveKeys(product);
+
+    expect(result).toEqual(['physical_exfoliant']);
+  });
+
+  it('should include physical_exfoliant alongside other detected/explicit keys when the flag is true', () => {
+    const product = {
+      activeIngredients: [{ key: 'retinoid' as ActiveIngredientKey, displayName: 'Retinoids' }],
+      fullIngredientText: 'Water, Niacinamide, Squalane',
+      isPhysicalExfoliant: true,
+    };
+
+    const result = getProductActiveKeys(product);
+
+    expect(result).toEqual(expect.arrayContaining(['retinoid', 'niacinamide', 'physical_exfoliant']));
+  });
+
+  it('should not include physical_exfoliant when isPhysicalExfoliant is false', () => {
+    const product = {
+      activeIngredients: [],
+      fullIngredientText: null,
+      isPhysicalExfoliant: false,
+    };
+
+    const result = getProductActiveKeys(product);
+
+    expect(result).not.toContain('physical_exfoliant');
+  });
+
+  it('should not include physical_exfoliant when isPhysicalExfoliant is absent', () => {
+    const product = {
+      activeIngredients: [],
+      fullIngredientText: null,
+    };
+
+    const result = getProductActiveKeys(product);
+
+    expect(result).not.toContain('physical_exfoliant');
+  });
 });
 
 describe('position-gated attribution (phase-03 §consultant items)', () => {
