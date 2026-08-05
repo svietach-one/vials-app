@@ -31,6 +31,7 @@ import { deleteProductCascade } from '@/domain/productActions';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
+import { getProductAllergenMatches } from '@/utils/allergenDetector';
 import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
 import {
   deriveProductSchedule,
@@ -55,6 +56,19 @@ function formatUsedSummary(schedule: ProductSchedule): string | null {
     schedule.scheduledDays.length === 0 ? 'daily' : formatScheduleDays(schedule.scheduledDays);
   return `${timeLabel}, ${dayLabel}`;
 }
+
+// EU fragrance-allergen "Allergens" card copy (tech design Assumption 5):
+// one shared neutral one-liner for every non-restricted match, one shared
+// note for restricted matches — not 26 hand-authored blurbs. Kept local to
+// this screen (its only consumer) rather than exported from
+// allergenDetector.ts, since that module is mocked as
+// {getProductAllergenMatches, hasRestrictedAllergenMatch}-only in
+// tests/vials-eu-allergen-detection/ProductDetailScreen.allergens-card.test.tsx
+// — see the deviation note there and in progress/vials-eu-allergen-detection.md.
+// Verbatim from the spec's own Story 3 AC1 example.
+const ALLERGEN_NEUTRAL_COPY = 'Fragrance component regulated in the EU as a potential allergen.';
+const ALLERGEN_RESTRICTED_NOTE =
+  'No longer permitted in new EU products (banned 2021–2022) — this may be older stock, worth checking for expiry.';
 
 type Props = NativeStackScreenProps<CatalogStackParamList, 'ProductDetail'>;
 
@@ -113,6 +127,7 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   // for products saved before activeTags was introduced.
   const activeTags: ActiveIngredientKey[] =
     product.activeTags ?? product.activeIngredients.map((i) => i.key);
+  const allergenMatches = getProductAllergenMatches(product);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -268,6 +283,29 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
             </InlineAlert>
           ) : null}
         </View>
+
+        {/* ── Allergens ─────────────────────────────────────────────────── */}
+        {allergenMatches.length > 0 ? (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardIconCircle}>
+                <Icon name="info" size={18} color={palette.plum} />
+              </View>
+              <Text style={styles.cardTitle}>Allergens</Text>
+            </View>
+            <View style={styles.allergenList}>
+              {allergenMatches.map((match) => (
+                <View key={match.canonical} style={styles.allergenRow}>
+                  <Text style={styles.allergenName}>{match.canonical}</Text>
+                  <Text style={styles.allergenCopy}>{ALLERGEN_NEUTRAL_COPY}</Text>
+                  {match.restricted ? (
+                    <Text style={styles.allergenRestrictedNote}>{ALLERGEN_RESTRICTED_NOTE}</Text>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {/* ── Full Formula ─────────────────────────────────────────────── */}
         <View style={styles.card}>
@@ -496,6 +534,26 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans-Medium',
     color: colors.textLink,
     textDecorationLine: 'underline',
+  },
+  allergenList: {
+    gap: space[3],
+  },
+  allergenRow: {
+    gap: 2,
+  },
+  allergenName: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
+  },
+  allergenCopy: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  allergenRestrictedNote: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
   },
   formulaText: {
     ...typography.bodySmall,

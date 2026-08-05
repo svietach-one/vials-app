@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
+import { AllergenBadge } from '@/components/ui/AllergenBadge';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Badge } from '@/components/ui/feedback/Badge';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
@@ -10,6 +11,7 @@ import { ACTIVE_INGREDIENT_LABELS, getProductTypeBadgeStatus, PRODUCT_TYPE_LABEL
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { ActiveIngredientKey, Product } from '@/types';
 import { getProductActiveBadgeKeys } from '@/utils/activeBadges';
+import { getProductAllergenMatches } from '@/utils/allergenDetector';
 
 // ─── Active-ingredient badges ──────────────────────────────────────────────────
 // Actives no longer carry per-category color (that lived in a since-removed
@@ -92,6 +94,7 @@ export function ProductShelfCard({
   const [sheetVisible, setSheetVisible] = useState(false);
 
   const activeKeys = getProductActiveBadgeKeys(product);
+  const allergenMatches = getProductAllergenMatches(product);
 
   const typeLabel = PRODUCT_TYPE_LABELS[product.productType] ?? product.productType;
   const typeBadgeStatus = getProductTypeBadgeStatus(product.productType);
@@ -167,6 +170,7 @@ export function ProductShelfCard({
                 {/* Type badge on its own row, actives on another (see below) */}
                 <View style={styles.typeRow}>
                   <Badge status={typeBadgeStatus} type="Light">{typeLabel}</Badge>
+                  <AllergenBadge matches={allergenMatches} />
                 </View>
 
                 {/* Actives row — type badge stays above. Always rendered
@@ -331,9 +335,12 @@ const styles = StyleSheet.create({
     backgroundColor: palette.zinc100,
   },
 
-  // Type badge on its own row, above the actives row.
+  // Type badge on its own row, above the actives row. The allergen badge
+  // (when present) renders beside it — gap keeps the two from touching.
   typeRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
   },
   // minHeight matches a Badge's own rendered height (space[1]*2 padding +
   // caption line-height) so this row keeps its place — and every shelf card
