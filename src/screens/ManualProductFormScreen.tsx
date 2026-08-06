@@ -437,7 +437,8 @@ function ShareStatus({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ManualProductFormScreen({ route, navigation }: Props) {
-  const { prefillCorpusProduct, editingProductId } = route.params;
+  const { prefillCorpusProduct, editingProductId, initialStatus, ocrPrefill, capturedPhotoUri } =
+    route.params;
 
   const products = useProductsStore((st) => st.products);
   const addProduct = useProductsStore((st) => st.addProduct);
@@ -570,7 +571,32 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       } else if (p.inciRaw) {
         setSelectedIngredients(keysToIngredients(parseActiveIngredientsFromInci(p.inciRaw)));
       }
+    } else if (ocrPrefill) {
+      // CaptureFlowScreen's no-match path — carries forward whatever it
+      // recognized rather than sending the user back to a blank form
+      // (docs/tasks/ux-explore-vials/07-capture-flow.md §4a).
+      if (ocrPrefill.brand) setBrand(ocrPrefill.brand);
+      if (ocrPrefill.name) setName(ocrPrefill.name);
+      if (ocrPrefill.fullIngredientText) {
+        setFullIngredientText(ocrPrefill.fullIngredientText);
+        setSelectedIngredients(
+          keysToIngredients(parseActiveIngredientsFromInci(ocrPrefill.fullIngredientText)),
+        );
+        setOcrScanned(true);
+      }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // CaptureFlowScreen's Shot 1 photo — kept as the cover photo regardless of
+  // whether it led to a corpus match, a no-match ocrPrefill, or nothing
+  // (docs/tasks/ux-explore-vials/07-capture-flow.md). Never touches an
+  // existing edit's photo.
+  useEffect(() => {
+    if (isEditMode || !capturedPhotoUri) return;
+    void storeExistingPhotoAsProductPhoto(productId, capturedPhotoUri).then((result) => {
+      if (result) setLocalImageUri(result.localImageUri);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -658,6 +684,10 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       source: editingProduct?.source ?? prefillSource ?? 'user_local',
       // Set once at save time, never mutated afterward on edits.
       contributionOptIn: editingProduct?.contributionOptIn ?? contributionOptIn,
+      // Edits preserve the existing status; new records take the entry
+      // point's intent ("Explore new" -> wishlist), undefined (-> owned)
+      // for a plain "Add new" save.
+      status: editingProduct?.status ?? initialStatus,
     };
   }
 
@@ -731,6 +761,29 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
    * already saved (per the "no retroactive share" scope decision) — they
    * only govern the global status/toggle for future saves.
    */
+  // Lands the user back on My Shelf with the usual "Saved" toast — the exit
+  // both the routine scheduler's own close AND a skipped scheduler share.
+  function finishSave(product: Product) {
+    navigation.navigate('Catalog', {
+      toast: {
+        savedAt: Date.now(),
+        contributionOptIn: product.contributionOptIn === true,
+        contributedCount: contributedProductsCount(useProductsStore.getState().products),
+      },
+    });
+  }
+
+  // A Wishlist save has no routine to place it in — it isn't physically
+  // owned yet (docs/tasks/ux-explore-vials/00-user-journey.md §5), so it
+  // skips the scheduler prompt entirely rather than offering an empty one.
+  function maybeOpenScheduler(product: Product) {
+    if (product.status === 'wishlist') {
+      finishSave(product);
+      return;
+    }
+    setSchedulerProduct(product);
+  }
+
   function handleConsentContinue(shareThisProduct: boolean) {
     const wasFirstTime = consentModalVariant === 'first-time';
     setConsentModalVariant(null);
@@ -744,9 +797,9 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       if (shareThisProduct) {
         void shareProduct({ ...pendingConsentProduct, contributionOptIn: true });
       }
-      setSchedulerProduct({ ...pendingConsentProduct, contributionOptIn: shareThisProduct });
+      maybeOpenScheduler({ ...pendingConsentProduct, contributionOptIn: shareThisProduct });
     } else {
-      setSchedulerProduct(pendingConsentProduct);
+      maybeOpenScheduler(pendingConsentProduct);
     }
     setPendingConsentProduct(null);
   }
@@ -759,7 +812,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       setShareToggleOn(false);
     }
     if (pendingConsentProduct) {
-      setSchedulerProduct(pendingConsentProduct);
+      maybeOpenScheduler(pendingConsentProduct);
       setPendingConsentProduct(null);
     }
   }
@@ -801,7 +854,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       const product = buildProduct();
       addProduct(product);
       void shareProduct(product);
-      setSchedulerProduct(product);
+      maybeOpenScheduler(product);
       return;
     }
 
@@ -836,7 +889,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       return;
     }
 
-    setSchedulerProduct(product);
+    maybeOpenScheduler(product);
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -1031,7 +1084,11 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
             onRetry={handleRetryShare}
           />
           <Button fullWidth size="lg" onPress={handleSave} disabled={!name.trim()}>
-            {isEditMode ? 'Save Changes' : 'Add to Catalog'}
+            {isEditMode
+              ? 'Save Changes'
+              : initialStatus === 'wishlist'
+                ? 'Add to Wishlist'
+                : 'Put on My Shelf'}
           </Button>
         </View>
       </SafeAreaView>
@@ -1058,13 +1115,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         onClose={() => {
           const savedProduct = schedulerProduct;
           setSchedulerProduct(null);
-          navigation.navigate('Catalog', {
-            toast: {
-              savedAt: Date.now(),
-              contributionOptIn: savedProduct?.contributionOptIn === true,
-              contributedCount: contributedProductsCount(useProductsStore.getState().products),
-            },
-          });
+          if (savedProduct) finishSave(savedProduct);
         }}
       />
     </KeyboardAvoidingView>

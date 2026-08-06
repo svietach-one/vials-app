@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors, palette } from '@/constants/tokens';
 import type { CorpusProduct } from '@/services/corpus/types';
 import { useProfileStore } from '@/store/profileStore';
+import type { ProductStatus } from '@/types';
 
 // ─── Onboarding screens ───────────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ import ManualProductFormScreen from '@/screens/ManualProductFormScreen';
 import ProductDetailScreen from '@/screens/ProductDetailScreen';
 import BarcodeScannerScreen from '@/screens/BarcodeScannerScreen';
 import AddProductScreen from '@/screens/catalog/AddProductScreen';
+import CaptureFlowScreen from '@/screens/catalog/CaptureFlowScreen';
 
 // ─── Param lists ──────────────────────────────────────────────────────────────
 
@@ -48,15 +50,37 @@ export type CatalogStackParamList = {
      */
     toast?: { savedAt: number; contributionOptIn: boolean; contributedCount: number };
   } | undefined;
-  AddProductHub: undefined;
+  AddProductHub: {
+    /** "Explore new" forwards 'wishlist' through the shared add pipeline — see
+     * docs/tasks/ux-explore-vials/01-entry-points.md §1. Absent/'owned' is the
+     * default "Add new" outcome. */
+    initialStatus?: ProductStatus;
+  } | undefined;
   ManualProductForm: {
     /** A corpus (Turso) hit the user picked via search or barcode scan — see src/services/corpus. */
     prefillCorpusProduct?: CorpusProduct;
     editingProductId?: string;
+    initialStatus?: ProductStatus;
+    /**
+     * Brand/name/INCI text recognized by CaptureFlowScreen's OCR when no
+     * corpus match was found — see docs/tasks/ux-explore-vials/07-capture-flow.md
+     * §4a ("Shot 1's OCR result is never thrown away"). Ignored whenever
+     * prefillCorpusProduct/editingProductId is also set — those take priority.
+     */
+    ocrPrefill?: { brand?: string; name?: string; fullIngredientText?: string };
+    /**
+     * The identification photo (Shot 1) itself, independent of whether OCR/
+     * corpus matching succeeded — kept as the product's cover photo either
+     * way (see docs/tasks/ux-explore-vials/07-capture-flow.md). Applies
+     * regardless of which of prefillCorpusProduct/ocrPrefill fired, since a
+     * corpus match commonly has no photo of its own.
+     */
+    capturedPhotoUri?: string;
   };
   ProductDetail: { productId: string };
   BarcodeScanner: undefined;
-  AddProduct: undefined;
+  AddProduct: { initialStatus?: ProductStatus } | undefined;
+  CaptureFlow: { initialStatus?: ProductStatus } | undefined;
 };
 
 export type ClinicStackParamList = {
@@ -106,6 +130,7 @@ function CatalogNavigator() {
       <CatalogStack.Screen name="ProductDetail" component={ProductDetailScreen} />
       <CatalogStack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
       <CatalogStack.Screen name="AddProduct" component={AddProductScreen} />
+      <CatalogStack.Screen name="CaptureFlow" component={CaptureFlowScreen} />
     </CatalogStack.Navigator>
   );
 }

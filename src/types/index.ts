@@ -314,6 +314,9 @@ export type ProductType =
  */
 export type ProductSource = 'vials_seed' | 'obf_import' | 'community' | 'user_local';
 
+/** My Shelf's two entities — see docs/tasks/ux-explore-vials/01-entry-points.md §0. */
+export type ProductStatus = 'owned' | 'wishlist';
+
 export interface Product {
   id: string;
   name: string;
@@ -353,6 +356,13 @@ export interface Product {
   source?: ProductSource;
   /** Soft-hide flag. When true the product is excluded from routine step lists and rendered dimmed in the catalog. Absence is treated as false. */
   isHidden?: boolean;
+  /**
+   * My Shelf status — 'owned' (physically in use, feeds routine/PAO/conflict
+   * logic) or 'wishlist' (considering, no inventory side effects). Absent is
+   * treated as 'owned', same convention as isHidden — every record saved
+   * before Wishlist existed is implicitly on-shelf.
+   */
+  status?: ProductStatus;
   /**
    * Set true by the schema-v2 migration when a legacy `vitamin_c` tag was
    * auto-mapped to `vitamin_c_pure`. Drives the product-detail infobox that
@@ -756,10 +766,15 @@ export interface AddProductDraft {
 
 /** Data returned from the camera modal to the launching section. */
 export type CaptureResult =
-  | { mode: 'label'; rawText: string }
+  /** sourceUri: the captured/picked photo's local file uri, when known — lets
+   *  a caller reuse the identification shot as the product's cover photo
+   *  even when OCR/corpus matching doesn't pan out. Null for a re-OCR of an
+   *  already-stored image (CameraCaptureModal's `sourceImageUri` prop) or a
+   *  gallery pick that didn't report one. */
+  | { mode: 'label'; rawText: string; sourceUri: string | null }
   | { mode: 'barcode'; code: string }
   /** hadNonLatin: ocrTextCleaner stripped a significant non-Latin share. */
-  | { mode: 'inci'; rawText: string; hadNonLatin: boolean };
+  | { mode: 'inci'; rawText: string; hadNonLatin: boolean; sourceUri: string | null };
 
 /**
  * Background-suggest payload. Structurally distinct from Product —

@@ -91,7 +91,7 @@ function renderScreen(params: Record<string, unknown> = {}) {
 
 async function saveWithName(name = 'Exfoliating Cleanser') {
   fireEvent.changeText(screen.getByPlaceholderText(/Daily Moisturiser/), name);
-  fireEvent.press(screen.getByText('Add to Catalog'));
+  fireEvent.press(screen.getByText('Put on My Shelf'));
   await act(async () => Promise.resolve());
 }
 
