@@ -776,3 +776,129 @@ export interface SuggestPayload {
   inciRaw: string | null;
   status: 'pending';
 }
+
+// ─── Product Profile (docs/tasks/product_profile/01-product-profile.md §5) ────
+// Milestone 1 (docs/specs/2026-08-05-product-profile-m1.md): a single composed
+// object describing "what this product is," built by src/utils/productProfile/
+// from resolvedActiveKeys × actives.json. Descriptive only — never a
+// recommendation/eligibility verdict (that stays Conflict Engine / Routine
+// Engine territory). Types transcribed verbatim from the locked source design.
+
+/** Three-tier confidence model applied per-field, not just per-profile. */
+export type ProfileConfidence = 'deterministic' | 'heuristic' | 'insufficient_data';
+
+/**
+ * Attached to any field whose value depends on more than a direct
+ * pass-through lookup. Required so a consumer can decide whether to
+ * display, hide, or caveat a value without re-deriving its provenance.
+ */
+export interface ConfidenceNote {
+  confidence: ProfileConfidence;
+  /** Populated whenever confidence !== 'deterministic'. Human-readable. */
+  caveat?: string;
+  /** Which source(s) this value was derived from, for auditability.
+   *  e.g. ['actives.json:goals.hydration', 'labels.ts:FUNCTIONAL_BENEFIT_INGREDIENTS'] */
+  sourceRefs: string[];
+}
+
+/**
+ * All 10 capability keys are declared now; only `barrierRepair`/`exfoliation`
+ * are scored in Milestone 1 (docs/tasks/product_profile/03-capabilities.md).
+ * The remaining 8 ship with `score: null`/`confidence: 'insufficient_data'`.
+ */
+export type CapabilityKey =
+  | 'hydration'
+  | 'barrierRepair'
+  | 'brightening'
+  | 'pigmentation'
+  | 'acneControl'
+  | 'sebumRegulation'
+  | 'antioxidantProtection'
+  | 'soothing'
+  | 'exfoliation'
+  | 'antiAging';
+
+export interface CapabilityScore extends ConfidenceNote {
+  /** Normalized 0–1 presence-weighted score. Null iff confidence === 'insufficient_data'. */
+  score: number | null;
+  /** Active classes that contributed positively to this score. */
+  contributingClasses: ActiveIngredientKey[];
+}
+
+export interface IrritationProfile extends ConfidenceNote {
+  /** Aggregate 0–5 scale, same units as actives.json's per-class irritancy. Null iff insufficient_data. */
+  score: number | null;
+  photosensitizing: boolean;
+  lowPh: boolean;
+  /** Which aggregation method produced `score` — see 02-profile-builder.md §5. */
+  aggregationMethod: 'max_of_present' | 'potency_weighted_average';
+}
+
+export interface SensitivityCompatibility extends ConfidenceNote {
+  /** Null iff irritation.score is null. */
+  compatible: boolean | null;
+  /** The irritation-scale cutoff applied to produce `compatible`. */
+  thresholdUsed: number | null;
+}
+
+export interface RoutinePosition extends ConfidenceNote {
+  /** Merged from allowedPeriods across all present classes. */
+  eligiblePeriods: ('AM' | 'PM')[];
+  preferredPeriod: 'AM' | 'PM' | null;
+  /** Position in the (relocated) layering-order table. Null if the product's
+   *  type/classes aren't represented in that table. */
+  layeringOrder: number | null;
+  rinseOff: boolean;
+}
+
+export interface ProfileStrengthsWeaknesses {
+  /** Template-generated, references capability scores above the strength threshold. */
+  strengths: string[];
+  /** Template-generated. MUST include structural caveats (e.g. "no concentration
+   *  data available") when relevant — never presented as a simple negative-findings list. */
+  weaknesses: string[];
+}
+
+export interface ProductProfile {
+  // ── Identity — required, deterministic pass-through, no aggregation ──
+  productId: string;
+  productType: ProductType;
+  brand: string | null;
+  name: string;
+
+  // ── Ingredient basis — required ──
+  sourceInciText: string | null;
+  resolvedActiveKeys: ActiveIngredientKey[];
+  /** Text tokens present in the INCI list that matched no known class.
+   *  Non-empty values are a live signal of matcher-table gaps. */
+  unresolvedIngredientTokens: string[];
+
+  // ── Primary functions — required, heuristic pending taxonomy consolidation ──
+  primaryFunctions: {
+    key: CapabilityKey;
+    rank: number;
+  }[];
+
+  // ── Capability scores — required object; individual entries may be null-scored ──
+  capabilities: Record<CapabilityKey, CapabilityScore>;
+
+  // ── Irritation & sensitivity — required ──
+  irritation: IrritationProfile;
+  sensitivityCompatibility: SensitivityCompatibility;
+
+  // ── Routine placement — required ──
+  routinePosition: RoutinePosition;
+
+  // ── Synthesis — optional; null until capabilities/irritation are populated ──
+  strengthsWeaknesses: ProfileStrengthsWeaknesses | null;
+
+  // ── Build metadata ──
+  builtAt: string; // ISO 8601
+  /** Schema/algorithm version. A mismatch against the current builder version
+   *  means "treat as stale," per the lifecycle rules in
+   *  docs/tasks/product_profile/01-product-profile.md §3. */
+  builderVersion: string;
+  /** Worst-case confidence across all required fields — a fast filter for
+   *  "is this profile trustworthy enough to use," without inspecting every field. */
+  overallConfidence: ProfileConfidence;
+}

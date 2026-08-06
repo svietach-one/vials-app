@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
+import { ProductInsightsPanel } from '@/components/product/ProductInsightsPanel';
 import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
 import { RemoveRoutineActionSheet } from '@/components/routine/RemoveRoutineActionSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
@@ -39,7 +40,11 @@ import {
   formatScheduleDays,
   type ProductSchedule,
 } from '@/utils/routineLabel';
-import type { ActiveIngredientKey, Product } from '@/types';
+import {
+  buildProductProfileFromActiveKeys,
+  buildProductProfileFromProduct,
+} from '@/utils/productProfile';
+import type { ActiveIngredientKey, Product, ProductProfile } from '@/types';
 
 /** "Morning, daily" / "Evening, Mon, Wed, Fri" — used-schedule summary for the
  *  product hero. Returns null when the product isn't in any routine, so the
@@ -55,6 +60,30 @@ function formatUsedSummary(schedule: ProductSchedule): string | null {
   const dayLabel =
     schedule.scheduledDays.length === 0 ? 'daily' : formatScheduleDays(schedule.scheduledDays);
   return `${timeLabel}, ${dayLabel}`;
+}
+
+/**
+ * Builds this product's `ProductProfile` for the "Product Insights" panel
+ * (product-profile-m1 FE-8). The builder is pure computation and should
+ * never throw for a well-typed `Product` (tech-design product-profile-m1.md
+ * §2), but per spec §5's error-state rule the screen must fail closed to the
+ * insufficient-data state rather than crash if it somehow does — logged via
+ * the existing `__DEV__`-guarded warning convention (see
+ * `routineEngine/productFacts.ts`/`services/storage.ts`).
+ */
+function buildProductInsightsProfile(product: Product): ProductProfile {
+  try {
+    return buildProductProfileFromProduct(product);
+  } catch (e) {
+    if (__DEV__) console.warn('[ProductDetailScreen] product profile build failed:', e);
+    return buildProductProfileFromActiveKeys({
+      productId: product.id,
+      productType: product.productType,
+      brand: product.brand,
+      name: product.name,
+      activeKeys: [],
+    });
+  }
 }
 
 // EU fragrance-allergen "Allergens" card copy (tech design Assumption 5):
@@ -128,6 +157,9 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   const activeTags: ActiveIngredientKey[] =
     product.activeTags ?? product.activeIngredients.map((i) => i.key);
   const allergenMatches = getProductAllergenMatches(product);
+  // Screen-level cache is sufficient for Milestone 1 (spec §6 Data
+  // Requirements, tech-design Assumption 3) — no store/persistence entity.
+  const productProfile = useMemo(() => buildProductInsightsProfile(product), [product]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -283,6 +315,9 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
             </InlineAlert>
           ) : null}
         </View>
+
+        {/* ── Product Insights (product-profile-m1) ───────────────────── */}
+        <ProductInsightsPanel profile={productProfile} />
 
         {/* ── Allergens ─────────────────────────────────────────────────── */}
         {allergenMatches.length > 0 ? (
