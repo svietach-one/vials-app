@@ -13,6 +13,22 @@ The codebase currently has **five independent, disagreeing** "what does this ing
 
 ---
 
+## 0a. Cross-capability double-counting avoidance
+
+Reconciling a single capability's source list (§0) surfaces a second, orthogonal problem: an ingredient can legitimately belong to `actives.json`'s source list for capability A *because of a mechanism that capability B already claims more directly*. Crediting both inflates A with a property that isn't really A's — the two scores stop being independent signals and start being the same underlying fact counted twice under different names.
+
+**The rule:** before including an ingredient in a capability's reconciled list, check whether its presence there is better explained by a *different* capability that already has a more direct, specific claim on that mechanism. If so, exclude it from the secondary capability — even if the interim canonical source (`goals`/`concerns`) lists it there too.
+
+Two instances found while reconciling Hydration/Acne Control/Brightening/Soothing (2026-08-06 audit):
+- **niacinamide** is a member of `goals.acne`, but its acne-adjacent mechanism (oil regulation) is already the entire basis of the `sebumRegulation` capability (`goals.oil_control` includes niacinamide directly). Recommended exclusion from Acne Control — **flagged, not yet confirmed**; this is a clinical judgment about niacinamide's anti-inflammatory/acne mechanism beyond oil control, not a pure data-consistency call, and needs deliberate sign-off rather than being treated as settled by source-list comparison alone.
+- **retinoid** is a member of `goals.pigmentation`, but it's already fully credited via Acne Control, Anti-aging, and Exfoliation. Its own `concerns` field doesn't even corroborate hyperpigmentation/dark_spots (see §4) — both signals point the same way. Excluded from Brightening.
+
+**This is a judgment call, not a mechanical filter** — apply it per ingredient, per capability pair, with reasoning stated inline (as above), not as a blanket "each ingredient credits exactly one capability" rule. Some overlap is legitimate (e.g. an ingredient can genuinely support both Hydration and Barrier Repair via different, real mechanisms). The test is specificity: does the *other* capability's claim on this ingredient more precisely explain why it's on this list, such that crediting both would be double-counting the same fact rather than recognizing two distinct properties?
+
+Apply this check to every remaining capability as Milestone 2 reconciliation proceeds (Pigmentation vs. Brightening in particular — §5 already flags them as likely fully redundant, which this same principle would resolve).
+
+---
+
 ## 1. Barrier Repair
 
 - **Meaning:** supports or restores the skin's moisture barrier function.
@@ -32,26 +48,31 @@ The codebase currently has **five independent, disagreeing** "what does this ing
 ## 3. Hydration
 
 - **Meaning:** adds or retains water content in the skin.
-- **Contributing properties:** `concerns`/`goals.dehydration` membership (`hyaluronic_acid`, `glycerin_class`, `ceramides`).
-- **Current data source:** `actives.json.goals.dehydration`, per §0.
-- **Confidence:** `heuristic` — `labels.ts` and `activeBadges.ts` disagree on whether `panthenol` belongs (both add it; `goals.dehydration` doesn't), so the chosen source measurably differs from at least two others.
+- **Contributing properties:** `concerns: dryness` membership (`hyaluronic_acid`, `glycerin_class`, `ceramides`, `panthenol`).
+- **Current data source:** `actives.json.concerns: dryness` — reconciled 2026-08-06, superseding `goals.dehydration`. Verified a strict superset across all 20 classes in `actives.json` (adds only `panthenol`), and confirmed `'dryness'` is populated one-directionally in this field (per `rulesetTypes.ts`: *"concerns this class addresses"*) — no class carries it as a side-effect/caution marker.
+- **Confidence:** `heuristic` — `labels.ts` includes `panthenol`, matching the new source. **Correction to this document's prior claim:** `activeBadges.ts` does **not** include `panthenol` in its hydration-equivalent bucket (it's filed under that source's own `soothing` category instead) — this doc previously stated both `labels.ts` and `activeBadges.ts` added it; only `labels.ts` does.
 - **Current limitations:** no humectant-vs-occlusive mechanism split — `glycerin_class` currently merges glycerin, propylene glycol, betaine, and urea under one heading with no internal distinction.
+- **Reconciliation status (2026-08-06):** approved for testing, pending dermatologist sign-off per `PRD_Spec.md` §6 — not a final clinical decision.
 
 ## 4. Brightening
 
 - **Meaning:** evens overall skin tone, general radiance.
 - **Contributing properties:** `concerns: hyperpigmentation/dark_spots`, `goals.pigmentation`.
-- **Current data source:** `actives.json.goals.pigmentation`, per §0 (broadest of the three disagreeing sources — includes AHA and retinoid, which `labels.ts`'s narrower list excludes).
-- **Confidence:** `heuristic`.
+- **Current data source:** `actives.json.goals.pigmentation`, **with `retinoid` excluded** — reconciled 2026-08-06 per §0a (already fully credited via Acne Control/Anti-aging/Exfoliation; also unsupported by retinoid's own `concerns` field, which lists `wrinkles/acne/pores` but not `hyperpigmentation/dark_spots`). `aha` is retained — unlike retinoid, its own `concerns` field corroborates `hyperpigmentation/dark_spots`, so `labels.ts`'s exclusion of it is the weaker position, not `actives.json`'s inclusion.
+- **Confidence:** `heuristic`. `activeBadges.ts` has no Brightening-equivalent bucket at all — brightening-relevant ingredients there are split across its `exfoliant` and `soothing` buckets, neither of which claims "brightens"; not corroboration either way.
 - **Current limitations:** no potency weighting — `vitamin_c_pure` is clinically stronger for this effect than `niacinamide`, but a presence-only score treats them identically.
+- **Reconciliation status (2026-08-06):** approved for testing, pending dermatologist sign-off per `PRD_Spec.md` §6 — not a final clinical decision.
+- **Downstream note:** §5 (Pigmentation) carries this same `retinoid` exclusion forward (option (a), 2026-08-06) — the two stay byte-identical, as originally documented. See §5's own open item on whether that should eventually change.
 
 ## 5. Pigmentation
 
 - **Meaning:** targeted correction of existing dark spots, as distinct from general tone-evening.
 - **Contributing properties:** identical source data to Brightening today.
-- **Current data source:** `actives.json.goals.pigmentation`, same as Brightening.
+- **Current data source:** `actives.json.goals.pigmentation`, **with `retinoid` excluded** — reconciled 2026-08-06, carried forward from Brightening's §4 reconciliation (option (a): kept byte-identical, as originally documented). Same 5-member list as Brightening: `vitamin_c_pure`, `vitamin_c_derivative`, `azelaic_acid`, `aha`, `niacinamide`.
 - **Confidence:** `heuristic`.
-- **Current limitations:** **redundant with Brightening as currently modeled** — no field distinguishes general-brightening ingredients from targeted-pigmentation-correction ones, so these two capability scores will be perfectly correlated until new differentiating metadata exists. Flagged explicitly so a consumer doesn't mistake two identical numbers for two independent signals.
+- **Current limitations:** **redundant with Brightening as currently modeled** — no field distinguishes general-brightening ingredients from targeted-pigmentation-correction ones, so these two capability scores remain perfectly correlated. Flagged explicitly so a consumer doesn't mistake two identical numbers for two independent signals.
+- **Reconciliation status (2026-08-06):** approved for testing, pending dermatologist sign-off per `PRD_Spec.md` §6 — not a final clinical decision. **Important:** carrying Brightening's `retinoid` exclusion into Pigmentation is a *"no evidence to diverge yet"* call, not a *"these are clinically identical"* call — see the open item below.
+- **Open item (2026-08-06) — flagged, not yet confirmed:** whether `retinoid` should count for Pigmentation specifically, as distinct from Brightening, is an unresolved clinical question this reconciliation did not answer. Retinoids have real dermatological use in fading post-inflammatory hyperpigmentation/dark spots — a mechanism arguably more specific to *this* capability's meaning ("targeted correction of existing dark spots") than to Brightening's ("general tone-evening"). The current data model has no field capable of representing that distinction either way (§0a's double-counting logic settles whether `retinoid` counts for Brightening broadly; it says nothing about whether Pigmentation, if it ever becomes independently modeled, should differ). Applying (a) here reflects the absence of evidence to model them differently today, not a judgment that they're clinically interchangeable. Should go to the same dermatologist review pass as the three approved capabilities above — not be treated as settled by this reconciliation.
 
 ## 6. Acne Control
 
@@ -80,10 +101,11 @@ The codebase currently has **five independent, disagreeing** "what does this ing
 ## 9. Soothing
 
 - **Meaning:** calms irritation/redness, supports compromised skin.
-- **Contributing properties:** `concerns: redness` (most internally consistent single source: `cica`, `panthenol`, `niacinamide`, `azelaic_acid`).
-- **Current data source:** `actives.json.concerns: redness`, per §0.
-- **Confidence:** `heuristic` — four disagreeing sources exist in total (`labels.ts` matches this one; `activeBadges.ts` swaps in peptides and drops azelaic_acid; `skinConditionModifiers.ts`'s per-condition `noPenaltyTags` adds ceramides/glycerin_class as a third variant).
-- **Current limitations:** no boolean `soothing` class property exists comparable to `barrierRepair`/`exfoliating` — this capability is reconstructed from tag membership rather than read from a purpose-built field. Promoting it to an explicit property (mirroring Barrier Repair's treatment) would move this from `heuristic` to `deterministic`; flagged as a low-effort improvement in `05-roadmap.md`.
+- **Contributing properties:** `concerns: redness` (`cica`, `panthenol`, `niacinamide`, `azelaic_acid`).
+- **Current data source:** `actives.json.concerns: redness` — reconciled 2026-08-06, source unchanged from §0's interim choice, but now explicitly confirmed rather than merely defaulted-to: it's the one case in this audit where two independently-authored sources (`actives.json` and `labels.ts`) agree on the exact same 4-member set with zero divergence.
+- **Confidence:** `heuristic` — two disagreements from other sources were reviewed and **explicitly rejected**: `activeBadges.ts` swaps in `copper_peptides`/`peptide_signal`/`peptide_neuro` and drops `azelaic_acid`, but every peptide's own `concerns` field is `wrinkles` only (no redness/sensitivity/eczema support anywhere), and `skinConditionModifiers.ts`'s `noPenaltyTags` — the source most purpose-built for "which ingredients are safe under reactive skin" — never lists a peptide either; treated as an unsupported outlier, not a corroborating variant. `skinConditionModifiers.ts` also adds `ceramides`/`glycerin_class` via `noPenaltyTags`, but that's a barrier/hydration claim, not an anti-redness one — including it here would double-count against Hydration/Barrier Repair (§0a).
+- **Current limitations:** no boolean `soothing` class property exists comparable to `barrierRepair`/`exfoliating` — this capability is reconstructed from tag membership rather than read from a purpose-built field. Promoting it to an explicit property (mirroring Barrier Repair's treatment) would move this from `heuristic` to `deterministic`; flagged as a low-effort improvement in `05-roadmap.md`. Separately: `skinConditionModifiers.ts` omits `cica` from every condition's `noPenaltyTags`, despite `cica` appearing in every other source that addresses this capability — possibly an oversight in that table, unconfirmed, out of scope to fix here.
+- **Reconciliation status (2026-08-06):** approved for testing, pending dermatologist sign-off per `PRD_Spec.md` §6 — not a final clinical decision.
 
 ## 10. Anti-aging
 
