@@ -105,7 +105,15 @@ export function BottomSheet({
               </View>
             </View>
           ) : (
-            <View style={styles.handle} />
+            <View style={styles.headerNoTitle}>
+              <IconButton
+                icon={<Icon name="x" size={18} color={colors.textSecondary} />}
+                label="Close"
+                variant="ghost"
+                size="sm"
+                onPress={onClose}
+              />
+            </View>
           )}
           {children}
         </View>
@@ -131,12 +139,9 @@ const styles = StyleSheet.create({
     // paddingBottom is computed at render time from useSafeAreaInsets()
     // (see bottomPaddingStyle above) instead of a static token value.
   },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.borderStrong,
-    alignSelf: 'center',
+  headerNoTitle: {
+    alignItems: 'flex-end',
+    paddingTop: space[2],
     marginBottom: space[3],
   },
   header: {

@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/core/Button';
 import { FilterChip } from '@/components/ui/core/FilterChip';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
@@ -99,6 +100,16 @@ export function FilterSheet({ visible, initialState, onApply, onClose }: FilterS
       handleIndicatorStyle={styles.handleIndicator}
       backdropComponent={renderBackdrop}
     >
+      <View style={styles.header}>
+        <IconButton
+          icon={<Icon name="x" size={18} color={colors.textSecondary} />}
+          label="Close"
+          variant="ghost"
+          size="sm"
+          onPress={onClose}
+        />
+      </View>
+
       <BottomSheetScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -151,6 +162,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.borderStrong,
     width: 36,
     height: 4,
+  },
+  header: {
+    alignItems: 'flex-end',
+    paddingHorizontal: space[4],
+    paddingTop: space[2],
   },
   scrollContent: {
     paddingHorizontal: space[4],

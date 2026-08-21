@@ -86,7 +86,7 @@ export function SkinTypeStep({
 
       <Button
         variant="ghost"
-        size="sm"
+        size="md"
         testID={NOT_SURE_TEST_ID}
         onPress={() => setQuizVisible(true)}
         style={styles.notSureButton}
@@ -133,6 +133,7 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   notSureButton: {
     alignSelf: 'flex-start',
+    paddingHorizontal: 0,
   },
   // Same info-tone tokens InlineAlert's tone="info" uses — not that
   // component itself (spec §3 Non-Goals): this hint is transient, per-host

@@ -356,7 +356,7 @@ function StepPick({
           <IconButton
             icon={<Icon name="x" size={18} color={colors.textSecondary} />}
             label="Close"
-            variant="secondary"
+            variant="ghost"
             size="sm"
             onPress={onClose}
           />
