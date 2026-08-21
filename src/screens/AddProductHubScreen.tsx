@@ -26,7 +26,9 @@ type Props = NativeStackScreenProps<CatalogStackParamList, 'AddProductHub'>;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function AddProductHubScreen({ navigation }: Props) {
+export default function AddProductHubScreen({ navigation, route }: Props) {
+  const initialStatus = route.params?.initialStatus;
+  const isExploring = initialStatus === 'wishlist';
   const [searchText, setSearchText] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [searchResults, setSearchResults] = useState<CorpusProduct[]>([]);
@@ -110,7 +112,7 @@ export default function AddProductHubScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.safe}>
       <AppHeader
-        title="Add Product"
+        title={isExploring ? 'Explore Product' : 'Add Product'}
         leftAction={
           <IconButton
             icon={<Icon name="arrow-left" size={20} color={colors.textPrimary} />}
@@ -127,6 +129,31 @@ export default function AddProductHubScreen({ navigation }: Props) {
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
+        {/* ── Scan Product ── the primary identify-by-photo path, see
+            docs/tasks/ux-explore-vials/07-capture-flow.md ── */}
+        <Text style={styles.sectionLabel}>Scan</Text>
+        <Pressable
+          style={({ pressed }) => [
+            styles.actionRow,
+            styles.manualCard,
+            pressed && styles.actionRowPressed,
+          ]}
+          onPress={() => navigation.navigate('CaptureFlow', { initialStatus })}
+          accessibilityRole="button"
+          accessibilityLabel="Scan product"
+        >
+          <View style={styles.manualIconWrap}>
+            <Icon name="camera" size={20} color={palette.plum} />
+          </View>
+          <View style={styles.actionContent}>
+            <Text style={styles.actionTitle}>Scan Product</Text>
+            <Text style={styles.actionSubtitle}>Photograph the front label</Text>
+          </View>
+          <Icon name="chevron-right" size={18} color={colors.textTertiary} />
+        </Pressable>
+
+        <View style={styles.divider} />
+
         {/* ── Corpus Search ──────────────────────────────────────────────── */}
         <Text style={styles.sectionLabel}>Search Database</Text>
         <Input
@@ -157,7 +184,10 @@ export default function AddProductHubScreen({ navigation }: Props) {
                     pressed && styles.resultRowPressed,
                   ]}
                   onPress={() =>
-                    navigation.navigate('ManualProductForm', { prefillCorpusProduct: item })
+                    navigation.navigate('ManualProductForm', {
+                      prefillCorpusProduct: item,
+                      initialStatus,
+                    })
                   }
                   accessibilityRole="button"
                   accessibilityLabel={`Add ${item.name}`}
@@ -240,7 +270,7 @@ export default function AddProductHubScreen({ navigation }: Props) {
             styles.manualCard,
             pressed && styles.actionRowPressed,
           ]}
-          onPress={() => navigation.navigate('AddProduct')}
+          onPress={() => navigation.navigate('AddProduct', { initialStatus })}
           accessibilityRole="button"
           accessibilityLabel="Create product manually"
         >

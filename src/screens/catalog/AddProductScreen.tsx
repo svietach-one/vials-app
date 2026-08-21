@@ -88,7 +88,8 @@ function Section4Summary({ draft }: { draft: AddProductDraft }) {
  * The accordion Add Product screen — the manual / barcode-not-found entry
  * path. The only place the add-product form reducer is instantiated.
  */
-export default function AddProductScreen({ navigation }: Props) {
+export default function AddProductScreen({ navigation, route }: Props) {
+  const initialStatus = route.params?.initialStatus;
   const [draft, dispatch] = useReducer(formReducer, undefined, initialDraft);
   const [validation, setValidation] = useState<{ section: 1 | 4; message: string } | null>(null);
 
@@ -153,6 +154,7 @@ export default function AddProductScreen({ navigation }: Props) {
 
     // 1. SYNCHRONOUS local write — this IS the save, as far as the UI cares.
     const product = buildProductFromDraft(draft, productId, new Date().toISOString());
+    if (initialStatus === 'wishlist') product.status = 'wishlist';
     addProduct(product);
     // An INCI submission counts as a community contribution (like a barcode
     // scan, which BarcodeSection already counted at scan time).
@@ -257,7 +259,12 @@ export default function AddProductScreen({ navigation }: Props) {
         </SectionAccordion>
       </ScrollView>
 
-      <SaveBar enabled={canSave(draft)} onPress={handleSave} privacyNote="" />
+      <SaveBar
+        enabled={canSave(draft)}
+        onPress={handleSave}
+        privacyNote=""
+        label={initialStatus === 'wishlist' ? 'Add to Wishlist' : 'Put on My Shelf'}
+      />
     </SafeAreaView>
   );
 }

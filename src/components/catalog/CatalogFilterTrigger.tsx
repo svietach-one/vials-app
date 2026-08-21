@@ -24,7 +24,7 @@ export function CatalogFilterTrigger({ activeFilterCount, onPress }: CatalogFilt
     <IconButton
       icon={
         <>
-          <Icon name="sliders" size={18} color={colors.textPrimary} />
+          <Icon name="search" size={18} color={colors.textPrimary} />
           {hasActiveFilters ? <View testID="filter-trigger-badge" style={styles.badge} /> : null}
         </>
       }

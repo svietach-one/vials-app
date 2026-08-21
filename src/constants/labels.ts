@@ -1,5 +1,5 @@
 import type { BadgeStatus } from '@/components/ui/feedback/Badge';
-import type { ActiveIngredientKey, FunctionalBenefit, ProductType, SkinGoal, SkinType } from '@/types';
+import type { ActiveIngredientKey, CapabilityKey, FunctionalBenefit, ProductType, SkinGoal, SkinType } from '@/types';
 
 export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
   cleanser: 'Cleanser',
@@ -172,6 +172,25 @@ export const FUNCTIONAL_BENEFIT_LABELS: Record<FunctionalBenefit, string> = {
   anti_acne: 'Anti-Acne',
   barrier_repair: 'Barrier Repair',
   brightening: 'Brightening',
+};
+
+/**
+ * Display labels for `CapabilityKey` (Product Profile —
+ * docs/tasks/product_profile/01-product-profile.md §5). A distinct key space
+ * from `FunctionalBenefit` above — do not merge; Product Profile's
+ * capability model is a separate taxonomy (03-capabilities.md).
+ */
+export const CAPABILITY_LABELS: Record<CapabilityKey, string> = {
+  hydration: 'Hydration',
+  barrierRepair: 'Barrier Repair',
+  brightening: 'Brightening',
+  pigmentation: 'Pigmentation',
+  acneControl: 'Acne Control',
+  sebumRegulation: 'Sebum Regulation',
+  antioxidantProtection: 'Antioxidant Protection',
+  soothing: 'Soothing',
+  exfoliation: 'Exfoliation',
+  antiAging: 'Anti-Aging',
 };
 
 /**

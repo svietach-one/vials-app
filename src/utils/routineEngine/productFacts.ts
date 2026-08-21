@@ -4,6 +4,11 @@ import {
   type Period,
   type Potency,
 } from '@/constants/rulesets/rulesetTypes';
+import {
+  DEFAULT_PERIOD_BY_TYPE,
+  DEFAULT_TAG_POTENCY,
+  RINSE_OFF_TYPES,
+} from '@/constants/rulesets/productFacts';
 import type { ActiveIngredientKey, Product, ProductType } from '@/types';
 import {
   normalizeActiveKey,
@@ -64,14 +69,6 @@ export interface ProductFacts {
   eligible: boolean;
 }
 
-/**
- * Only these two product types are unambiguously washed off. `peeling` and
- * `mask` are deliberately excluded: peel gels rinse but peel pads do not, and
- * sleeping masks are leave-on — do-no-harm means an ambiguous product consumes
- * the cumulative cap rather than escaping it (tech design Assumption 3).
- */
-const RINSE_OFF_TYPES: readonly ProductType[] = ['cleanser', 'makeup_remover'];
-
 const EMPTY_PROPERTIES: AggregatedProperties = {
   photosensitizing: false,
   exfoliating: false,
@@ -87,19 +84,6 @@ const USAGE_TIME_PERIODS: Record<Product['usageTime'], Period[]> = {
   evening: ['pm'],
   both: ['am', 'pm'],
 };
-
-/**
- * Product types whose SAFE default period is narrower than the usageTime band.
- * makeup_remover (micellar/oil/balm) is a PM-only pre-cleanse: the safe
- * behavior is the default, not an opt-in. Applies only when usageTime is left
- * at 'both' (unset) — an explicit per-product 'morning'/'evening' still wins.
- */
-const DEFAULT_PERIOD_BY_TYPE: Partial<Record<ProductType, Period[]>> = {
-  makeup_remover: ['pm'],
-};
-
-/** Conservative default for wizard-confirmed classes without INCI evidence. */
-const DEFAULT_TAG_POTENCY: Potency = 'high';
 
 function isPaoExpired(product: Product, now: Date): boolean {
   if (!product.openedDate || !product.paoMonths || product.paoMonths <= 0) return false;

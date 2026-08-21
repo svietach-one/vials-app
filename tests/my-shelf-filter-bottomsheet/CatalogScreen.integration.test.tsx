@@ -294,7 +294,7 @@ describe('FE13-CS-2: the filter trigger shows a badge once a filter is committed
     renderScreen();
     fireEvent.press(screen.getByLabelText('Open filters'));
     fireEvent.press(screen.getByLabelText('Filter by Serum'));
-    fireEvent.press(screen.getByText(/Apply Filters/));
+    fireEvent.press(screen.getByText('Apply'));
 
     await waitFor(() => {
       expect(screen.getByLabelText('Open filters, 1 active')).toBeTruthy();
@@ -309,7 +309,7 @@ describe('FE13-CS-3: reopening the sheet after a commit shows that committed sel
     renderScreen();
     fireEvent.press(screen.getByLabelText('Open filters'));
     fireEvent.press(screen.getByLabelText('Filter by Serum'));
-    fireEvent.press(screen.getByText(/Apply Filters/));
+    fireEvent.press(screen.getByText('Apply'));
 
     await waitFor(() => expect(screen.getByLabelText('Open filters, 1 active')).toBeTruthy());
 
@@ -326,7 +326,7 @@ describe('FE13-CS-4: selecting a Product Type and tapping Apply narrows the visi
     renderScreen();
     fireEvent.press(screen.getByLabelText('Open filters'));
     fireEvent.press(screen.getByLabelText('Filter by Serum'));
-    fireEvent.press(screen.getByText(/Apply Filters/));
+    fireEvent.press(screen.getByText('Apply'));
 
     await waitFor(() => {
       expect(screen.getByText('Retinoid Renewal Serum')).toBeTruthy();
@@ -374,12 +374,12 @@ describe('FE13-CS-6: Clear All followed by Apply restores the full catalog and r
     renderScreen();
     fireEvent.press(screen.getByLabelText('Open filters'));
     fireEvent.press(screen.getByLabelText('Filter by Serum'));
-    fireEvent.press(screen.getByText(/Apply Filters/));
+    fireEvent.press(screen.getByText('Apply'));
     await waitFor(() => expect(screen.getByLabelText('Open filters, 1 active')).toBeTruthy());
 
     fireEvent.press(screen.getByLabelText('Open filters, 1 active'));
     fireEvent.press(screen.getByText('Clear All'));
-    fireEvent.press(screen.getByText(/Apply Filters/));
+    fireEvent.press(screen.getByText('Apply'));
 
     await waitFor(() => {
       expect(screen.getByText('Retinoid Renewal Serum')).toBeTruthy();
@@ -413,7 +413,7 @@ describe('FE13-CS-8: filter-empty state when a committed filter combination matc
     renderScreen();
     fireEvent.press(screen.getByLabelText('Open filters'));
     fireEvent.press(screen.getByLabelText('Filter by Serum'));
-    fireEvent.press(screen.getByText(/Apply Filters/));
+    fireEvent.press(screen.getByText('Apply'));
 
     await waitFor(() => {
       expect(screen.getByText('No products match the current filters')).toBeTruthy();
