@@ -9,6 +9,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -61,6 +62,12 @@ export function BottomSheet({
   const sheetHeight = windowHeight * 0.9;
   const sizingStyle = sizing === 'fixed' ? { height: sheetHeight } : { maxHeight: sheetHeight };
 
+  // Bottom padding must clear the device's actual home-indicator/gesture-bar
+  // inset rather than a fixed design-token value, so every consumer gets
+  // safe-area-correct spacing for free (Story 1 AC3).
+  const insets = useSafeAreaInsets();
+  const bottomPaddingStyle = { paddingBottom: space[8] + insets.bottom };
+
   return (
     <Modal
       visible={visible}
@@ -70,13 +77,15 @@ export function BottomSheet({
       statusBarTranslucent
     >
       <Pressable
+        testID="bottomsheet-backdrop"
         style={styles.backdrop}
         onPress={dismissOnBackdrop ? onClose : undefined}
       >
         {/* onStartShouldSetResponder prevents backdrop tap events from
             passing through to the sheet surface */}
         <View
-          style={[styles.sheet, sizingStyle, contentStyle]}
+          testID="bottomsheet-surface"
+          style={[styles.sheet, sizingStyle, bottomPaddingStyle, contentStyle]}
           onStartShouldSetResponder={() => true}
         >
           {title ? (
@@ -119,7 +128,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.xl,
     paddingHorizontal: space[4],
     paddingTop: space[2],
-    paddingBottom: space[8],
+    // paddingBottom is computed at render time from useSafeAreaInsets()
+    // (see bottomPaddingStyle above) instead of a static token value.
   },
   handle: {
     width: 36,
