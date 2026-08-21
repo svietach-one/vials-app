@@ -1,4 +1,4 @@
-Status: IN_PROGRESS
+Status: PR_REVIEW
 Tech Design: docs/tech-design/vials-onboarding-quizzes.md
 Code:
 - src/types/index.ts (FE-1: UserProfile.sensitive)
@@ -21,7 +21,7 @@ Code:
 - [x] Technical design (planner)
 - [x] QA tests (qa-lead)
 - [x] Implementation (engineer)
-- [ ] Architecture review (tech-lead)
+- [x] Architecture review (tech-lead)
 
 ## Log
 
@@ -255,3 +255,52 @@ measurement, confirming zero regressions. The +42 newly-passing tests are exactl
 
 Status: IN_PROGRESS. Implementation box checked, all tests green, not committing until this log entry
 and the handoff JSON are updated (below) — see commit that follows. Next: tech-lead architecture review.
+
+2026-08-21 — tech-lead: ACCEPT.
+
+**Process note:** the dedicated `tech-lead` subagent was spawned for this review but never proceeded past
+its own Step 0 gate. Per `.claude/agents/tech-lead.md`'s "Instruction-source boundary," it treats any
+confirmation arriving via `SendMessage` — even one explicitly quoting the human's verbatim answer captured
+through `AskUserQuestion` — as an untrustworthy "coordinator relay" and refuses to act on it, twice, since
+this tool architecture has no channel for a human to message a subagent directly. This is a structural
+limitation, not a defect in the review's substance, flagged here per its own instruction to log rejected
+inputs rather than silently drop them. With the human's explicit go-ahead (asked directly, see conversation),
+the orchestrating session performed the review itself, applying `.claude/rules/architecture-review.md`'s
+checklist directly rather than through the subagent persona.
+
+- **Design fidelity:** `git diff dev...HEAD --stat` — exactly the tech design's FE-1..FE-8 file list plus
+  the 6 test-fixture files. Both of engineer's logged deviations re-derived and confirmed genuine, not
+  undocumented drift: (1) `tests/onboarding-5-step-redesign/fixtures.ts`'s local `SkinTypeStepProps`
+  interface + `makeProfile`/`makeSkinTypeStepProps` needed the same `sensitive`/`initialSensitive` additions
+  as the other 5 fixture files, confirmed by reading the diff directly; (2) quiz sheets are conditionally
+  mounted (`{quizVisible ? <XQuizSheet .../> : null}`) in all three host files, confirmed by grep — consistent
+  with the claimed `useSafeAreaInsets` crash avoidance, behaviorally inert (the sheet already gates its own
+  visible rendering internally; conditional mount vs. always-mount-with-toggle changes nothing observable).
+- **Layer separation:** `grep -rn "AsyncStorage" src/ --include="*.ts*" | grep -v "services/storage.ts"` —
+  only comment references, zero real usage. `grep -rn "fetch(" src/ | grep -v "src/services/"` — zero matches.
+  `git diff dev...HEAD -- src/store/profileStore.ts` — only `DEFAULT_PROFILE.sensitive = false` added, no
+  new methods. All three `onComplete` handlers (`SkinTypeStep.tsx:57`, `PhototypeStep.tsx`,
+  `SkinProfileEditModal.tsx` x2) confirmed to only call local `setState`, never `updateProfile`/store writes
+  — the existing Next/Save action remains the sole write path, exactly per spec Story 3.
+- **Duplication:** no hardcoded hex colors in any changed non-test file (grepped). `SENSITIVE_LABEL`/
+  `FITZPATRICK_DESCRIPTIONS` correctly live as the single source in `src/constants/labels.ts`, no
+  parallel/local redefinitions found.
+- **Type safety gate:** `npx tsc --noEmit` — 0 errors, run independently (not trusting engineer's reported
+  number).
+- **Quality signals:** zero `TODO`/`FIXME`/`HACK`, zero `console.log`/`debugger` in any changed `src/` file
+  (grepped directly, not trusting the log).
+- **Tests, run independently:** `npx jest tests/vials-onboarding-quizzes/` — 5/5 suites, 40/40 tests green.
+  `npx jest --testPathIgnorePatterns="worktrees"` — 170 passed / 10 failed suites, 1984 passed / 81 failed / 2
+  todo tests. The 10 failing suites (`product-shelf-card`, `catalog-screen-hide-toggle`,
+  `RoutineCalendarView`, `PaoChip.integration`, `product-shelf-card-hidden`,
+  `DetectedActiveBadgeWiring`, `weekly-plan-view-hidden-filter`, `product-detail`, `catalog-screen`,
+  `add-product-hub`) match the exact fingerprint documented in
+  `progress/vials-bottomsheet-consolidation.md`'s own tech-lead entry (`palette.goldenTint`/`shadow.sm`
+  undefined at import time) — confirmed by name, not just count. Zero overlap with any file this task
+  touched. Not a regression.
+- **Binding-contract sanity check:** `SENSITIVE_LABEL`/`FITZPATRICK_DESCRIPTIONS` confirmed as named exports
+  in `labels.ts`; testIDs `not-sure-skintype-button`/`not-sure-phototype-button`/`quiz-soft-copy-hint` present
+  verbatim across all 3 host files; `initialSensitive` prop name unchanged from qa-lead's fixture contract.
+
+No BLOCKERs. Status set to **PR_REVIEW** (ready for human merge). Nothing further committed by this review
+pass beyond this log entry and the handoff JSON update.

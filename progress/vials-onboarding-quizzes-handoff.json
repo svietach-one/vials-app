@@ -1,7 +1,7 @@
 {
   "task": "vials-onboarding-quizzes",
-  "phase": "engineer",
-  "status": "IN_PROGRESS",
+  "phase": "tech-lead",
+  "status": "PR_REVIEW",
   "flags": {
     "backend_layer": false,
     "frontend_layer": true,
@@ -81,6 +81,17 @@
       "Fixture-parity fix across 6 pre-existing test files (5 pre-approved + tests/onboarding-5-step-redesign/fixtures.ts's own local SkinTypeStepProps interface, found only via the full-project tsc gate) - mechanical, required because UserProfile.sensitive is a required field, same treatment hormoneTherapy/pregnantOrBreastfeeding got",
       "Quiz sheets (SkinTypeQuizSheet/PhototypeQuizSheet) mounted conditionally on their host's quizVisible flag instead of always-mounted-with-a-visible-toggle, to avoid useSafeAreaInsets throwing in SkinProfileSetupScreen.sensitive-wiring.test.tsx (the one qa-lead file that doesn't mock react-native-safe-area-context and never opens the quiz) - behaviorally equivalent, verified against every affected suite"
     ]
+  },
+  "tech_lead_review": {
+    "verdict": "ACCEPT",
+    "process_note": "The dedicated tech-lead subagent was spawned but never advanced past its own Step 0 gate - per .claude/agents/tech-lead.md's instruction-source boundary, it refuses any SendMessage-relayed confirmation as untrustworthy 'coordinator relay', even one quoting the human's verbatim AskUserQuestion answer. This tool architecture has no direct human-to-subagent channel, so the gate could not be satisfied. With the human's explicit go-ahead, the orchestrating session performed the review directly against .claude/rules/architecture-review.md's checklist instead of through the subagent persona.",
+    "design_fidelity": "git diff dev...HEAD --stat matches tech design FE-1..FE-8 file list plus 6 test-fixture files exactly; both engineer-logged deviations independently re-derived and confirmed genuine",
+    "layer_separation": "zero real AsyncStorage/fetch violations outside services layer; no new profileStore methods; all onComplete handlers confirmed to only set local component state, never call updateProfile directly",
+    "duplication": "no hardcoded hex colors in changed files; SENSITIVE_LABEL/FITZPATRICK_DESCRIPTIONS single-sourced in labels.ts",
+    "type_safety": "npx tsc --noEmit - 0 errors, run independently",
+    "quality_signals": "zero TODO/FIXME/HACK, zero console.log/debugger in changed src files",
+    "tests_independent_run": "npx jest tests/vials-onboarding-quizzes/ - 5/5 suites, 40/40 tests; npx jest --testPathIgnorePatterns=worktrees - 170 passed/10 failed suites (same-by-name palette.goldenTint/shadow.sm baseline as vials-bottomsheet-consolidation's own tech-lead entry, zero overlap with this task's files)",
+    "binding_contract_check": "SENSITIVE_LABEL/FITZPATRICK_DESCRIPTIONS confirmed as named exports; testIDs not-sure-skintype-button/not-sure-phototype-button/quiz-soft-copy-hint present verbatim; initialSensitive prop name unchanged"
   },
   "open_questions": [
     "Exact soft-copy wording ('Looks like you're closest to...') and new SENSITIVE_LABEL/SENSITIVE_HINT copy are provisional, need a content pass before ship (non-blocking for engineer/qa-lead) -> owner: human/product (Sviatlana)",
