@@ -1,7 +1,7 @@
 {
   "task": "vials-onboarding-quizzes",
-  "phase": "design",
-  "status": "DESIGNED",
+  "phase": "qa",
+  "status": "IN_PROGRESS",
   "flags": {
     "backend_layer": false,
     "frontend_layer": true,
@@ -9,7 +9,15 @@
   },
   "artifacts": {
     "spec": "docs/specs/vials-onboarding-quizzes.md",
-    "tech_design": "docs/tech-design/vials-onboarding-quizzes.md"
+    "tech_design": "docs/tech-design/vials-onboarding-quizzes.md",
+    "tests": [
+      "tests/vials-onboarding-quizzes/fixtures.ts",
+      "tests/vials-onboarding-quizzes/profileStore.sensitive-migration.test.ts",
+      "tests/vials-onboarding-quizzes/SkinTypeStep.test.tsx",
+      "tests/vials-onboarding-quizzes/PhototypeStep.test.tsx",
+      "tests/vials-onboarding-quizzes/SkinProfileEditModal.test.tsx",
+      "tests/vials-onboarding-quizzes/SkinProfileSetupScreen.sensitive-wiring.test.tsx"
+    ]
   },
   "depends_on": {
     "task": "vials-bottomsheet-consolidation",
@@ -36,6 +44,18 @@
     "phototype_a4_vs_a1_tiebreak": "confirmed correct - exhaustive property test in quizScoring.test.ts shows A4 alone can never move the result more than one bucket, strictly exceeding the brief's minimum bar",
     "skintype_dehydration_guard": "confirmed correct - dry is reachable only when B1=tight_flaky AND B2/B3 report zero shine, matching the brief's own worked example",
     "b4_sensitive_threshold": "previously-implemented-but-undocumented judgment call now written down as binding: often_reacts and sometimes_reacts both map to sensitive=true, only almost_never_reacts maps to false"
+  },
+  "qa_lead_binding_contract": {
+    "not_sure_button_testids": "not-sure-skintype-button / not-sure-phototype-button, reused identically across all 4 host locations - required to disambiguate the two identical-copy buttons that coexist in SkinProfileEditModal",
+    "sensitive_switch": "reuses Switch's existing accessibilityLabel prop set to the net-new SENSITIVE_LABEL export from @/constants/labels (FE-4), same pattern as AboutYouStep's HORMONE_THERAPY_LABEL - exact copy stays open, only the export name is bound",
+    "soft_copy_hint": "testID=quiz-soft-copy-hint, content asserted via within(...).getByText(regex) substring match against SKIN_TYPE_OPTIONS labels / FITZPATRICK_DESCRIPTIONS entries (no jest-native toHaveTextContent in this repo) - exact provisional sentence never pinned",
+    "deterministic_quiz_answers": "fixtures.ts precomputes exact answer-label sequences (against quizScoring.ts's documented weight bands, not re-tested here) that deterministically yield each phototype bucket and each skinType+sensitive combination, so host-wiring tests assert precise pre-selected values"
+  },
+  "qa_verification": {
+    "tsc_baseline_without_suite": "0 errors (git-stashed the new suite and re-ran)",
+    "tsc_with_suite": "23 errors, all inside tests/vials-onboarding-quizzes/ and all expected pre-implementation gaps (UserProfile.sensitive missing, SENSITIVE_LABEL/FITZPATRICK_DESCRIPTIONS not exported yet, initialSensitive excess prop on SkinTypeStepProps) - none are typos in the test code",
+    "jest_baseline_without_suite": "10 failed / 165 passed suites, 81 failed / 1942 passed tests (pre-existing, unrelated stale palette/shadow token failures in tests/catalog/*, not touched by this task)",
+    "jest_with_suite": "15 failed / 165 passed suites (+5, all mine), 119 failed / 1944 passed tests (+38 expected reds, +2 legitimately-passing migrateProfile idempotency assertions that hold both before and after FE-2) - zero regression in any previously-passing suite"
   },
   "open_questions": [
     "Exact soft-copy wording ('Looks like you're closest to...') and new SENSITIVE_LABEL/SENSITIVE_HINT copy are provisional, need a content pass before ship (non-blocking for engineer/qa-lead) -> owner: human/product (Sviatlana)",

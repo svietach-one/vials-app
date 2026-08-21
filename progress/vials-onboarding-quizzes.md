@@ -1,11 +1,11 @@
-Status: DESIGNED
+Status: IN_PROGRESS
 Tech Design: docs/tech-design/vials-onboarding-quizzes.md
 Code: —
 
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
-- [ ] QA tests (qa-lead)
+- [x] QA tests (qa-lead)
 - [ ] Implementation (engineer)
 - [ ] Architecture review (tech-lead)
 
@@ -115,3 +115,65 @@ toggle — confirmed as designed: keep the manual control, ships alongside the q
 bumped to APPROVED. The other two open questions (provisional soft-copy wording; PRD §6 clinical-review
 addition) remain open but are non-blocking/informational per the planner's own classification — do not block
 qa-lead or engineer. Proceeding to qa-lead.
+
+2026-08-21 — qa-lead: Wrote integration/component tests for all 8 FE tasks before any implementation
+code exists, in `tests/vials-onboarding-quizzes/` (Jest + `@testing-library/react-native`, per
+`.claude/rules/testing.md`). Read the spec, tech design, full planner log, the shipped dependency
+components (`BottomSheet`, `QuizSheet`, `PhototypeQuizSheet`, `SkinTypeQuizSheet`, `quizScoring.ts`) and
+their existing `tests/vials-bottomsheet-consolidation/` suite/fixtures, the real host files
+(`SkinTypeStep.tsx`, `PhototypeStep.tsx`, `SkinProfileEditModal.tsx`, `SkinProfileSetupScreen.tsx`,
+`profileStore.ts`, `migrations.ts`, `labels.ts`), and the closest sibling precedent
+(`tests/onboarding-5-step-redesign/`) before writing anything.
+
+**Files written:**
+- `tests/vials-onboarding-quizzes/fixtures.ts` — binding contract for everything the tech design leaves
+  open: `testID="not-sure-skintype-button"`/`"not-sure-phototype-button"` on the two ghost "Not sure?"
+  buttons (disambiguates the two identical-copy buttons that coexist in `SkinProfileEditModal`);
+  `SENSITIVE_LABEL`/`FITZPATRICK_DESCRIPTIONS` imported as VALUES from `@/constants/labels` (binds the
+  FE-4 export names, not the still-provisional copy); `testID="quiz-soft-copy-hint"` for the new
+  transient hint plus an `expectHintToContainText` helper (no jest-native `toHaveTextContent` in this
+  repo — matched `tests/inci-attribution-highlighting/AttributionTooltip.test.tsx`'s existing
+  `within(...).getByText(regex)` precedent instead); a `makeProfile()` factory carrying
+  `sensitive: boolean`; and, computed directly against `quizScoring.ts`'s documented weight bands (not
+  re-deriving or re-testing that math), exact deterministic answer-label sequences that reliably produce
+  each phototype bucket (`type_1_2`/`type_3_4`→card IV/`type_5_6`) and each skin-type+sensitive
+  combination, so host-wiring tests assert precise pre-selected values instead of "any valid result".
+- `profileStore.sensitive-migration.test.ts` — Story 1 (all 3 ACs): `CURRENT_SCHEMA_VERSION === 7`;
+  `migrateProfile` backfills `sensitive: false` for a legacy profile missing the field and is idempotent
+  (same reference) for an already-migrated one; `useProfileStore.hydrate()` (real store, only
+  `@/services/storage` mocked) persists the backfill for a legacy install, defaults to `false` on a
+  fresh install, and does not gratuitously re-persist an already-migrated profile.
+- `SkinTypeStep.test.tsx`, `PhototypeStep.test.tsx` — Stories 2/3 (and 4 for skin type): entry-button
+  presence/style, opens the real quiz sheet, backdrop-dismiss leaves the host untouched, quiz completion
+  pre-selects the chip/card + (skin type) the sensitive switch + shows the hint without ever calling
+  `onNext`, Skip discards, a later manual tap clears the hint and wins, `deriveFitzpatrick`'s bucket→card
+  mapping is asserted exactly (`type_3_4` → card "IV"), and the skin-type step's manual Sensitive switch
+  works independently of which chip is selected.
+- `SkinProfileEditModal.test.tsx` — same Story 2/3/4 coverage for both entry points living in one Tab-4
+  tree at once (testID-disambiguated), Cancel/Close discards in place of Skip, and a reopen-re-seeds
+  regression on the existing pre-fill `useEffect`.
+- `SkinProfileSetupScreen.sensitive-wiring.test.tsx` — small, FE-7-only: confirms
+  `initialSensitive={profile?.sensitive ?? false}` plumbs end-to-end through the real container into the
+  real step 1, without re-covering the full 6-step flow already owned by
+  `tests/onboarding-5-step-redesign/SkinProfileSetupScreen.test.tsx`.
+
+Deliberately did NOT touch `quizScoring.test.ts` or re-verify `scorePhototype`/`scoreSkinType`'s weights
+(Story 5 is a planner-audited, zero-code-change finding, out of qa-lead's scope per the task instructions).
+
+**Verification:** `npx tsc --noEmit` on the pre-existing branch (git-stashing this suite) is clean — 0
+errors — confirming every one of the 23 tsc errors introduced by this suite is new and expected
+(`UserProfile.sensitive` missing, `SENSITIVE_LABEL`/`FITZPATRICK_DESCRIPTIONS` not exported,
+`initialSensitive` excess prop on `SkinTypeStepProps`) — none are typos in the test code itself.
+`npx jest --testPathIgnorePatterns="worktrees"` baseline (same stash) is 10 failed / 165 passed suites,
+81 failed / 1942 passed tests (10 pre-existing, unrelated failures — stale `palette`/`shadow` token
+references in `tests/catalog/*`, not touched by this task). With this suite added: 15 failed / 165
+passed suites (exactly +5, all mine) and 119 failed / 1944 passed tests (+38 failed, all expected reds;
++2 passed — both are `migrateProfile` idempotency assertions in `profileStore.sensitive-migration.test.ts`
+that legitimately already hold today and will continue to hold once FE-2 lands, not false positives).
+Zero regression in any previously-passing suite. Removed one originally-drafted trivial test
+(`patch.sensitive` type-only assertion) that would always pass under Babel's non-type-checked runtime
+regardless of implementation status — tsc already gates that contract, so it added no real coverage.
+
+Status: IN_PROGRESS. QA tests box checked. Next: engineer implements FE-1..FE-8 against this suite (and
+its co-located unit-test obligations per tech design §3) until every test above goes green, then
+tech-lead review.
