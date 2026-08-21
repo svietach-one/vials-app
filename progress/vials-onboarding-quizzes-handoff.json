@@ -1,0 +1,45 @@
+{
+  "task": "vials-onboarding-quizzes",
+  "phase": "design",
+  "status": "DESIGNED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/vials-onboarding-quizzes.md",
+    "tech_design": "docs/tech-design/vials-onboarding-quizzes.md"
+  },
+  "depends_on": {
+    "task": "vials-bottomsheet-consolidation",
+    "status": "ACCEPTED",
+    "commit": "5f8c779",
+    "merged_via": "PR #44",
+    "provides": [
+      "src/components/ui/core/BottomSheet.tsx",
+      "src/components/onboarding/QuizSheet.tsx",
+      "src/components/onboarding/PhototypeQuizSheet.tsx",
+      "src/components/onboarding/SkinTypeQuizSheet.tsx",
+      "src/utils/onboardingQuiz/quizScoring.ts"
+    ]
+  },
+  "stale_brief_claims_verified_and_corrected": {
+    "skinType_and_phototype_already_existed": "confirmed true, and bigger than the brief knew - a parallel numeric UserProfile.fitzpatrick field (schema v2) with its own sync machinery also already exists, undocumented by the brief. Only UserProfile.sensitive was genuinely net-new.",
+    "phototype_card_count": "confirmed 6 individual FitzpatrickCards in BOTH SkinProfileSetupScreen's PhototypeStep.tsx and SkinProfileEditModal.tsx, not '3 grouped phototype cards' - the grouped 3-card PhototypeCard component still exists in source but is unused dead code",
+    "shared_progress_dots_component": "confirmed none exists (MarketingSlidesScreen's dots are inline-only) - but moot, QuizSheet.tsx already ships its own independent dots implementation",
+    "SkinProfileEditor_identity": "confirmed this is not a standalone component - it is ProfileScreen.tsx's (Tab 4) Skin Profile card + Edit button, which opens SkinProfileEditModal.tsx (the actual file with the real chip/card selectors)",
+    "onboarding_step_count": "found additional staleness beyond what was flagged: SkinProfileSetupScreen.tsx is a live 6-step flow (TOTAL_STEPS=6, CityStep added later), not the 5-step flow docs/tech-design/onboarding-5-step-redesign.md and SCREENS.md/PRD_Spec.md still describe"
+  },
+  "quiz_scoring_audit": {
+    "outcome": "no defects found, zero code changes to quizScoring.ts/PhototypeQuizSheet.tsx/SkinTypeQuizSheet.tsx",
+    "phototype_a4_vs_a1_tiebreak": "confirmed correct - exhaustive property test in quizScoring.test.ts shows A4 alone can never move the result more than one bucket, strictly exceeding the brief's minimum bar",
+    "skintype_dehydration_guard": "confirmed correct - dry is reachable only when B1=tight_flaky AND B2/B3 report zero shine, matching the brief's own worked example",
+    "b4_sensitive_threshold": "previously-implemented-but-undocumented judgment call now written down as binding: often_reacts and sometimes_reacts both map to sensitive=true, only almost_never_reacts maps to false"
+  },
+  "open_questions": [
+    "Exact soft-copy wording ('Looks like you're closest to...') and new SENSITIVE_LABEL/SENSITIVE_HINT copy are provisional, need a content pass before ship (non-blocking for engineer/qa-lead) -> owner: human/product (Sviatlana)",
+    "Brief's own flagged clinical-review items (no-racial-label sensitivity read on Quiz A tone options; A1/A3 discriminators validated on Indian-population data only, not separately validated for African/East-Asian skin) carried forward unresolved, recommended for docs/PRD_Spec.md section 6's clinical-review list -> owner: human/product, clinical reviewer",
+    "Manual 'Sensitive skin' toggle (spec Story 4) is this task's own judgment call, not explicitly requested by the source brief - added for parity with hormoneTherapy/pregnantOrBreastfeeding/spfSensitivity's existing manual-control pattern -> owner: human/product (Sviatlana)"
+  ]
+}
