@@ -55,8 +55,8 @@ function makeRoutine(steps: Routine['steps']): Routine {
 // ─── Schema version ───────────────────────────────────────────────────────────
 
 describe('CURRENT_SCHEMA_VERSION', () => {
-  it('is 6 after adding hormoneTherapy/pregnantOrBreastfeeding (onboarding-5-step-redesign)', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(6);
+  it('is 7 after adding sensitive (vials-onboarding-quizzes)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(7);
   });
 });
 
@@ -205,6 +205,24 @@ describe('migrateProfile', () => {
     // Assert
     expect(result.hormoneTherapy).toBe(true);
     expect(result.pregnantOrBreastfeeding).toBe(true);
+  });
+
+  it('defaults sensitive to false on a pre-v7 profile', () => {
+    // Arrange
+    const profile = makeLegacyProfile({ phototype: 'type_1_2' });
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.sensitive).toBe(false);
+  });
+
+  it('preserves an already-set sensitive value', () => {
+    // Arrange
+    const profile = makeLegacyProfile({ phototype: 'type_1_2', sensitive: true });
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.sensitive).toBe(true);
   });
 });
 

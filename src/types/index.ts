@@ -251,6 +251,14 @@ export interface UserProfile {
    */
   phototypeNeedsConfirmation: boolean;
   spfSensitivity: boolean;
+  /**
+   * Self-reported skin sensitivity — reacts easily to new products/actives,
+   * added in schema v7. Independent of `skinType`. Reachable both via
+   * `SkinTypeQuizSheet`'s Quiz B (B4) and a direct manual control (parity
+   * with `hormoneTherapy`/`pregnantOrBreastfeeding`/`spfSensitivity`). Also
+   * the field `Product.isPhysicalExfoliant`'s docstring forward-references.
+   */
+  sensitive: boolean;
   onboardingCompleted: boolean;
   /** Per-procedure duration overrides set when the user confirms actual fading. */
   individualDurationMonths: Partial<Record<CosmeticProcedureKey, number>>;

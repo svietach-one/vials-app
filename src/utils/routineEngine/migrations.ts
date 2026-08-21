@@ -21,7 +21,7 @@ import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingr
  */
 
 /** Current persisted schema version. Bumped whenever a migration is added. */
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /** Version assumed for installs that predate the schemaVersion key. */
 export const BASELINE_SCHEMA_VERSION = 1;
@@ -99,6 +99,8 @@ export function migrateProfile(profile: UserProfile): UserProfile {
   // Pre-v6 profiles lack the two onboarding-5-step-redesign safety fields.
   const hormoneTherapyPresent = profile.hormoneTherapy !== undefined;
   const pregnantOrBreastfeedingPresent = profile.pregnantOrBreastfeeding !== undefined;
+  // Pre-v7 profiles lack the onboarding-quizzes sensitivity flag.
+  const sensitivePresent = profile.sensitive !== undefined;
 
   if (
     cityPresent &&
@@ -108,7 +110,8 @@ export function migrateProfile(profile: UserProfile): UserProfile {
     contributionConsentPresent &&
     skinConditionsPresent &&
     hormoneTherapyPresent &&
-    pregnantOrBreastfeedingPresent
+    pregnantOrBreastfeedingPresent &&
+    sensitivePresent
   ) {
     return profile;
   }
@@ -145,6 +148,9 @@ export function migrateProfile(profile: UserProfile): UserProfile {
     pregnantOrBreastfeeding: pregnantOrBreastfeedingPresent
       ? profile.pregnantOrBreastfeeding
       : false,
+    // Opt-in, never inferred — backfill to false rather than prompting an
+    // existing install to answer it (same treatment as the two fields above).
+    sensitive: sensitivePresent ? profile.sensitive : false,
   };
 }
 

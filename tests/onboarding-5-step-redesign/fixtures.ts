@@ -57,6 +57,8 @@ export function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     // adds them to `UserProfile` in src/types/index.ts.
     hormoneTherapy: false,
     pregnantOrBreastfeeding: false,
+    // vials-onboarding-quizzes FE-1: net-new required field.
+    sensitive: false,
     ...overrides,
   };
 }
@@ -90,6 +92,8 @@ export function makeProgressRingProps(
 
 export interface SkinTypeStepProps {
   initialSkinType: SkinType | null;
+  // vials-onboarding-quizzes FE-5: net-new required prop.
+  initialSensitive: boolean;
   onNext: (patch: Partial<UserProfile>) => void;
   onSkip: () => void;
 }
@@ -99,6 +103,8 @@ export function makeSkinTypeStepProps(
 ): SkinTypeStepProps {
   return {
     initialSkinType: null,
+    // vials-onboarding-quizzes FE-5: net-new required prop.
+    initialSensitive: false,
     onNext: jest.fn(),
     onSkip: jest.fn(),
     ...overrides,

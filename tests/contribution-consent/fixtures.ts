@@ -45,6 +45,8 @@ export function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     contributionConsent: makeContributionConsent(),
     hormoneTherapy: false,
     pregnantOrBreastfeeding: false,
+    // vials-onboarding-quizzes FE-1: net-new required field.
+    sensitive: false,
     ...overrides,
   };
 }

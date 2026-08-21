@@ -1,5 +1,13 @@
 import type { BadgeStatus } from '@/components/ui/feedback/Badge';
-import type { ActiveIngredientKey, CapabilityKey, FunctionalBenefit, ProductType, SkinGoal, SkinType } from '@/types';
+import type {
+  ActiveIngredientKey,
+  CapabilityKey,
+  FitzpatrickType,
+  FunctionalBenefit,
+  ProductType,
+  SkinGoal,
+  SkinType,
+} from '@/types';
 
 export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
   cleanser: 'Cleanser',
@@ -153,6 +161,31 @@ export const HORMONE_THERAPY_HINT =
 
 export const PREGNANCY_LABEL = 'Pregnant or breastfeeding';
 export const PREGNANCY_HINT = "We'll flag retinoids and other restricted actives.";
+
+/**
+ * `UserProfile.sensitive` copy (vials-onboarding-quizzes FE-4) — mirrors the
+ * `HORMONE_THERAPY_LABEL`/`_HINT` pair. Provisional wording (spec §10 Open
+ * Questions) — needs a content pass before ship.
+ */
+export const SENSITIVE_LABEL = 'Sensitive skin';
+export const SENSITIVE_HINT = 'Stings, reddens, or reacts easily to new products or actives.';
+
+/**
+ * Brief visible caption per Fitzpatrick type, shown under each onboarding
+ * card and reused by the post-quiz soft-copy hint (spec §5) — supplementary
+ * to `FitzpatrickCard`'s own full accessibilityLabel. Hoisted here from
+ * `PhototypeStep.tsx` (vials-onboarding-quizzes FE-4) so onboarding and Tab 4
+ * (`SkinProfileEditModal`) build identical text without duplicating/drifting
+ * this 6-entry map.
+ */
+export const FITZPATRICK_DESCRIPTIONS: Record<FitzpatrickType, string> = {
+  1: 'Always burns, never tans',
+  2: 'Usually burns, tans minimally',
+  3: 'Sometimes burns, tans gradually',
+  4: 'Rarely burns, tans easily',
+  5: 'Very rarely burns',
+  6: 'Never burns',
+};
 
 /** Care-goal display names (V2.1 Step 0 goal selector + confirmation banner). */
 export const GOAL_LABELS: Record<SkinGoal, string> = {

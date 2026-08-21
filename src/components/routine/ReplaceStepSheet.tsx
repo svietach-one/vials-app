@@ -104,7 +104,7 @@ export function ReplaceStepSheet({ target, onClose, productOf, onSelect }: Repla
                 <IconButton
                   icon={<Icon name="x" size={18} color={colors.textSecondary} />}
                   label="Close"
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
                   onPress={onClose}
                 />
