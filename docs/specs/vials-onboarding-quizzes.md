@@ -2,7 +2,7 @@
 Date: 2026-08-21
 Author: planner-agent
 Jira: N/A (kebab-case task slug per agent-layer-protocol.md: `vials-onboarding-quizzes`)
-Status: DRAFT
+Status: APPROVED
 
 ## AI-SDLC Flags
 ```
@@ -246,8 +246,8 @@ completeness, matching the dependency task's own framing:
   East-Asian skin. Recommend adding both to `docs/PRD_Spec.md` §6's existing pre-launch clinical-review list,
   alongside the Product Profile capability-source item already there — this task does not edit that file
   itself. → owner: human/product, clinical reviewer (per the existing PRD §6 precedent).
-- [ ] Story 4's manual `sensitive` toggle is a judgment call this spec makes, not something the source brief
+- [x] Story 4's manual `sensitive` toggle is a judgment call this spec makes, not something the source brief
   explicitly requests — the brief only describes `sensitive` as an output of Quiz B's B4. Every structurally
   similar boolean flag on `UserProfile` (`hormoneTherapy`, `pregnantOrBreastfeeding`, `spfSensitivity`)
   already has a direct manual control, and without one `sensitive` would be the only write-only-through-quiz
-  field. Flagging for explicit confirmation rather than assuming silently. → owner: human/product (Sviatlana).
+  field. **Confirmed by human requester 2026-08-21: keep the manual toggle, Story 4 ships as designed.**

@@ -40,6 +40,6 @@
   "open_questions": [
     "Exact soft-copy wording ('Looks like you're closest to...') and new SENSITIVE_LABEL/SENSITIVE_HINT copy are provisional, need a content pass before ship (non-blocking for engineer/qa-lead) -> owner: human/product (Sviatlana)",
     "Brief's own flagged clinical-review items (no-racial-label sensitivity read on Quiz A tone options; A1/A3 discriminators validated on Indian-population data only, not separately validated for African/East-Asian skin) carried forward unresolved, recommended for docs/PRD_Spec.md section 6's clinical-review list -> owner: human/product, clinical reviewer",
-    "Manual 'Sensitive skin' toggle (spec Story 4) is this task's own judgment call, not explicitly requested by the source brief - added for parity with hormoneTherapy/pregnantOrBreastfeeding/spfSensitivity's existing manual-control pattern -> owner: human/product (Sviatlana)"
+    "Manual 'Sensitive skin' toggle (spec Story 4) is this task's own judgment call, not explicitly requested by the source brief - added for parity with hormoneTherapy/pregnantOrBreastfeeding/spfSensitivity's existing manual-control pattern -> CONFIRMED by human requester 2026-08-21: keep the manual toggle, Story 4 ships as designed."
   ]
 }

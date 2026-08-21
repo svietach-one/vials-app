@@ -108,3 +108,10 @@ docs/specs/vials-onboarding-quizzes.md, docs/tech-design/vials-onboarding-quizze
 JSON, and the previously-untracked `docs/tasks/vials-onboarding-quizzes-task.md` brief itself (same precedent
 as `docs/tasks/vials-bottomsheet-consolidation-task.md` being committed alongside that task's planner output
 in `5f8c779`). Next: qa-lead, once a human has reviewed the three flagged Open Questions.
+
+2026-08-21 — human requester: resolved the one blocking open question. Story 4's manual "Sensitive skin"
+toggle — confirmed as designed: keep the manual control, ships alongside the quiz-driven path, matching
+`hormoneTherapy`/`pregnantOrBreastfeeding`/`spfSensitivity` parity. Spec's §10 item checked off, Status
+bumped to APPROVED. The other two open questions (provisional soft-copy wording; PRD §6 clinical-review
+addition) remain open but are non-blocking/informational per the planner's own classification — do not block
+qa-lead or engineer. Proceeding to qa-lead.
