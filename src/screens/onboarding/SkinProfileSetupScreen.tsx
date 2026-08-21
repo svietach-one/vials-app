@@ -78,6 +78,7 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
         {step === 1 && (
           <SkinTypeStep
             initialSkinType={profile?.skinType ?? null}
+            initialSensitive={profile?.sensitive ?? false}
             onNext={handleNext}
             onSkip={handleSkip}
             progressRing={progressRing}

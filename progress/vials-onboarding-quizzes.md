@@ -1,12 +1,26 @@
 Status: IN_PROGRESS
 Tech Design: docs/tech-design/vials-onboarding-quizzes.md
-Code: —
+Code:
+- src/types/index.ts (FE-1: UserProfile.sensitive)
+- src/utils/routineEngine/migrations.ts (FE-2: v6->v7 bump + sensitive backfill)
+- src/utils/routineEngine/migrations.test.ts (FE-2 co-located tests: version bump, backfill, idempotency)
+- src/store/profileStore.ts (FE-3: DEFAULT_PROFILE.sensitive)
+- src/constants/labels.ts (FE-4: SENSITIVE_LABEL/SENSITIVE_HINT, hoisted FITZPATRICK_DESCRIPTIONS)
+- src/screens/onboarding/steps/SkinTypeStep.tsx (FE-5: initialSensitive prop, quiz wiring, Sensitive switch)
+- src/screens/onboarding/steps/PhototypeStep.tsx (FE-6: quiz wiring, deriveFitzpatrick pre-select)
+- src/screens/onboarding/SkinProfileSetupScreen.tsx (FE-7: initialSensitive plumbing)
+- src/components/profile/SkinProfileEditModal.tsx (FE-8: both quiz entry points, Sensitive switch)
+- tests/contribution-consent/fixtures.ts, tests/onboarding-5-step-redesign/fixtures.ts,
+  tests/routine-engine/fixtures.ts, tests/routine-engine/cycling-and-adaptation.test.ts,
+  tests/routine-engine/goal-confirm-routines-screen.test.tsx (fixture-parity: added `sensitive: false`
+  to pre-existing full UserProfile literals now that the field is required — same treatment
+  hormoneTherapy/pregnantOrBreastfeeding got when they were added)
 
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
 - [x] QA tests (qa-lead)
-- [ ] Implementation (engineer)
+- [x] Implementation (engineer)
 - [ ] Architecture review (tech-lead)
 
 ## Log
@@ -177,3 +191,67 @@ regardless of implementation status — tsc already gates that contract, so it a
 Status: IN_PROGRESS. QA tests box checked. Next: engineer implements FE-1..FE-8 against this suite (and
 its co-located unit-test obligations per tech design §3) until every test above goes green, then
 tech-lead review.
+
+2026-08-21 — engineer (Eva): Implemented FE-1..FE-8 exactly per the tech design, test-file-by-test-file
+against qa-lead's suite (`profileStore.sensitive-migration.test.ts` -> `SkinTypeStep.test.tsx` ->
+`PhototypeStep.test.tsx` -> `SkinProfileEditModal.test.tsx` -> `SkinProfileSetupScreen.sensitive-wiring
+.test.tsx`), each green before moving to the next. No deviation from the tech design's FE shape or the
+qa-lead binding contract (testIDs, `SENSITIVE_LABEL`/`FITZPATRICK_DESCRIPTIONS` export names,
+`initialSensitive` prop name all used verbatim).
+
+**Judgment calls / additions beyond the tech design's own file list, both logged as required:**
+
+1. **Fixture-parity fix (planned and pre-approved before implementation started).** Adding
+   `UserProfile.sensitive` as a required (non-optional) field breaks `tsc` for every pre-existing test
+   file that builds a full `UserProfile` object literal under a real (non-`require()`) import — the same
+   thing that happened when `hormoneTherapy`/`pregnantOrBreastfeeding` were added. Audited every
+   `hormoneTherapy`-containing fixture in the repo (grepped for `contributionConsent:`/`spfSensitivity:
+   false` as full-literal markers, then checked typed-`import` vs. untyped-`require()` per file to see
+   which ones tsc actually checks) and found 5 that needed a one-line `sensitive: false,` addition:
+   `tests/contribution-consent/fixtures.ts`, `tests/onboarding-5-step-redesign/fixtures.ts`,
+   `tests/routine-engine/fixtures.ts`, `tests/routine-engine/cycling-and-adaptation.test.ts` (inline
+   literal), `tests/routine-engine/goal-confirm-routines-screen.test.tsx` (`makeProfile` factory).
+   `tests/routine-engine/draft-preview.test.ts`/`seasonal-masks.test.ts`/`city-field.test.tsx` were
+   checked and confirmed safe (untyped `require('@/store/profileStore')`, not tsc-checked).
+2. **A 6th fixture file, found only by running the full-suite `tsc` gate, not by the earlier audit:**
+   `tests/onboarding-5-step-redesign/fixtures.ts` also declares its OWN local `SkinTypeStepProps`
+   interface (a pre-existing drift-detection pattern, not imported from the real component) used by
+   `makeSkinTypeStepProps`. Adding `initialSensitive: boolean` to that local interface too (plus the
+   factory's default `false`) was required for `tests/onboarding-5-step-redesign/SkinTypeStep.test.tsx`
+   to keep compiling. Not anticipated in the pre-approved plan; a direct, mechanical consequence of the
+   new required prop, same rationale as item 1.
+3. **Quiz sheets mounted conditionally (`{quizVisible && <XQuizSheet .../>}`), not always-mounted-with-
+   a-`visible`-toggle as originally planned.** `tests/vials-onboarding-quizzes/
+   SkinProfileSetupScreen.sensitive-wiring.test.tsx` is the one qa-lead file in this suite that does NOT
+   mock `react-native-safe-area-context` (unlike every other suite touching `BottomSheet`), and it never
+   opens the quiz. Always-mounting `SkinTypeQuizSheet` (which renders `BottomSheet` ->
+   `useSafeAreaInsets()` regardless of its own `visible` prop, since RN's `Modal` still mounts children
+   under `visible={false}` in this test renderer) crashed that one test with "No safe area value
+   available." Since qa-lead's test file is binding and out of bounds to edit, switched
+   `SkinTypeStep`/`PhototypeStep`/`SkinProfileEditModal` to only render their quiz sheet(s) while
+   `quizVisible`/`...QuizVisible` is true. This is behaviorally equivalent (fresh mount at question 1
+   every time, same as the sheet's own internal reset-on-`visible=false` effect would produce) and
+   doesn't affect any other test's assertions — verified by re-running every affected suite green
+   afterward.
+
+**Soft-copy hint implementation note:** built as a plain token-styled `View`+`Text`
+(`colors.statusInfoTint`/`statusInfoLine`/`statusInfo`, `radius.md` — the same tokens `InlineAlert`'s
+`tone="info"` uses), not `InlineAlert` itself, per spec §3's explicit non-goal. In
+`SkinProfileEditModal` (the one host where both quiz entry points live in the same tree), completing
+either quiz clears the other's hint so at most one `testID="quiz-soft-copy-hint"` node ever exists at
+once — not explicitly required by any single test, but necessary for `getByTestId`'s single-match
+contract to hold if a user completed both quizzes in one visit, and cheap to guarantee.
+
+**Verification:** `npx jest tests/vials-onboarding-quizzes/` — 5 suites / 40 tests, all green.
+`npx tsc --noEmit` — 0 errors, full project. `npx jest --testPathIgnorePatterns="worktrees"` — 170
+passed / 10 failed suites (2067 total: 1984 passed / 81 failed / 2 todo). The 10 failing suites are
+byte-for-byte the documented pre-existing `palette.goldenTint`/`shadow.sm` token-drift baseline (fixture
+error strings confirmed: `product-detail.test.tsx` "Cannot read properties of undefined (reading
+'plumTint')", `catalog-screen.test.tsx` "...'goldenTint'", `add-product-hub.test.tsx` "...'sm'" off
+`shadow.sm`, plus `weekly-plan-view-hidden-filter.test.tsx`'s cascading `getProductTypeBadgeStatus is
+not a function`) — same count (10 suites / 81 tests) as qa-lead's own pre-implementation baseline
+measurement, confirming zero regressions. The +42 newly-passing tests are exactly qa-lead's 40 plus the
+2 `sensitive`-backfill cases I added to `migrations.test.ts` per FE-2's own co-located-test obligation.
+
+Status: IN_PROGRESS. Implementation box checked, all tests green, not committing until this log entry
+and the handoff JSON are updated (below) — see commit that follows. Next: tech-lead architecture review.
