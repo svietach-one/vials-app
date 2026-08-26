@@ -1,4 +1,6 @@
-Status: STEP_2_DONE (real scoring and a match cutoff — steps 3–5 of the 6-step plan are still pending; step 3 is conditional and, per step 2's finding, does not look necessary)
+Status: STEP_4_DONE, PUSHED (2d6d537, 9f22a69) — steps 0/1/2/4 implemented, step 3 SKIPPED
+(evidence-based human decision), step 5 PENDING_NEEDS_HUMAN_GO_AHEAD. Real-device diagnostics
+(9 captures, 6 not-in-corpus / 3 confirmed misses) gathered but not yet acted on.
 Tech Design: docs/tasks/ocr_improvement/00-README.md (+ 01-06 step files) — pre-supplied, not authored by planner agent
 Code: feature/ocr-improvement
 
@@ -1028,3 +1030,36 @@ planner's spec+tech-design output rather than re-running planner, per user direc
 
   Next step (`06-word-level-fts.md`) was deliberately **not** started or read, per instructions —
   it changes the schema and requires explicit human go-ahead.
+
+- 2026-08-23: **Real-device capture diagnostics (human-run, 9 photos), before any step-5 decision.**
+  User ran 9 real device captures through the shipped (uncommitted at the time) pipeline; all 9
+  fell through to manual entry ("not found"). Investigated per-case using `retrieveCandidates` +
+  `scoreCandidate` directly against the live corpus (bypassing `search()`'s cutoff to see the
+  pre-cutoff picture), then a direct `products` table existence check (ILIKE on user-supplied
+  clean brand/name text, bypassing retrieval/scoring entirely) for the ambiguous cases. Two
+  one-off scripts used and deleted after (`scripts/search-eval/_tmp-device-capture-report.ts`,
+  `_tmp-existence-check.ts`) — not committed, not part of the shipped harness.
+
+  **Result: 6 of 9 products are simply not in the corpus** (confirmed via direct table query —
+  zero or clearly-unrelated hits for medipeel, eveline's serum-shot line, the specific COSRX
+  AC-RX SKU, the jolika/holika sunscreen, niacynobaza, and tołpa dermo face). For these, "not
+  found" is correct behavior, not a bug — no threshold or scoring change touches a coverage gap.
+
+  **3 of 9 (AA Aloe, Skin1004 Probio-Cica, Bioderma Sensibio) are confirmed in-corpus misses:**
+  scores 0.319, 0.512, and 0.000 respectively against the (then-current) 0.65 floor. Bioderma's
+  0.000 is unfixable by any threshold — the OCR-read brand text had zero token overlap with the
+  real brand. Skin1004 (0.512, gap 0.138) is the one genuinely threshold-adjacent case. AA Aloe
+  (0.319) sits in between. Also notable: only 1 of 9 brands (COSRX) was OCR'd correctly at all —
+  brand-recognition quality upstream is implicated as a major factor independent of scoring.
+
+  Diagnosis was done on the segmented brand/name visible in the manual-entry form (UI-truncated
+  with "…" for most), not the full raw OCR text — a stated limitation, not resolved in this
+  entry. No code changed as a result of this investigation; it's evidence-gathering ahead of any
+  step 5 / threshold-retuning decision, which remains a **pending human decision**, not concluded
+  here.
+
+- 2026-08-23: Committed and pushed to `origin/feature/ocr-improvement` (not merged):
+  `2d6d537` (search-precision work: harness, steps 0/1/2/4, brand-only fix, diagnostic scripts)
+  and `9f22a69` (corpus-duplicate-rows spec/tech-design, separate commit — see
+  `progress/corpus-duplicate-rows.md`). Step 3 remains SKIPPED and step 5 remains
+  PENDING_NEEDS_HUMAN_GO_AHEAD; neither was implemented in this push.
