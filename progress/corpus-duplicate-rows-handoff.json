@@ -1,0 +1,67 @@
+{
+  "task": "corpus-duplicate-rows",
+  "phase": "design",
+  "status": "DESIGNED",
+  "flags": {
+    "backend_layer": true,
+    "frontend_layer": false,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/corpus-duplicate-rows.md",
+    "tech_design": "docs/tech-design/corpus-duplicate-rows.md"
+  },
+  "origin": {
+    "discovered_in_task": "ocr-improvement",
+    "discovered_in_file": "progress/ocr-improvement.md",
+    "discovered_in_log_entry": "Step 2 (03-scoring-and-cutoff.md) — 'corpus-duplicate-row artifacts' (t003, t004, t011, c006, all CeraVe)",
+    "human_direction": "\"that's a data problem, not a search problem\" — open as its own tracked task"
+  },
+  "quantified_scope": {
+    "snapshot_date": "2026-08-23",
+    "total_products": 21084,
+    "obf_import_products": 17342,
+    "vials_seed_products": 3742,
+    "distinct_search_norm_values": 20430,
+    "duplicate_groups_search_norm": 439,
+    "duplicate_group_rows": 1093,
+    "excess_rows": 654,
+    "barcode_unique_index_violations": 0,
+    "duplicate_group_rows_with_null_barcode": 2,
+    "groups_obf_import_only": 414,
+    "groups_vials_seed_only": 24,
+    "groups_cross_source": 1,
+    "groups_fully_branded_genuine_candidates": 326,
+    "groups_fully_unbranded_excluded_as_non_goal": 91,
+    "groups_mixed_brand": 22,
+    "best_candidate_pairs_sampled": 187,
+    "best_candidate_pairs_near_identical_inci": 115,
+    "best_candidate_pairs_meaningfully_different_inci": 72,
+    "cerave_duplicate_groups": 8
+  },
+  "root_cause": {
+    "confidence": "high on mechanism (evidenced directly), medium on upstream-OBF cause (cannot verify without raw OBF dump)",
+    "summary": "Not a double-import bug: uid is globally unique, barcode partial-unique index has zero live violations, and NULL barcode is nearly absent from duplicate-group rows (2 of 1093). Every inspected 'fully branded' duplicate pair has two different, individually valid barcodes under identical brand+name text. seed_obf.py dedupes only in-memory, within a single run, keyed on exact barcode — no brand+name text dedup exists anywhere in the pipeline. Most consistent explanation: OBF's own upstream dataset already lists the same named product under multiple distinct barcodes (regional SKU variants / repeat community submissions), imported faithfully as separate rows. Cross-source (vials_seed vs obf_import) duplication confirmed via docs/database/db-update-log-2026-07-25.md's '2 held' unresolved barcode collisions — one found live in the corpus (the ordinary granactive retinoid 2% emulsion); the second not found by text-matching, likely undercounted due to name-formatting differences between sources."
+  },
+  "blast_radius_verified": {
+    "shelf_uid_reference_field": "Product.openBeautyFactsId (src/types/index.ts:343)",
+    "set_only_when": "source === 'obf_import' (ManualProductFormScreen.tsx:560, FirstProductScreen.tsx:75); always null for vials_seed/community",
+    "live_refetch_by_this_field": false,
+    "routines_reference": "local shelf Product.id, never the corpus uid directly (corrects task-brief shorthand)",
+    "existing_contract": "INTEGRATION_GUIDE.md §5 already documents the obf_import uid reference as expected to go stale (whole-source pre-release cutover)"
+  },
+  "open_questions": [
+    { "id": "Q1", "owner": "product owner", "summary": "Fix strategy: delete / redirect-table merge / import-time-prevention-only" },
+    { "id": "Q2", "owner": "product owner", "summary": "The 72 meaningfully-different-inci_raw pairs: collapse or keep as distinct SKUs" },
+    { "id": "Q3", "owner": "corpus/data-pipeline owner (unassigned — resolving Q3 should name one)", "summary": "Cross-source precedence rule, incl. the 2nd unresolved 'held' collision" },
+    { "id": "Q4", "owner": "corpus/data-pipeline owner (unassigned — resolving Q4 should name one)", "summary": "Whether/when to build import-time de-duplication" },
+    { "id": "Q5", "owner": "vials_seed data owner", "summary": "2 rows with placeholder name 'Название не найдено' — small unrelated fix" }
+  ],
+  "constraints": [
+    "No app code under src/ was changed.",
+    "No branch was created; stayed on feature/ocr-improvement per instructions.",
+    "Nothing was committed.",
+    "docs/tasks/ocr_improvement/, scripts/search-eval/, and src/services/corpus/* were not modified.",
+    "This task must not advance to qa-lead/engineer until open_questions Q1-Q4 are answered by a human and a fix is (re-)tech-designed."
+  ]
+}
