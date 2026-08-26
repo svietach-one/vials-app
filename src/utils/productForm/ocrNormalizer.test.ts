@@ -1,4 +1,4 @@
-import { splitLabelLines, splitLabelText } from './ocrNormalizer';
+import { buildOcrProductQuery, splitLabelLines, splitLabelText } from './ocrNormalizer';
 
 describe('splitLabelLines', () => {
   it('keeps each detected line separate for the chip pool', () => {
@@ -48,5 +48,37 @@ describe('splitLabelText', () => {
   it('returns empty fields for empty or whitespace-only input', () => {
     expect(splitLabelText('')).toEqual({ brand: '', name: '' });
     expect(splitLabelText('  \n  \n')).toEqual({ brand: '', name: '' });
+  });
+});
+
+describe('buildOcrProductQuery', () => {
+  it('produces a two-field ProductQuery from a multi-line rawText', () => {
+    const rawText = 'CeraVe\nFoaming Cleanser\nNormal to Oily Skin';
+
+    const result = buildOcrProductQuery(rawText);
+
+    expect(result).toEqual({
+      brand: 'CeraVe',
+      name: 'Foaming Cleanser Normal to Oily Skin',
+      origin: 'ocr',
+      raw: rawText,
+    });
+  });
+
+  it('falls back to using brand as name and drops brand when the split yields an empty name', () => {
+    const rawText = 'Bioderma';
+
+    const result = buildOcrProductQuery(rawText);
+
+    expect(result).toEqual({ name: 'Bioderma', origin: 'ocr', raw: rawText });
+    expect(result.brand).toBeUndefined();
+  });
+
+  it('never produces a query with an empty name for whitespace-only input', () => {
+    const rawText = '  \n  \n';
+
+    const result = buildOcrProductQuery(rawText);
+
+    expect(result).toEqual({ name: '', origin: 'ocr', raw: rawText });
   });
 });

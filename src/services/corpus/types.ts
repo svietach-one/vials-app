@@ -28,8 +28,36 @@ export interface CorpusProduct {
   nameLacin: string | null;
 }
 
+/**
+ * A {@link CorpusProduct} after step-2 scoring (docs/tasks/ocr_improvement/
+ * 03-scoring-and-cutoff.md). `ProductRepository.search()` returns this shape
+ * instead of a bare `CorpusProduct[]` so every caller (and the eval harness)
+ * can see, and threshold on, why a result was shown.
+ */
+export interface ScoredCorpusProduct extends CorpusProduct {
+  /** 0..1, from scoreCandidate() — coverage of the query by this candidate. */
+  score: number;
+}
+
 /** Row shape read from `ingredients` (autocomplete + tag vocabulary). */
 export interface IngredientHit {
   inciName: string;
   activeKey: ActiveIngredientKey | null;
 }
+
+/**
+ * Structured search input built at the call site (never inside
+ * {@link CorpusQueryExecutor}'s consumers' repository) — the typed search bar
+ * has no separate brand, an OCR label capture does. `origin` lets later steps
+ * (see docs/tasks/ocr_improvement/03-scoring-and-cutoff.md) branch retrieval
+ * strategy on whether the input is a clean typed string or noisy label OCR.
+ */
+export type ProductQuery = {
+  /** May be absent — typed search has no separate brand line. */
+  brand?: string;
+  /** Always present; for typed search, the whole typed string. */
+  name: string;
+  origin: 'typed' | 'ocr';
+  /** Original input, for telemetry/debugging — never queried on. */
+  raw?: string;
+};

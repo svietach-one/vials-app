@@ -1,0 +1,21 @@
+[
+  {
+    "id": "r01",
+    "label": "CeraVe Foaming Facial Cleanser (own product, in corpus)",
+    "rawText": "CeraVe\nFoaming Facial\nCleanser\nNormal to Oily Skin",
+    "expectedBarcode": "3337875597765"
+  },
+  {
+    "id": "r02",
+    "label": "Some product I'm not sure is in the corpus",
+    "rawText": "paste the exact text after '[OCR] filtered:' from the Metro console here",
+    "expectedBrand": "Brand as printed",
+    "expectedName": "Full product name as printed"
+  },
+  {
+    "id": "r03",
+    "label": "A product I know is NOT in the corpus (control case)",
+    "rawText": "...",
+    "notInCorpus": true
+  }
+]

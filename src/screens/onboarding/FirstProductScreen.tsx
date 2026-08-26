@@ -49,7 +49,7 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
     }
     setSearching(true);
     try {
-      const products = await productRepository.search(text);
+      const products = await productRepository.search({ name: text, origin: 'typed', raw: text });
       setResults(products);
     } catch (e) {
       // Corpus unreachable — onboarding stays usable via manual entry.

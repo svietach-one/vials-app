@@ -62,7 +62,7 @@ export default function AddProductHubScreen({ navigation, route }: Props) {
     setSearching(true);
     setSearchError(false);
     productRepository
-      .search(debouncedQuery)
+      .search({ name: debouncedQuery, origin: 'typed', raw: debouncedQuery })
       .then((products) => {
         if (cancelled) return;
         setSearchResults(products);

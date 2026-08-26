@@ -43,3 +43,7 @@ coverage/
 # Generated corpus dumps (regenerate via handoff/ pipeline scripts)
 handoff/out/
 handoff/*.csv
+
+# Real device OCR captures fed to scripts/search-eval/diagnose-real-captures.ts —
+# local diagnostic input, not a fixture, never committed.
+scripts/search-eval/real-captures.local.json

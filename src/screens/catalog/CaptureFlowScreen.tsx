@@ -10,9 +10,10 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProductRepository } from '@/hooks/useCorpusRepositories';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
-import type { CorpusProduct } from '@/services/corpus/types';
+import { SEARCH_CONFIG } from '@/services/corpus/searchConfig';
+import type { CorpusProduct, ProductQuery } from '@/services/corpus/types';
 import type { CaptureResult } from '@/types';
-import { splitLabelText } from '@/utils/productForm/ocrNormalizer';
+import { buildOcrProductQuery, splitLabelText } from '@/utils/productForm/ocrNormalizer';
 
 /**
  * Product Intelligence — capture flow (docs/tasks/ux-explore-vials/07-capture-flow.md),
@@ -79,7 +80,17 @@ export default function CaptureFlowScreen({ navigation, route }: Props) {
       return;
     }
     try {
-      const results = await productRepository.search(rawText);
+      // Segmenting the label into brand/name before searching is step 1 of
+      // the product-search-precision fix (docs/tasks/ocr_improvement/02-
+      // segment-ocr-query.md) — gated behind SEARCH_CONFIG.segmentOcrQuery so
+      // the eval harness can reproduce the old undivided-blob behaviour for
+      // before/after comparison. When the flag is off, `name` carries the
+      // whole raw blob and `brand` is omitted, which is byte-identical to
+      // the pre-step-1 query the repository used to build from a raw string.
+      const query: ProductQuery = SEARCH_CONFIG.segmentOcrQuery
+        ? buildOcrProductQuery(rawText)
+        : { name: rawText, origin: 'ocr', raw: rawText };
+      const results = await productRepository.search(query);
       if (results.length > 0) {
         setSearchResults(results);
         setStep('match_results');
