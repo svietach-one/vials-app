@@ -24,17 +24,20 @@ import { PillToggle } from '@/components/ui/core/PillToggle';
 import { Badge } from '@/components/ui/feedback/Badge';
 import { Toast } from '@/components/ui/feedback/Toast';
 import { Tag } from '@/components/ui/core/Tag';
-import { colors, space, typography } from '@/constants/tokens';
+import { colors, palette, space, typography } from '@/constants/tokens';
 import {
   ACTIVE_INGREDIENT_LABELS,
   FUNCTIONAL_BENEFIT_INGREDIENTS,
   PRODUCT_TYPE_LABELS,
 } from '@/constants/labels';
+import { EXPLORE_COMPOSITION_ENABLED } from '@/constants/featureFlags';
 import { deleteProductCascade } from '@/domain/productActions';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
+import { WishlistEntryCard } from '@/components/product/WishlistEntryCard';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
-import type { CatalogFilterState, Product, ProductStatus } from '@/types';
+import { useWishlistStore } from '@/store/wishlistStore';
+import type { CatalogFilterState, Product, ProductStatus, WishlistEntry } from '@/types';
 import { CATALOG_FILTER_DEFAULT } from '@/types';
 import { getProductRoutineStatus, type RoutineStatusResult } from '@/utils/routineStatus';
 import { getProductPaoStatus } from '@/utils/paoHelpers';
@@ -97,6 +100,11 @@ export default function CatalogScreen({ navigation, route }: Props) {
   const removeProduct = useProductsStore((s) => s.removeProduct);
   const routines = useRoutinesStore((s) => s.routines);
   const removeProductStep = useRoutinesStore((s) => s.removeProductStep);
+  // Explore Composition flow (docs/specs/explore-composition.md) —
+  // rendering/routing both gated behind EXPLORE_COMPOSITION_ENABLED below;
+  // the hook itself is always called (rules of hooks), never conditionally.
+  const wishlistEntries = useWishlistStore((s) => s.entries);
+  const removeWishlistEntry = useWishlistStore((s) => s.removeEntry);
 
   // My Shelf's two entities (docs/tasks/ux-explore-vials/01-entry-points.md
   // §0) — absence of `status` is treated as 'owned', same convention as
@@ -140,6 +148,19 @@ export default function CatalogScreen({ navigation, route }: Props) {
       deleteProductCascade(deleteTarget.id);
       setDeleteTarget(null);
     }
+  }
+
+  function handlePromoteWishlistEntry(entry: WishlistEntry) {
+    navigation.navigate('ManualProductForm', {
+      explorePrefill: {
+        rawIngredientsText: entry.rawIngredientsText,
+        activeKeys: entry.parsedIngredientIds,
+        brand: entry.brand,
+        name: entry.name,
+        category: entry.category,
+        wishlistEntryId: entry.id,
+      },
+    });
   }
 
   // ── Render item ───────────────────────────────────────────────────────────
@@ -219,6 +240,37 @@ export default function CatalogScreen({ navigation, route }: Props) {
           // Search now lives inside the filter sheet — this scrolls with the
           // list rather than sitting pinned under the header.
           <View style={styles.tabsWrap}>
+            {EXPLORE_COMPOSITION_ENABLED ? (
+              // Moved above the tabs (2026-08-27, per follow-up) — was
+              // previously under the PillToggle; also given a plum outline
+              // so the cards read closer to buttons.
+              <View style={styles.entryCardRowAboveTabs}>
+                <Card
+                  interactive
+                  padding="none"
+                  onPress={() => navigation.navigate('AddProductHub')}
+                  style={styles.entryCardCompact}
+                >
+                  <View style={styles.entryCardIconWrapSmall}>
+                    <Icon name="plus-circle" size={16} color={palette.plum} />
+                  </View>
+                  <Text style={styles.entryCardTitle}>Add new</Text>
+                  <Text style={styles.entryCardSubtitle}>You already own it</Text>
+                </Card>
+                <Card
+                  interactive
+                  padding="none"
+                  onPress={() => navigation.navigate('ExploreCompositionCapture', {})}
+                  style={styles.entryCardCompact}
+                >
+                  <View style={styles.entryCardIconWrapSmall}>
+                    <Icon name="list" size={16} color={palette.plum} />
+                  </View>
+                  <Text style={styles.entryCardTitle}>Explore</Text>
+                  <Text style={styles.entryCardSubtitle}>Before you buy</Text>
+                </Card>
+              </View>
+            ) : null}
             <PillToggle
               options={[
                 { value: 'owned', label: `Owned · ${ownedProducts.length}` },
@@ -227,6 +279,27 @@ export default function CatalogScreen({ navigation, route }: Props) {
               value={activeTab}
               onValueChange={(v) => setActiveTab(v as ProductStatus)}
             />
+            {/* WishlistEntry rows (Explore Composition flow) render as a
+                distinct, separately-labeled section within this same tab —
+                never merged with the fully-identified wishlist products
+                above/below (tech design Assumption 5). Behind the default-off
+                flag pending product/design sign-off (spec §10). */}
+            {EXPLORE_COMPOSITION_ENABLED && activeTab === 'wishlist' && wishlistEntries.length > 0 ? (
+              <View style={styles.wishlistEntriesSection}>
+                <Text style={styles.wishlistEntriesLabel}>Explored compositions</Text>
+                {wishlistEntries.map((entry) => (
+                  <WishlistEntryCard
+                    key={entry.id}
+                    entry={entry}
+                    onCardPress={(e) =>
+                      navigation.navigate('WishlistEntryDetail', { wishlistEntryId: e.id })
+                    }
+                    onPromote={handlePromoteWishlistEntry}
+                    onDelete={(e) => removeWishlistEntry(e.id)}
+                  />
+                ))}
+              </View>
+            ) : null}
           </View>
         }
         ListEmptyComponent={
@@ -245,23 +318,25 @@ export default function CatalogScreen({ navigation, route }: Props) {
         }
       />
 
-      <View style={styles.entryPointRow}>
-        <Button
-          size="lg"
-          onPress={() => navigation.navigate('AddProductHub')}
-          style={styles.entryPointBtn}
-        >
-          Add new
-        </Button>
-        <Button
-          variant="secondary"
-          size="lg"
-          onPress={() => navigation.navigate('CaptureFlow', { initialStatus: 'wishlist' })}
-          style={styles.entryPointBtn}
-        >
-          Explore new
-        </Button>
-      </View>
+      {EXPLORE_COMPOSITION_ENABLED ? null : (
+        <View style={styles.entryPointRow}>
+          <Button
+            size="lg"
+            onPress={() => navigation.navigate('AddProductHub')}
+            style={styles.entryPointBtn}
+          >
+            Add new
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            onPress={() => navigation.navigate('CaptureFlow', { initialStatus: 'wishlist' })}
+            style={styles.entryPointBtn}
+          >
+            Explore new
+          </Button>
+        </View>
+      )}
 
       <DeleteProductModal
         product={deleteTarget}
@@ -446,6 +521,44 @@ const styles = StyleSheet.create({
   },
   entryPointBtn: {
     flex: 1,
+  },
+  entryCardRowAboveTabs: {
+    flexDirection: 'row',
+    gap: space[3],
+    marginBottom: space[3],
+  },
+  entryCardCompact: {
+    flex: 1,
+    padding: space[3],
+    gap: 2,
+    borderWidth: 1,
+    borderColor: palette.plum,
+  },
+  entryCardIconWrapSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    backgroundColor: palette.plumTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: space[1],
+  },
+  entryCardTitle: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
+  },
+  entryCardSubtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  wishlistEntriesSection: {
+    marginTop: space[4],
+    gap: space[2],
+  },
+  wishlistEntriesLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
   },
   listContent: {
     paddingHorizontal: space.gutterScreen,

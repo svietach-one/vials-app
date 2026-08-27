@@ -6,7 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors, palette } from '@/constants/tokens';
 import type { CorpusProduct } from '@/services/corpus/types';
 import { useProfileStore } from '@/store/profileStore';
-import type { ProductStatus } from '@/types';
+import type { ActiveIngredientKey, ProductStatus, ProductType } from '@/types';
 
 // ─── Onboarding screens ───────────────────────────────────────────────────────
 
@@ -31,6 +31,9 @@ import ProductDetailScreen from '@/screens/ProductDetailScreen';
 import BarcodeScannerScreen from '@/screens/BarcodeScannerScreen';
 import AddProductScreen from '@/screens/catalog/AddProductScreen';
 import CaptureFlowScreen from '@/screens/catalog/CaptureFlowScreen';
+import ExploreCompositionCaptureScreen from '@/screens/catalog/ExploreCompositionCaptureScreen';
+import ExploreCompositionResultScreen from '@/screens/catalog/ExploreCompositionResultScreen';
+import WishlistEntryDetailScreen from '@/screens/catalog/WishlistEntryDetailScreen';
 
 // ─── Param lists ──────────────────────────────────────────────────────────────
 
@@ -76,11 +79,42 @@ export type CatalogStackParamList = {
      * corpus match commonly has no photo of its own.
      */
     capturedPhotoUri?: string;
+    /**
+     * A captured-but-not-yet-identified composition from the Explore
+     * Composition flow (docs/specs/explore-composition.md Story 4/5) —
+     * either straight from `ExploreCompositionResultScreen` (no
+     * `wishlistEntryId`) or promoting a saved `WishlistEntry` (with one, so
+     * it can be removed only after a successful save). Mutually exclusive
+     * with `prefillCorpusProduct`/`editingProductId`/`ocrPrefill`.
+     */
+    explorePrefill?: {
+      rawIngredientsText: string;
+      activeKeys: ActiveIngredientKey[];
+      brand: string | null;
+      name: string | null;
+      category: ProductType | null;
+      wishlistEntryId?: string;
+    };
   };
   ProductDetail: { productId: string };
   BarcodeScanner: undefined;
   AddProduct: { initialStatus?: ProductStatus } | undefined;
   CaptureFlow: { initialStatus?: ProductStatus } | undefined;
+  /**
+   * Explore Composition flow's capture screen — replaces `CaptureFlow` as
+   * "Explore new"'s destination when `EXPLORE_COMPOSITION_ENABLED` is on
+   * (docs/tech-design/explore-composition.md FE-1/FE-2). An optional
+   * single-tap category, carried through unresolved to the result screen.
+   */
+  ExploreCompositionCapture: { category?: ProductType } | undefined;
+  /** Explore Composition flow's result screen (tech design FE-4). */
+  ExploreCompositionResult: { rawIngredientsText: string; category: ProductType | null };
+  /**
+   * A saved `WishlistEntry`'s own detail page (Story 9, tech design FE-22) —
+   * an id-only route, mirroring `ProductDetail`'s `{ productId }` convention,
+   * to avoid stale-data risk from passing the whole entity through params.
+   */
+  WishlistEntryDetail: { wishlistEntryId: string };
 };
 
 export type ClinicStackParamList = {
@@ -131,6 +165,18 @@ function CatalogNavigator() {
       <CatalogStack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
       <CatalogStack.Screen name="AddProduct" component={AddProductScreen} />
       <CatalogStack.Screen name="CaptureFlow" component={CaptureFlowScreen} />
+      <CatalogStack.Screen
+        name="ExploreCompositionCapture"
+        component={ExploreCompositionCaptureScreen}
+      />
+      <CatalogStack.Screen
+        name="ExploreCompositionResult"
+        component={ExploreCompositionResultScreen}
+      />
+      <CatalogStack.Screen
+        name="WishlistEntryDetail"
+        component={WishlistEntryDetailScreen}
+      />
     </CatalogStack.Navigator>
   );
 }

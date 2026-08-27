@@ -715,6 +715,32 @@ export const CATALOG_FILTER_DEFAULT: CatalogFilterState = {
   selectedBenefits: [],
 };
 
+// ─── Wishlist entry (docs/specs/explore-composition.md §6) ───────────────────
+// A lightweight, identity-optional composition saved from the Explore
+// Composition flow — deliberately isolated from `Product`/`productsStore`:
+// no `conflictEngine.ts` evaluation, no Catalog filter/biomarker logic, never
+// reaches the community-contribution flow. Promoted to a full `Product` (and
+// removed) via `ManualProductFormScreen`'s `explorePrefill` mode.
+
+export interface WishlistEntry {
+  id: string;
+  brand: string | null;
+  name: string | null;
+  category: ProductType | null;
+  rawIngredientsText: string;
+  parsedIngredientIds: ActiveIngredientKey[];
+  sourceFlow: 'explore_composition' | 'add_product';
+  createdAt: string;
+  /**
+   * Story 9 (docs/tech-design/explore-composition.md FE-16) — a free-form
+   * note the user types on `WishlistEntryDetailScreen`. Optional so
+   * already-persisted entries from prior slices need no migration: absent
+   * means "no note", the same convention as other optional fields added to
+   * an existing entity in this codebase (e.g. `Product.isHidden?`).
+   */
+  notes?: string | null;
+}
+
 // ─── Add Product wizard ───────────────────────────────────────────────────────
 
 /** Which capture flow the shared camera modal runs. */

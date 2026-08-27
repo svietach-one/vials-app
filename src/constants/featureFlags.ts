@@ -102,3 +102,20 @@ export const PREGNANCY_SAFETY_ENABLED = true;
  * revisit before re-enabling. Export All Data itself is unaffected.
  */
 export const LOCAL_STORAGE_NOTICE_ENABLED = false;
+
+/**
+ * Explore Composition flow (docs/specs/explore-composition.md) — the
+ * ingredient-only capture -> result -> Wishlist/Shelf path, and its
+ * `WishlistEntry` rendering inside the Catalog "Wishlist · N" tab.
+ *
+ * **ON** (2026-08-27, product decision after real-device testing across all
+ * four slices). Of spec §10's two open questions, the entry-card subtitle
+ * copy is resolved (no longer a placeholder); how `WishlistEntry` rows
+ * should visually relate to the pre-existing wishlist-status products tab
+ * (tech design Assumption 5) is still genuinely open, but accepted as a
+ * non-blocking cosmetic follow-up rather than a reason to keep the whole
+ * flow off — the shipped default (a distinct, separately-labeled section
+ * within the same tab) stands until product/design revisit it. Flip off
+ * only if a real problem surfaces with that default, not by default.
+ */
+export const EXPLORE_COMPOSITION_ENABLED = true;

@@ -94,6 +94,31 @@ export class ProductRepository {
     );
   }
 
+  /**
+   * Distinct corpus brands whose name starts with `prefix` (case-variant,
+   * not the trigram/substring matching `search()` uses — brand-autocomplete
+   * wants a prefix match, same convention as the local `filterBrandPrefix`
+   * this complements). Secondary-lookup fallback convention (graceful empty
+   * list + dev-only log on failure, same as `getActiveKeys`) since a broken
+   * corpus should never block typing a brand by hand.
+   */
+  async searchBrands(prefix: string): Promise<string[]> {
+    const trimmed = prefix.trim();
+    if (!trimmed) return [];
+    try {
+      const params = caseVariants(trimmed).map((v) => `${escapeLikePattern(v)}%`);
+      const where = params.map(() => `brand LIKE ? ESCAPE '${LIKE_ESCAPE}'`).join(' OR ');
+      const rows = await this.db.getAllAsync<{ brand: string }>(
+        `SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND (${where}) ORDER BY brand LIMIT 8`,
+        params,
+      );
+      return rows.map((r) => r.brand);
+    } catch (e) {
+      if (__DEV__) console.warn('[ProductRepository] searchBrands failed', e);
+      return [];
+    }
+  }
+
   async getActiveKeys(uid: string): Promise<ActiveIngredientKey[]> {
     try {
       const rows = await this.db.getAllAsync<{ active_key: ActiveIngredientKey }>(

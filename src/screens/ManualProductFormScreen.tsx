@@ -25,6 +25,7 @@ import { Card } from '@/components/ui/core/Card';
 import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
+import { BrandAutocompleteInput } from '@/components/addProduct/BrandAutocompleteInput';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
@@ -41,6 +42,7 @@ import {
 } from '@/services/productImage';
 import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 import { generateId } from '@/utils/generateId';
+import { searchBrandsWithCorpus } from '@/utils/productForm/brandLookup';
 import { resolveProductType } from '@/utils/productType';
 import type {
   ActiveIngredient,
@@ -53,6 +55,7 @@ import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useWishlistStore } from '@/store/wishlistStore';
 import { canShareContributionPhoto } from '@/utils/contributionConsent';
 import { contributedProductsCount, decideManualSave } from '@/utils/contributionConsentFlow';
 
@@ -437,14 +440,24 @@ function ShareStatus({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ManualProductFormScreen({ route, navigation }: Props) {
-  const { prefillCorpusProduct, editingProductId, initialStatus, ocrPrefill, capturedPhotoUri } =
-    route.params;
+  const {
+    prefillCorpusProduct,
+    editingProductId,
+    initialStatus,
+    ocrPrefill,
+    capturedPhotoUri,
+    explorePrefill,
+  } = route.params;
 
   const products = useProductsStore((st) => st.products);
   const addProduct = useProductsStore((st) => st.addProduct);
   const updateProduct = useProductsStore((st) => st.updateProduct);
   const profile = useProfileStore((s) => s.profile);
   const productRepository = useProductRepository();
+  // Explore Composition flow (docs/specs/explore-composition.md Story 5) —
+  // only used to remove a promoted WishlistEntry, and only after a
+  // successful save (see handleSave's explorePrefill branch below).
+  const removeWishlistEntry = useWishlistStore((s) => s.removeEntry);
 
   // Product-contribution consent (docs/specs/contribution-consent-flow/) —
   // only applies to genuinely manual, new saves (no corpus/OBF prefill, not
@@ -584,6 +597,20 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         );
         setOcrScanned(true);
       }
+    } else if (explorePrefill) {
+      // Explore Composition flow (docs/specs/explore-composition.md Story
+      // 4/5, tech design FE-6) — brand/name are pre-filled when the entry
+      // already has them (e.g. promoted via "Move to Shelf", spec Story 5
+      // AC1), otherwise left empty for the user to fill in; the
+      // already-resolved activeKeys are used as-is (never a re-parse of the
+      // text), and the ingredients photo captured in that flow is
+      // deliberately never written to localImageUri (tech design
+      // Assumption 6) — only a front/jar photo satisfies that slot.
+      if (explorePrefill.brand) setBrand(explorePrefill.brand);
+      if (explorePrefill.name) setName(explorePrefill.name);
+      setFullIngredientText(explorePrefill.rawIngredientsText);
+      setSelectedIngredients(keysToIngredients(explorePrefill.activeKeys));
+      if (explorePrefill.category) setProductType(explorePrefill.category);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -858,6 +885,23 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       return;
     }
 
+    // Explore Composition flow (docs/specs/explore-composition.md Story 4/5,
+    // tech design FE-6) — same unconditional-share pattern as a corpus
+    // prefill above (this is also not a genuinely-manual entry): no
+    // contribution-consent gating. The promoted WishlistEntry, if any, is
+    // removed only AFTER addProduct succeeds — never before, never instead
+    // of creating the product (Story 5 AC3).
+    if (explorePrefill) {
+      const product = buildProduct();
+      addProduct(product);
+      if (explorePrefill.wishlistEntryId) {
+        removeWishlistEntry(explorePrefill.wishlistEntryId);
+      }
+      void shareProduct(product);
+      maybeOpenScheduler(product);
+      return;
+    }
+
     const decision = decideManualSave(
       {
         status: contributionConsentStatus,
@@ -977,12 +1021,19 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
                 returnKeyType="next"
               />
 
-              <Input
-                label="Brand"
+              {/* Corpus-backed brand autocomplete (2026-08-27, real-device
+                  finding) — this screen has no Explore Composition guardrail
+                  (it's the shared manual-entry completion form for both the
+                  ordinary "Add new" wizard and Explore Composition's own
+                  "Put on Shelf"/"Move to Shelf" step, already uses
+                  useProductRepository/corpus access elsewhere), so it opts
+                  into the full-corpus search variant unlike the
+                  Save-to-Wishlist modal's local-only one. */}
+              <BrandAutocompleteInput
                 value={brand}
-                onChangeText={setBrand}
-                placeholder="e.g. La Roche-Posay"
-                returnKeyType="next"
+                onSelectSuggestion={setBrand}
+                onCommitTyped={setBrand}
+                searchFn={searchBrandsWithCorpus}
               />
 
               <View style={s.fieldGroup}>
@@ -1075,7 +1126,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         </ScrollView>
 
         <View style={s.footer}>
-          {!isEditMode && !prefillSource && contributionConsentStatus !== 'disabled' && contributionConsentStatus !== 'unset' ? (
+          {!isEditMode && !prefillSource && !explorePrefill && contributionConsentStatus !== 'disabled' && contributionConsentStatus !== 'unset' ? (
             <ContributionToggle checked={shareToggleOn} onValueChange={setShareToggleOn} />
           ) : null}
           <ShareStatus

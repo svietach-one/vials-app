@@ -58,6 +58,32 @@ export const SLOT_CATEGORY_LABELS: Record<ProductType, string> = {
   spf: 'SPF',
 };
 
+/**
+ * Human-readable routine phase label per `LAYERING_ORDER` numeric value
+ * (`src/constants/rulesets/productFacts.ts`, 0–13) — Explore Composition
+ * Story 8 (2026-08-26 decision batch, FE-12). A new map, not a rename/reuse
+ * of `SLOT_CATEGORY_LABELS` above: that map is a lowercase product-category
+ * noun already used in duplicate-slot-warning copy elsewhere; this one is
+ * Title-Case, gerund/phase-style copy keyed by the numeric layering order,
+ * for a different call site (`RoutinePlacementCard.tsx`).
+ */
+export const ROUTINE_PHASE_LABELS: Record<number, string> = {
+  0: 'Makeup Removal',
+  1: 'Cleansing',
+  2: 'Exfoliation',
+  3: 'Toning',
+  4: 'Essence',
+  5: 'Ampoule / Booster',
+  6: 'Treatment',
+  7: 'Other',
+  8: 'Spot Treatment',
+  9: 'Eye Care',
+  10: 'Mask',
+  11: 'Moisturizing',
+  12: 'Sealing / Oil',
+  13: 'Sun Protection',
+};
+
 /** Singular human-readable slot/category name, e.g. "moisturizer", "SPF". */
 export function getSlotCategoryLabel(productType: ProductType): string {
   return SLOT_CATEGORY_LABELS[productType] ?? PRODUCT_TYPE_LABELS[productType];

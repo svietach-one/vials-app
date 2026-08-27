@@ -11,18 +11,29 @@ export interface BrandAutocompleteInputProps {
   onSelectSuggestion: (brand: string) => void;
   /** User typed freely; committed on blur or submit. */
   onCommitTyped: (text: string) => void;
+  /**
+   * Suggestion source — defaults to the local-only `searchBrands` (Shelf
+   * brands + static seed dictionary, no network call, fully offline). Pass
+   * `searchBrandsWithCorpus` (from `@/utils/productForm/brandLookup`) for
+   * screens allowed to also query the full remote corpus — NOT for
+   * `ExploreCompositionResultScreen.tsx`'s Save-to-Wishlist modal, which must
+   * stay local-only per its own guardrail (see that file's doc comment).
+   */
+  searchFn?: (query: string) => Promise<string[]>;
 }
 
 const DEBOUNCE_MS = 150;
 
 /**
- * Brand input with a local-only autocomplete dropdown (searchBrands filters
- * the in-memory shelf — no network call happens here, fully offline).
+ * Brand input with an autocomplete dropdown. Local-only by default
+ * (`searchBrands` filters the in-memory shelf — no network call, fully
+ * offline); pass `searchFn` to opt into a different suggestion source.
  */
 export function BrandAutocompleteInput({
   value,
   onSelectSuggestion,
   onCommitTyped,
+  searchFn = searchBrands,
 }: BrandAutocompleteInputProps) {
   const [text, setText] = useState(value);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -45,7 +56,7 @@ export function BrandAutocompleteInput({
     setText(next);
     if (debounceRef.current !== null) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      void searchBrands(next).then(setSuggestions);
+      void searchFn(next).then(setSuggestions);
     }, DEBOUNCE_MS);
   }
 
