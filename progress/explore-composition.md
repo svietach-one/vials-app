@@ -1384,3 +1384,47 @@ Code:
     resolved, with the scope boundary spelled out.
   `npx tsc --noEmit` clean; `npx jest src/utils/productProfile/ingredientSectionExtractor.test.ts
   tests/explore-composition`: 10/10 suites, 116/116 tests green.
+
+- 2026-08-28 (user, real-device follow-up round, applied directly): committed the four-slice
+  feature (`fdb5b26` config fix, `44df32a` feature) after user explicitly confirmed
+  `EXPLORE_COMPOSITION_ENABLED` should ship ON rather than reverted — Wishlist-tab-presentation
+  (spec §10) accepted as a non-blocking follow-up, not a reason to gate the flow; the flag's own
+  doc comment in `featureFlags.ts` rewritten to record this as a decision, not leftover test
+  scaffolding. Then a further round of device-testing fixes, all on top of that commit:
+  - `WishlistEntryCard.tsx`: "Move to Shelf" → `variant="secondary"`; "Delete" → "Remove" (matches
+    `WishlistProductCard.tsx`'s existing wording). Test updated to match.
+  - **Bug: "Wishlist · N" tab counter read 0 after saving a composition.** `CatalogScreen.tsx`'s
+    counter only ever summed `wishlistProducts.length` (real Products), never `wishlistEntries`.
+    Fixed to `wishlistProducts.length + wishlistEntries.length` (gated on
+    `EXPLORE_COMPOSITION_ENABLED`, consistent with every other read of that array in this file).
+  - **Bug: "Nothing here yet" empty state rendered underneath a real WishlistEntry card.** The
+    Wishlist tab's `FlatList` `data` is still just `wishlistProducts`, so it stayed "empty" (and
+    rendered its own empty state) even once the header above it had shown a real entry card.
+    `ListEmptyComponent` now resolves to `null` whenever `wishlistEntries.length > 0`.
+  - "Explored compositions" section heading removed (user request) — `wishlistEntriesLabel` style
+    deleted as dead code alongside it.
+  - Entry cards ("Add new"/"Explore"): icon moved from a leading `plumTint`-circle badge to an
+    absolutely-positioned top-right corner icon (per a user-supplied visual reference), card
+    background set to `palette.plumTintLight` (the token tokens.ts already reserves for exactly
+    this — a lighter wash than `plumTint`, for exactly the "would read too saturated" fill case).
+    Title font iterated 14px/label → 16px/body+Medium → reverted back to 14px/`typography.label`
+    per an explicit "step back" — net change from the pre-round baseline is None (still
+    `typography.label`), only the code got slightly cleaner (was `bodySmall` + manual
+    `fontFamily` override, now the canonical `label` token directly).
+  - **Bug: `BrandAutocompleteInput`'s suggestion dropdown pushed the rest of the modal down**
+    (Name field, Save button) instead of floating over it — real-device screenshot showed Name/Save
+    shoved off-screen under the keyboard. Root cause: the dropdown was a normal-flow sibling of the
+    Input. Fixed in the shared component itself (benefits every call site, not just the Wishlist
+    modal): dropdown is now `position: 'absolute'` anchored via `top: '100%'`, split into an outer
+    shadow/position layer and an inner rounded-corner-clip layer (`overflow: 'hidden'` and a shadow
+    can't share one view on iOS), and the component's own root view got `zIndex: 10` so it — and
+    the dropdown escaping its bounds — paints above later siblings (Name/Save) instead of behind
+    them. **No automated test for this one** — RNTL doesn't run real layout, so there's nothing a
+    component test can assert about an absolute-position overlay; verified by reasoning through the
+    Yoga/zIndex model only, real-device confirmation still pending.
+  Added 2 new tests to `CatalogScreen.wishlist-entries.enabled.test.tsx` (counter math, both empty-
+  state branches) with an `afterEach` restoring the productsStore/wishlistStore mock
+  implementations these tests override, so later tests in the same file don't inherit an emptied
+  fixture. `npx tsc --noEmit` clean; `npx jest tests/explore-composition tests/add-product-flow
+  src/components src/hooks src/store src/utils/productProfile src/services/corpus
+  src/utils/productForm`: 39/39 suites, 447/447 tests green.

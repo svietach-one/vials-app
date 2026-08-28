@@ -13,10 +13,12 @@ import type { WishlistEntry } from '@/types';
  * its actions and shape are deliberately different, not a variant of the
  * same card.
  *
- * `Delete` fires immediately with no confirmation modal (spec Story 3 AC3) —
- * `DeleteProductModal` is never imported here. `Move to Shelf` (spec Story
- * 3 AC2 / Story 5 AC1) hands the full entry to the caller so it can open the
- * shared completion form pre-filled.
+ * `Remove` (the `onDelete` prop — label changed 2026-08-28 to match
+ * `WishlistProductCard.tsx`'s own wording) fires immediately with no
+ * confirmation modal (spec Story 3 AC3) — `DeleteProductModal` is never
+ * imported here. `Move to Shelf` (spec Story 3 AC2 / Story 5 AC1) hands the
+ * full entry to the caller so it can open the shared completion form
+ * pre-filled.
  */
 export interface WishlistEntryCardProps {
   entry: WishlistEntry;
@@ -43,6 +45,7 @@ export function WishlistEntryCard({ entry, onCardPress, onPromote, onDelete }: W
 
       <View style={styles.actionsRow}>
         <Button
+          variant="secondary"
           size="sm"
           onPress={(e) => {
             e?.stopPropagation?.();
@@ -60,7 +63,7 @@ export function WishlistEntryCard({ entry, onCardPress, onPromote, onDelete }: W
             onDelete(entry);
           }}
         >
-          Delete
+          Remove
         </Button>
       </View>
     </Card>

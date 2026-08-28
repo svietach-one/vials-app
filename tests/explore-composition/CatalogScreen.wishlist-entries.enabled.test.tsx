@@ -191,6 +191,8 @@ jest.mock('@/store/wishlistStore', () => ({
 }));
 
 import CatalogScreen from '@/screens/CatalogScreen';
+import { useProductsStore } from '@/store/productsStore';
+import { useWishlistStore } from '@/store/wishlistStore';
 import { makeNavigation } from './fixtures';
 
 function renderScreen() {
@@ -226,6 +228,65 @@ describe('Assumption 5: WishlistEntry rows render as a distinct section, not mer
     const entryCards = screen.getAllByTestId('wishlist-entry-card');
     expect(productCards).toHaveLength(1);
     expect(entryCards).toHaveLength(1);
+  });
+});
+
+describe('2026-08-28 bug fix: the "Wishlist · N" tab counter must include WishlistEntry rows', () => {
+  it('adds wishlistEntries.length to wishlistProducts.length rather than counting Products only', () => {
+    renderScreen();
+
+    // Fixture has 1 identifiedWishlistProduct + 1 wishlistEntry — the
+    // pre-fix counter (wishlistProducts.length only) would have read "1".
+    expect(screen.getByText('Wishlist · 2')).toBeTruthy();
+  });
+});
+
+describe('2026-08-28 bug fix: no "Nothing here yet" empty state once a WishlistEntry card is showing', () => {
+  // These two tests override the productsStore/wishlistStore mock
+  // implementations (module-level jest.fn()s) to exercise fixture shapes the
+  // suite's default doesn't cover. jest.clearAllMocks() in the top-level
+  // beforeEach resets call history but NOT a reassigned implementation, so
+  // every test after these two in file order would otherwise keep running
+  // against an empty products/entries fixture instead of the suite's real
+  // default — restore both explicitly once these two tests are done.
+  afterEach(() => {
+    (useProductsStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+      selector({
+        products: [identifiedWishlistProduct],
+        updateProduct: mockUpdateProduct,
+        removeProduct: mockRemoveProduct,
+      }),
+    );
+    (useWishlistStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+      selector({ entries: [wishlistEntry], removeEntry: mockRemoveEntry }),
+    );
+  });
+
+  it('suppresses the Wishlist tab empty state when there are no real wishlist Products but a WishlistEntry exists', () => {
+    (useProductsStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+      selector({ products: [], updateProduct: mockUpdateProduct, removeProduct: mockRemoveProduct }),
+    );
+
+    renderScreen();
+    goToWishlistTab();
+
+    expect(screen.getByTestId('wishlist-entry-card')).toBeTruthy();
+    expect(screen.queryByText('Nothing here yet')).toBeNull();
+  });
+
+  it('still shows the empty state when there are neither wishlist Products nor WishlistEntry rows', () => {
+    (useProductsStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+      selector({ products: [], updateProduct: mockUpdateProduct, removeProduct: mockRemoveProduct }),
+    );
+    (useWishlistStore as unknown as jest.Mock).mockImplementation((selector: any) =>
+      selector({ entries: [], removeEntry: mockRemoveEntry }),
+    );
+
+    renderScreen();
+    goToWishlistTab();
+
+    expect(screen.queryByTestId('wishlist-entry-card')).toBeNull();
+    expect(screen.getByText('Nothing here yet')).toBeTruthy();
   });
 });
 

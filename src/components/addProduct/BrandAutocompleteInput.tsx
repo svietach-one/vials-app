@@ -85,7 +85,12 @@ export function BrandAutocompleteInput({
   const showDropdown = focused && suggestions.length > 0 && text.trim().length > 0;
 
   return (
-    <View>
+    // Elevated above later siblings (e.g. a Name field / Save button
+    // rendered right after this component in a modal) — otherwise, being
+    // earlier in document order, this view would paint BEHIND them and the
+    // absolutely-positioned dropdown below would end up hidden underneath
+    // rather than floating over them (2026-08-28 bug fix).
+    <View style={styles.root}>
       {/* Shared Input: persistent label + no lineHeight on the native field
           (spreading typography.body's lineHeight onto a single-line iOS
           TextInput breaks caret placement/scroll in long values). */}
@@ -103,19 +108,26 @@ export function BrandAutocompleteInput({
         accessibilityLabel="Brand"
       />
       {showDropdown ? (
+        // Two layers: `dropdown` (outer) carries the shadow and absolute
+        // positioning; `dropdownInner` carries the rounded-corner clip.
+        // `overflow: 'hidden'` and a shadow can't share one view on iOS —
+        // overflow clips the shadow itself to nothing — so the clip lives
+        // one level in, on a view with no shadow of its own.
         <View style={styles.dropdown}>
-          {suggestions.map((brand) => (
-            <Pressable
-              key={brand}
-              // onPressIn fires before the input's blur, so selection wins.
-              onPressIn={() => handleSelect(brand)}
-              style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]}
-              accessibilityRole="button"
-              accessibilityLabel={`Use brand ${brand}`}
-            >
-              <Text style={styles.suggestionText}>{brand}</Text>
-            </Pressable>
-          ))}
+          <View style={styles.dropdownInner}>
+            {suggestions.map((brand) => (
+              <Pressable
+                key={brand}
+                // onPressIn fires before the input's blur, so selection wins.
+                onPressIn={() => handleSelect(brand)}
+                style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]}
+                accessibilityRole="button"
+                accessibilityLabel={`Use brand ${brand}`}
+              >
+                <Text style={styles.suggestionText}>{brand}</Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
       ) : null}
     </View>
@@ -123,8 +135,28 @@ export function BrandAutocompleteInput({
 }
 
 const styles = StyleSheet.create({
+  root: {
+    zIndex: 10,
+  },
   dropdown: {
+    // Floats over whatever comes after this component (Name field, Save
+    // button, etc.) instead of pushing it down the way a normal-flow
+    // sibling would (2026-08-28 bug fix). `top: '100%'` anchors it right
+    // below the Input+label block, whose height Yoga has already measured
+    // by the time this absolute position resolves.
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
     marginTop: space[1],
+    shadowColor: colors.textPrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 10,
+  },
+  dropdownInner: {
     borderWidth: 1,
     borderColor: colors.borderDivider,
     borderRadius: radius.md,

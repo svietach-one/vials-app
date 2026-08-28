@@ -73,11 +73,11 @@ describe('renders the entry identity', () => {
   });
 });
 
-describe('Story 3 AC3: Delete has no confirmation modal and does not reuse DeleteProductModal', () => {
+describe('Story 3 AC3: Remove has no confirmation modal and does not reuse DeleteProductModal', () => {
   it('calls onDelete immediately on a single press, with no modal ever appearing', () => {
     const { onDelete, entry } = renderCard();
 
-    fireEvent.press(screen.getByText('Delete'));
+    fireEvent.press(screen.getByText('Remove'));
 
     expect(onDelete).toHaveBeenCalledWith(entry);
     expect(screen.queryByTestId('delete-product-modal')).toBeNull();

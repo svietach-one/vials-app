@@ -251,9 +251,12 @@ export default function CatalogScreen({ navigation, route }: Props) {
                   onPress={() => navigation.navigate('AddProductHub')}
                   style={styles.entryCardCompact}
                 >
-                  <View style={styles.entryCardIconWrapSmall}>
-                    <Icon name="plus-circle" size={16} color={palette.plum} />
-                  </View>
+                  <Icon
+                    name="plus-circle"
+                    size={16}
+                    color={palette.plum}
+                    style={styles.entryCardIconCorner}
+                  />
                   <Text style={styles.entryCardTitle}>Add new</Text>
                   <Text style={styles.entryCardSubtitle}>You already own it</Text>
                 </Card>
@@ -263,9 +266,7 @@ export default function CatalogScreen({ navigation, route }: Props) {
                   onPress={() => navigation.navigate('ExploreCompositionCapture', {})}
                   style={styles.entryCardCompact}
                 >
-                  <View style={styles.entryCardIconWrapSmall}>
-                    <Icon name="list" size={16} color={palette.plum} />
-                  </View>
+                  <Icon name="list" size={16} color={palette.plum} style={styles.entryCardIconCorner} />
                   <Text style={styles.entryCardTitle}>Explore</Text>
                   <Text style={styles.entryCardSubtitle}>Before you buy</Text>
                 </Card>
@@ -274,19 +275,32 @@ export default function CatalogScreen({ navigation, route }: Props) {
             <PillToggle
               options={[
                 { value: 'owned', label: `Owned · ${ownedProducts.length}` },
-                { value: 'wishlist', label: `Wishlist · ${wishlistProducts.length}` },
+                {
+                  value: 'wishlist',
+                  // 2026-08-28 bug fix: this count previously ignored
+                  // wishlistEntries entirely, so saving a composition via
+                  // Explore Composition (visibly added to the "Explored
+                  // compositions" section below) left the tab's own counter
+                  // reading 0. Combined total, not two separate counts — the
+                  // *visual* separation between the two entity types (tech
+                  // design Assumption 5) is still just the labeled section
+                  // below, unaffected by this fix.
+                  label: `Wishlist · ${
+                    wishlistProducts.length + (EXPLORE_COMPOSITION_ENABLED ? wishlistEntries.length : 0)
+                  }`,
+                },
               ]}
               value={activeTab}
               onValueChange={(v) => setActiveTab(v as ProductStatus)}
             />
             {/* WishlistEntry rows (Explore Composition flow) render as a
-                distinct, separately-labeled section within this same tab —
-                never merged with the fully-identified wishlist products
-                above/below (tech design Assumption 5). Behind the default-off
-                flag pending product/design sign-off (spec §10). */}
+                distinct section within this same tab — never merged into the
+                fully-identified wishlist products list above/below (tech
+                design Assumption 5). Section heading removed 2026-08-28 (user
+                request); the cards themselves still visually distinguish
+                these from WishlistProductCard. */}
             {EXPLORE_COMPOSITION_ENABLED && activeTab === 'wishlist' && wishlistEntries.length > 0 ? (
               <View style={styles.wishlistEntriesSection}>
-                <Text style={styles.wishlistEntriesLabel}>Explored compositions</Text>
                 {wishlistEntries.map((entry) => (
                   <WishlistEntryCard
                     key={entry.id}
@@ -309,6 +323,13 @@ export default function CatalogScreen({ navigation, route }: Props) {
               hasActiveFilters={hasActiveFilters}
               onAdd={() => navigation.navigate('AddProductHub')}
             />
+          ) : EXPLORE_COMPOSITION_ENABLED && wishlistEntries.length > 0 ? (
+            // 2026-08-28 bug fix: the FlatList's own `data` is wishlistProducts
+            // only (real Products), so it was still empty — and rendering its
+            // "Nothing here yet" empty state — even when the header above had
+            // just shown a real WishlistEntry card. Suppress the empty state
+            // entirely whenever there's at least one WishlistEntry to show.
+            null
           ) : (
             <WishlistEmptyState
               hasWishlistItems={wishlistProducts.length > 0}
@@ -530,22 +551,22 @@ const styles = StyleSheet.create({
   entryCardCompact: {
     flex: 1,
     padding: space[3],
+    // Extra clearance on the right so title/subtitle text never wraps under
+    // the corner icon, which is absolutely positioned (unaffected by this).
+    paddingRight: space[6],
     gap: 2,
     borderWidth: 1,
     borderColor: palette.plum,
+    backgroundColor: palette.plumTintLight,
+    position: 'relative',
   },
-  entryCardIconWrapSmall: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
-    backgroundColor: palette.plumTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: space[1],
+  entryCardIconCorner: {
+    position: 'absolute',
+    top: space[2],
+    right: space[2],
   },
   entryCardTitle: {
-    ...typography.bodySmall,
-    fontFamily: 'DMSans-Medium',
+    ...typography.label,
     color: colors.textPrimary,
   },
   entryCardSubtitle: {
@@ -555,10 +576,6 @@ const styles = StyleSheet.create({
   wishlistEntriesSection: {
     marginTop: space[4],
     gap: space[2],
-  },
-  wishlistEntriesLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
   },
   listContent: {
     paddingHorizontal: space.gutterScreen,
