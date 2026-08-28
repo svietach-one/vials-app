@@ -16,6 +16,7 @@ import { useProfileStore } from '@/store/profileStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
+import { useWishlistStore } from '@/store/wishlistStore';
 
 export default function App() {
   const [storesReady, setStoresReady] = useState(false);
@@ -36,6 +37,7 @@ export default function App() {
         useProceduresStore.getState().hydrate(),
         useSettingsStore.getState().hydrate(),
         useTrackingStore.getState().hydrate(),
+        useWishlistStore.getState().hydrate(),
       ]);
       setStoresReady(true);
       // Weekly weather check (research §1.7): fire-and-forget after hydrate;

@@ -34,6 +34,8 @@ export const STORAGE_KEYS = {
   schemaVersion: '@vials/schemaVersion',
   /** Dynamic-cycling state + per-product application counters (FE-6). */
   tracking: '@vials/tracking',
+  /** `WishlistEntry[]` — Explore Composition flow (docs/specs/explore-composition.md). */
+  wishlistEntries: '@vials/wishlistEntries',
 } as const;
 
 /** Reads the persisted schema version, defaulting to the pre-versioning baseline. */

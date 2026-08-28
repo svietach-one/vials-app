@@ -38,6 +38,21 @@ function isKnownClass(key: ActiveIngredientKey): boolean {
 }
 
 /**
+ * Comma-split-trim-filter tokenizer shared by every raw-INCI-text consumer in
+ * this pipeline (2026-08-26 decision batch, FE-9): this module's own
+ * unresolved-token detection, `ExploreCompositionResultScreen.tsx`'s
+ * ingredient list, and `shelfComparison.ts`'s per-item ingredient count all
+ * call this one export instead of each keeping a private copy (resolves
+ * tech-lead's prior non-blocking WARNING about a duplicated implementation).
+ */
+export function tokenizeIngredientsText(rawText: string): string[] {
+  return rawText
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
+
+/**
  * A comma-token is "resolved" if the parser finds a match when it is
  * evaluated on its own — reuses `parseActiveIngredientDetails` per token
  * rather than reimplementing matcher/negative-pattern logic. A token gated
@@ -47,10 +62,7 @@ function isKnownClass(key: ActiveIngredientKey): boolean {
  * be reported as unresolved.
  */
 function findUnresolvedTokens(inciText: string): string[] {
-  const tokens = inciText
-    .split(',')
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0);
+  const tokens = tokenizeIngredientsText(inciText);
 
   return tokens.filter((token) => parseActiveIngredientDetails(token).length === 0);
 }
@@ -107,6 +119,32 @@ export function resolveFromProduct(product: Product): ResolvedIngredients {
   const unresolvedIngredientTokens = product.fullIngredientText
     ? findUnresolvedTokens(product.fullIngredientText)
     : [];
+
+  return { resolvedActiveKeys, unresolvedIngredientTokens, potencyByKey };
+}
+
+/**
+ * Stage 1, raw-INCI-text entry point with no `Product` yet (Explore
+ * Composition flow — docs/tech-design/explore-composition.md FE-3). Same
+ * internals as `resolveFromProduct`'s text path, minus the wizard-confirmed
+ * `activeTags` union step (there is no product record to carry tags from
+ * yet): `parseActiveIngredientDetails` for resolved keys/potency,
+ * `findUnresolvedTokens` for the matcher-table-gap signal.
+ */
+export function resolveFromRawText(inciText: string): ResolvedIngredients {
+  const parsed = parseActiveIngredientDetails(inciText);
+
+  const potencyByKey: Partial<Record<ActiveIngredientKey, Potency>> = {};
+  for (const detail of parsed) {
+    if (detail.potency !== undefined) {
+      potencyByKey[detail.key] = detail.potency as Potency;
+    }
+  }
+
+  const resolvedActiveKeys = sortKeys(parsed.map((d) => d.key));
+  applyTagPotencyDefaults(resolvedActiveKeys, potencyByKey);
+
+  const unresolvedIngredientTokens = findUnresolvedTokens(inciText);
 
   return { resolvedActiveKeys, unresolvedIngredientTokens, potencyByKey };
 }
