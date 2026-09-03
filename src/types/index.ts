@@ -426,6 +426,21 @@ export interface Product {
    * as a version mismatch: live recompute, not trusted as zero matches.
    */
   allergenListVersion?: string | null;
+  /**
+   * Body area(s) this product is applied to (routine-step-grouping PRD_Spec.md
+   * §4.1). Stored once on the product — not copied onto `RoutineStep` — since
+   * zone is intrinsic to the product and identical across every routine it
+   * appears in. Absent/empty means `['face']`.
+   */
+  zones?: Zone[];
+  /**
+   * Whether this product is applied inline during the routine or reapplied
+   * later in the day (routine-step-grouping PRD_Spec.md §4.2). Absent means
+   * `'inline'`.
+   */
+  timing?: StepTiming;
+  /** Only meaningful when `timing === 'reapply'`. Hours until reapplication. */
+  reapplyAfterHours?: number;
 }
 
 /**
@@ -447,6 +462,47 @@ export interface DetectedAllergenMatch {
 // ─── Routine target ───────────────────────────────────────────────────────────
 
 export type RoutineTarget = 'none' | 'morning' | 'evening' | 'both';
+
+// ─── Routine step grouping (docs/specs/routine-step-grouping) ─────────────────
+
+/**
+ * The eight render-time "process" buckets a routine step belongs to, derived
+ * from `ProductType` via `STEP_ACTION_FOR_TYPE` (PRD_Spec.md §3.2). Grouping
+ * lives at the render layer only — `RoutineStep`/`Routine` are unchanged.
+ */
+export type StepAction =
+  | 'cleanse'
+  | 'exfoliate'
+  | 'tone'
+  | 'treat'
+  | 'moisturize'
+  | 'mask'
+  | 'seal'
+  | 'protect';
+
+/**
+ * Body area(s) a product is applied to (PRD_Spec.md §4.1). Multi-valued so
+ * one product used on face + eyes + neck renders as one card with three
+ * tags, not three cards. Absent/empty/exactly `['face']` is the silent
+ * default and renders no tag.
+ */
+export type Zone = 'face' | 'eyes' | 'neck' | 'lips' | 'hands';
+
+/**
+ * Whether a product is applied in sequence during the routine (`inline`,
+ * default) or later in the day outside the routine flow (`reapply`, e.g. an
+ * SPF stick) — PRD_Spec.md §4.2.
+ */
+export type StepTiming = 'inline' | 'reapply';
+
+/**
+ * The gap between two adjacent rendered steps (PRD_Spec.md §5.1). Purely
+ * informational — nothing counts down, nothing blocks. Deliberately has no
+ * numeric `wait` variant; see PRD_Spec.md §5.2 before reintroducing one.
+ */
+export type StepTransition =
+  | { kind: 'note'; text: 'dry_skin' | 'immediate' | 'until_dry' | 'before_sun' }
+  | { kind: 'none' };
 
 // ─── Routines ─────────────────────────────────────────────────────────────────
 

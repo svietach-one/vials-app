@@ -52,14 +52,26 @@ beforeEach(() => {
 });
 
 describe('Story 1 AC4: unchanged rendering', () => {
-  it('renders the default title, both sections, and both TimeChips', () => {
+  it('renders the default title and Time of Day section with both TimeChips', () => {
     render(<RoutineSchedulerSheet {...makeRoutineSchedulerSheetProps()} />);
 
     expect(screen.getByText('Add to Routine')).toBeTruthy();
     expect(screen.getByText('Time of Day')).toBeTruthy();
-    expect(screen.getByText('Weekly Planner')).toBeTruthy();
     expect(screen.getByLabelText('Morning')).toBeTruthy();
     expect(screen.getByLabelText('Evening')).toBeTruthy();
+  });
+
+  // routine-step-grouping bug fix (2026-08-28): the single shared "Weekly
+  // Planner" section is replaced by one independent picker per active
+  // period — see the "per-period scheduling" describe block below for the
+  // fix this behavior change exists to support. Neither picker renders
+  // until its period is toggled on.
+  it('renders no weekly picker for a period that is not toggled on', () => {
+    render(<RoutineSchedulerSheet {...makeRoutineSchedulerSheetProps()} />);
+
+    expect(screen.queryByText('Weekly Planner')).toBeNull();
+    expect(screen.queryByText('Morning days')).toBeNull();
+    expect(screen.queryByText('Evening days')).toBeNull();
   });
 
   it('renders a custom title when one is supplied', () => {
@@ -141,6 +153,107 @@ describe('Story 1 AC4: unchanged save validation and write behavior', () => {
     expect(mockUpsertProductStep).toHaveBeenCalledWith('routine-am', 'product-1', 'moisturizer', []);
     expect(mockRemoveProductStep).toHaveBeenCalledWith('routine-pm', 'product-1');
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('routine-step-grouping bug fix: per-period scheduling (2026-08-28)', () => {
+  // Root cause: the sheet used to hold ONE shared scheduledDays value for
+  // both periods (derived via deriveProductSchedule's "prefer morning, fall
+  // back to evening" merge), pre-populating the wrong days for whichever
+  // period didn't win the merge, and — worse — writing that single value to
+  // BOTH periods on Save, silently overwriting one period's real schedule
+  // with the other's. See progress/routine-step-grouping.md for the full
+  // trace.
+  it('pre-populates each period with its OWN scheduledDays, not a merged value', () => {
+    mockRoutines = [
+      {
+        id: 'routine-am',
+        name: 'Morning',
+        timeOfDay: 'morning',
+        steps: [{ id: 'step-am', productType: 'moisturizer', productId: 'product-1', hidden: false, scheduledDays: [1, 2] }],
+      },
+      {
+        id: 'routine-pm',
+        name: 'Evening',
+        timeOfDay: 'evening',
+        steps: [{ id: 'step-pm', productType: 'moisturizer', productId: 'product-1', hidden: false, scheduledDays: [6, 0] }],
+      },
+    ];
+
+    render(
+      <RoutineSchedulerSheet
+        {...makeRoutineSchedulerSheetProps({ productId: 'product-1', productType: 'moisturizer' })}
+      />,
+    );
+
+    expect(screen.getByText('Morning days')).toBeTruthy();
+    expect(screen.getByText('Evening days')).toBeTruthy();
+    // Mon(1)/Tue(2) checked under "Morning days" ...
+    expect(screen.getByLabelText('Mo, selected')).toBeTruthy();
+    expect(screen.getByLabelText('Tu, selected')).toBeTruthy();
+    // ... and Sat(6)/Sun(0) checked under "Evening days" — each period keeps
+    // its own days, neither one shows the other's.
+    expect(screen.getByLabelText('Sa, selected')).toBeTruthy();
+    expect(screen.getByLabelText('Su, selected')).toBeTruthy();
+  });
+
+  it('saves each period back to its own step only — no cross-write when only Morning days are edited', () => {
+    mockRoutines = [
+      {
+        id: 'routine-am',
+        name: 'Morning',
+        timeOfDay: 'morning',
+        steps: [{ id: 'step-am', productType: 'moisturizer', productId: 'product-1', hidden: false, scheduledDays: [1, 2] }],
+      },
+      {
+        id: 'routine-pm',
+        name: 'Evening',
+        timeOfDay: 'evening',
+        steps: [{ id: 'step-pm', productType: 'moisturizer', productId: 'product-1', hidden: false, scheduledDays: [6, 0] }],
+      },
+    ];
+
+    render(
+      <RoutineSchedulerSheet
+        {...makeRoutineSchedulerSheetProps({ productId: 'product-1', productType: 'moisturizer' })}
+      />,
+    );
+
+    // Touch only a Morning day chip, then Save without touching Evening's
+    // picker at all. "We, not selected" exists in both pickers (Wed is in
+    // neither [1,2] nor [6,0]) — the Morning section renders first.
+    fireEvent.press(screen.getAllByLabelText('We, not selected')[0]!);
+    fireEvent.press(screen.getByText('Save'));
+
+    expect(mockUpsertProductStep).toHaveBeenCalledWith('routine-am', 'product-1', 'moisturizer', [1, 2, 3]);
+    // Evening's own days ([6, 0]) are written back unchanged — never
+    // overwritten by Morning's edited array.
+    expect(mockUpsertProductStep).toHaveBeenCalledWith('routine-pm', 'product-1', 'moisturizer', [6, 0]);
+  });
+
+  it('starts a newly-toggled-on Evening picker at "every day", never copying Morning\'s existing days', () => {
+    mockRoutines = [
+      {
+        id: 'routine-am',
+        name: 'Morning',
+        timeOfDay: 'morning',
+        steps: [{ id: 'step-am', productType: 'moisturizer', productId: 'product-1', hidden: false, scheduledDays: [1, 2] }],
+      },
+      { id: 'routine-pm', name: 'Evening', timeOfDay: 'evening', steps: [] },
+    ];
+
+    render(
+      <RoutineSchedulerSheet
+        {...makeRoutineSchedulerSheetProps({ productId: 'product-1', productType: 'moisturizer' })}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText('Evening'));
+    fireEvent.press(screen.getByText('Save'));
+
+    expect(mockUpsertProductStep).toHaveBeenCalledWith('routine-am', 'product-1', 'moisturizer', [1, 2]);
+    // Every-day ([]) — not Morning's [1, 2].
+    expect(mockUpsertProductStep).toHaveBeenCalledWith('routine-pm', 'product-1', 'moisturizer', []);
   });
 });
 

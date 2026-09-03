@@ -21,7 +21,7 @@ import { WeeklySchedulePicker } from '@/components/routine/WeeklySchedulePicker'
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
-import { deriveProductSchedule } from '@/utils/routineLabel';
+import { derivePeriodSchedules } from '@/utils/routineLabel';
 import { getSlotCategoryLabel } from '@/constants/labels';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import type { Product, ProductType, RoutineStep } from '@/types';
@@ -79,18 +79,31 @@ export function AddToRoutineSheet({
 
   const [morning, setMorning] = useState(false);
   const [evening, setEvening] = useState(false);
-  const [scheduledDays, setScheduledDays] = useState<number[]>([]);
+  // Morning and evening are independently schedulable for the same product
+  // (a step's scheduledDays lives on RoutineStep, per period) — these must
+  // stay two separate values, never one shared array, or Save silently
+  // overwrites one period's real schedule with the other's (same bug/fix
+  // pattern as RoutineSchedulerSheet.tsx, progress/routine-step-grouping.md
+  // bug-fix round 2026-08-28, applied here 2026-08-31).
+  const [morningScheduledDays, setMorningScheduledDays] = useState<number[]>([]);
+  const [eveningScheduledDays, setEveningScheduledDays] = useState<number[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // Story 1 (routine-similar-product-priority): the period currently showing
   // a same-slot choice sheet, and the remaining checked periods still queued
   // behind it. AM resolves before PM when both are checked (tech design
-  // Assumption — resolved one period at a time).
+  // Assumption — resolved one period at a time). `period` tags which of
+  // morningScheduledDays/eveningScheduledDays applies once this conflict is
+  // resolved (replace/keep-both) — without it, resolving a duplicate would
+  // have no way to know which period's own days to write.
   const [duplicateConflict, setDuplicateConflict] = useState<{
     routineId: string;
+    period: 'morning' | 'evening';
     existingStep: RoutineStep;
   } | null>(null);
-  const [remainingQueue, setRemainingQueue] = useState<Array<{ routineId: string }>>([]);
+  const [remainingQueue, setRemainingQueue] = useState<
+    Array<{ routineId: string; period: 'morning' | 'evening' }>
+  >([]);
 
   const products = useProductsStore((s) => s.products);
   const upsertProductStep = useRoutinesStore((s) => s.upsertProductStep);
@@ -117,7 +130,8 @@ export function AddToRoutineSheet({
       setPendingProduct(null);
       setMorning(false);
       setEvening(false);
-      setScheduledDays([]);
+      setMorningScheduledDays([]);
+      setEveningScheduledDays([]);
       setValidationError(null);
       setDuplicateConflict(null);
       setRemainingQueue([]);
@@ -133,15 +147,16 @@ export function AddToRoutineSheet({
     // persisting a mislabeled Morning "Cleanser" step.
     const resolved = reclassifyMakeupRemover(product);
     const pmOnly = resolved.productType === 'makeup_remover';
-    const existing = deriveProductSchedule(
+    const existing = derivePeriodSchedules(
       useRoutinesStore.getState().routines,
       resolved.id,
     );
-    const isNew = !existing.morning && !existing.evening;
+    const isNew = !existing.morning.included && !existing.evening.included;
     setPendingProduct(resolved);
-    setMorning(pmOnly ? false : (isNew ? activePeriod === 'morning' : existing.morning));
-    setEvening(isNew ? (pmOnly ? true : activePeriod === 'evening') : existing.evening);
-    setScheduledDays(existing.scheduledDays);
+    setMorning(pmOnly ? false : (isNew ? activePeriod === 'morning' : existing.morning.included));
+    setEvening(isNew ? (pmOnly ? true : activePeriod === 'evening') : existing.evening.included);
+    setMorningScheduledDays(existing.morning.scheduledDays);
+    setEveningScheduledDays(existing.evening.scheduledDays);
     setValidationError(null);
     setStep('schedule');
   }
@@ -156,24 +171,25 @@ export function AddToRoutineSheet({
   // conflict pauses the walk (opens the choice sheet) and waits for the
   // user's decision; a conflict-free period commits immediately, exactly
   // like today's upsert-only behavior, then moves on.
-  function runQueue(queue: Array<{ routineId: string }>) {
+  function runQueue(queue: Array<{ routineId: string; period: 'morning' | 'evening' }>) {
     if (!pendingProduct) return;
     if (queue.length === 0) {
       onClose();
       return;
     }
     const [current, ...rest] = queue;
+    const days = current.period === 'morning' ? morningScheduledDays : eveningScheduledDays;
     const conflict = useRoutinesStore
       .getState()
       .findSameSlotConflict(current.routineId, pendingProduct.productType, pendingProduct.id);
 
     if (conflict) {
-      setDuplicateConflict({ routineId: current.routineId, existingStep: conflict });
+      setDuplicateConflict({ routineId: current.routineId, period: current.period, existingStep: conflict });
       setRemainingQueue(rest);
       return;
     }
 
-    upsertProductStep(current.routineId, pendingProduct.id, pendingProduct.productType, scheduledDays);
+    upsertProductStep(current.routineId, pendingProduct.id, pendingProduct.productType, days);
     runQueue(rest);
   }
 
@@ -188,9 +204,9 @@ export function AddToRoutineSheet({
     const morningRoutine = routines.find((r) => r.timeOfDay === 'morning');
     const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
 
-    const queue: Array<{ routineId: string }> = [];
-    if (morning && morningRoutine) queue.push({ routineId: morningRoutine.id });
-    if (evening && eveningRoutine) queue.push({ routineId: eveningRoutine.id });
+    const queue: Array<{ routineId: string; period: 'morning' | 'evening' }> = [];
+    if (morning && morningRoutine) queue.push({ routineId: morningRoutine.id, period: 'morning' });
+    if (evening && eveningRoutine) queue.push({ routineId: eveningRoutine.id, period: 'evening' });
 
     // In normal operation DEFAULT_ROUTINES are always seeded on first launch.
     // This guard fires only if the store was cleared or corrupted.
@@ -204,13 +220,14 @@ export function AddToRoutineSheet({
 
   function handleReplaceDuplicate() {
     if (!duplicateConflict || !pendingProduct || !duplicateConflict.existingStep.productId) return;
+    const days = duplicateConflict.period === 'morning' ? morningScheduledDays : eveningScheduledDays;
     useRoutinesStore
       .getState()
       .replaceProductStep(
         duplicateConflict.routineId,
         duplicateConflict.existingStep.productId,
         { id: pendingProduct.id, productType: pendingProduct.productType },
-        scheduledDays,
+        days,
       );
     const rest = remainingQueue;
     setDuplicateConflict(null);
@@ -220,7 +237,8 @@ export function AddToRoutineSheet({
 
   function handleKeepBothDuplicate() {
     if (!duplicateConflict || !pendingProduct) return;
-    upsertProductStep(duplicateConflict.routineId, pendingProduct.id, pendingProduct.productType, scheduledDays);
+    const days = duplicateConflict.period === 'morning' ? morningScheduledDays : eveningScheduledDays;
+    upsertProductStep(duplicateConflict.routineId, pendingProduct.id, pendingProduct.productType, days);
     const rest = remainingQueue;
     setDuplicateConflict(null);
     setRemainingQueue([]);
@@ -294,8 +312,10 @@ export function AddToRoutineSheet({
           onMorningChange={(v) => { setMorning(v); setValidationError(null); }}
           evening={evening}
           onEveningChange={(v) => { setEvening(v); setValidationError(null); }}
-          scheduledDays={scheduledDays}
-          onScheduledDaysChange={setScheduledDays}
+          morningScheduledDays={morningScheduledDays}
+          onMorningScheduledDaysChange={setMorningScheduledDays}
+          eveningScheduledDays={eveningScheduledDays}
+          onEveningScheduledDaysChange={setEveningScheduledDays}
           validationError={validationError}
           onBack={handleBack}
           onSave={handleSave}
@@ -425,8 +445,10 @@ interface StepScheduleProps {
   onMorningChange: (v: boolean) => void;
   evening: boolean;
   onEveningChange: (v: boolean) => void;
-  scheduledDays: number[];
-  onScheduledDaysChange: (days: number[]) => void;
+  morningScheduledDays: number[];
+  onMorningScheduledDaysChange: (days: number[]) => void;
+  eveningScheduledDays: number[];
+  onEveningScheduledDaysChange: (days: number[]) => void;
   validationError: string | null;
   onBack: () => void;
   onSave: () => void;
@@ -439,8 +461,10 @@ function StepSchedule({
   onMorningChange,
   evening,
   onEveningChange,
-  scheduledDays,
-  onScheduledDaysChange,
+  morningScheduledDays,
+  onMorningScheduledDaysChange,
+  eveningScheduledDays,
+  onEveningScheduledDaysChange,
   validationError,
   onBack,
   onSave,
@@ -504,10 +528,25 @@ function StepSchedule({
           </View>
         ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Weekly Planner</Text>
-          <WeeklySchedulePicker scheduledDays={scheduledDays} onUpdate={onScheduledDaysChange} />
-        </View>
+        {/* One independent picker per active period — each keeps its own
+            scheduledDays, mirroring RoutineSchedulerSheet's fix for the same
+            shared-scheduledDays-across-AM/PM bug (progress/routine-step-grouping.md
+            bug-fix round 2026-08-28, applied here 2026-08-31). A single shared
+            "Weekly Planner" section would imply a unified schedule the data
+            model (RoutineStep.scheduledDays, per period) doesn't have. */}
+        {morning ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Morning days</Text>
+            <WeeklySchedulePicker scheduledDays={morningScheduledDays} onUpdate={onMorningScheduledDaysChange} />
+          </View>
+        ) : null}
+
+        {evening ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Evening days</Text>
+            <WeeklySchedulePicker scheduledDays={eveningScheduledDays} onUpdate={onEveningScheduledDaysChange} />
+          </View>
+        ) : null}
       </BottomSheetScrollView>
 
       <View style={[styles.actions, { paddingBottom: insets.bottom + space[2] }]}>

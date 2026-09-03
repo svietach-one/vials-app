@@ -10,6 +10,7 @@ import { colors } from '@/constants/tokens';
 import { refreshSeasonMaskIfDue } from '@/domain/seasonActions';
 import AppNavigator from '@/navigation/AppNavigator';
 import { CorpusProvider } from '@/providers/CorpusProvider';
+import { useCompletionStore } from '@/store/completionStore';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
@@ -38,6 +39,7 @@ export default function App() {
         useSettingsStore.getState().hydrate(),
         useTrackingStore.getState().hydrate(),
         useWishlistStore.getState().hydrate(),
+        useCompletionStore.getState().hydrate(),
       ]);
       setStoresReady(true);
       // Weekly weather check (research §1.7): fire-and-forget after hydrate;
