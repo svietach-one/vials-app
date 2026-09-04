@@ -7,7 +7,13 @@ import {
   saveJson,
   STORAGE_KEYS,
 } from '@/services/storage';
-import { AppSettings, RoutineCycleType } from '@/types';
+import {
+  AppSettings,
+  ContributionConsentStatus,
+  NoticeCollapseEntry,
+  RoutineAccordionSettings,
+  RoutineCycleType,
+} from '@/types';
 
 interface SettingsState extends AppSettings {
   hydrated: boolean;
@@ -18,14 +24,58 @@ interface SettingsState extends AppSettings {
   setRoutineCycleType: (type: RoutineCycleType) => void;
   /** Bumps the local per-device community contribution counter. */
   incrementCommunityContribution: () => void;
+  /** Overwrites today's Routines screen accordion snapshot. */
+  setRoutineAccordion: (snapshot: RoutineAccordionSettings) => void;
+  /** Overwrites one RehabNoticeCard's collapse decision, keyed by RehabNotice.key. */
+  setRehabNoticeCollapsed: (key: string, entry: NoticeCollapseEntry) => void;
+  /**
+   * Overwrites one ConflictWarningInline row's collapse decision on the
+   * Routines screen, keyed by the row's own stable id.
+   */
+  setRoutineNoticeCollapsed: (key: string, entry: NoticeCollapseEntry) => void;
+  /** Records acceptance of the onboarding medical disclaimer (slide 3). */
+  acceptMedicalDisclaimer: (version: number) => void;
+  /**
+   * Transitions the product-contribution consent state machine. Setting to
+   * 'accepted', 'disabled', or 'unset' resets declinedSaveCountSinceLastReminder;
+   * setting to 'unset' (re-enabling from 'disabled') also resets reminderCountShown,
+   * so a re-enabled user gets the full first-time modal and cadence again.
+   */
+  setContributionConsentStatus: (status: ContributionConsentStatus) => void;
+  incrementDeclinedSaveCount: () => void;
+  resetDeclinedSaveCount: () => void;
+  incrementReminderCountShown: () => void;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
+  // routine-step-grouping PRD_Spec.md §6.2 proposed flipping this default to
+  // `true` (this flag now gates whether Routine cards are tappable for
+  // completion tracking; no rewards/streaks exist). Reverted back to `false`
+  // in the 2026-08-31 code-review round: CLAUDE.md's Key Constraints
+  // explicitly state "Gamification is opt-in — default OFF", and a
+  // feature-level spec document silently "superseding" that top-level,
+  // human-authored constraint is a business-level decision this task's spec
+  // author was not positioned to make unilaterally (tech-design-template.md's
+  // "Type D — Contradiction" gap: should have been routed back rather than
+  // asserted as an assumption). Completion tracking stays fully built and
+  // discoverable — the toggle's own copy in ProfileScreen ("Track what
+  // you've used by tapping products in your routine") already explains what
+  // it does — it is simply off until the user opts in, which also sidesteps
+  // the "existing installs never see the new default" migration gap entirely
+  // (see the same round's log entry for the full tradeoff writeup).
   gamificationEnabled: false,
   hasSeenLocalDataWarning: false,
   dismissedBanners: [],
   routineCycleType: 'fixed',
   communityContributionCount: 0,
+  routineAccordion: null,
+  rehabNoticeCollapsed: {},
+  routineNoticeCollapsed: {},
+  medicalDisclaimerAcceptedAt: null,
+  medicalDisclaimerVersion: 0,
+  contributionConsentStatus: 'unset',
+  declinedSaveCountSinceLastReminder: 0,
+  reminderCountShown: 0,
 };
 
 function pickSettings(s: SettingsState): AppSettings {
@@ -35,6 +85,14 @@ function pickSettings(s: SettingsState): AppSettings {
     dismissedBanners: s.dismissedBanners,
     routineCycleType: s.routineCycleType,
     communityContributionCount: s.communityContributionCount,
+    routineAccordion: s.routineAccordion,
+    rehabNoticeCollapsed: s.rehabNoticeCollapsed,
+    routineNoticeCollapsed: s.routineNoticeCollapsed,
+    medicalDisclaimerAcceptedAt: s.medicalDisclaimerAcceptedAt,
+    medicalDisclaimerVersion: s.medicalDisclaimerVersion,
+    contributionConsentStatus: s.contributionConsentStatus,
+    declinedSaveCountSinceLastReminder: s.declinedSaveCountSinceLastReminder,
+    reminderCountShown: s.reminderCountShown,
   };
 }
 
@@ -83,5 +141,70 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       STORAGE_KEYS.settings,
       pickSettings({ ...get(), communityContributionCount: next }),
     );
+  },
+
+  setRoutineAccordion: (snapshot) => {
+    set({ routineAccordion: snapshot });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), routineAccordion: snapshot }));
+  },
+
+  setRehabNoticeCollapsed: (key, entry) => {
+    const next = { ...get().rehabNoticeCollapsed, [key]: entry };
+    set({ rehabNoticeCollapsed: next });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), rehabNoticeCollapsed: next }));
+  },
+
+  setRoutineNoticeCollapsed: (key, entry) => {
+    const next = { ...get().routineNoticeCollapsed, [key]: entry };
+    set({ routineNoticeCollapsed: next });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), routineNoticeCollapsed: next }));
+  },
+
+  acceptMedicalDisclaimer: (version) => {
+    const acceptedAt = new Date().toISOString();
+    set({ medicalDisclaimerAcceptedAt: acceptedAt, medicalDisclaimerVersion: version });
+    void saveJson(
+      STORAGE_KEYS.settings,
+      pickSettings({
+        ...get(),
+        medicalDisclaimerAcceptedAt: acceptedAt,
+        medicalDisclaimerVersion: version,
+      }),
+    );
+  },
+
+  setContributionConsentStatus: (status) => {
+    const resetsDeclinedCount = status === 'accepted' || status === 'disabled' || status === 'unset';
+    const resetsReminderCount = status === 'unset';
+    const patch = {
+      contributionConsentStatus: status,
+      ...(resetsDeclinedCount ? { declinedSaveCountSinceLastReminder: 0 } : null),
+      ...(resetsReminderCount ? { reminderCountShown: 0 } : null),
+    };
+    set(patch);
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), ...patch }));
+  },
+
+  incrementDeclinedSaveCount: () => {
+    const next = get().declinedSaveCountSinceLastReminder + 1;
+    set({ declinedSaveCountSinceLastReminder: next });
+    void saveJson(
+      STORAGE_KEYS.settings,
+      pickSettings({ ...get(), declinedSaveCountSinceLastReminder: next }),
+    );
+  },
+
+  resetDeclinedSaveCount: () => {
+    set({ declinedSaveCountSinceLastReminder: 0 });
+    void saveJson(
+      STORAGE_KEYS.settings,
+      pickSettings({ ...get(), declinedSaveCountSinceLastReminder: 0 }),
+    );
+  },
+
+  incrementReminderCountShown: () => {
+    const next = get().reminderCountShown + 1;
+    set({ reminderCountShown: next });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), reminderCountShown: next }));
   },
 }));

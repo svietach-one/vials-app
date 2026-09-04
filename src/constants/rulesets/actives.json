@@ -336,6 +336,24 @@
         "dark_spots"
       ]
     },
+    "hydroquinone": {
+      "displayName": "Hydroquinone",
+      "matchers": [
+        {
+          "pattern": "\\bhydroquinone\\b",
+          "potency": "rx"
+        }
+      ],
+      "properties": {
+        "photosensitizing": true,
+        "exfoliating": false,
+        "irritancy": 3,
+        "barrierRepair": false
+      },
+      "allowedPeriods": [
+        "pm"
+      ]
+    },
     "copper_peptides": {
       "displayName": "Copper Peptides",
       "matchers": [
@@ -628,6 +646,20 @@
       "attribution": {
         "requireWithinPosition": 5
       }
+    },
+    "physical_exfoliant": {
+      "displayName": "Physical Exfoliant",
+      "matchers": [],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": true,
+        "irritancy": 2,
+        "barrierRepair": false
+      },
+      "allowedPeriods": [
+        "am",
+        "pm"
+      ]
     }
   },
   "pairRules": [

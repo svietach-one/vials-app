@@ -9,7 +9,7 @@ import type { CityLocation } from '@/types';
 const CITIES = citiesDataset as CityLocation[];
 
 /** Minimum query length before suggestions appear. */
-const MIN_QUERY_LENGTH = 2;
+export const MIN_QUERY_LENGTH = 2;
 
 /**
  * Case-insensitive match over city names: prefix matches rank first, then

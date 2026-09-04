@@ -5,36 +5,10 @@ import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Badge } from '@/components/ui/feedback/Badge';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
-import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { ACTIVE_INGREDIENT_LABELS, getProductTypeBadgeStatus, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
-import type { ActiveIngredientKey, Product, ProductType } from '@/types';
+import type { ActiveIngredientKey, Product } from '@/types';
 import { getProductActiveBadgeKeys } from '@/utils/activeBadges';
-
-// ─── Product type → badge color ───────────────────────────────────────────────
-//
-// Mirrors RoutineStepCard's TYPE_COLORS so picker cards read identically to
-// the cards already scheduled in the routine.
-
-const TYPE_COLORS: Partial<Record<ProductType, { bg: string; text: string }>> = {
-  serum:         { bg: palette.cobaltTint,       text: palette.cobalt },
-  ampoule:       { bg: palette.cobaltTint,       text: palette.cobalt },
-  essence:       { bg: palette.cobaltTint,       text: palette.cobalt },
-  gel:           { bg: palette.cobaltTint,       text: palette.cobalt },
-  cleanser:      { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  toner:         { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  moisturizer:   { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  cream:         { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  lotion:        { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  oil:           { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  spf:           { bg: palette.amberTint,        text: palette.amber },
-  eye_cream:     { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  mask:          { bg: palette.amberTint,        text: palette.amber },
-  peeling:       { bg: palette.amberTint,        text: palette.amber },
-  spot_treatment:{ bg: palette.amberTint,        text: palette.amber },
-  balm:          { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-};
-
-const DEFAULT_TYPE_COLOR = { bg: palette.zinc100, text: palette.zinc600 };
 
 // ─── Active-ingredient badge fit ───────────────────────────────────────────────
 // Mirrors ProductShelfCard's fit logic exactly (see that file for the full
@@ -84,7 +58,7 @@ export function ProductPickerCard({ product, onAdd }: ProductPickerCardProps) {
   const hiddenActiveCount = activeKeys.length - visibleActiveCount;
 
   const typeLabel = PRODUCT_TYPE_LABELS[product.productType] ?? product.productType;
-  const typeColor = TYPE_COLORS[product.productType] ?? DEFAULT_TYPE_COLOR;
+  const typeBadgeStatus = getProductTypeBadgeStatus(product.productType);
 
   // Shadow lives on this outer, non-clipping wrapper — `styles.card` needs
   // `overflow: 'hidden'` to clip the bleeding photo to the rounded corners,
@@ -117,11 +91,7 @@ export function ProductPickerCard({ product, onAdd }: ProductPickerCardProps) {
             {/* Type badge on its own row, actives on another — matches the
                 shelf card's layout. */}
             <View style={styles.typeRow}>
-              <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
-                <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
-                  {typeLabel}
-                </Text>
-              </View>
+              <Badge status={typeBadgeStatus} type="Light">{typeLabel}</Badge>
             </View>
 
             <View style={styles.activesRow}>
@@ -214,16 +184,5 @@ const styles = StyleSheet.create({
     gap: space[1],
     flexShrink: 1,
     minHeight: space[1] * 2 + typography.caption.lineHeight,
-  },
-  typeBadge: {
-    borderRadius: radius.pill,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  typeBadgeText: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: typography.bodySmall.fontSize,
-    lineHeight: typography.bodySmall.lineHeight,
-    includeFontPadding: false,
   },
 });

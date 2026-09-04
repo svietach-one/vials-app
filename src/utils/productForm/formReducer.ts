@@ -4,6 +4,7 @@ export type FormAction =
   | { type: 'SET_BRAND'; value: string; source: AddProductDraft['brandSource'] }
   | { type: 'SET_NAME'; value: string; source: AddProductDraft['nameSource'] }
   | { type: 'SET_CATEGORY'; value: ProductType; source: 'auto-detected' | 'manual' }
+  | { type: 'SET_SPF_VALUE'; value: number | null }
   | { type: 'SET_IMAGE'; uri: string | null }
   | { type: 'APPLY_LABEL_OCR_RESULT'; brand: string; name: string; detectedType: ProductType | null }
   | { type: 'SET_BARCODE'; value: string }
@@ -68,6 +69,7 @@ export function initialDraft(): AddProductDraft {
     nameSource: null,
     productType: null,
     productTypeSource: null,
+    spfValue: null,
     localImageUri: null,
     barcode: null,
     inciRaw: null,
@@ -107,7 +109,12 @@ export function formReducer(state: AddProductDraft, action: FormAction): AddProd
         ...state,
         productType: action.value,
         productTypeSource: action.source,
+        // An SPF number is meaningless once the product is not a sunscreen.
+        spfValue: action.value === 'spf' ? state.spfValue : null,
       });
+
+    case 'SET_SPF_VALUE':
+      return { ...state, spfValue: action.value };
 
     case 'APPLY_LABEL_OCR_RESULT': {
       const keepManualCategory = state.productTypeSource === 'manual' || action.detectedType === null;

@@ -21,7 +21,7 @@ import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingr
  */
 
 /** Current persisted schema version. Bumped whenever a migration is added. */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /** Version assumed for installs that predate the schemaVersion key. */
 export const BASELINE_SCHEMA_VERSION = 1;
@@ -94,13 +94,24 @@ export function migrateProfile(profile: UserProfile): UserProfile {
   const phototypeConfirmationPresent = profile.phototypeNeedsConfirmation !== undefined;
   // Pre-v4 profiles lack contribution consent entirely (contribution-consent task).
   const contributionConsentPresent = profile.contributionConsent !== undefined;
+  // Pre-v5 profiles lack the self-reported skin conditions (v1.2, US-23).
+  const skinConditionsPresent = profile.skinConditions !== undefined;
+  // Pre-v6 profiles lack the two onboarding-5-step-redesign safety fields.
+  const hormoneTherapyPresent = profile.hormoneTherapy !== undefined;
+  const pregnantOrBreastfeedingPresent = profile.pregnantOrBreastfeeding !== undefined;
+  // Pre-v7 profiles lack the onboarding-quizzes sensitivity flag.
+  const sensitivePresent = profile.sensitive !== undefined;
 
   if (
     cityPresent &&
     fitzpatrickCurrent &&
     goalsPresent &&
     phototypeConfirmationPresent &&
-    contributionConsentPresent
+    contributionConsentPresent &&
+    skinConditionsPresent &&
+    hormoneTherapyPresent &&
+    pregnantOrBreastfeedingPresent &&
+    sensitivePresent
   ) {
     return profile;
   }
@@ -127,6 +138,19 @@ export function migrateProfile(profile: UserProfile): UserProfile {
     contributionConsent: contributionConsentPresent
       ? profile.contributionConsent
       : { granted: false, timestamp: null },
+    // Never inferred from `concerns` (which has its own `eczema` member): a
+    // condition flag is opt-in, and defaulting it on would escalate warnings
+    // for users who never asked for it (US-27's no-op guarantee).
+    skinConditions: skinConditionsPresent ? profile.skinConditions : [],
+    // Both new safety fields are opt-in and never inferred — backfill to
+    // false rather than prompting an existing install to answer them.
+    hormoneTherapy: hormoneTherapyPresent ? profile.hormoneTherapy : false,
+    pregnantOrBreastfeeding: pregnantOrBreastfeedingPresent
+      ? profile.pregnantOrBreastfeeding
+      : false,
+    // Opt-in, never inferred — backfill to false rather than prompting an
+    // existing install to answer it (same treatment as the two fields above).
+    sensitive: sensitivePresent ? profile.sensitive : false,
   };
 }
 

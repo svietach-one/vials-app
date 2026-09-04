@@ -3,36 +3,15 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
+import { AllergenBadge } from '@/components/ui/AllergenBadge';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Badge } from '@/components/ui/feedback/Badge';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
-import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { ACTIVE_INGREDIENT_LABELS, getProductTypeBadgeStatus, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
-import type { ActiveIngredientKey, Product, ProductType } from '@/types';
+import type { ActiveIngredientKey, Product } from '@/types';
 import { getProductActiveBadgeKeys } from '@/utils/activeBadges';
-
-// ─── Product type → badge color ───────────────────────────────────────────────
-
-const TYPE_COLORS: Partial<Record<ProductType, { bg: string; text: string }>> = {
-  serum:         { bg: palette.cobaltTint,       text: palette.cobalt },
-  ampoule:       { bg: palette.cobaltTint,       text: palette.cobalt },
-  essence:       { bg: palette.cobaltTint,       text: palette.cobalt },
-  gel:           { bg: palette.cobaltTint,       text: palette.cobalt },
-  cleanser:      { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  toner:         { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  moisturizer:   { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  cream:         { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  lotion:        { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  oil:           { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  spf:           { bg: palette.amberTint,        text: palette.amber },
-  eye_cream:     { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-  mask:          { bg: palette.amberTint,        text: palette.amber },
-  peeling:       { bg: palette.amberTint,        text: palette.amber },
-  spot_treatment:{ bg: palette.amberTint,        text: palette.amber },
-  balm:          { bg: palette.bottleGreenTint,  text: palette.bottleGreen },
-};
-
-const DEFAULT_TYPE_COLOR = { bg: palette.zinc100, text: palette.zinc600 };
+import { getProductAllergenMatches } from '@/utils/allergenDetector';
 
 // ─── Active-ingredient badges ──────────────────────────────────────────────────
 // Actives no longer carry per-category color (that lived in a since-removed
@@ -115,9 +94,10 @@ export function ProductShelfCard({
   const [sheetVisible, setSheetVisible] = useState(false);
 
   const activeKeys = getProductActiveBadgeKeys(product);
+  const allergenMatches = getProductAllergenMatches(product);
 
   const typeLabel = PRODUCT_TYPE_LABELS[product.productType] ?? product.productType;
-  const typeColor = TYPE_COLORS[product.productType] ?? DEFAULT_TYPE_COLOR;
+  const typeBadgeStatus = getProductTypeBadgeStatus(product.productType);
 
   const visibleActiveCount = activeBadgeVisibleCount(activeKeys);
   const hiddenActiveCount = activeKeys.length - visibleActiveCount;
@@ -150,7 +130,7 @@ export function ProductShelfCard({
                   <>
                     {(usageTime === 'morning' || usageTime === 'both') ? (
                       <View testID="icon-sun" style={[styles.circleBadge, styles.circleBadgeSun]}>
-                        <Icon name="sun" size={14} color={palette.marigold} />
+                        <Icon name="sun" size={14} color={palette.golden} />
                       </View>
                     ) : null}
                     {(usageTime === 'evening' || usageTime === 'both') ? (
@@ -189,11 +169,8 @@ export function ProductShelfCard({
 
                 {/* Type badge on its own row, actives on another (see below) */}
                 <View style={styles.typeRow}>
-                  <View style={[styles.typeBadge, { backgroundColor: typeColor.bg }]}>
-                    <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>
-                      {typeLabel}
-                    </Text>
-                  </View>
+                  <Badge status={typeBadgeStatus} type="Light">{typeLabel}</Badge>
+                  <AllergenBadge matches={allergenMatches} />
                 </View>
 
                 {/* Actives row — type badge stays above. Always rendered
@@ -347,7 +324,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   circleBadgeSun: {
-    backgroundColor: palette.marigoldTint,
+    backgroundColor: palette.goldenTint,
+    borderWidth: 1,
+    borderColor: palette.goldenLine,
   },
   circleBadgeMoon: {
     backgroundColor: palette.cobaltTint,
@@ -356,9 +335,12 @@ const styles = StyleSheet.create({
     backgroundColor: palette.zinc100,
   },
 
-  // Type badge on its own row, above the actives row.
+  // Type badge on its own row, above the actives row. The allergen badge
+  // (when present) renders beside it — gap keeps the two from touching.
   typeRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
   },
   // minHeight matches a Badge's own rendered height (space[1]*2 padding +
   // caption line-height) so this row keeps its place — and every shelf card
@@ -380,16 +362,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: 6,
     paddingVertical: 4,
-  },
-  typeBadge: {
-    borderRadius: radius.pill,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  typeBadgeText: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: typography.bodySmall.fontSize,
-    lineHeight: typography.bodySmall.lineHeight,
-    includeFontPadding: false,
   },
 });

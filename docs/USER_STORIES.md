@@ -21,6 +21,24 @@ This document defines the complete functional requirements and behavior specific
 > sync. Added an "Implementation note" to US-22 with the corrected
 > architecture and the still-unbuilt pieces (camera OCR product search,
 > crowdsourcing submission).
+>
+> **Sync note (2026-07-25):** Added `US-23` (Medical Disclaimer Consent,
+> Onboarding). Also corrected `docs/PRD_Spec.md` §1 and `docs/SCREENS.md` §1,
+> which claimed personal data "never leaves the device" — a claim that
+> contradicted `docs/PRD_Spec.md` §4.3's shipped crowdsourcing pipeline
+> (US-22, manually-added product metadata is sent to the Vials product
+> database). Both docs now distinguish on-device-by-default personal data
+> from anonymized, contributed product metadata, per
+> `docs/specs/onboarding-consent-copy-update.md`.
+>
+> **Sync note (2026-07-25, cont'd):** Added `US-24` (Product Contribution
+> Consent) — the crowdsourcing submission from US-22 is no longer
+> unconditional; it now fires only when `settingsStore.contributionConsentStatus`
+> / that save's `contributionOptIn` say so. Flagging, not fixing here:
+> `docs/PRD_Spec.md` §2.1 states primary buttons are pure black (`#09090B`),
+> but the shipped onboarding screens use a plum/wine primary button —
+> predates this task, needs its own reconciliation pass. See
+> `docs/specs/contribution-consent-flow/`.
 
 ---
 
@@ -275,3 +293,43 @@ This document defines the complete functional requirements and behavior specific
 > corpus is 100% dogfood OBF-import data (ODbL-licensed, not Vials-owned) —
 > "the global database" this story refers to is not yet populated with
 > genuinely-owned (`vials_seed`/`community`) records.
+
+> **Implementation note (2026-07-25):** The contribution write described above
+> as "a separate, awaited step" is no longer unconditional. `US-24` (below)
+> adds a consent gate in front of it: a manual save only reaches
+> `submitContribution` when `settingsStore.contributionConsentStatus` /
+> that save's `contributionOptIn` say so. See
+> `docs/specs/contribution-consent-flow/`.
+
+---
+
+### US-23 · Medical Disclaimer Consent (Onboarding)
+
+**As a** new user finishing the onboarding slides
+**I want to** explicitly confirm I understand Vials is not a medical app before continuing into the app
+**So that** I'm not misled about what its warnings mean, and my acknowledgment is recorded.
+
+**Acceptance criteria:**
+* Given the user is on slide 3 of `MarketingSlidesScreen`, when it first renders, then the consent checkbox is unchecked and the "Get started" CTA is disabled — the checkbox defaults unchecked, with no auto-check and no pre-checked default.
+* Given the checkbox is unchecked, when the user tries to activate the disabled CTA, then nothing happens — no navigation, no store write.
+* Given the user is on slide 3, when they tap the checkbox, then it becomes checked and the CTA becomes enabled; no other control on the screen can check it for them.
+* Given the checkbox is checked, when the user unchecks it again, then the CTA becomes disabled again.
+* Given the checkbox is checked, when the user taps the enabled CTA, then `settingsStore.acceptMedicalDisclaimer(version)` is called — setting `medicalDisclaimerAcceptedAt` to the current ISO 8601 timestamp and `medicalDisclaimerVersion` to the current copy version — and the user is navigated to `SkinProfileSetupScreen`.
+* Slide 3 has no secondary "Skip" action of any kind — checking the box and tapping the CTA is the only way to proceed. This is distinct from `US-21`'s `FirstProductScreen` "Skip for now" path, which this story does not change.
+
+---
+
+### US-24 · Product Contribution Consent
+
+**As a** user manually adding a product
+**I want to** be asked, clearly and not too often, whether my product data can help grow the shared database
+**So that** I stay in control of what I contribute without being nagged on every save.
+
+**Acceptance criteria:**
+* On a user's first-ever manual product save, `ContributionConsentModal` (first-time variant) is shown before the background sync would fire. The modal explains the value of sharing and includes a toggle (default on) plus `Continue` / `Not now` actions.
+* If the user accepts, `settingsStore.contributionConsentStatus` becomes `accepted`, `contributionOptIn: true` is set on that product, and no modal is shown again for future saves — only a compact inline toggle (default on) inside `ProductForm`.
+* If the user declines, status becomes `declined`, `contributionOptIn: false` is set on that product, and subsequent saves show only the compact inline toggle (default off) — with the modal reappearing (reminder variant, softer copy) on a schedule: after 5 declined-saves, then after 15 more, then after 30 more, then every 30 declined-saves thereafter. The schedule tracks declined-saves since the *last* reminder shown, not since account creation.
+* Accepting any reminder modal moves status permanently to `accepted` and stops the reminder cadence.
+* A `ContributionSettingsRow` in the Profile screen lets the user explicitly set status to `disabled` at any time, which silences the modal and toggle entirely going forward, without deleting or un-sharing any products already contributed. Re-enabling from `disabled` resets status to `unset`, so the full first-time modal is shown again on the next manual save.
+* A running counter — "{N} products contributed so far" — is shown in Profile and referenced in the post-save success toast. It counts only products where `contributionOptIn === true` was set at time of save, regardless of the user's current global status.
+* The success toast after a manual save uses a green ("success") visual treatment, distinct from the app's default black/monochrome UI, per `docs/specs/contribution-consent-flow/03-visual-spec.md`.

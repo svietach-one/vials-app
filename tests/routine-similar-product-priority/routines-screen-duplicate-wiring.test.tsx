@@ -105,7 +105,17 @@ jest.mock('@/store/profileStore', () => ({
   useProfileStore: jest.fn((selector: any) => selector({ profile: null })),
 }));
 jest.mock('@/store/settingsStore', () => ({
-  useSettingsStore: jest.fn((selector: any) => selector({ routineCycleType: 'fixed' })),
+  useSettingsStore: jest.fn((selector: any) =>
+    selector({
+      routineCycleType: 'fixed',
+      routineAccordion: null,
+      setRoutineAccordion: jest.fn(),
+      rehabNoticeCollapsed: {},
+      setRehabNoticeCollapsed: jest.fn(),
+      routineNoticeCollapsed: {},
+      setRoutineNoticeCollapsed: jest.fn(),
+    }),
+  ),
 }));
 jest.mock('@/store/trackingStore', () => ({
   useTrackingStore: jest.fn((selector: any) => selector({ applicationStats: [] })),
@@ -161,6 +171,12 @@ jest.mock('@/components/routine/DuplicateSlotResolutionSheet', () => {
 const mockRankSlotGroup = jest.fn();
 jest.mock('@/utils/routineEngine/duplicateSlot', () => ({
   rankSlotGroup: (...args: unknown[]) => mockRankSlotGroup(...args),
+  // routine-step-grouping polish round 3: RoutinesScreen now also calls this
+  // directly (per-card similar-slot tip, independent of the mocked
+  // DuplicateSlotWarningInline below) — stubbed to a no-op empty result since
+  // this suite only asserts the screen's DuplicateSlotWarningInline/
+  // DuplicateSlotResolutionSheet wiring, not similar-slot detection itself.
+  findSlotDuplicateGroups: () => [],
 }));
 
 import RoutinesScreen from '@/screens/RoutinesScreen';

@@ -64,8 +64,12 @@ export function applySlotAlternativeSwap(
  * §3 "generate mode"). Converts a committed RoutinePlan period into the
  * routine's next steps array, honoring the two preservation rules:
  * - userPinned steps the plan dropped are re-appended (the engine never
- *   removes pinned steps) — EXCEPT under a clinical freeze, which carries an
- *   expiry date (safety beats preference).
+ *   removes pinned steps) — EXCEPT under a safety-tier freeze
+ *   (`FrozenItem.overridesPin`, e.g. clinical/procedure or pregnancy), where
+ *   safety beats preference. `overridesPin` is the sole authority for this;
+ *   `until`'s presence/absence is unrelated (pregnancy-pin-survival-fix —
+ *   the old `until`-based proxy silently let a persistent, `until`-less
+ *   safety freeze like `pregnancy_freeze` leave a pin surviving).
  * - hidden steps are user-managed and survive the rewrite untouched.
  * The domain action owns store access; this module owns the shape.
  */
@@ -85,8 +89,9 @@ export function buildStepsFromPlan(
     existing.flatMap((s) => (s.productId ? [[s.productId, s] as const] : [])),
   );
   const plannedIds = new Set(planned.map((s) => s.productId));
-  // Clinical freezes carry an expiry date; only they override a pin
-  const clinicallyFrozen = new Set(frozen.filter((f) => f.until).map((f) => f.productId));
+  // overridesPin (not `until`) is the sole authority for "does this freeze
+  // beat a pin" — see the module doc comment above.
+  const clinicallyFrozen = new Set(frozen.filter((f) => f.overridesPin).map((f) => f.productId));
 
   const steps: RoutineStep[] = planned.map((plannedStep) => {
     const prior = existingByProduct.get(plannedStep.productId);

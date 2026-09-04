@@ -268,6 +268,10 @@ function OcrPhotoFlow({
   const engineRef = useRef<OcrEngineHandle>(null);
   // Fail-safe: if loading stays true for >10s we auto-reset and surface an error.
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The most recently captured/picked photo's local uri, so onCapture can
+  // hand it back to the caller (e.g. reused as the product's cover photo)
+  // even when the OCR reading itself doesn't lead anywhere useful.
+  const capturedUriRef = useRef<string | null>(null);
 
   function clearScanTimeout() {
     if (timeoutRef.current !== null) {
@@ -292,6 +296,7 @@ function OcrPhotoFlow({
     if (!visible) {
       clearScanTimeout();
       setLoading(false);
+      capturedUriRef.current = null;
       // The engine's worker readiness survives visibility toggles; only a
       // queued image must be dropped.
       engineRef.current?.clearPending();
@@ -336,7 +341,7 @@ function OcrPhotoFlow({
       onClose();
       return;
     }
-    handlePickedImage(result.assets[0]?.base64 ?? null);
+    handlePickedImage(result.assets[0]?.base64 ?? null, result.assets[0]?.uri ?? null);
   }
 
   async function handleGallery() {
@@ -358,14 +363,15 @@ function OcrPhotoFlow({
       onClose();
       return;
     }
-    handlePickedImage(result.assets[0]?.base64 ?? null);
+    handlePickedImage(result.assets[0]?.base64 ?? null, result.assets[0]?.uri ?? null);
   }
 
-  function handlePickedImage(base64: string | null | undefined) {
+  function handlePickedImage(base64: string | null | undefined, uri: string | null) {
     if (!base64) {
       onClose();
       return;
     }
+    capturedUriRef.current = uri;
     // ▶ Show the loading overlay IMMEDIATELY, before any OCR work.
     setLoading(true);
     startScanTimeout();
@@ -375,6 +381,7 @@ function OcrPhotoFlow({
   // OCRs an already-stored image (the product cover) without any capture step —
   // reads it to base64 and hands it to the same engine as a fresh shot.
   async function processExistingImage(uri: string) {
+    capturedUriRef.current = uri;
     setLoading(true);
     startScanTimeout();
     try {
@@ -402,7 +409,7 @@ function OcrPhotoFlow({
         showOcrError();
         return;
       }
-      onCapture({ mode: 'label', rawText });
+      onCapture({ mode: 'label', rawText, sourceUri: capturedUriRef.current });
       return;
     }
 
@@ -411,7 +418,7 @@ function OcrPhotoFlow({
       showOcrError();
       return;
     }
-    onCapture({ mode: 'inci', rawText: cleanedText, hadNonLatin });
+    onCapture({ mode: 'inci', rawText: cleanedText, hadNonLatin, sourceUri: capturedUriRef.current });
   }
 
   function showOcrError() {

@@ -1,0 +1,137 @@
+{
+  "task": "vials-eu-allergen-detection",
+  "phase": "review-complete",
+  "status": "ACCEPTED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/vials-eu-allergen-detection.md",
+    "tech_design": "docs/tech-design/vials-eu-allergen-detection.md"
+  },
+  "qa": {
+    "status": "TESTS_WRITTEN_RED_AS_EXPECTED",
+    "test_dir": "tests/vials-eu-allergen-detection/",
+    "artifacts": [
+      "tests/vials-eu-allergen-detection/fixtures.ts",
+      "tests/vials-eu-allergen-detection/AllergenBadge.test.tsx",
+      "tests/vials-eu-allergen-detection/ProductShelfCard.allergen-badge.test.tsx",
+      "tests/vials-eu-allergen-detection/RoutineStepCard.allergen-badge.test.tsx",
+      "tests/vials-eu-allergen-detection/ProductDetailScreen.allergens-card.test.tsx"
+    ],
+    "coverage_map": {
+      "FE-4_AllergenBadge_component": "AllergenBadge.test.tsx — testID=\"allergen-badge\" contract, 28x28 size, Cobalt/Amber precedence, absent-on-zero-matches, restricted-vs-non-restricted accessibilityLabel distinction",
+      "FE-5_ProductShelfCard_wiring": "ProductShelfCard.allergen-badge.test.tsx — full Cobalt/Amber/no-badge matrix incl. null fullIngredientText case",
+      "FE-6_RoutineStepCard_wiring": "RoutineStepCard.allergen-badge.test.tsx — one Cobalt case, one Amber case, one zero-match case, plus render-order after the existing zap active-badge",
+      "FE-7_ProductDetailScreen_AllergensCard": "ProductDetailScreen.allergens-card.test.tsx — presence only on >=1 match, canonical name + shared neutral one-liner per entry, restricted note, absent-on-zero, render-order between Active Ingredients and Full Ingredient List",
+      "FE-9_allergenDetector_unit_tests": "OUT OF SCOPE for qa-lead — explicitly engineer-owned per tech design FE-9 / .claude/rules/testing.md unit-vs-component ownership split; co-located src/utils/allergenDetector.test.ts, not written here"
+    },
+    "binding_contracts_established_for_engineer": {
+      "testID_allergen_badge": "AllergenBadge's rendered container must carry testID=\"allergen-badge\" (single badge per product, absent entirely — not an empty node — when matches is empty).",
+      "neutral_one_liner_copy": "Adopted verbatim from the spec's own quoted example in Story 3 AC1: \"Fragrance component regulated in the EU as a potential allergen.\" — asserted with an exact string match in ProductDetailScreen.allergens-card.test.tsx.",
+      "restricted_note_copy": "NOT pinned to exact wording (the spec only paraphrases it) — asserted via the regex /no longer permitted in new EU products/i, leaving the engineer wording freedom as long as that substance is present.",
+      "accessibilityLabel_distinction": "AllergenBadge.test.tsx only asserts the restricted-case and non-restricted-case accessibilityLabel strings differ from each other — exact copy is the engineer's choice."
+    },
+    "verification": {
+      "tsc": "npx tsc --noEmit → 20 errors, all inside the 4 new test files, all attributable to the two still-missing production pieces (FE-2's DetectedAllergenMatch/Product.detectedAllergens, FE-4's AllergenBadge component); zero errors elsewhere in the tree (confirmed via grep -v on the tsc output).",
+      "jest": "npx jest --testPathIgnorePatterns=\"worktrees\" --testPathPattern=\"tests/vials-eu-allergen-detection\" → 4 suites failed to resolve (\"Configuration error: Could not locate module @/utils/allergenDetector\" / \"@/components/ui/AllergenBadge\"), 0 tests ran. This is the EXPECTED red state, not a test-file defect — identical documented behavior to tests/inci-attribution-highlighting/DetectedActiveBadgeWiring.test.tsx's aliasOverrides.json mock: a jest.mock() (or real import) of a not-yet-existing file under the @/ alias fails to resolve regardless of the mock factory, until the engineer creates the real file, at which point these suites start running with no test-file change required."
+    },
+    "no_production_files_touched": true
+  },
+  "release_gate": {
+    "status": "GATED — pending regulatory-literate human verification before release",
+    "detail": "assets/eu_allergens_seed.json's specific allergen names, synonyms, and CAS numbers (tech design FE-1) are assembled from multiple secondary sources plus the EMA appendix and SCCNFP opinion (source brief §1), not yet confirmed against the official Regulation (EC) No 1223/2009 Annex III text. This gates RELEASE only, not development: the mechanism (detection, caching, badge, detail screen — FE-2..FE-9) is fully implementable and testable now, which is why this task's status is DESIGNED, not BLOCKED. The seed content must not be represented as release-ready, and this feature must not ship to real users, until a regulatory-literate reviewer signs off.",
+    "mirrors": "same gating pattern as docs/tech-design/vials-conflict-matrix-expansion.md's pending clinical sign-off on pairRules severities — see that file's §5 and progress/vials-conflict-matrix-expansion-handoff.json's still_blocked block",
+    "also_recorded_in": ["docs/specs/vials-eu-allergen-detection.md §10", "docs/specs/vials-eu-allergen-detection.md Story 4 acceptance criteria", "docs/tech-design/vials-eu-allergen-detection.md §5"],
+    "owner": "product owner (regulatory-literate reviewer to be assigned)"
+  },
+  "coordination_hazard": {
+    "shared_file": "src/types/index.ts",
+    "also_shared": ["src/utils/ingredientParser.ts", "src/constants/labels.ts", "src/screens/ManualProductFormScreen.tsx"],
+    "detail": "src/types/index.ts is shared with the in-flight vials-conflict-matrix-expansion task, which is actively adding its own fields to the Product interface on this same branch/working tree right now. Confirmed via live git diff immediately before writing the tech design's data-model section — and the state flipped again within the same planning session: git diff first showed the file modified (Product ending with that task's new isPhysicalExfoliant?: boolean field), then clean minutes later, because that session ran `git stash` (see `git stash list` -> 'conflict-matrix-expansion-verify'). This is direct, empirical proof that a static read of this file cannot be trusted at design time.",
+    "required_action_before_engineering": "Re-run `git status`, `git diff`, AND `git stash list` on src/types/index.ts (and the three also_shared files above) immediately before the engineer phase touches any of them — not planned once here and assumed stable. Append the two new Product fields (detectedAllergens, allergenListVersion) strictly after whatever the live last field is at that moment, with no reordering/reformatting of anything above it. If a stash belonging to the other task has been popped back in, re-diff again before editing.",
+    "why_other_three_files_are_avoided": "Tech design §1/§4 route every new allergen-related module into brand-new files (src/utils/allergenDetector.ts, src/components/ui/AllergenBadge.tsx, assets/eu_allergens_seed.json) specifically so ingredientParser.ts, labels.ts, and ManualProductFormScreen.tsx never need a diff from this task at all — src/types/index.ts is the only genuinely unavoidable shared-file touch.",
+    "qa_lead_note": "Re-checked git status immediately before writing tests (2026-08-05): src/types/index.ts was clean at that moment (not mid-edit). The qa-lead test files reference ONLY this task's own additions (DetectedAllergenMatch, Product.detectedAllergens, Product.allergenListVersion) via type-only imports — never isPhysicalExfoliant or anything from the concurrent task."
+  },
+  "non_goals_follow_up": {
+    "personal_allergens": "Source brief §3.3 (profileStore personal-allergen flagging, Cabernet rendering for personal matches) is fully descoped from this task by product-owner decision. Not started; no extension point pre-built into the DetectedAllergenMatch/Product shape on purpose — see spec Non-Goals and tech design Assumption 2.",
+    "annex_iii_82_substance_expansion": "Source brief §5 — swapping assets/eu_allergens_seed.json for the full 82-substance list (Regulation (EU) 2023/1545) and bumping list_version, including the 82-list's 'group name' entries the 26-item original set doesn't have. Explicitly separate, data-only follow-up; not started."
+  },
+  "engineer": {
+    "status": "IMPLEMENTATION_COMPLETE",
+    "files_created": [
+      "assets/eu_allergens_seed.json",
+      "src/utils/allergenDetector.ts",
+      "src/utils/allergenDetector.test.ts",
+      "src/components/ui/AllergenBadge.tsx"
+    ],
+    "files_modified": [
+      "src/types/index.ts",
+      "src/components/product/ProductShelfCard.tsx",
+      "src/components/routine/RoutineStepCard.tsx",
+      "src/screens/ProductDetailScreen.tsx",
+      "src/utils/productForm/saveProduct.ts"
+    ],
+    "coordination_hazard_reverified": "Re-ran git status/git diff/git stash list on src/types/index.ts immediately before FE-2 — identical state to the tech design's snapshot (isPhysicalExfoliant?: boolean still the live last field of Product, no new stash). Appended detectedAllergens/allergenListVersion strictly after it, plus a new top-level DetectedAllergenMatch interface. Did not touch ingredientParser.ts, labels.ts, or ManualProductFormScreen.tsx.",
+    "deviations_from_tech_design": [
+      {
+        "id": "exact-token-matching",
+        "summary": "FE-3's detection uses comma-tokenized EXACT normalized-token matching, not the whole-text substring scan described in tech design §1/source brief §2.",
+        "reason": "A substring scan double-matches entry pairs where one seed name is, word-for-word, a substring of a different, more specific seed entry's own name (found while writing FE-9's per-entry tests) — one printed ingredient would incorrectly register two allergen matches. Still exact/near-exact per spec Non-Goals, just token-scoped. Regression-tested in allergenDetector.test.ts.",
+        "logged_in": "progress/vials-eu-allergen-detection.md"
+      },
+      {
+        "id": "copy-constants-location",
+        "summary": "The two shared neutral/restricted copy constants live in ProductDetailScreen.tsx, not exported from allergenDetector.ts as FE-3's file list named.",
+        "reason": "qa-lead's ProductDetailScreen.allergens-card.test.tsx mocks '@/utils/allergenDetector' as {getProductAllergenMatches, hasRestrictedAllergenMatch} only (binding contract, written before engineering); any other export resolves to undefined under that mock and crashes the screen. Moved to the screen (its only consumer) with identical literal text — no test file edited, zero behavior change.",
+        "logged_in": "progress/vials-eu-allergen-detection.md"
+      }
+    ],
+    "not_wired_this_pass": "ManualProductFormScreen.tsx's save path does not populate the allergen cache (per tech design Assumption 4, unchanged) — getProductAllergenMatches's live-recompute fallback means correctness is unaffected there, just recomputed instead of cached.",
+    "verification": {
+      "tsc": "npx tsc --noEmit → clean, 0 errors.",
+      "jest_feature": "npx jest --testPathPattern=\"tests/vials-eu-allergen-detection|src/utils/allergenDetector.test\" → 5 suites, 114 tests, all passing (4 qa-lead suites unmodified + engineer's own FE-9 unit suite, 88 tests).",
+      "jest_concurrent_session_sanity": "npx jest --testPathPattern=\"ingredientParser|rulesetIntegrity|ConflictWarningInline\" → 3 suites, 97 tests, all passing, unaffected by this task.",
+      "jest_pre_existing_shelf_card_suite": "tests/product-shelf-card/ProductShelfCard.test.tsx (touches ProductShelfCard.tsx, which FE-5 modifies): 41/69 failing with 'getProductTypeBadgeStatus is not a function' — verified via git-stash isolation (reverting only this task's ProductShelfCard.tsx diff and re-running) that the identical failure count/message exists with none of this task's changes present. Pre-existing mismatch between that suite's jest.mock('@/constants/labels', ...) factory and current production code, left by the concurrent vials-conflict-matrix-expansion session — not a regression from this task.",
+      "jest_saveProduct": "src/utils/productForm/saveProduct.test.ts passes unmodified (toMatchObject assertions tolerate the two new additive Product fields)."
+    }
+  },
+  "next_step": "Proceed to tech-lead for architecture review. Implementation (FE-1..FE-9) is complete: all 4 qa-lead suites pass unmodified, plus 88 new engineer-owned FE-9 unit tests, tsc clean. Two logged deviations from the tech design (see engineer.deviations_from_tech_design above and progress/vials-eu-allergen-detection.md's Log) — both driven by binding qa-lead test contracts / a genuine detection-correctness bug found during testing, not scope changes. No open product/business questions — only the release_gate above, which blocks shipping to users, not this review.",
+  "tech_lead_review": {
+    "verdict": "ACCEPT",
+    "performed_by": "orchestrator inline, not the dedicated tech-lead subagent",
+    "why_inline": "The tech-lead subagent's Step-0 human-approval gate was recently hardened against instruction-source injection (commit 24223d0) and cannot be satisfied through SendMessage relay — it has no way to distinguish a real human confirmation from a relayed one, and correctly refused twice even after the actual human answered an AskUserQuestion prompt confirming 'proceed'. User explicitly approved doing the review inline instead.",
+    "checks_performed": [
+      "Design fidelity: FE-1..FE-9 present, match tech design; both logged deviations reviewed and judged well-reasoned (exact-token matching fixes a real, regression-tested collision bug; copy-constant relocation has zero behavior change) — downgraded to non-blocking per architecture-review.md §6",
+      "Layer separation: allergenDetector.ts confirmed pure (no React/store/fetch imports)",
+      "List-agnostic guarantee: confirmed no seed name is a string literal in allergenDetector.ts",
+      "src/types/index.ts diff read directly: concurrent conflict-matrix-expansion session's isPhysicalExfoliant/physical_exfoliant additions untouched; this task's fields appended strictly after, no reordering",
+      "npx tsc --noEmit clean; independently re-ran npx jest --testPathPattern=\"tests/vials-eu-allergen-detection|src/utils/allergenDetector.test\" -> 5 suites/114 tests green",
+      "Zero hardcoded hex colors, zero TODO/FIXME/console.log, no function >50 lines, badge confirmed minimal (no count/text)",
+      "Pre-existing ProductShelfCard.test.tsx failure independently re-verified via git stash isolation (stashed this task's files, re-ran, identical 41/13 result, popped stash back) -- confirmed not caused by this task",
+      "Release gate confirmed clearly logged as GATED, not silently marked done"
+    ],
+    "non_blocking_finding": {
+      "id": "asterisk-suffix-matching-gap",
+      "status": "FIXED during the follow-up review pass (see review_pass_2 below) -- kept here for the review-history record",
+      "summary": "detectAllergens' exact-token matching does not strip trailing punctuation (e.g. a trailing '*'), but EU-labeled products commonly mark exactly these 26 allergens with a trailing asterisk/footnote marker directly in the printed ingredient list -- the real-world implementation of Annex III's declaration requirement. Text captured verbatim that way (e.g. 'Limonene*') will not match the seed's 'Limonene' under current exact Set-equality, so the badge could silently fail to appear on a meaningful share of real labels.",
+      "why_not_blocking": "Neither the source brief nor the spec's acceptance criteria mention the asterisk convention, so no written AC is failed and no existing test catches it -- this is a gap the design itself has, not a deviation from it. The feature is already release-gated on separate regulatory content sign-off.",
+      "recommended_fix": "Strip a trailing run of non-alphanumeric marks (*, †, footnote digits) in allergenDetector.ts's normalizeToken before comparison; add allergenDetector.test.ts cases for asterisk-suffixed real-label-style input.",
+      "recommended_timing": "Before the release-gate sign-off lands, not before this code review closes."
+    }
+  },
+  "review_pass_2": {
+    "trigger": "user-requested 'review' after the ACCEPT verdict above",
+    "outcome": "Upgraded the non_blocking_finding above from suspected to CONFIRMED by direct execution: the asterisk case is a COMPLETE failure (zero matches, not partial), and a second related pattern was found and confirmed -- parenthetical fragrance-breakdown groups (e.g. 'Parfum (Linalool, Limonene, Citronellol)') lose their first and last entries to punctuation merging.",
+    "fix_applied": "src/utils/allergenDetector.ts normalizeToken now strips leading/trailing non-alphanumeric decoration. Fully fixes the asterisk case and the last entry of a parenthetical group. Does NOT fix the first entry of a parenthetical group (internal '(' merges with the preceding label word) -- fixing that would require treating '(' as a new token delimiter, which would break seed entries whose own canonical name legitimately contains parentheses. Documented as a known remaining limitation in the function's doc comment and locked in by an explicit test, not left silent.",
+    "tests_added": "4 new cases in allergenDetector.test.ts's 'tolerates common real-label decoration' suite -- asterisk-suffix fix, parenthetical last-entry fix, parenthetical first-entry known-limitation lock, and an internal-parentheses regression guard.",
+    "verification": "npx tsc --noEmit clean; npx jest --testPathPattern=\"tests/vials-eu-allergen-detection|src/utils/allergenDetector\" -> 5 suites, 118 tests (114 + 4 new), all green.",
+    "unrelated_discovery": {
+      "what": "Concurrent vials-conflict-matrix-expansion session committed as 0848668 during this review pass. Its src/types/index.ts diff (+51 lines) swept up this task's DetectedAllergenMatch/detectedAllergens/allergenListVersion additions alongside its own isPhysicalExfoliant field, under a commit message describing only the latter.",
+      "impact": "None functionally -- confirmed via git show --stat that no other allergen-detection file was included, and tsc/tests stayed green after the sweep. This task's own future commit will show no src/types/index.ts diff, since it already landed in 0848668.",
+      "user_decision": "Leave 0848668 as-is, no history rewrite. This task's own commit message should note that the Product/DetectedAllergenMatch type additions already landed in 0848668."
+    }
+  }
+}

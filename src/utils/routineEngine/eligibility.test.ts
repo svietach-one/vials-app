@@ -1,6 +1,6 @@
 import type { Product, UserProcedureLog } from '@/types';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
-import { applyEligibilityGates } from '@/utils/routineEngine/eligibility';
+import { applyEligibilityGates, isSafetyFreezeGate } from '@/utils/routineEngine/eligibility';
 import { buildShelfFacts } from '@/utils/routineEngine/productFacts';
 
 const NOW = new Date('2026-07-04T12:00:00Z');
@@ -106,5 +106,27 @@ describe('applyEligibilityGates', () => {
     );
     expect(result.rejections).toHaveLength(1);
     expect(result.rejections[0].gate).toBe('hidden');
+  });
+});
+
+describe('isSafetyFreezeGate', () => {
+  it('returns true for clinical_freeze', () => {
+    expect(isSafetyFreezeGate('clinical_freeze')).toBe(true);
+  });
+
+  it('returns true for pregnancy_freeze', () => {
+    expect(isSafetyFreezeGate('pregnancy_freeze')).toBe(true);
+  });
+
+  it('returns false for hidden', () => {
+    expect(isSafetyFreezeGate('hidden')).toBe(false);
+  });
+
+  it('returns false for pao_expired', () => {
+    expect(isSafetyFreezeGate('pao_expired')).toBe(false);
+  });
+
+  it('returns false for no_allowed_period', () => {
+    expect(isSafetyFreezeGate('no_allowed_period')).toBe(false);
   });
 });

@@ -1,12 +1,10 @@
 import React, { useReducer, useRef, useState } from 'react';
 import {
   Alert,
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  ToastAndroid,
 } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -90,7 +88,8 @@ function Section4Summary({ draft }: { draft: AddProductDraft }) {
  * The accordion Add Product screen — the manual / barcode-not-found entry
  * path. The only place the add-product form reducer is instantiated.
  */
-export default function AddProductScreen({ navigation }: Props) {
+export default function AddProductScreen({ navigation, route }: Props) {
+  const initialStatus = route.params?.initialStatus;
   const [draft, dispatch] = useReducer(formReducer, undefined, initialDraft);
   const [validation, setValidation] = useState<{ section: 1 | 4; message: string } | null>(null);
 
@@ -155,6 +154,7 @@ export default function AddProductScreen({ navigation }: Props) {
 
     // 1. SYNCHRONOUS local write — this IS the save, as far as the UI cares.
     const product = buildProductFromDraft(draft, productId, new Date().toISOString());
+    if (initialStatus === 'wishlist') product.status = 'wishlist';
     addProduct(product);
     // An INCI submission counts as a community contribution (like a barcode
     // scan, which BarcodeSection already counted at scan time).
@@ -163,12 +163,13 @@ export default function AddProductScreen({ navigation }: Props) {
     }
 
     // 2. Leave the screen and confirm immediately — nothing below is awaited.
-    navigation.goBack();
-    if (Platform.OS === 'android') {
-      // No cross-platform toast infra exists yet; on iOS the product visibly
-      // appearing on the shelf is the confirmation.
-      ToastAndroid.show('Product added to your shelf', ToastAndroid.SHORT);
-    }
+    // Land back on the shelf (not just one screen back, which would strand
+    // the user on the search hub) with the same one-shot "Saved" toast
+    // ManualProductFormScreen uses, so both manual-entry paths confirm the
+    // same way on every platform.
+    navigation.navigate('Catalog', {
+      toast: { savedAt: Date.now(), contributionOptIn: false, contributedCount: 0 },
+    });
 
     // 3. Share with the community database. The local save above is already
     //    committed and is never rolled back, so this only reports on itself.
@@ -258,7 +259,12 @@ export default function AddProductScreen({ navigation }: Props) {
         </SectionAccordion>
       </ScrollView>
 
-      <SaveBar enabled={canSave(draft)} onPress={handleSave} />
+      <SaveBar
+        enabled={canSave(draft)}
+        onPress={handleSave}
+        privacyNote=""
+        label={initialStatus === 'wishlist' ? 'Add to Wishlist' : 'Put on My Shelf'}
+      />
     </SafeAreaView>
   );
 }

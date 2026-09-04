@@ -121,6 +121,7 @@ export function makeFullProfile(overrides: Partial<UserProfile> = {}): UserProfi
     fitzpatrick: null,
     city: null,
     concerns: [],
+    skinConditions: [],
     primaryGoal: 'maintenance',
     secondaryGoal: null,
     goalNeedsConfirmation: false,
@@ -129,6 +130,10 @@ export function makeFullProfile(overrides: Partial<UserProfile> = {}): UserProfi
     onboardingCompleted: true,
     individualDurationMonths: {},
     contributionConsent: { granted: false, timestamp: null },
+    hormoneTherapy: false,
+    pregnantOrBreastfeeding: false,
+    // vials-onboarding-quizzes FE-1: net-new required field.
+    sensitive: false,
     ...overrides,
   };
 }

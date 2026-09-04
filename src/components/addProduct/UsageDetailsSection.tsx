@@ -14,7 +14,7 @@ export interface UsageDetailsSectionProps {
   dispatch: (action: FormAction) => void;
 }
 
-const PAO_PRESETS = [3, 6, 12, 24] as const;
+const PAO_PRESETS = [3, 6, 9, 12, 24] as const;
 
 function isoDaysAgo(days: number): string {
   const d = new Date();

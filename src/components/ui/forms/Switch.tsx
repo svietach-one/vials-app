@@ -19,6 +19,8 @@ export interface SwitchProps {
   style?: StyleProp<ViewStyle>;
   /** Forwarded to the underlying Pressable — disambiguates screens with several switches. */
   accessibilityLabel?: string;
+  /** Track color when checked. Defaults to `palette.plum` — the app's one standard "on" color. */
+  activeColor?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -37,6 +39,7 @@ export function Switch({
   disabled = false,
   style,
   accessibilityLabel,
+  activeColor = palette.plum,
 }: SwitchProps) {
   const { w, h } = DIMS[size];
   const knobDim = h - 6; // 3px inset on each side
@@ -64,7 +67,7 @@ export function Switch({
 
   const trackBg = trackAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [colors.borderStrong, colors.controlFill],
+    outputRange: [colors.borderStrong, activeColor],
   });
 
   return (

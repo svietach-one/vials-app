@@ -1,0 +1,88 @@
+{
+  "task": "goal-coverage-safety-guard",
+  "phase": "tech-lead",
+  "status": "PR_REVIEW",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/engine 4.0/engine4.1/ENGINE_4.0_RECONCILIATION_AND_PHASE11_HANDOFF.md (supersedes docs/specs/engine 4.0/IMPLEMENTATION_PLAN.md Phase 11 where they conflict)",
+    "tech_design": "none — handoff doc provided directly, reconciled live against source in conversation before implementation; see progress/goal-coverage-safety-guard.md Log for the reconciliation findings",
+    "tests": [
+      "src/utils/goalCoverage.test.ts",
+      "src/constants/rulesets/pregnancy.test.ts",
+      "src/utils/advisoryCopy.test.ts",
+      "tests/pregnancy-safety-handling/pregnancy-freeze-enabled.test.ts",
+      "tests/pregnancy-safety-handling/pregnancy-freeze-disabled.test.ts",
+      "tests/routine-engine/goal-confirm-routines-screen.test.tsx"
+    ]
+  },
+  "engineer_notes": {
+    "files_added": [
+      "src/utils/goalCoverage.ts",
+      "src/utils/goalCoverage.test.ts",
+      "src/components/routine/GoalCoverageBanner.tsx",
+      "progress/goal-coverage-safety-guard.md"
+    ],
+    "files_modified": [
+      "src/types/index.ts",
+      "src/constants/rulesets/actives.json",
+      "src/constants/rulesets/pregnancy.ts",
+      "src/constants/rulesets/pregnancy.test.ts",
+      "src/constants/labels.ts",
+      "src/screens/RoutinesScreen.tsx",
+      "src/utils/advisoryCopy.test.ts",
+      "tests/pregnancy-safety-handling/fixtures.ts",
+      "tests/pregnancy-safety-handling/pregnancy-freeze-enabled.test.ts",
+      "tests/routine-engine/goal-confirm-routines-screen.test.tsx"
+    ],
+    "not_part_of_this_task": [
+      "progress/routine-engine-v2-2.md and progress/routine-engine-v2-2-handoff.json — updated by a separate, already-closed tech-lead review of Phases 8-10 (verdict ACCEPT, see that file)",
+      ".claude/agents/tech-lead.md — self-modified by that same tech-lead review run to remove the `security-review` skill from its own frontmatter and add an explicit instruction-source-boundary section, after it correctly identified and refused to act on an injected /security-review block that appeared mid-review; flagging for visibility, not something this task authored"
+    ],
+    "reasonCode_reused": "pregnancy_blocked (no new decision-reason code needed for the hydroquinone freeze)",
+    "not_touched_per_instructions": [
+      "no skinGoals[] field, no GOAL_TAG_MAP — reuses primaryGoal/secondaryGoal and actives.json's existing goals block",
+      "no PREGNANCY_TIER_MAP / parallel pregnancy engine — extends the shipped RoutineContext.pregnancyRules mechanism only",
+      "AHA/BHA/benzoyl_peroxide/salicylic_acid NOT added to the pregnancy freeze — concentration-dependent, flagged for clinical sign-off",
+      "no commit created — changes left unstaged for review"
+    ],
+    "tsc_status": "clean, 0 errors",
+    "jest_status": "139/149 suites, 1609/1692 tests passed, 2 todo (--testPathIgnorePatterns=worktrees). Exactly the same 10 pre-existing failing suites as the branch baseline (all unrelated shadow.sm/palette.goldenTint module-mock issues from prior dev-branch UI commits) — verified by name, none touch a file this task modified.",
+    "regression_found_and_fixed": "tests/routine-engine/goal-confirm-routines-screen.test.tsx — its settingsStore mock predated GoalCoverageBanner and lacked dismissedBanners/dismissBanner (SeasonalNoticeBanner is mocked to null in that file so it never hit this before); added both fields to the mock. Re-ran clean."
+  },
+  "open_questions_for_product": [
+    "Exact restricted-actives list beyond retinoid/hydroquinone (salicylic acid, benzoyl peroxide) needs the same clinical sign-off gate as PRD_Spec.md §6 — explicitly not decided in this task"
+  ],
+  "for_tech_lead": {
+    "review_focus": [
+      "coverageClasses()/getGoalCoverageFindings() in src/utils/goalCoverage.ts — the per-goal intersection logic and the three-tone decision tree (not_owned / on_shelf / safety_redirect), especially the mixed-owned-matches branch (frozenMatches.length === ownedMatches.length) that decides safety_redirect vs on_shelf",
+      "src/constants/rulesets/pregnancy.ts + pregnancy.test.ts — the two-rule shape, and that acids/BPO are still deliberately excluded",
+      "src/components/routine/GoalCoverageBanner.tsx tone mapping — safety_redirect must be 'warning' (Amber), never 'sos' (Cabernet)",
+      "advisoryCopy.test.ts's allTemplates() — confirm it actually reaches goalCoverage's message builders across all three tones, not just imports them",
+      "the goal-confirm-routines-screen.test.tsx mock fix — confirm it's a legitimate test-fixture completion, not a workaround masking a real component bug"
+    ]
+  },
+  "tech_lead_review": {
+    "verdict": "ACCEPT",
+    "date": "2026-08-04",
+    "branch_reviewed_on": "goal-coverage-safety-guard",
+    "reviewer_note": "the tech-lead subagent type was unregistered mid-session (see engineer_notes.not_part_of_this_task) — this review was carried out directly by the same agent, following the checklist .claude/agents/tech-lead.md defines, rather than blocking on a harness reload",
+    "checklist": {
+      "hydroquinone_freeze_part_a": "PASS - rulesetIntegrity.test.ts/pregnancy.test.ts/ingredientParser.test.ts all pass (95/95); new hydroquinone class is a structurally valid ActiveClass (compiling matcher regex, pm-only); freeze rule reuses reasonCode 'pregnancy_blocked'; acids/BPO exclusion test still passes unmodified",
+      "single_resolveGoalContext_call": "PASS - RoutinesScreen.tsx's goalCoverageInput memo calls buildRoutineContext() once and reuses context.treatmentClassRanking; no per-goal re-resolution",
+      "safety_redirect_correctness": "PASS - verified directly in findingForGoal(): frozenMatches.length === ownedMatches.length can only be true once ownedMatches.length >= 1 (the ===0 case already returned not_owned earlier), so safety_redirect fires exactly when EVERY owned match is pregnancy-frozen; one safe owned alternative correctly falls through to on_shelf. Exercised directly by goalCoverage.test.ts's mixed-owned-matches test.",
+      "tone_mapping": "PASS - TONE_MAP maps safety_redirect->warning (Amber), on_shelf/not_owned->info (Cobalt); grep confirms tone=\"sos\" is never used; no hardcoded colors in either new file",
+      "layer_separation": "PASS - goalCoverage.ts has zero React/react-native imports",
+      "settingsStore_mock_fix_legitimacy": "PASS - settingsStore.ts's real default is dismissedBanners: [] (never undefined); the goal-confirm-routines-screen.test.tsx mock fix is a legitimate fixture completion (SeasonalNoticeBanner was mocked to null in that file so it never exercised this before), not a workaround for a real bug. GoalCoverageBanner.tsx correctly carries no defensive ?? [] for a case that can't happen against the real store.",
+      "advisoryCopy_lint_coverage": "PASS - allTemplates() collector calls goalCoverage.ts's message builders across representative renderings of all three tones, including the safety_redirect variant both with and without a nameable alternative",
+      "tsc_noemit": "clean, 0 errors",
+      "jest": "139/149 suites, 1609/1692 tests, 2 todo. Exactly the same 10 pre-existing failing suites as the branch baseline, verified by name - no regression"
+    },
+    "findings": {
+      "warning_fixed": "getGoalCoverageFindings() was 69 lines, over the 50-line guideline (same class of finding the routine-engine-v2-2 review flagged on ConflictWarningInline). Split into a per-goal findingForGoal() helper (49 lines) + a 14-line loop. Re-verified tsc clean and goalCoverage.test.ts/advisoryCopy.test.ts still 61/61, and the full suite still exactly the 10 pre-existing failures, after the split."
+    }
+  }
+}

@@ -15,7 +15,7 @@ import { AppHeader } from '@/components/ui/core/AppHeader';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
 import { BARCODE_HUB_ENTRY_ENABLED } from '@/constants/featureFlags';
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import { useProductRepository } from '@/hooks/useCorpusRepositories';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import type { CorpusProduct } from '@/services/corpus/types';
@@ -26,7 +26,9 @@ type Props = NativeStackScreenProps<CatalogStackParamList, 'AddProductHub'>;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function AddProductHubScreen({ navigation }: Props) {
+export default function AddProductHubScreen({ navigation, route }: Props) {
+  const initialStatus = route.params?.initialStatus;
+  const isExploring = initialStatus === 'wishlist';
   const [searchText, setSearchText] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [searchResults, setSearchResults] = useState<CorpusProduct[]>([]);
@@ -101,32 +103,16 @@ export default function AddProductHubScreen({ navigation }: Props) {
     debouncedQuery === searchText.trim();
   const showObfAttribution = searchResults.some((p) => p.source === 'obf_import');
 
-  // Shared manual-entry fallback, offered alongside every no-result / error /
-  // unavailable state so the user is never blocked (CLAUDE.md constraint).
-  const manualFallbackRow = (
-    <Pressable
-      style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
-      onPress={() => navigation.navigate('AddProduct')}
-      accessibilityRole="button"
-      accessibilityLabel="Create product manually"
-    >
-      <View style={styles.actionIconWrap}>
-        <Icon name="edit-3" size={20} color={colors.textPrimary} />
-      </View>
-      <View style={styles.actionContent}>
-        <Text style={styles.actionTitle}>Add Manually</Text>
-        <Text style={styles.actionSubtitle}>Enter details yourself</Text>
-      </View>
-      <Icon name="chevron-right" size={18} color={colors.textTertiary} />
-    </Pressable>
-  );
-
   // ── Render ────────────────────────────────────────────────────────────────
+  // Note: no-result/error/unavailable states below show only a notice — the
+  // persistent "Manual Entry" section further down stays the single, always-
+  // present manual-add entry point (CLAUDE.md: never block the user), so we
+  // don't duplicate it inline here.
 
   return (
     <SafeAreaView style={styles.safe}>
       <AppHeader
-        title="Add Product"
+        title={isExploring ? 'Explore Product' : 'Add Product'}
         leftAction={
           <IconButton
             icon={<Icon name="arrow-left" size={20} color={colors.textPrimary} />}
@@ -143,6 +129,31 @@ export default function AddProductHubScreen({ navigation }: Props) {
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
+        {/* ── Scan Product ── the primary identify-by-photo path, see
+            docs/tasks/ux-explore-vials/07-capture-flow.md ── */}
+        <Text style={styles.sectionLabel}>Scan</Text>
+        <Pressable
+          style={({ pressed }) => [
+            styles.actionRow,
+            styles.manualCard,
+            pressed && styles.actionRowPressed,
+          ]}
+          onPress={() => navigation.navigate('CaptureFlow', { initialStatus })}
+          accessibilityRole="button"
+          accessibilityLabel="Scan product"
+        >
+          <View style={styles.manualIconWrap}>
+            <Icon name="camera" size={20} color={palette.plum} />
+          </View>
+          <View style={styles.actionContent}>
+            <Text style={styles.actionTitle}>Scan Product</Text>
+            <Text style={styles.actionSubtitle}>Photograph the front label</Text>
+          </View>
+          <Icon name="chevron-right" size={18} color={colors.textTertiary} />
+        </Pressable>
+
+        <View style={styles.divider} />
+
         {/* ── Corpus Search ──────────────────────────────────────────────── */}
         <Text style={styles.sectionLabel}>Search Database</Text>
         <Input
@@ -173,7 +184,10 @@ export default function AddProductHubScreen({ navigation }: Props) {
                     pressed && styles.resultRowPressed,
                   ]}
                   onPress={() =>
-                    navigation.navigate('ManualProductForm', { prefillCorpusProduct: item })
+                    navigation.navigate('ManualProductForm', {
+                      prefillCorpusProduct: item,
+                      initialStatus,
+                    })
                   }
                   accessibilityRole="button"
                   accessibilityLabel={`Add ${item.name}`}
@@ -202,32 +216,23 @@ export default function AddProductHubScreen({ navigation }: Props) {
             ) : null}
           </View>
         ) : showSearchError ? (
-          <View style={styles.notFoundWrap}>
-            <View style={styles.noticeBanner}>
-              <Icon name="wifi-off" size={16} color={colors.statusWarning} />
-              <Text style={styles.noticeText}>
-                Couldn't reach the product database. Check your connection and try again.
-              </Text>
-            </View>
-            {manualFallbackRow}
+          <View style={styles.noticeBanner}>
+            <Icon name="wifi-off" size={16} color={colors.statusWarning} />
+            <Text style={styles.noticeText}>
+              Couldn't reach the product database. Check your connection and try again.
+            </Text>
           </View>
         ) : showCorpusUnavailable ? (
-          <View style={styles.notFoundWrap}>
-            <View style={styles.noticeBanner}>
-              <Icon name="alert-triangle" size={16} color={colors.statusWarning} />
-              <Text style={styles.noticeText}>
-                Product database isn't available in this build. You can still add a product manually.
-              </Text>
-            </View>
-            {manualFallbackRow}
+          <View style={styles.noticeBanner}>
+            <Icon name="alert-triangle" size={16} color={colors.statusWarning} />
+            <Text style={styles.noticeText}>
+              Product database isn't available in this build. You can still add a product manually.
+            </Text>
           </View>
         ) : showNotFound ? (
-          <View style={styles.notFoundWrap}>
-            <Text style={styles.hint}>
-              No results for "{searchText.trim()}"
-            </Text>
-            {manualFallbackRow}
-          </View>
+          <Text style={styles.hint}>
+            No results for "{searchText.trim()}"
+          </Text>
         ) : null}
 
         {/* ── Scan Barcode ── moved into Add Product step 2; hub entry off ── */}
@@ -262,14 +267,15 @@ export default function AddProductHubScreen({ navigation }: Props) {
         <Pressable
           style={({ pressed }) => [
             styles.actionRow,
+            styles.manualCard,
             pressed && styles.actionRowPressed,
           ]}
-          onPress={() => navigation.navigate('AddProduct')}
+          onPress={() => navigation.navigate('AddProduct', { initialStatus })}
           accessibilityRole="button"
           accessibilityLabel="Create product manually"
         >
-          <View style={styles.actionIconWrap}>
-            <Icon name="edit-3" size={20} color={colors.textPrimary} />
+          <View style={styles.manualIconWrap}>
+            <Icon name="edit-3" size={20} color={palette.plum} />
           </View>
           <View style={styles.actionContent}>
             <Text style={styles.actionTitle}>Create Product Manually</Text>
@@ -350,9 +356,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textTertiary,
   },
-  notFoundWrap: {
-    gap: space[3],
-  },
   noticeBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -393,6 +396,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
     borderColor: colors.borderDivider,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manualCard: {
+    borderWidth: 0,
+    ...shadow.sm,
+  },
+  manualIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    backgroundColor: palette.plumTint,
     alignItems: 'center',
     justifyContent: 'center',
   },

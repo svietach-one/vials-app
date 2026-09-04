@@ -10,7 +10,7 @@ import type {
 import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
 import { collectAdaptationLimits, collectTolerability } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
-import { applyEligibilityGates } from '@/utils/routineEngine/eligibility';
+import { applyEligibilityGates, isSafetyFreezeGate } from '@/utils/routineEngine/eligibility';
 import { applyMandates } from '@/utils/routineEngine/mandates';
 import type {
   DecisionLogEntry,
@@ -49,9 +49,10 @@ export interface TrackingInput {
 export interface EngineInput {
   products: Product[];
   procedures: UserProcedureLog[];
-  /** Goal fields optional (absent ⇒ maintenance) so pre-goal callers/fixtures keep compiling. */
+  /** Goal/pregnancy fields optional (absent ⇒ maintenance / not pregnant) so
+   * pre-existing callers/fixtures keep compiling. */
   profile: Pick<UserProfile, 'fitzpatrick' | 'concerns'> &
-    Partial<Pick<UserProfile, 'primaryGoal' | 'secondaryGoal'>>;
+    Partial<Pick<UserProfile, 'primaryGoal' | 'secondaryGoal' | 'pregnantOrBreastfeeding'>>;
   seasonMask: SeasonMask;
   /** Absent = fixed mode with no counters (virtual counts drive adaptation). */
   tracking?: TrackingInput;
@@ -167,6 +168,7 @@ export function generatePlan(input: EngineInput): RoutinePlan {
       fitzpatrick: input.profile.fitzpatrick,
       primaryGoal: input.profile.primaryGoal,
       secondaryGoal: input.profile.secondaryGoal,
+      pregnantOrBreastfeeding: input.profile.pregnantOrBreastfeeding,
     },
     seasonMask: input.seasonMask,
     now,
@@ -202,6 +204,7 @@ export function generatePlan(input: EngineInput): RoutinePlan {
     productId: r.productId,
     reasonCode: r.reasonCode,
     ...(r.until ? { until: r.until } : {}),
+    overridesPin: isSafetyFreezeGate(r.gate),
   }));
   const gateDecisions: DecisionLogEntry[] = gatedOut.map((r) => ({
     action: 'freeze',

@@ -1,9 +1,9 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
-import { Button } from '@/components/ui/core/Button';
-import { colors, radius, shadow, space, typography } from '@/constants/tokens';
+import { EmptyState } from '@/components/ui/core/EmptyState';
+import { colors, radius, shadow, space } from '@/constants/tokens';
 
 export interface GenerateCardProps {
   onGenerate: () => void;
@@ -18,35 +18,22 @@ export interface GenerateCardProps {
 export function GenerateCard({ onGenerate, onAddManually }: GenerateCardProps) {
   return (
     <View style={styles.card}>
-      <View style={styles.iconWrap}>
-        <Icon name="layers" size={24} color={colors.textSecondary} />
-      </View>
-      <Text style={styles.title}>Build your routine</Text>
-      <Text style={styles.subtitle}>
-        Let Vials arrange your shelf into a morning and evening routine — or
-        start from scratch.
-      </Text>
-      <View style={styles.actions}>
-        <Button
-          variant="primary"
-          size="md"
-          fullWidth
-          icon={<Icon name="zap" size={16} color={colors.controlOn} />}
-          onPress={onGenerate}
-          accessibilityLabel="Generate Routine"
-        >
-          Generate Routine
-        </Button>
-        <Button
-          variant="secondary"
-          size="md"
-          fullWidth
-          onPress={onAddManually}
-          accessibilityLabel="Add Products Manually"
-        >
-          Add Products Manually
-        </Button>
-      </View>
+      <EmptyState
+        icon={<Icon name="layers" size={24} color={colors.textSecondary} />}
+        title="Build your routine"
+        description="Let Vials arrange your shelf into a morning and evening routine — or start from scratch."
+        actions={[
+          {
+            label: 'Generate Routine',
+            onPress: onGenerate,
+            icon: <Icon name="zap" size={16} color={colors.controlOn} />,
+          },
+          {
+            label: 'Add Products Manually',
+            onPress: onAddManually,
+          },
+        ]}
+      />
     </View>
   );
 }
@@ -55,36 +42,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
     paddingVertical: space[8],
     paddingHorizontal: space[6],
-    alignItems: 'center',
-    gap: space[3],
     ...shadow.sm,
-  },
-  iconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunken,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: space[1],
-  },
-  title: {
-    ...typography.h3,
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: space[2],
-  },
-  actions: {
-    alignSelf: 'stretch',
-    gap: space[2],
   },
 });

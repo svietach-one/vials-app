@@ -1,4 +1,13 @@
-import type { ActiveIngredientKey, FunctionalBenefit, ProductType, SkinGoal } from '@/types';
+import type { BadgeStatus } from '@/components/ui/feedback/Badge';
+import type {
+  ActiveIngredientKey,
+  CapabilityKey,
+  FitzpatrickType,
+  FunctionalBenefit,
+  ProductType,
+  SkinGoal,
+  SkinType,
+} from '@/types';
 
 export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
   cleanser: 'Cleanser',
@@ -49,6 +58,32 @@ export const SLOT_CATEGORY_LABELS: Record<ProductType, string> = {
   spf: 'SPF',
 };
 
+/**
+ * Human-readable routine phase label per `LAYERING_ORDER` numeric value
+ * (`src/constants/rulesets/productFacts.ts`, 0–13) — Explore Composition
+ * Story 8 (2026-08-26 decision batch, FE-12). A new map, not a rename/reuse
+ * of `SLOT_CATEGORY_LABELS` above: that map is a lowercase product-category
+ * noun already used in duplicate-slot-warning copy elsewhere; this one is
+ * Title-Case, gerund/phase-style copy keyed by the numeric layering order,
+ * for a different call site (`RoutinePlacementCard.tsx`).
+ */
+export const ROUTINE_PHASE_LABELS: Record<number, string> = {
+  0: 'Makeup Removal',
+  1: 'Cleansing',
+  2: 'Exfoliation',
+  3: 'Toning',
+  4: 'Essence',
+  5: 'Ampoule / Booster',
+  6: 'Treatment',
+  7: 'Other',
+  8: 'Spot Treatment',
+  9: 'Eye Care',
+  10: 'Mask',
+  11: 'Moisturizing',
+  12: 'Sealing / Oil',
+  13: 'Sun Protection',
+};
+
 /** Singular human-readable slot/category name, e.g. "moisturizer", "SPF". */
 export function getSlotCategoryLabel(productType: ProductType): string {
   return SLOT_CATEGORY_LABELS[productType] ?? PRODUCT_TYPE_LABELS[productType];
@@ -58,6 +93,41 @@ export function getSlotCategoryLabel(productType: ProductType): string {
 export function getSlotCategoryLabelPlural(productType: ProductType): string {
   const label = getSlotCategoryLabel(productType);
   return label.endsWith('s') ? label : `${label}s`;
+}
+
+/**
+ * Product-type -> Badge status, grouping types into the category hues used
+ * everywhere a productType pill is rendered (My Shelf, Routines, product
+ * detail): Cobalt for liquid actives, Green for emollients/moisturizers,
+ * Amber for exfoliating/treatment steps, Golden for sun protection (spf),
+ * Cian for cleansing steps (cleanser, makeup_remover), Cabernet for peeling,
+ * Coffee for rich emollients (cream, balm, eye_cream). Types not listed here
+ * (currently other) fall back to Default (neutral gray) via
+ * {@link getProductTypeBadgeStatus}.
+ */
+export const PRODUCT_TYPE_BADGE_STATUS: Partial<Record<ProductType, BadgeStatus>> = {
+  serum: 'Cobalt',
+  ampoule: 'Cobalt',
+  essence: 'Cobalt',
+  gel: 'Cobalt',
+  cleanser: 'Cian',
+  makeup_remover: 'Cian',
+  toner: 'Green',
+  moisturizer: 'Green',
+  cream: 'Coffee',
+  lotion: 'Green',
+  oil: 'Green',
+  eye_cream: 'Coffee',
+  balm: 'Coffee',
+  spf: 'Golden',
+  mask: 'Amber',
+  peeling: 'Cabernet',
+  spot_treatment: 'Amber',
+};
+
+/** Resolves the Badge status for a product type, defaulting to neutral gray. */
+export function getProductTypeBadgeStatus(productType: ProductType): BadgeStatus {
+  return PRODUCT_TYPE_BADGE_STATUS[productType] ?? 'Default';
 }
 
 export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
@@ -71,6 +141,7 @@ export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   niacinamide: 'Niacinamide',
   benzoyl_peroxide: 'Benzoyl Peroxide',
   azelaic_acid: 'Azelaic Acid',
+  hydroquinone: 'Hydroquinone',
   copper_peptides: 'Copper Peptides',
   peptide_signal: 'Signal Peptides',
   peptide_neuro: 'Neuro Peptides',
@@ -80,10 +151,66 @@ export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   glycerin_class: 'Glycerin & Humectants',
   panthenol: 'Panthenol',
   cica: 'Centella (Cica)',
+  physical_exfoliant: 'Physical Exfoliant',
   // Legacy (pre-ruleset persisted tags)
   retinol: 'Retinol',
   vitamin_c: 'Vitamin C',
   spf_chemical: 'SPF (Chemical)',
+};
+
+/**
+ * Skin-profile field options and copy, shared by onboarding (SkinTypeStep,
+ * AboutYouStep, AdditionalInfoStep) and the profile editor
+ * (SkinProfileEditModal) so the two entry points into the same fields can't
+ * drift apart — a change here shows up in both places.
+ */
+export const SKIN_TYPE_OPTIONS: { value: SkinType; label: string }[] = [
+  { value: 'oily', label: 'Oily' },
+  { value: 'dry', label: 'Dry' },
+  { value: 'combination', label: 'Combination' },
+  { value: 'normal', label: 'Normal' },
+];
+
+export const GENDER_OPTIONS: { value: 'female' | 'male' | null; label: string }[] = [
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
+  { value: null, label: 'Prefer not to say' },
+];
+
+export const GENDER_CAPTION =
+  'Skin differs physiologically between men and women — this affects how products perform. We ' +
+  'ask to personalize, not out of curiosity.';
+
+export const HORMONE_THERAPY_LABEL = 'Currently on hormone therapy';
+export const HORMONE_THERAPY_HINT =
+  'Affects oil production and sensitivity, regardless of the gender selected above.';
+
+export const PREGNANCY_LABEL = 'Pregnant or breastfeeding';
+export const PREGNANCY_HINT = "We'll flag retinoids and other restricted actives.";
+
+/**
+ * `UserProfile.sensitive` copy (vials-onboarding-quizzes FE-4) — mirrors the
+ * `HORMONE_THERAPY_LABEL`/`_HINT` pair. Provisional wording (spec §10 Open
+ * Questions) — needs a content pass before ship.
+ */
+export const SENSITIVE_LABEL = 'Sensitive skin';
+export const SENSITIVE_HINT = 'Stings, reddens, or reacts easily to new products or actives.';
+
+/**
+ * Brief visible caption per Fitzpatrick type, shown under each onboarding
+ * card and reused by the post-quiz soft-copy hint (spec §5) — supplementary
+ * to `FitzpatrickCard`'s own full accessibilityLabel. Hoisted here from
+ * `PhototypeStep.tsx` (vials-onboarding-quizzes FE-4) so onboarding and Tab 4
+ * (`SkinProfileEditModal`) build identical text without duplicating/drifting
+ * this 6-entry map.
+ */
+export const FITZPATRICK_DESCRIPTIONS: Record<FitzpatrickType, string> = {
+  1: 'Always burns, never tans',
+  2: 'Usually burns, tans minimally',
+  3: 'Sometimes burns, tans gradually',
+  4: 'Rarely burns, tans easily',
+  5: 'Very rarely burns',
+  6: 'Never burns',
 };
 
 /** Care-goal display names (V2.1 Step 0 goal selector + confirmation banner). */
@@ -104,6 +231,25 @@ export const FUNCTIONAL_BENEFIT_LABELS: Record<FunctionalBenefit, string> = {
   anti_acne: 'Anti-Acne',
   barrier_repair: 'Barrier Repair',
   brightening: 'Brightening',
+};
+
+/**
+ * Display labels for `CapabilityKey` (Product Profile —
+ * docs/tasks/product_profile/01-product-profile.md §5). A distinct key space
+ * from `FunctionalBenefit` above — do not merge; Product Profile's
+ * capability model is a separate taxonomy (03-capabilities.md).
+ */
+export const CAPABILITY_LABELS: Record<CapabilityKey, string> = {
+  hydration: 'Hydration',
+  barrierRepair: 'Barrier Repair',
+  brightening: 'Brightening',
+  pigmentation: 'Pigmentation',
+  acneControl: 'Acne Control',
+  sebumRegulation: 'Sebum Regulation',
+  antioxidantProtection: 'Antioxidant Protection',
+  soothing: 'Soothing',
+  exfoliation: 'Exfoliation',
+  antiAging: 'Anti-Aging',
 };
 
 /**

@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors, palette } from '@/constants/tokens';
 import type { CorpusProduct } from '@/services/corpus/types';
 import { useProfileStore } from '@/store/profileStore';
+import type { ActiveIngredientKey, ProductStatus, ProductType } from '@/types';
 
 // ─── Onboarding screens ───────────────────────────────────────────────────────
 
@@ -29,6 +30,10 @@ import ManualProductFormScreen from '@/screens/ManualProductFormScreen';
 import ProductDetailScreen from '@/screens/ProductDetailScreen';
 import BarcodeScannerScreen from '@/screens/BarcodeScannerScreen';
 import AddProductScreen from '@/screens/catalog/AddProductScreen';
+import CaptureFlowScreen from '@/screens/catalog/CaptureFlowScreen';
+import ExploreCompositionCaptureScreen from '@/screens/catalog/ExploreCompositionCaptureScreen';
+import ExploreCompositionResultScreen from '@/screens/catalog/ExploreCompositionResultScreen';
+import WishlistEntryDetailScreen from '@/screens/catalog/WishlistEntryDetailScreen';
 
 // ─── Param lists ──────────────────────────────────────────────────────────────
 
@@ -40,16 +45,76 @@ export type OnboardingStackParamList = {
 };
 
 export type CatalogStackParamList = {
-  Catalog: undefined;
-  AddProductHub: undefined;
+  Catalog: {
+    /**
+     * One-shot success toast for a manual save, shown once and cleared
+     * (see docs/specs/contribution-consent-flow/03-visual-spec.md).
+     * `savedAt` disambiguates back-to-back saves with identical content.
+     */
+    toast?: { savedAt: number; contributionOptIn: boolean; contributedCount: number };
+  } | undefined;
+  AddProductHub: {
+    /** "Explore new" forwards 'wishlist' through the shared add pipeline — see
+     * docs/tasks/ux-explore-vials/01-entry-points.md §1. Absent/'owned' is the
+     * default "Add new" outcome. */
+    initialStatus?: ProductStatus;
+  } | undefined;
   ManualProductForm: {
     /** A corpus (Turso) hit the user picked via search or barcode scan — see src/services/corpus. */
     prefillCorpusProduct?: CorpusProduct;
     editingProductId?: string;
+    initialStatus?: ProductStatus;
+    /**
+     * Brand/name/INCI text recognized by CaptureFlowScreen's OCR when no
+     * corpus match was found — see docs/tasks/ux-explore-vials/07-capture-flow.md
+     * §4a ("Shot 1's OCR result is never thrown away"). Ignored whenever
+     * prefillCorpusProduct/editingProductId is also set — those take priority.
+     */
+    ocrPrefill?: { brand?: string; name?: string; fullIngredientText?: string };
+    /**
+     * The identification photo (Shot 1) itself, independent of whether OCR/
+     * corpus matching succeeded — kept as the product's cover photo either
+     * way (see docs/tasks/ux-explore-vials/07-capture-flow.md). Applies
+     * regardless of which of prefillCorpusProduct/ocrPrefill fired, since a
+     * corpus match commonly has no photo of its own.
+     */
+    capturedPhotoUri?: string;
+    /**
+     * A captured-but-not-yet-identified composition from the Explore
+     * Composition flow (docs/specs/explore-composition.md Story 4/5) —
+     * either straight from `ExploreCompositionResultScreen` (no
+     * `wishlistEntryId`) or promoting a saved `WishlistEntry` (with one, so
+     * it can be removed only after a successful save). Mutually exclusive
+     * with `prefillCorpusProduct`/`editingProductId`/`ocrPrefill`.
+     */
+    explorePrefill?: {
+      rawIngredientsText: string;
+      activeKeys: ActiveIngredientKey[];
+      brand: string | null;
+      name: string | null;
+      category: ProductType | null;
+      wishlistEntryId?: string;
+    };
   };
   ProductDetail: { productId: string };
   BarcodeScanner: undefined;
-  AddProduct: undefined;
+  AddProduct: { initialStatus?: ProductStatus } | undefined;
+  CaptureFlow: { initialStatus?: ProductStatus } | undefined;
+  /**
+   * Explore Composition flow's capture screen — replaces `CaptureFlow` as
+   * "Explore new"'s destination when `EXPLORE_COMPOSITION_ENABLED` is on
+   * (docs/tech-design/explore-composition.md FE-1/FE-2). An optional
+   * single-tap category, carried through unresolved to the result screen.
+   */
+  ExploreCompositionCapture: { category?: ProductType } | undefined;
+  /** Explore Composition flow's result screen (tech design FE-4). */
+  ExploreCompositionResult: { rawIngredientsText: string; category: ProductType | null };
+  /**
+   * A saved `WishlistEntry`'s own detail page (Story 9, tech design FE-22) —
+   * an id-only route, mirroring `ProductDetail`'s `{ productId }` convention,
+   * to avoid stale-data risk from passing the whole entity through params.
+   */
+  WishlistEntryDetail: { wishlistEntryId: string };
 };
 
 export type ClinicStackParamList = {
@@ -99,6 +164,19 @@ function CatalogNavigator() {
       <CatalogStack.Screen name="ProductDetail" component={ProductDetailScreen} />
       <CatalogStack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
       <CatalogStack.Screen name="AddProduct" component={AddProductScreen} />
+      <CatalogStack.Screen name="CaptureFlow" component={CaptureFlowScreen} />
+      <CatalogStack.Screen
+        name="ExploreCompositionCapture"
+        component={ExploreCompositionCaptureScreen}
+      />
+      <CatalogStack.Screen
+        name="ExploreCompositionResult"
+        component={ExploreCompositionResultScreen}
+      />
+      <CatalogStack.Screen
+        name="WishlistEntryDetail"
+        component={WishlistEntryDetailScreen}
+      />
     </CatalogStack.Navigator>
   );
 }
@@ -138,11 +216,19 @@ function MainTabs() {
     >
       {/* Routines is the first tab: the daily execution loop is the app's default view */}
       <Tab.Screen name="Routines" component={RoutinesScreen} options={{ headerShown: false }} />
-      {/* My Shelf tab: headerShown:false because CatalogNavigator provides its own header */}
+      {/* My Shelf tab: headerShown:false because CatalogNavigator provides its own header.
+          tabPress always resets the nested stack to Catalog — otherwise React
+          Navigation's default per-tab stack preservation leaves you on
+          whatever screen (e.g. ProductDetail) you last drilled into. */}
       <Tab.Screen
         name="My Shelf"
         component={CatalogNavigator}
         options={{ headerShown: false }}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate('My Shelf', { screen: 'Catalog' });
+          },
+        })}
       />
       <Tab.Screen name="Clinic" component={ClinicNavigator} options={{ headerShown: false }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />

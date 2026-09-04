@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   SafeAreaView,
@@ -21,26 +21,35 @@ import { DraftPreviewScreen } from '@/components/routine/DraftPreviewScreen';
 import { DuplicateSlotResolutionSheet } from '@/components/routine/DuplicateSlotResolutionSheet';
 import {
   DuplicateSlotWarningInline,
+  groupHasActiveIngredientOverlap,
   type DuplicateSlotGroupPress,
 } from '@/components/routine/DuplicateSlotWarningInline';
+import { GapCard } from '@/components/routine/GapCard';
 import { GenerateCard } from '@/components/routine/GenerateCard';
 import { OptimizeStrip } from '@/components/routine/OptimizeStrip';
+import { OrphanedSlotCard } from '@/components/routine/OrphanedSlotCard';
 import { PreCleanseReminderCard } from '@/components/routine/PreCleanseReminderCard';
-import { PlannerBlock, type RoutineViewMode } from '@/components/routine/PlannerBlock';
+import { PlannerBlock } from '@/components/routine/PlannerBlock';
 import { RehabNoticeCard } from '@/components/routine/RehabNoticeCard';
 import { RoutineCalendarView } from '@/components/routine/RoutineCalendarView';
 import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
+import { RoutineProductCard } from '@/components/routine/RoutineProductCard';
+import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { RoutineStepActionSheet } from '@/components/routine/RoutineStepActionSheet';
-import { RoutineStepCard } from '@/components/routine/RoutineStepCard';
-import { ContributionConsentMigrationBanner } from '@/components/routine/ContributionConsentMigrationBanner';
+import { StepGroupHeader } from '@/components/routine/StepGroupHeader';
+import { StepTransitionDivider } from '@/components/routine/StepTransitionDivider';
 import { GoalConfirmBanner } from '@/components/routine/GoalConfirmBanner';
+import { GoalCoverageBanner } from '@/components/routine/GoalCoverageBanner';
 import { PhototypeConfirmBanner } from '@/components/routine/PhototypeConfirmBanner';
+import { ConflictWarningInline } from '@/components/routine/ConflictWarningInline';
 import { SeasonalNoticeBanner } from '@/components/routine/SeasonalNoticeBanner';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
-import { getSlotCategoryLabel, GOAL_LABELS } from '@/constants/labels';
-import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
+import { PillToggle } from '@/components/ui/core/PillToggle';
+import { getSlotCategoryLabel, GOAL_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { reasonText } from '@/constants/decisionReasons';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import {
   applyRoutinePlan,
@@ -49,6 +58,7 @@ import {
   type PlanCommitScope,
 } from '@/domain/routinePlanActions';
 import { getActiveSeasonMask } from '@/domain/seasonActions';
+import { useCompletionStore } from '@/store/completionStore';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
@@ -56,58 +66,45 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
+import { getRecoveryConditionCaution } from '@/utils/skinConditionModifiers';
 import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
-import { isScheduledOnDay } from '@/utils/routineSchedule';
+import { dateForDow, isScheduledOnDay } from '@/utils/routineSchedule';
+import { getSkincareDateString } from '@/utils/timeHelpers';
 import {
-  getInitialAccordionState,
+  attachPlaceholderGaps,
+  groupStepsIntoActions,
+  isGroupAllCompleted,
+  resolveTransition,
+  type RenderGroup,
+} from '@/utils/routineGrouping';
+import {
   mergeReorderedSteps,
-  type AccordionState,
+  resolveAccordionState,
+  toPersistedAccordionState,
 } from '@/utils/routineAccordion';
+import {
+  resolveNoticeCollapsed,
+  toNoticeCollapseEntry,
+} from '@/utils/noticeCollapse';
 import { getAdaptationStatus } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { getDailyView, type FrozenStepView } from '@/utils/routineEngine/dailyView';
-import { rankSlotGroup } from '@/utils/routineEngine/duplicateSlot';
+import { findSlotDuplicateGroups, rankSlotGroup } from '@/utils/routineEngine/duplicateSlot';
 import { applySlotAlternativeSwap } from '@/utils/routineEngine/planApply';
+import type { PlaceholderSlot } from '@/utils/routineEngine/planTypes';
 import { findPreCleanseReminder } from '@/utils/routineEngine/preCleanseReminder';
 import { buildProductFacts, buildShelfFacts } from '@/utils/routineEngine/productFacts';
 import { buildRehabNotices } from '@/utils/routineEngine/rehabFilter';
 import type { ValidationResult } from '@/utils/routineEngine/validate';
-import type { Product, RoutineStep } from '@/types';
+import type { GoalCoverageInput } from '@/utils/goalCoverage';
+import type { Product, ProductType, Routine, RoutineStep } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Routines'>;
 type Period = 'morning' | 'evening';
-
-// ─── Period card colors ─────────────────────────────────────────────────────
-// Each period (Morning / Evening) renders as ONE real card View — a proper
-// nested container with a single hairline border + one even drop shadow
-// (shadow.md, all four sides), exactly like every other card in the app. Its
-// steps drag inside a NestableDraggableFlatList so the card can be a genuine
-// wrapper without competing with the outer NestableScrollContainer for the
-// long-press gesture. This replaced an earlier design that faked the card
-// across separate flat-list rows and could only ever cast a cropped,
-// bottom-only shadow.
-//
-// Morning and evening share ONE background color (PERIOD_CARD_BG) rather than
-// distinct tints — two hues read fine on their own, but clash badly the
-// moment an amber notification card (PreCleanseReminderCard) sits inside one
-// of them. The sun/moon header icons keep their own color (PERIOD_ICON_COLOR)
-// so the periods stay visually distinguishable at a glance: marigold sun on a
-// light-orange disc, cobalt moon on a light-blue one — the same pairing the
-// calendar lanes and My Shelf badges use.
-const PERIOD_CARD_BG = palette.boneDeep;
-const PERIOD_ICON_COLOR: Record<Period, string> = {
-  morning: palette.marigold,
-  evening: palette.cobalt,
-};
-// Same circle treatment as the sun/moon overlay badges on My Shelf's
-// ProductShelfCard (circleBadge/circleBadgeSun/circleBadgeMoon).
-const PERIOD_ICON_BG: Record<Period, string> = {
-  morning: palette.marigoldTint,
-  evening: palette.cobaltTint,
-};
-const PERIOD_CARD_BORDER_COLOR = 'rgba(9, 9, 11, 0.08)';
+/** List ⇄ calendar switch, now driven from AppHeader's leftAction. */
+type ViewMode = 'list' | 'calendar';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -124,24 +121,69 @@ export default function RoutinesScreen({ navigation }: Props) {
   const profile = useProfileStore((s) => s.profile);
   const updateProfile = useProfileStore((s) => s.updateProfile);
   const cycleType = useSettingsStore((s) => s.routineCycleType);
-  const dismissedBanners = useSettingsStore((s) => s.dismissedBanners);
-  const dismissBanner = useSettingsStore((s) => s.dismissBanner);
+  const gamificationEnabled = useSettingsStore((s) => s.gamificationEnabled);
   const applicationStats = useTrackingStore((s) => s.applicationStats);
   const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
   const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
   const removeProductStep = useRoutinesStore((s) => s.removeProductStep);
   const setStepHidden = useRoutinesStore((s) => s.setStepHidden);
+  const persistedAccordion = useSettingsStore((s) => s.routineAccordion);
+  const setRoutineAccordion = useSettingsStore((s) => s.setRoutineAccordion);
+  const persistedRehabCollapse = useSettingsStore((s) => s.rehabNoticeCollapsed);
+  const setRehabNoticeCollapsed = useSettingsStore((s) => s.setRehabNoticeCollapsed);
+  const isCompleted = useCompletionStore((s) => s.isCompleted);
+  const toggleCompleted = useCompletionStore((s) => s.toggleCompleted);
+  // `isCompleted`/`toggleCompleted` are stable function references from the
+  // store creator — selecting them alone never changes by Object.is, so
+  // Zustand's useSyncExternalStore-based subscription never re-renders this
+  // screen when toggleCompleted mutates `completions`. Subscribing to the
+  // array itself (even though it's read only indirectly, via isCompleted
+  // closures below) gives this component a real subscription: its identity
+  // changes on every toggle, forcing the re-render that makes a tap show up
+  // immediately instead of only on the next unrelated re-render.
+  const completions = useCompletionStore((s) => s.completions);
 
-  const [viewMode, setViewMode] = useState<RoutineViewMode>('list');
-  // Decided once, on mount: before 15:00 Morning is open, after it Evening is.
-  // Manual toggles win from then on — never recomputed on re-render.
-  const [expanded, setExpanded] = useState<AccordionState>(() => getInitialAccordionState());
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  // routine-step-grouping follow-up: the Morning/Evening accordion (both
+  // periods mounted, independently expandable) is retired in favor of a
+  // single active period chosen by a segmented control (mockup-driven
+  // reversal of the img-03 accordion redesign — human-confirmed, see
+  // progress/routine-step-grouping.md). `resolveAccordionState`/
+  // `toPersistedAccordionState`/`AccordionState` are kept exactly as they
+  // are — still the 15:00 AM/PM rule plus "today's snapshot wins" — but the
+  // pair of booleans they carry is now read as "which ONE period is
+  // selected" instead of "which are independently expanded" (the invariant
+  // that exactly one is true still holds, so the persisted shape needs no
+  // migration). Read once on mount; settings are already hydrated by the
+  // time this screen exists (App gates rendering on storesReady).
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>(
+    () => (resolveAccordionState(persistedAccordion).morning ? 'morning' : 'evening'),
+  );
+
+  // Persists on mount (recording the day's auto-decision, if it wasn't
+  // already recorded) and after every manual segment tap below, so a remount
+  // later the same skincare day reuses this exact snapshot instead of
+  // re-deciding from the 15:00 AM/PM rule.
+  useEffect(() => {
+    setRoutineAccordion(
+      toPersistedAccordionState({ morning: selectedPeriod === 'morning', evening: selectedPeriod === 'evening' }),
+    );
+  }, [selectedPeriod, setRoutineAccordion]);
   const [selectedDow, setSelectedDow] = useState<number>(() => new Date().getDay());
+  // routine-step-grouping US-40: future/past-day completion gating needs a
+  // real calendar Date, not just a day-of-week — PlannerBlock already derives
+  // one per day-chip internally (dateForDow, shared so the two never drift).
+  const selectedDate = dateForDow(selectedDow);
+  const isFutureSelection = selectedDate.getTime() > new Date().getTime();
+  const selectedSkincareDate = getSkincareDateString(selectedDate);
+  const tappable = gamificationEnabled && !isFutureSelection;
+  const [editMode, setEditMode] = useState(false);
   const [addSheetVisible, setAddSheetVisible] = useState(false);
   const [sheetProduct, setSheetProduct] = useState<Product | null>(null);
   const [sheetStep, setSheetStep] = useState<{ stepId: string; routineId: string } | null>(null);
-  // Which period new-product flows default to, from the same 15:00 rule.
-  const defaultPeriod: Period = expanded.morning ? 'morning' : 'evening';
+  const [schedulerTarget, setSchedulerTarget] = useState<{ productId: string; productType: ProductType } | null>(
+    null,
+  );
   const [pendingRemoval, setPendingRemoval] = useState<{ stepId: string; productId: string; productName: string; routineId: string } | null>(null);
   // Draft Preview state — a generated plan lives only here until committed
   const [draft, setDraft] = useState<ValidationResult | null>(null);
@@ -160,15 +202,15 @@ export default function RoutinesScreen({ navigation }: Props) {
     setSelectedDow(dow);
   }, []);
 
-  const toggleSection = useCallback((period: Period) => {
-    setExpanded((prev) => ({ ...prev, [period]: !prev[period] }));
-  }, []);
-
   // Single shared entry point for both the header "+" and the in-content
   // "Add product" button — both must open the exact same flow.
   const handleOpenAddSheet = useCallback(() => {
     setAddSheetVisible(true);
   }, []);
+
+  const handleFindInCatalog = useCallback(() => {
+    navigation.navigate('My Shelf', { screen: 'Catalog' });
+  }, [navigation]);
 
   const morningRoutine = routines.find((r) => r.timeOfDay === 'morning');
   const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
@@ -182,6 +224,8 @@ export default function RoutinesScreen({ navigation }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reads stores via getState; these deps cover every input
     [routines, products, procedures, totalSteps],
   );
+
+  const placeholders: PlaceholderSlot[] = validation?.proposedPlan.placeholders ?? [];
 
   const handleOpenDraftPreview = useCallback(() => {
     setDraft(validateCurrentRoutines());
@@ -262,7 +306,10 @@ export default function RoutinesScreen({ navigation }: Props) {
 
     const views = getDailyView(routines, products, {
       procedures,
-      profile: { fitzpatrick: profile?.fitzpatrick ?? null },
+      profile: {
+        fitzpatrick: profile?.fitzpatrick ?? null,
+        pregnantOrBreastfeeding: profile?.pregnantOrBreastfeeding ?? false,
+      },
       seasonMask: getActiveSeasonMask(),
     });
     const frozen = new Map<string, FrozenStepView[]>();
@@ -275,7 +322,7 @@ export default function RoutinesScreen({ navigation }: Props) {
     };
   }, [products, routines, procedures, profile, cycleType, applicationStats]);
 
-  const { amSteps, pmSteps, conflictMap } = useMemo(() => {
+  const { amSteps, pmSteps, conflictMap, similarMap } = useMemo(() => {
     // Clinically frozen steps leave the visible list (research §1.5: the
     // rehab notice + Paused rows explain them — never silent, never draggable)
     const frozenStepIds = new Set(
@@ -304,8 +351,48 @@ export default function RoutinesScreen({ navigation }: Props) {
       }
     }
 
-    return { amSteps: am, pmSteps: pm, conflictMap: map };
+    // Per-card echo of DuplicateSlotWarningInline's top-of-screen banner
+    // (Change 1, routine-step-grouping polish round 3): same detection
+    // primitive (findSlotDuplicateGroups), but scoped to each period's own
+    // already-filtered `am`/`pm` steps — never routine.steps unfiltered like
+    // the banner — so the per-card tip never contradicts what's actually
+    // rendered today. One other product name per step, same "first found
+    // wins" simplicity as conflictMap above.
+    const similar = new Map<string, string>();
+    for (const periodSteps of [am, pm]) {
+      for (const group of findSlotDuplicateGroups(periodSteps, products)) {
+        if (!groupHasActiveIngredientOverlap(group, products)) continue;
+        for (const step of group) {
+          if (similar.has(step.id)) continue;
+          const other = group.find((s) => s.id !== step.id);
+          const otherProduct = other?.productId ? products.find((p) => p.id === other.productId) : null;
+          if (otherProduct) similar.set(step.id, otherProduct.name);
+        }
+      }
+    }
+
+    return { amSteps: am, pmSteps: pm, conflictMap: map, similarMap: similar };
   }, [routines, products, selectedDow, frozenRows]);
+
+  // routine-step-grouping Phase 2/4: group each period's visible steps into
+  // render-time StepAction groups, then attach any unfilled generator
+  // placeholders as gap cards (US-44). `steps` is already the fully
+  // period/weekday/hidden/frozen-filtered list, so grouping/transitions never
+  // see a step that isn't actually rendered today.
+  const amRenderGroups = useMemo(() => {
+    const base = groupStepsIntoActions(amSteps, products);
+    return attachPlaceholderGaps(base, placeholders.filter((p) => p.period === 'am'));
+  }, [amSteps, products, placeholders]);
+  const pmRenderGroups = useMemo(() => {
+    const base = groupStepsIntoActions(pmSteps, products);
+    return attachPlaceholderGaps(base, placeholders.filter((p) => p.period === 'pm'));
+  }, [pmSteps, products, placeholders]);
+
+  // Single-active-period rendering: only the segmented control's current
+  // selection is ever mounted in the draggable list below.
+  const activeRenderGroups = selectedPeriod === 'morning' ? amRenderGroups : pmRenderGroups;
+  const activeHasContent =
+    activeRenderGroups.groups.length > 0 || activeRenderGroups.extraGroups.length > 0;
 
   // Computed once here (not inside PreCleanseReminderCard) so renderItem can
   // match reminder.stepId against each step it renders and place the card
@@ -317,11 +404,14 @@ export default function RoutinesScreen({ navigation }: Props) {
 
   // Each period drags within its own NestableDraggableFlatList — cross-period
   // (AM↔PM) drag is not a thing here, so the reordered array is simply that
-  // period's visible steps in their new order.
-  function handleDragEndForPeriod(period: Period, reordered: RoutineStep[]) {
+  // period's visible steps in their new order. Operates on GROUPS: dragging a
+  // group moves all of its member steps together, preserving their internal
+  // order (PRD_Spec.md §7.1).
+  function handleDragEndForPeriod(period: Period, reorderedGroups: RenderGroup[]) {
     const routine = period === 'morning' ? morningRoutine : eveningRoutine;
     if (!routine) return;
-    const merged = mergeReorderedSteps(routine.steps, reordered);
+    const reorderedSteps = reorderedGroups.flatMap((g) => g.members.map((m) => m.step));
+    const merged = mergeReorderedSteps(routine.steps, reorderedSteps);
     if (merged) reorderSteps(routine.id, merged);
   }
 
@@ -353,78 +443,225 @@ export default function RoutinesScreen({ navigation }: Props) {
     }
   }
 
-  // One step inside a period card. Each period owns its own
-  // NestableDraggableFlatList, so `item` is a RoutineStep (not a section row)
-  // and drag is scoped to that period.
-  const renderStepItem = useCallback(
-    (period: Period) =>
-      ({ item: step, drag }: RenderItemParams<RoutineStep>) => {
-        const product = step.productId
-          ? products.find((p) => p.id === step.productId) ?? null
-          : null;
-        if (!product) return null;
+  // One product card (or orphaned-slot card) inside a rendered step group.
+  const renderGroupMember = useCallback(
+    (member: RenderGroup['members'][number], period: Period, routine: Routine) => {
+      const { step, product } = member;
+
+      if (!product) {
+        return (
+          <View key={step.id} style={styles.stepRowWrap}>
+            <OrphanedSlotCard
+              onAddFromCatalog={handleOpenAddSheet}
+              onPause={() => setStepHidden(routine.id, step.id, true)}
+            />
+          </View>
+        );
+      }
+
+      const completed = isCompleted(product.id, routine.id, selectedSkincareDate);
+
+      return (
+        <View key={step.id} style={styles.stepRowWrap}>
+          <RoutineProductCard
+            product={product}
+            // Older manually-added steps can carry a stale `cleanser`
+            // productType for what is actually a micellar water / makeup
+            // remover (reclassifyMakeupRemover only ran at generate-time
+            // historically) — reclassify from the current catalog record so
+            // the badge is honest regardless of which routine or when the
+            // step was created.
+            displayProductType={reclassifyMakeupRemover(product).productType}
+            completed={completed}
+            editMode={editMode}
+            tappable={tappable}
+            onToggleComplete={() => toggleCompleted(product.id, routine.id, selectedSkincareDate)}
+            onOpenActionSheet={() => openStepSheet(product, step.id, period)}
+            onPausePress={() => setStepHidden(routine.id, step.id, true)}
+            onSchedulePress={() => setSchedulerTarget({ productId: product.id, productType: product.productType })}
+            conflictingProductName={conflictMap.get(step.id) ?? null}
+            similarProductName={similarMap.get(step.id) ?? null}
+            adaptationWeek={adaptationWeeks.get(product.id) ?? null}
+          />
+          {/* Directly under the flagged makeup-remover/micellar-water
+              step's own row — not a page-level banner (see
+              findPreCleanseReminder). */}
+          {preCleanseReminder?.stepId === step.id ? (
+            <View style={styles.preCleanseReminderWrap}>
+              <PreCleanseReminderCard reminder={preCleanseReminder} />
+            </View>
+          ) : null}
+        </View>
+      );
+    },
+    [
+      handleOpenAddSheet,
+      setStepHidden,
+      isCompleted,
+      editMode,
+      tappable,
+      toggleCompleted,
+      completions,
+      selectedSkincareDate,
+      conflictMap,
+      similarMap,
+      adaptationWeeks,
+      preCleanseReminder,
+    ],
+  );
+
+  function renderGaps(group: RenderGroup) {
+    return group.gaps.map((gap, index) => (
+      <View key={`gap-${gap.reasonCode}-${index}`} style={styles.stepRowWrap}>
+        <GapCard
+          label={PRODUCT_TYPE_LABELS[gap.productTypes[0]] ?? gap.productTypes[0]}
+          onFindInCatalog={handleFindInCatalog}
+        />
+      </View>
+    ));
+  }
+
+  // One step GROUP inside a period's draggable list. Each period owns its
+  // own NestableDraggableFlatList, so `item` is a RenderGroup (a StepAction
+  // bucket, not an individual product) and drag reorders whole groups.
+  const renderGroupItem = useCallback(
+    (period: Period, groups: RenderGroup[]) =>
+      ({ item: group, drag, getIndex }: RenderItemParams<RenderGroup>) => {
+        const routine = period === 'morning' ? morningRoutine : eveningRoutine;
+        if (!routine) return null;
+
+        const index = getIndex?.() ?? groups.indexOf(group);
+        const ordinal = index + 1;
+        const next = index < groups.length - 1 ? groups[index + 1] : null;
+        const transition = resolveTransition(group, next);
+        const allCompleted =
+          group.members.length > 0 &&
+          isGroupAllCompleted(group, (m) => (m.product ? isCompleted(m.product.id, routine.id, selectedSkincareDate) : false));
 
         return (
           <ScaleDecorator>
-            <View style={styles.stepRowWrap}>
-              <RoutineStepCard
-                product={product}
-                onCardPress={() =>
-                  navigation.navigate('My Shelf', {
-                    screen: 'ProductDetail',
-                    params: { productId: product.id },
-                  })
-                }
-                conflictingProductName={conflictMap.get(step.id) ?? null}
-                adaptationWeek={adaptationWeeks.get(product.id) ?? null}
-                // Older manually-added steps can carry a stale `cleanser`
-                // productType for what is actually a micellar water / makeup
-                // remover (reclassifyMakeupRemover only ran at generate-time
-                // historically) — reclassify from the current catalog record
-                // so the badge is honest regardless of which routine or when
-                // the step was created.
-                displayProductType={reclassifyMakeupRemover(product).productType}
-                // Long-press anywhere on the card lifts it into drag — no
-                // separate edit mode to arm first (img-03).
-                onLongPress={drag}
-                onOverflowPress={() => openStepSheet(product, step.id, period)}
-              />
-              {/* Directly under the flagged makeup-remover/micellar-water
-                  step's own row — not a page-level banner (see
-                  findPreCleanseReminder). */}
-              {preCleanseReminder?.stepId === step.id ? (
-                <View style={styles.preCleanseReminderWrap}>
-                  <PreCleanseReminderCard reminder={preCleanseReminder} />
-                </View>
-              ) : null}
+            <View style={styles.groupWrap}>
+              <Pressable
+                onLongPress={editMode ? drag : undefined}
+                disabled={!editMode}
+                style={styles.groupHeaderWrap}
+              >
+                <StepGroupHeader ordinal={ordinal} action={group.action} allCompleted={allCompleted} editMode={editMode} />
+              </Pressable>
+              {group.members.map((member) => renderGroupMember(member, period, routine))}
+              {renderGaps(group)}
+              {gamificationEnabled ? <StepTransitionDivider transition={transition} /> : null}
             </View>
           </ScaleDecorator>
         );
       },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- openStepSheet reads routines from the closure below
-    [conflictMap, adaptationWeeks, products, navigation, preCleanseReminder, morningRoutine, eveningRoutine],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- renderGaps/renderGroupMember close over deps already listed on their own memo
+    [morningRoutine, eveningRoutine, editMode, isCompleted, completions, selectedSkincareDate, gamificationEnabled, renderGroupMember],
   );
 
+  // Gap-only synthetic groups (a generator placeholder whose action has no
+  // real step group yet) — no persisted steps to drag, so rendered as a
+  // static trailing block rather than inside the draggable list.
+  function renderExtraGroups(groups: RenderGroup[], extraGroups: RenderGroup[]) {
+    return extraGroups.map((group, i) => (
+      <View key={`extra-${group.action}`} style={styles.groupWrap}>
+        <StepGroupHeader ordinal={groups.length + i + 1} action={group.action} editMode={editMode} />
+        {renderGaps(group)}
+      </View>
+    ));
+  }
+
   const allFrozen = useMemo(() => [...frozenRows.values()].flat(), [frozenRows]);
+
+  // engine4.1 §3: resolves goals + pregnancyRules ONCE via buildRoutineContext
+  // (never per-goal — that would break the barrier_repair cross-goal
+  // modifier), then feeds it plus the currently-visible steps and the full
+  // shelf to getGoalCoverageFindings. amSteps/pmSteps are already the
+  // frozen/hidden-filtered visible list, so "covered" can never credit a
+  // product the routine isn't actually showing today.
+  const goalCoverageInput = useMemo((): GoalCoverageInput | null => {
+    if (!profile) return null;
+    const context = buildRoutineContext({
+      procedures,
+      profile: {
+        fitzpatrick: profile.fitzpatrick,
+        primaryGoal: profile.primaryGoal,
+        secondaryGoal: profile.secondaryGoal,
+        pregnantOrBreastfeeding: profile.pregnantOrBreastfeeding,
+      },
+      seasonMask: getActiveSeasonMask(),
+    });
+    const scheduledProducts = [...amSteps, ...pmSteps]
+      .map((s) => (s.productId ? products.find((p) => p.id === s.productId) : undefined))
+      .filter((p): p is Product => p !== undefined);
+
+    return {
+      primaryGoal: profile.primaryGoal,
+      secondaryGoal: profile.secondaryGoal,
+      goalNeedsConfirmation: profile.goalNeedsConfirmation,
+      treatmentClassRanking: context.treatmentClassRanking,
+      scheduledProducts,
+      products,
+      pregnancyRules: context.pregnancyRules,
+    };
+  }, [profile, procedures, amSteps, pmSteps, products]);
 
   const listHeader = useMemo(
     () => (
       <View style={styles.listHeader}>
-        {/* Calendar (view toggle + week strip) sits at the top; the
-            notification blocks below it render null when idle and each can be
-            collapsed to its header line to save space (img-03 follow-up). */}
-        <PlannerBlock
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          selectedDow={selectedDow}
-          onDaySelect={handleDaySelect}
+        {/* Morning/Evening segmented switch — replaces the former
+            independently-expandable accordion (mockup-driven reversal, see
+            progress/routine-step-grouping.md). Reuses PillToggle, the same
+            full-width plum segmented-pill atom that used to power this
+            screen's own List/Calendar toggle (now in AppHeader's
+            leftAction) and Clinic's Active/History tabs — it already has an
+            icon slot, so no new atom was needed. */}
+        <PillToggle
+          value={selectedPeriod}
+          onValueChange={(v) => setSelectedPeriod(v as Period)}
+          options={[
+            {
+              value: 'morning',
+              label: 'Morning',
+              accessibilityLabel: 'Morning',
+              icon: (active) => (
+                <Icon name="sun" size={16} color={active ? palette.white : colors.textSecondary} />
+              ),
+            },
+            {
+              value: 'evening',
+              label: 'Evening',
+              accessibilityLabel: 'Evening',
+              icon: (active) => (
+                <Icon name="moon" size={16} color={active ? palette.white : colors.textSecondary} />
+              ),
+            },
+          ]}
         />
+        {/* Week strip below the period switch; the notification blocks
+            below it render null when idle and each can be collapsed to its
+            header line to save space (img-03 follow-up). */}
+        <PlannerBlock selectedDow={selectedDow} onDaySelect={handleDaySelect} />
         {/* One merged card per procedure in rehab (shield + acute lifestyle
             restrictions in a single card; the two former cards would read as
             needlessly anxious). Self-destructs when its window ends. */}
-        {rehabNotices.map((notice) => (
-          <RehabNoticeCard key={notice.key} notice={notice} />
-        ))}
+        {rehabNotices.map((notice) => {
+          const collapsed = resolveNoticeCollapsed(persistedRehabCollapse[notice.key]);
+          return (
+            <RehabNoticeCard
+              key={notice.key}
+              notice={notice}
+              collapsed={collapsed}
+              onToggleCollapse={() =>
+                setRehabNoticeCollapsed(notice.key, toNoticeCollapseEntry(!collapsed))
+              }
+              conditionCaution={getRecoveryConditionCaution(profile?.skinConditions ?? [], {
+                aggressive: notice.aggressive,
+                phase: 'rehab',
+              })}
+            />
+          );
+        })}
         {profile?.goalNeedsConfirmation === true && (
           <GoalConfirmBanner
             goalLabel={GOAL_LABELS[profile.primaryGoal]}
@@ -439,76 +676,95 @@ export default function RoutinesScreen({ navigation }: Props) {
             onAdjust={() => navigation.navigate('Profile' as never)}
           />
         )}
-        {profile?.contributionConsent?.timestamp === null &&
-          !(dismissedBanners ?? []).includes('contribution_consent_migration') && (
-            <ContributionConsentMigrationBanner
-              onGoToSettings={() => navigation.navigate('Profile' as never)}
-              onDismiss={() => dismissBanner('contribution_consent_migration')}
-            />
-          )}
         <SeasonalNoticeBanner />
+        {goalCoverageInput ? <GoalCoverageBanner input={goalCoverageInput} /> : null}
         <DuplicateSlotWarningInline
           routines={routines}
           products={products}
           onPressGroup={handlePressDuplicateGroup}
         />
+        {/* Pairwise conflicts + (v1.2) condition advisories and density
+            insights. Advisory only — never blocks.
+            Two different scoping rules on purpose:
+            - morningSteps/eveningSteps (condition advisories + density) are
+              scoped to ONLY the currently selected period — since Phase 7
+              replaced the always-both-visible accordion with a
+              single-active-period PillToggle, feeding both periods here made
+              the banner reference products with zero presence in the period
+              actually on screen (e.g. an evening-only retinoid still showing
+              its advisory while Morning is selected).
+            - allSteps (pairwise ingredient conflicts) is always BOTH
+              periods, regardless of selectedPeriod — a real AM+PM chemistry
+              conflict must fire no matter which tab is open; scoping it to
+              the active tab too silently disabled cross-period conflict
+              detection entirely (progress/routine-step-grouping.md,
+              code-review round 2026-08-31). */}
+        <ConflictWarningInline
+          morningSteps={selectedPeriod === 'morning' ? amSteps : []}
+          eveningSteps={selectedPeriod === 'evening' ? pmSteps : []}
+          allSteps={[...amSteps, ...pmSteps]}
+          products={products}
+          skinConditions={profile?.skinConditions ?? []}
+        />
       </View>
     ),
     [
-      viewMode,
+      selectedPeriod,
       selectedDow,
       handleDaySelect,
       rehabNotices,
       routines,
+      amSteps,
+      pmSteps,
       products,
       handlePressDuplicateGroup,
       profile,
       updateProfile,
       navigation,
-      dismissedBanners,
-      dismissBanner,
+      persistedRehabCollapse,
+      setRehabNoticeCollapsed,
+      goalCoverageInput,
     ],
   );
 
   return (
     <SafeAreaView style={styles.safe}>
       <AppHeader
-        title="Routines"
+        title="Routine"
+        leftAction={
+          // Replaces PlannerBlock's former internal List/Calendar PillToggle
+          // — Regenerate and Add moved out of the header entirely (the
+          // footer's OptimizeStrip and "Add product" button already call the
+          // same handlers, so this is a single-tap flow either way).
+          <IconButton
+            icon={<Icon name={viewMode === 'calendar' ? 'list' : 'calendar'} size={18} color={colors.textPrimary} />}
+            label={viewMode === 'calendar' ? 'List view' : 'Calendar view'}
+            variant="ghost"
+            size="sm"
+            onPress={() => setViewMode((v) => (v === 'calendar' ? 'list' : 'calendar'))}
+          />
+        }
         rightAction={
-          <View style={styles.headerActions}>
-            {/* Regenerate sits immediately left of "+", which stays rightmost
-                so adding a product is always a single tap (img-03). */}
-            <IconButton
-              icon={<Icon name="refresh-cw" size={18} color={colors.textPrimary} />}
-              label="Regenerate routine"
-              variant="ghost"
-              size="sm"
-              onPress={handleOpenDraftPreview}
-            />
-            <IconButton
-              icon={<Icon name="plus" size={18} color={colors.textPrimary} />}
-              label="Add product to routine"
-              variant="ghost"
-              size="sm"
-              onPress={handleOpenAddSheet}
-            />
-          </View>
+          <IconButton
+            icon={
+              <Icon
+                name={editMode ? 'check' : 'edit-2'}
+                size={18}
+                color={colors.textPrimary}
+              />
+            }
+            label={editMode ? 'Done editing' : 'Edit routine'}
+            variant="ghost"
+            size="sm"
+            onPress={() => setEditMode((v) => !v)}
+          />
         }
       />
       {viewMode === 'calendar' ? (
         <View style={styles.calendarWrap}>
-          {/* Keep the sub-header so the user can toggle back to the list — the
-              week strip is hidden here since the month grid below already
-              shows every day (rendering both was a duplicate calendar). */}
-          <View style={styles.calendarHeader}>
-            <PlannerBlock
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              selectedDow={selectedDow}
-              onDaySelect={handleDaySelect}
-              showWeekStrip={false}
-            />
-          </View>
+          {/* The List ⇄ Calendar switch now lives permanently in AppHeader's
+              leftAction, so there is nothing left for a sub-header to show
+              here — the month grid below already covers every day. */}
           <RoutineCalendarView
             routines={routines}
             products={products}
@@ -524,65 +780,67 @@ export default function RoutinesScreen({ navigation }: Props) {
         {listHeader}
 
         {totalSteps === 0 ? (
-          // With no steps at all the period cards are noise — fall through to
-          // the Generate card instead.
+          // With no steps at all the period switch is noise — fall through
+          // to the Generate card instead.
           <GenerateCard
             onGenerate={handleOpenDraftPreview}
             onAddManually={handleOpenAddSheet}
           />
         ) : (
+          // Single active period (mockup-driven reversal of the img-03
+          // accordion): only the segmented control's current selection
+          // renders — no card chrome wraps the group list anymore, each
+          // StepGroupHeader/RoutineProductCard sits directly in the scroll
+          // content, matching the mock exactly.
           <>
-            <PeriodCard
-              period="morning"
-              count={amSteps.length}
-              expanded={expanded.morning}
-              steps={amSteps}
-              renderStep={renderStepItem('morning')}
-              onToggle={() => toggleSection('morning')}
-              onAdd={handleOpenAddSheet}
-              onDragEnd={(data) => handleDragEndForPeriod('morning', data)}
+            <NestableDraggableFlatList
+              data={activeRenderGroups.groups}
+              keyExtractor={(group) => group.action}
+              renderItem={renderGroupItem(selectedPeriod, activeRenderGroups.groups)}
+              onDragEnd={({ data }) => handleDragEndForPeriod(selectedPeriod, data)}
+              activationDistance={12}
             />
-            <PeriodCard
-              period="evening"
-              count={pmSteps.length}
-              expanded={expanded.evening}
-              steps={pmSteps}
-              renderStep={renderStepItem('evening')}
-              onToggle={() => toggleSection('evening')}
-              onAdd={handleOpenAddSheet}
-              onDragEnd={(data) => handleDragEndForPeriod('evening', data)}
-            />
+            {renderExtraGroups(activeRenderGroups.groups, activeRenderGroups.extraGroups)}
+            {!activeHasContent ? (
+              <View style={styles.periodEmpty}>
+                <Text style={styles.periodEmptyText}>
+                  No steps for this {selectedPeriod === 'morning' ? 'morning' : 'evening'}.
+                </Text>
+                <Button variant="textActive" size="sm" onPress={handleOpenAddSheet}>
+                  Add product
+                </Button>
+              </View>
+            ) : null}
           </>
         )}
 
-        <View style={styles.addProductFooter}>
-          <PausedSteps frozen={allFrozen} products={products} />
-          <Button
-            variant="textActive"
-            size="md"
-            fullWidth
-            icon={<Icon name="plus" size={16} color={palette.plum} />}
-            onPress={handleOpenAddSheet}
-            accessibilityLabel="Add product to routine"
-          >
-            Add product
-          </Button>
-          {totalSteps > 0 ? (
+        {totalSteps > 0 ? (
+          <View style={styles.addProductFooter}>
+            <PausedSteps frozen={allFrozen} products={products} />
+            <Button
+              variant="textActive"
+              size="md"
+              fullWidth
+              icon={<Icon name="plus" size={16} color={palette.plum} />}
+              onPress={handleOpenAddSheet}
+              accessibilityLabel="Add product to routine"
+            >
+              Add product
+            </Button>
             <OptimizeStrip
               hasFindings={validation?.hasBlockingFindings ?? false}
               onPress={handleOpenDraftPreview}
             />
-          ) : null}
-        </View>
+          </View>
+        ) : null}
       </NestableScrollContainer>
       )}
 
       <AddToRoutineSheet
         visible={addSheetVisible}
         onClose={() => setAddSheetVisible(false)}
-        // Both periods are visible now, so the sheet pre-selects the one the
-        // time of day suggests — the same rule the accordions open with.
-        activePeriod={defaultPeriod}
+        // Pre-selects whichever period the segmented control currently shows.
+        activePeriod={selectedPeriod}
       />
 
       <DraftPreviewScreen
@@ -653,147 +911,25 @@ export default function RoutinesScreen({ navigation }: Props) {
         }}
         onCancel={() => setPendingRemoval(null)}
       />
+
+      {/* Edit-mode Schedule icon (SCREENS.md §7.3) — revives the previously
+          dead RoutineSchedulerSheet rather than rebuilding the Mo–Su picker.
+          Mounted only while a target is set (rather than always-mounted with
+          `visible={false}`) — BottomSheet reads safe-area insets on mount, so
+          this avoids requiring every RoutinesScreen host to wrap
+          SafeAreaProvider just to render a sheet nobody opened. */}
+      {schedulerTarget ? (
+        <RoutineSchedulerSheet
+          visible
+          productId={schedulerTarget.productId}
+          productType={schedulerTarget.productType}
+          title="Edit Schedule"
+          onClose={() => setSchedulerTarget(null)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
-
-// ─── Period card (one real container per Morning / Evening) ───────────────────
-
-interface PeriodCardProps {
-  period: Period;
-  count: number;
-  expanded: boolean;
-  steps: RoutineStep[];
-  renderStep: (info: RenderItemParams<RoutineStep>) => React.ReactElement | null;
-  onToggle: () => void;
-  onAdd: () => void;
-  onDragEnd: (reordered: RoutineStep[]) => void;
-}
-
-function PeriodCard({
-  period,
-  count,
-  expanded,
-  steps,
-  renderStep,
-  onToggle,
-  onAdd,
-  onDragEnd,
-}: PeriodCardProps) {
-  const title = period === 'morning' ? 'Morning' : 'Evening';
-  const stepLabel = `${count} ${count === 1 ? 'step' : 'steps'}`;
-
-  return (
-    <View style={periodCardStyles.card}>
-      <Pressable
-        style={periodCardStyles.header}
-        onPress={onToggle}
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        accessibilityLabel={`${title}, ${stepLabel}, ${expanded ? 'expanded' : 'collapsed'}`}
-      >
-        <View style={periodCardStyles.headerLeft}>
-          <View style={[periodCardStyles.periodIconCircle, { backgroundColor: PERIOD_ICON_BG[period] }]}>
-            <Icon
-              name={period === 'morning' ? 'sun' : 'moon'}
-              size={14}
-              color={PERIOD_ICON_COLOR[period]}
-            />
-          </View>
-          <Text style={periodCardStyles.title}>{title}</Text>
-          <Text style={periodCardStyles.count}>· {stepLabel}</Text>
-        </View>
-        <Icon
-          name={expanded ? 'chevron-down' : 'chevron-right'}
-          size={18}
-          color={colors.textSecondary}
-        />
-      </Pressable>
-
-      {expanded && count === 0 ? (
-        <View style={periodCardStyles.empty}>
-          <Text style={periodCardStyles.emptyText}>
-            No steps for this {period === 'morning' ? 'morning' : 'evening'}.
-          </Text>
-          <Button variant="textActive" size="sm" onPress={onAdd}>
-            Add product
-          </Button>
-        </View>
-      ) : null}
-
-      {expanded && count > 0 ? (
-        <View style={periodCardStyles.body}>
-          <NestableDraggableFlatList
-            data={steps}
-            keyExtractor={(step) => step.id}
-            renderItem={renderStep}
-            onDragEnd={({ data }) => onDragEnd(data)}
-            activationDistance={12}
-          />
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-const periodCardStyles = StyleSheet.create({
-  // One real card: single hairline border + one even drop shadow, all four
-  // sides — the same treatment as every other card in the app.
-  card: {
-    backgroundColor: PERIOD_CARD_BG,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: PERIOD_CARD_BORDER_COLOR,
-    paddingHorizontal: space[3],
-    marginBottom: space[4],
-    ...shadow.md,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: space[2],
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-  },
-  // Matches ProductShelfCard's circleBadge (My Shelf sun/moon overlay badges).
-  periodIconCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    ...typography.body,
-    fontFamily: 'DMSans-Bold',
-    color: colors.textPrimary,
-  },
-  count: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  // Steps live below the header inside the same card; the last step's own
-  // marginBottom supplies the gap to the card's bottom edge.
-  body: {
-    paddingBottom: space[1],
-  },
-  empty: {
-    paddingVertical: space[3],
-    paddingHorizontal: space[3],
-    gap: space[2],
-    backgroundColor: colors.surfaceSunken,
-    borderRadius: radius.md,
-    marginBottom: space[3],
-  },
-  emptyText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-});
 
 // ─── Paused rows (clinical freezes, research §1.5) ────────────────────────────
 
@@ -807,7 +943,7 @@ function PausedSteps({ frozen, products }: { frozen: FrozenStepView[]; products:
           <View key={item.stepId} style={pausedStyles.row}>
             <Icon name="pause-circle" size={14} color={colors.textTertiary} />
             <Text style={pausedStyles.text} numberOfLines={1}>
-              {name} — paused until {item.until}
+              {name} — {item.until ? `paused until ${item.until}` : reasonText(item.reasonCode)}
             </Text>
           </View>
         );
@@ -852,30 +988,47 @@ const styles = StyleSheet.create({
   calendarWrap: {
     flex: 1,
   },
-  calendarHeader: {
-    paddingHorizontal: space.gutterScreen,
-    paddingTop: space[6],
-    paddingBottom: space[4],
-  },
 
   listHeader: {
     marginBottom: space[4],
     gap: space[3],
   },
 
+  // One rendered step GROUP: header, then its cards, then (if any) the
+  // transition to the next group. gapSection carries the between-step
+  // rhythm; the header's own gapInline sits inside StepGroupHeader's layout.
+  groupWrap: {
+    marginBottom: space.gapSection,
+    gap: space.gapInline,
+  },
+  groupHeaderWrap: {
+    marginBottom: space.gapInline,
+  },
+
   // Gap between step mini-cards inside a period card; the last step's bottom
   // margin doubles as the card's inner bottom padding.
   stepRowWrap: {
-    marginBottom: space[3],
+    marginBottom: space.gapStack,
   },
   preCleanseReminderWrap: {
     marginTop: space[2],
   },
 
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[1],
+  // Non-card empty state for the selected period when it has no steps/gaps
+  // of its own (the other period may still have content) — same copy/action
+  // the old PeriodCard's collapsed-empty box used, without the card chrome
+  // now that groups render directly in the scroll content.
+  periodEmpty: {
+    paddingVertical: space[3],
+    paddingHorizontal: space[3],
+    gap: space[2],
+    backgroundColor: colors.surfaceSunken,
+    borderRadius: radius.md,
+    marginBottom: space[3],
+  },
+  periodEmptyText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
 
   addProductFooter: {

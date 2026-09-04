@@ -127,7 +127,17 @@ jest.mock('@/store/profileStore', () => ({
 }));
 
 jest.mock('@/store/settingsStore', () => ({
-  useSettingsStore: jest.fn((selector: any) => selector({ routineCycleType: 'fixed' })),
+  useSettingsStore: jest.fn((selector: any) =>
+    selector({
+      routineCycleType: 'fixed',
+      routineAccordion: null,
+      setRoutineAccordion: jest.fn(),
+      rehabNoticeCollapsed: {},
+      setRehabNoticeCollapsed: jest.fn(),
+      routineNoticeCollapsed: {},
+      setRoutineNoticeCollapsed: jest.fn(),
+    }),
+  ),
 }));
 
 jest.mock('@/store/trackingStore', () => ({
@@ -199,10 +209,11 @@ jest.mock('@/store/routinesStore', () => ({
 
 // img-03: the Morning/Evening accordions open based on the time of day. Pin
 // that here so these filtering assertions never depend on the wall clock —
-// the 15:00 rule itself is covered in src/utils/routineAccordion.test.ts.
+// the 15:00 rule and the once-a-day persistence are covered in
+// src/utils/routineAccordion.test.ts.
 jest.mock('@/utils/routineAccordion', () => ({
   ...jest.requireActual('@/utils/routineAccordion'),
-  getInitialAccordionState: () => ({ morning: true, evening: false }),
+  resolveAccordionState: () => ({ morning: true, evening: false }),
 }));
 
 import RoutinesScreen from '@/screens/RoutinesScreen';

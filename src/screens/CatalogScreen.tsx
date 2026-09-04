@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FlatList,
   SafeAreaView,
@@ -12,27 +12,32 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { ProductShelfCard } from '@/components/product/ProductShelfCard';
+import { WishlistProductCard } from '@/components/product/WishlistProductCard';
 import { CatalogFilterTrigger } from '@/components/catalog/CatalogFilterTrigger';
 import { FilterSheet } from '@/components/catalog/FilterSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { Card } from '@/components/ui/core/Card';
-import { IconButton } from '@/components/ui/core/IconButton';
+import { EmptyState } from '@/components/ui/core/EmptyState';
+import { PillToggle } from '@/components/ui/core/PillToggle';
 import { Badge } from '@/components/ui/feedback/Badge';
+import { Toast } from '@/components/ui/feedback/Toast';
 import { Tag } from '@/components/ui/core/Tag';
-import { Input } from '@/components/ui/forms/Input';
-import { colors, space, typography } from '@/constants/tokens';
+import { colors, palette, space, typography } from '@/constants/tokens';
 import {
   ACTIVE_INGREDIENT_LABELS,
   FUNCTIONAL_BENEFIT_INGREDIENTS,
   PRODUCT_TYPE_LABELS,
 } from '@/constants/labels';
+import { EXPLORE_COMPOSITION_ENABLED } from '@/constants/featureFlags';
 import { deleteProductCascade } from '@/domain/productActions';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
+import { WishlistEntryCard } from '@/components/product/WishlistEntryCard';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
-import type { CatalogFilterState, Product } from '@/types';
+import { useWishlistStore } from '@/store/wishlistStore';
+import type { CatalogFilterState, Product, ProductStatus, WishlistEntry } from '@/types';
 import { CATALOG_FILTER_DEFAULT } from '@/types';
 import { getProductRoutineStatus, type RoutineStatusResult } from '@/utils/routineStatus';
 import { getProductPaoStatus } from '@/utils/paoHelpers';
@@ -43,6 +48,18 @@ type Props = NativeStackScreenProps<CatalogStackParamList, 'Catalog'>;
 // ─── Module-level filter constants ────────────────────────────────────────────
 
 const PAO_AMBER = '#D97706';
+
+/** 1st / 2nd / 3rd / 4th… for the contribution-count toast line. */
+function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
+}
 
 // ─── applyFilters ─────────────────────────────────────────────────────────────
 
@@ -77,18 +94,46 @@ export function applyFilters(
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function CatalogScreen({ navigation }: Props) {
+export default function CatalogScreen({ navigation, route }: Props) {
   const products = useProductsStore((s) => s.products);
   const updateProduct = useProductsStore((s) => s.updateProduct);
+  const removeProduct = useProductsStore((s) => s.removeProduct);
   const routines = useRoutinesStore((s) => s.routines);
   const removeProductStep = useRoutinesStore((s) => s.removeProductStep);
+  // Explore Composition flow (docs/specs/explore-composition.md) —
+  // rendering/routing both gated behind EXPLORE_COMPOSITION_ENABLED below;
+  // the hook itself is always called (rules of hooks), never conditionally.
+  const wishlistEntries = useWishlistStore((s) => s.entries);
+  const removeWishlistEntry = useWishlistStore((s) => s.removeEntry);
 
+  // My Shelf's two entities (docs/tasks/ux-explore-vials/01-entry-points.md
+  // §0) — absence of `status` is treated as 'owned', same convention as
+  // isHidden, so every pre-Wishlist record stays where it already was.
+  const [activeTab, setActiveTab] = useState<ProductStatus>('owned');
   const [filterState, setFilterState] = useState<CatalogFilterState>(CATALOG_FILTER_DEFAULT);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [schedulerTarget, setSchedulerTarget] = useState<Product | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const filteredProducts = applyFilters(products, filterState);
+  // One-shot success toast forwarded from ManualProductFormScreen after a
+  // save — captured into local state, then cleared from params so it never
+  // reappears on refocus (docs/specs/contribution-consent-flow/03-visual-spec.md).
+  const incomingToast = route.params?.toast;
+  const [toastContent, setToastContent] = useState<{
+    contributionOptIn: boolean;
+    contributedCount: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!incomingToast) return;
+    setToastContent(incomingToast);
+    navigation.setParams({ toast: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingToast?.savedAt]);
+
+  const ownedProducts = products.filter((p) => p.status !== 'wishlist');
+  const wishlistProducts = products.filter((p) => p.status === 'wishlist');
+  const tabProducts = activeTab === 'owned' ? ownedProducts : wishlistProducts;
+  const filteredProducts = applyFilters(tabProducts, filterState);
   const activeFilterCount =
     (filterState.selectedCategory !== 'All' ? 1 : 0) + filterState.selectedBenefits.length;
   const hasActiveFilters =
@@ -105,9 +150,22 @@ export default function CatalogScreen({ navigation }: Props) {
     }
   }
 
+  function handlePromoteWishlistEntry(entry: WishlistEntry) {
+    navigation.navigate('ManualProductForm', {
+      explorePrefill: {
+        rawIngredientsText: entry.rawIngredientsText,
+        activeKeys: entry.parsedIngredientIds,
+        brand: entry.brand,
+        name: entry.name,
+        category: entry.category,
+        wishlistEntryId: entry.id,
+      },
+    });
+  }
+
   // ── Render item ───────────────────────────────────────────────────────────
 
-  function renderItem({ item }: { item: Product }) {
+  function renderOwnedItem({ item }: { item: Product }) {
     const isInRoutine = routines.some((r) => r.steps.some((s) => s.productId === item.id));
     const matchingStep = routines
       .flatMap((r) => r.steps)
@@ -142,6 +200,19 @@ export default function CatalogScreen({ navigation }: Props) {
     );
   }
 
+  function renderWishlistItem({ item }: { item: Product }) {
+    return (
+      <WishlistProductCard
+        product={item}
+        onCardPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+        onPutOnShelf={(p) => updateProduct(p.id, { status: 'owned' })}
+        onRemove={(p) => removeProduct(p.id)}
+      />
+    );
+  }
+
+  const renderItem = activeTab === 'owned' ? renderOwnedItem : renderWishlistItem;
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -149,55 +220,144 @@ export default function CatalogScreen({ navigation }: Props) {
       <AppHeader
         title="My Shelf"
         rightAction={
-          <View style={styles.headerActions}>
-            <CatalogFilterTrigger
-              activeFilterCount={activeFilterCount}
-              onPress={() => setSheetOpen(true)}
-            />
-            <IconButton
-              icon={<Icon name="plus" size={20} color={colors.textPrimary} />}
-              label="Add product"
-              variant="ghost"
-              size="sm"
-              onPress={() => navigation.navigate('AddProductHub')}
-            />
-          </View>
+          <CatalogFilterTrigger
+            activeFilterCount={activeFilterCount}
+            onPress={() => setSheetOpen(true)}
+          />
         }
       />
+
       <FlatList
+        style={styles.list}
         data={filteredProducts}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={[
-          styles.listContent,
-          filteredProducts.length === 0 && styles.listContentEmpty,
-        ]}
+        contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
-          <View style={styles.searchWrap}>
-            {/* Full-width — the filter trigger it used to share this row with
-                now lives in the header, beside "+". */}
-            <Input
-              icon={<Icon name="search" size={15} color={colors.textTertiary} />}
-              value={filterState.searchQuery}
-              onChangeText={(t) => setFilterState((s) => ({ ...s, searchQuery: t }))}
-              placeholder="Search by name, brand or ingredient…"
-              clearButtonMode="while-editing"
-              returnKeyType="search"
-              containerStyle={styles.searchInputFlex}
+          // Search now lives inside the filter sheet — this scrolls with the
+          // list rather than sitting pinned under the header.
+          <View style={styles.tabsWrap}>
+            {EXPLORE_COMPOSITION_ENABLED ? (
+              // Moved above the tabs (2026-08-27, per follow-up) — was
+              // previously under the PillToggle; also given a plum outline
+              // so the cards read closer to buttons.
+              <View style={styles.entryCardRowAboveTabs}>
+                <Card
+                  interactive
+                  padding="none"
+                  onPress={() => navigation.navigate('AddProductHub')}
+                  style={styles.entryCardCompact}
+                >
+                  <Icon
+                    name="plus-circle"
+                    size={16}
+                    color={palette.plum}
+                    style={styles.entryCardIconCorner}
+                  />
+                  <Text style={styles.entryCardTitle}>Add new</Text>
+                  <Text style={styles.entryCardSubtitle}>You already own it</Text>
+                </Card>
+                <Card
+                  interactive
+                  padding="none"
+                  onPress={() => navigation.navigate('ExploreCompositionCapture', {})}
+                  style={styles.entryCardCompact}
+                >
+                  <Icon name="list" size={16} color={palette.plum} style={styles.entryCardIconCorner} />
+                  <Text style={styles.entryCardTitle}>Explore</Text>
+                  <Text style={styles.entryCardSubtitle}>Before you buy</Text>
+                </Card>
+              </View>
+            ) : null}
+            <PillToggle
+              options={[
+                { value: 'owned', label: `Owned · ${ownedProducts.length}` },
+                {
+                  value: 'wishlist',
+                  // 2026-08-28 bug fix: this count previously ignored
+                  // wishlistEntries entirely, so saving a composition via
+                  // Explore Composition (visibly added to the "Explored
+                  // compositions" section below) left the tab's own counter
+                  // reading 0. Combined total, not two separate counts — the
+                  // *visual* separation between the two entity types (tech
+                  // design Assumption 5) is still just the labeled section
+                  // below, unaffected by this fix.
+                  label: `Wishlist · ${
+                    wishlistProducts.length + (EXPLORE_COMPOSITION_ENABLED ? wishlistEntries.length : 0)
+                  }`,
+                },
+              ]}
+              value={activeTab}
+              onValueChange={(v) => setActiveTab(v as ProductStatus)}
             />
+            {/* WishlistEntry rows (Explore Composition flow) render as a
+                distinct section within this same tab — never merged into the
+                fully-identified wishlist products list above/below (tech
+                design Assumption 5). Section heading removed 2026-08-28 (user
+                request); the cards themselves still visually distinguish
+                these from WishlistProductCard. */}
+            {EXPLORE_COMPOSITION_ENABLED && activeTab === 'wishlist' && wishlistEntries.length > 0 ? (
+              <View style={styles.wishlistEntriesSection}>
+                {wishlistEntries.map((entry) => (
+                  <WishlistEntryCard
+                    key={entry.id}
+                    entry={entry}
+                    onCardPress={(e) =>
+                      navigation.navigate('WishlistEntryDetail', { wishlistEntryId: e.id })
+                    }
+                    onPromote={handlePromoteWishlistEntry}
+                    onDelete={(e) => removeWishlistEntry(e.id)}
+                  />
+                ))}
+              </View>
+            ) : null}
           </View>
         }
         ListEmptyComponent={
-          <CatalogEmptyState
-            hasProducts={products.length > 0}
-            hasActiveFilters={hasActiveFilters}
-            onAdd={() => navigation.navigate('AddProductHub')}
-          />
+          activeTab === 'owned' ? (
+            <CatalogEmptyState
+              hasProducts={ownedProducts.length > 0}
+              hasActiveFilters={hasActiveFilters}
+              onAdd={() => navigation.navigate('AddProductHub')}
+            />
+          ) : EXPLORE_COMPOSITION_ENABLED && wishlistEntries.length > 0 ? (
+            // 2026-08-28 bug fix: the FlatList's own `data` is wishlistProducts
+            // only (real Products), so it was still empty — and rendering its
+            // "Nothing here yet" empty state — even when the header above had
+            // just shown a real WishlistEntry card. Suppress the empty state
+            // entirely whenever there's at least one WishlistEntry to show.
+            null
+          ) : (
+            <WishlistEmptyState
+              hasWishlistItems={wishlistProducts.length > 0}
+              hasActiveFilters={hasActiveFilters}
+            />
+          )
         }
       />
+
+      {EXPLORE_COMPOSITION_ENABLED ? null : (
+        <View style={styles.entryPointRow}>
+          <Button
+            size="lg"
+            onPress={() => navigation.navigate('AddProductHub')}
+            style={styles.entryPointBtn}
+          >
+            Add new
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            onPress={() => navigation.navigate('CaptureFlow', { initialStatus: 'wishlist' })}
+            style={styles.entryPointBtn}
+          >
+            Explore new
+          </Button>
+        </View>
+      )}
 
       <DeleteProductModal
         product={deleteTarget}
@@ -220,6 +380,17 @@ export default function CatalogScreen({ navigation }: Props) {
         initialState={filterState}
         onApply={setFilterState}
         onClose={() => setSheetOpen(false)}
+      />
+
+      <Toast
+        visible={toastContent !== null}
+        title="Saved"
+        subtitle={
+          toastContent?.contributionOptIn
+            ? `That's your ${ordinal(toastContent.contributedCount)} jar in the Vials database.`
+            : undefined
+        }
+        onHide={() => setToastContent(null)}
       />
     </SafeAreaView>
   );
@@ -294,20 +465,54 @@ function CatalogEmptyState({
 
   return (
     <View style={emptyStyles.wrap}>
-      <Icon name="package" size={32} color={colors.textTertiary} />
-      <Text style={emptyStyles.title}>{title}</Text>
-      <Text style={emptyStyles.body}>{body}</Text>
-      {!hasProducts ? (
-        <Button
-          variant="primary"
-          size="lg"
-          icon={<Icon name="plus" size={16} color={colors.textOnDark} />}
-          onPress={onAdd}
-          style={emptyStyles.addBtn}
-        >
-          Add Product
-        </Button>
-      ) : null}
+      <EmptyState
+        icon={<Icon name="package" size={24} color={colors.textSecondary} />}
+        title={title}
+        description={body}
+        actions={
+          !hasProducts
+            ? [
+                {
+                  label: 'Add Product',
+                  onPress: onAdd,
+                  icon: <Icon name="plus" size={16} color={colors.textOnDark} />,
+                },
+              ]
+            : undefined
+        }
+      />
+    </View>
+  );
+}
+
+// ─── Wishlist empty state ───────────────────────────────────────────────────────
+// Copy per docs/tasks/ux-explore-vials/05-copy.md — no CTA here, since
+// "Explore new" is already a permanently-visible footer button.
+
+function WishlistEmptyState({
+  hasWishlistItems,
+  hasActiveFilters,
+}: {
+  hasWishlistItems: boolean;
+  hasActiveFilters: boolean;
+}) {
+  const title = !hasWishlistItems
+    ? 'Nothing here yet'
+    : hasActiveFilters
+    ? 'No wishlist items match the current filters'
+    : 'No matching products';
+
+  const body = !hasWishlistItems
+    ? 'Explore a product before you buy it to see how it fits.'
+    : 'Try adjusting your filters or search query.';
+
+  return (
+    <View style={emptyStyles.wrap}>
+      <EmptyState
+        icon={<Icon name="gift" size={24} color={colors.textSecondary} />}
+        title={title}
+        description={body}
+      />
     </View>
   );
 }
@@ -319,25 +524,62 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bgScreen,
   },
-  searchWrap: {
+  tabsWrap: {
     paddingTop: space[4],
     paddingBottom: space[3],
   },
-  searchInputFlex: {
+  list: {
     flex: 1,
-    alignSelf: 'stretch',
   },
-  headerActions: {
+  entryPointRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[1],
+    gap: space[3],
+    paddingHorizontal: space.gutterScreen,
+    paddingTop: space[3],
+    paddingBottom: space[4],
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
+  },
+  entryPointBtn: {
+    flex: 1,
+  },
+  entryCardRowAboveTabs: {
+    flexDirection: 'row',
+    gap: space[3],
+    marginBottom: space[3],
+  },
+  entryCardCompact: {
+    flex: 1,
+    padding: space[3],
+    // Extra clearance on the right so title/subtitle text never wraps under
+    // the corner icon, which is absolutely positioned (unaffected by this).
+    paddingRight: space[6],
+    gap: 2,
+    borderWidth: 1,
+    borderColor: palette.plum,
+    backgroundColor: palette.plumTintLight,
+    position: 'relative',
+  },
+  entryCardIconCorner: {
+    position: 'absolute',
+    top: space[2],
+    right: space[2],
+  },
+  entryCardTitle: {
+    ...typography.label,
+    color: colors.textPrimary,
+  },
+  entryCardSubtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  wishlistEntriesSection: {
+    marginTop: space[4],
+    gap: space[2],
   },
   listContent: {
     paddingHorizontal: space.gutterScreen,
     paddingBottom: space[12],
-  },
-  listContentEmpty: {
-    flexGrow: 1,
   },
   card: {
     // full-width cards with consistent horizontal padding already applied by listContent
@@ -378,25 +620,8 @@ const styles = StyleSheet.create({
 
 const emptyStyles = StyleSheet.create({
   wrap: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: space[8],
-    gap: space[3],
     paddingTop: space[12],
-  },
-  title: {
-    ...typography.body,
-    fontFamily: 'DMSans-Medium',
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  body: {
-    ...typography.bodySmall,
-    color: colors.textTertiary,
-    textAlign: 'center',
-  },
-  addBtn: {
-    marginTop: space[2],
   },
 });

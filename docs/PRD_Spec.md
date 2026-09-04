@@ -20,14 +20,24 @@ version: 1.1 (gap-fix revision)
 > barcode/search read the local replica and work fully offline once synced;
 > only the background pull itself needs a network, and it silently no-ops
 > without one.
+>
+> **Sync note (2026-07-25):** Corrected §1 and §4.3 — the crowdsourced
+> product-suggestion pipeline (`submitContribution`) is now built, and no
+> longer "not built" as previously stated here. §4.3 now describes the
+> contribution-consent gate (`US-24`, `docs/specs/contribution-consent-flow/`)
+> that decides whether a given manual save is actually sent. Also flagging,
+> not fixing here: §2.1 states primary buttons are pure black (`#09090B`),
+> but the shipped onboarding screens (`MarketingSlidesScreen`, "Get started")
+> use a plum/wine primary button — this predates this task and needs its own
+> reconciliation pass (either update §2.1 or restyle the shipped buttons).
 
 ## 1. Product Overview & USP
 **Vials** is a premium, unisex personal skincare and aesthetic medicine management mobile app. It helps users track formulations, build dynamic morning/evening schedules (Skin Cycling), avoid ingredient conflicts, and safely navigate clinical cosmetic procedures (Botox, fillers, peels), with **all personal data stored locally on-device**.
 
 * **The Core Value Intersection:** Daily skincare and medical cosmetic tracking combined into an inseparable local engine.
-* **The Trust Anchor:** 100% data confidentiality. Personal data never leaves the device — no cloud backend, no analytics, no trackers.
+* **The Trust Anchor:** Personal data — skin profile, routines, procedure history — stays on-device by default. Product metadata (brand, name, INCI) contributed via manual entry is sent to the Vials product database only when the user has opted in via the contribution-consent flow (see `docs/specs/contribution-consent-flow/`), anonymized and never linked to a user profile.
 * **Connectivity Architecture (The Hybrid Engine):** The application operates on a hybrid data model. The user's personal shelf (`catalogStore`), routine schedules/checklists (`routineStore`), and the ingredient conflict verification engine (`conflictEngine.ts`) run strictly offline-first and local-only (Zustand + MMKV).
-Global search and barcode scanning read the on-device Vials product corpus (a Turso/libSQL embedded replica, see §4.3) and work fully offline once the device has synced at least once — no network needed at read time. Only the corpus's own background pull needs connectivity, and it silently no-ops without one. Label text recognition (OCR) and crowdsourced product suggestions remain unbuilt (see §4.3 sync note); when a lookup finds no match, the UI falls back to manual input.
+Global search and barcode scanning read the on-device Vials product corpus (a Turso/libSQL embedded replica, see §4.3) and work fully offline once the device has synced at least once — no network needed at read time. Only the corpus's own background pull needs connectivity, and it silently no-ops without one. Label text recognition (OCR) remains unbuilt; when a lookup finds no match, the UI falls back to manual input. Crowdsourced product suggestions are built (`submitContribution`) but gated behind the contribution-consent flow — see §4.3.
 
 ---
 
@@ -72,12 +82,11 @@ The viewport system eliminates layout clutter by routing all configurations into
 ## 4. Comprehensive Screen Specifications & Functional Logic
 
 ### 4.1. Onboarding Flow (Pre-Navigation Stack)
-* **`MarketingSlidesScreen`:** 3 text-driven, spacious swipeable cards detailing data privacy, safety logic, and cyclic planning. Contains a primary black button to advance.
-* **`SkinProfileSetupScreen`:** Age/Gender select layers and Skin Type selectors.
-  * **`PhototypeSelector` (`US-03`):** 3 geometric option cards based on UV sensitivity metrics. **Visually unlabeled** (icon/shade-only), but each card carries a full `accessibilityLabel` (e.g. "Light or fair skin tone, burns easily, high sensitivity") for screen readers — visual minimalism must not become an accessibility gap.
-    1. *Card 1:* Light / Fair — Burns easily, high sensitivity.
-    2. *Card 2:* Medium / Olive — Tans moderately, prone to dark spots.
-    3. *Card 3:* Dark / Deep — Rarely burns, elevated laser/peel risk.
+* **`MarketingSlidesScreen`:** 3 text-driven, spacious swipeable cards. Card 1 pitches the app's value proposition; Card 2 discloses the on-device-by-default data model, distinguishing personal data (stays on-device) from anonymized product metadata contributed via manual entry (joins the shared Vials database, see §4.3); Card 3 explains routine-specific conflict warnings and requires the user to check a medical-disclaimer consent box (`US-23`) before the primary CTA is enabled — no skip path, recorded via `settingsStore.acceptMedicalDisclaimer`.
+* **`SkinProfileSetupScreen`:** A 5-step flow (skin type → goals → sun reaction/phototype → about you → additional info) with a step-progress ring, each step independently skippable — see `docs/tech-design/onboarding-5-step-redesign.md`.
+  * **`FitzpatrickCard` (`US-03`, sun-reaction step):** 6 geometric option cards, Fitzpatrick I–VI, each with a small color swatch — supersedes the earlier 3-grouped-card version. **Visually unlabeled beyond numeral/swatch** (no racial or ethnic labels), but each card carries a full `accessibilityLabel` (e.g. "Type one: very fair skin, always burns, never tans, highest UV sensitivity") for screen readers — visual minimalism must not become an accessibility gap.
+  * **About-you step:** optional age, binary gender (Female/Male), and a "Currently on hormone therapy" toggle (`UserProfile.hormoneTherapy`) — collected for future sebum/sensitivity personalization, no downstream logic reads it yet.
+  * **Additional-info step:** an amber-accented "Pregnant or breastfeeding" toggle (`UserProfile.pregnantOrBreastfeeding`) above the existing skin-conditions/concerns pills. Planned but not-yet-built follow-ups: a conflict-engine warning for retinoids/high-concentration acids, and a clinic-procedure block for invasive procedure types — both need clinical sign-off on exact copy/ingredient list first (same open item as §6's procedure-spacing table).
 * **`FirstProductScreen`:** Embedded quick-search bar allowing users to input their first item to instantiate the store before unlocking the tabs. **Includes a secondary "Skip for now" outline button** — the store can instantiate empty, and `CatalogList` renders its standard empty-state on first launch of Tab 2.
 
 ### 4.2. Tab 1: Routine Hub (Super-Tab)
@@ -102,7 +111,7 @@ The viewport system eliminates layout clutter by routing all configurations into
 * **`ProductHeaderAction`:** Top-right corner button context (`+ Add Product`), styled as a secondary black outline button to summon entry modules.
 * **Product Ingestion (Vials Corpus Integration):** Instead of calling the third-party Open Beauty Facts API directly, the app queries **only our own Vials corpus** — a Turso/libSQL database pulled onto the device as a read-only embedded replica (`src/services/corpus/`) and queried locally via `expo-sqlite`. There is no Vials REST API and no PostgreSQL backend in the request path; reads never leave the device.
 * **Universal Scanner Loop:** Barcode scanning (`BarcodeScannerScreen`) resolves against the local replica via `ProductRepository.findByBarcode()` — indexed, no network round-trip. Free-text catalog search (`AddProductHubScreen`) resolves via `ProductRepository.search()`, using SQLite FTS5 trigram matching ranked by `bm25` to tolerate OCR/typo noise, also entirely local. A unified camera OCR flow that recognizes product label text directly from the viewfinder is **not built** — text search today is a typed input field, not a camera recognition step.
-* **Crowdsourcing & Manual Fallback:** If a product is missing from the corpus, the user fills out a manual form. The product is saved to `catalogStore` immediately (local-first), available for routines and conflict checks right away. Background submission of manually-added products back to a shared/community database (`POST /api/v1/products/suggest`, `pending` review) is **not built** — the corpus schema reserves a `'community'` source value for this, but the submission pipeline doesn't exist yet. See `handoff/INTEGRATION_GUIDE.md` §7: today's corpus is 100% dogfood `obf_import` data (ODbL-licensed, not Vials-owned) and must be purged before public release — "only our Vials DB" becomes fully accurate once `vials_seed`/`community` coverage replaces it.
+* **Crowdsourcing & Manual Fallback:** If a product is missing from the corpus, the user fills out a manual form. The product is saved to `productsStore` immediately (local-first), available for routines and conflict checks right away, regardless of what happens next. Whether the submission is also sent to the server (`submitContribution`, `src/services/contributions.ts`, `pending` review) depends on the user's contribution-consent state — first-ask modal on the first-ever manual save, periodic reminders while declined, a permanent opt-out available in Profile — see `docs/specs/contribution-consent-flow/`. See `handoff/INTEGRATION_GUIDE.md` §7: today's corpus is 100% dogfood `obf_import` data (ODbL-licensed, not Vials-owned) and must be purged before public release — "only our Vials DB" becomes fully accurate once `vials_seed`/`community` coverage replaces it.
 * **`DeleteProductModal` (`US-08.1`):** Triggered on item deletion. If the item is active in Tab 1, it renders a confirmation prompt: *"Deleting will remove this step from your routine."* On click, it simultaneously purges the item from both stores.
 
 ### 4.4. Tab 3: Clinic Screen (Aesthetics Hub)
@@ -133,7 +142,7 @@ All states run fully offline on the device hardware layer.
   * `Product`: `id, brand, name, type, inciTags[], openedDate, paoMonths, source ('api'|'manual')`
   * `RoutineStep`: `id, productId, period ('AM'|'PM'), order, days[] ('mon'..'sun' | 'every'), hidden:boolean`
   * `Procedure`: `id, type, date, expectedDurationMonths, realDuration?, status ('rehab'|'active'|'fading'|'overdue'|'archived')`
-  * `Profile`: `age, gender, phototype, skinIssues[], gamificationOn:boolean, individualDurationMonths: { [procedureType]: number }`
+  * `Profile` (`UserProfile` in `src/types/index.ts`): `age, gender, skinType, phototype, fitzpatrick, concerns[], skinConditions[], primaryGoal, secondaryGoal, hormoneTherapy:boolean, pregnantOrBreastfeeding:boolean, individualDurationMonths: { [procedureType]: number }` — gamification is a `settingsStore` field, not on `Profile`.
 
 ### 5.2. Local Conflict Matrix & INCI Parsing (`utils/conflictEngine.ts`)
 When a raw ingredient text string (INCI) is inputted or loaded from the API, a regex scanner parses text sequences in lowercase to map unindexed internal biomarkers:
@@ -171,5 +180,6 @@ When a raw ingredient text string (INCI) is inputted or loaded from the API, a r
 
 ## 6. Open Items for Clinical/Legal Review Before Launch
 * Section 5.3 procedure-spacing table needs sign-off from a licensed practitioner.
+* Product Profile's capability-source reconciliation (`docs/tasks/product_profile/03-capabilities.md` §3, §4, §5, §9 — Hydration/Brightening/Pigmentation/Soothing, reconciled 2026-08-06) needs dermatologist sign-off before release. Approved for testing only; the ingredient-list decisions there are data-consistency/engineering judgment calls, not clinical ones. Pigmentation additionally carries its own unresolved open item (§5) on whether `retinoid` should be excluded independently of Brightening — not settled by this reconciliation.
 * Confirm in-app copy clearly disclaims the app is not a substitute for professional medical advice, particularly on `ClinicalRestrictionsBlock` and `FadingInteractivePrompt`.
 * ~~Confirm the Vials API moderation queue workflow (admin review of `pending` crowdsourced suggestions) is defined and staffed before launch.~~ **CLOSED 2026-07-19 — resolved for MVP.** There is no Vials API and none is needed: crowdsourced suggestions are written directly to a second Turso database (`vials-contributions`, `status = 'pending_review'`), separate from the read-only product corpus. **Moderation is manual and self-served** — a human reviews pending rows over direct SQL and promotes approved ones into the corpus (`docs/database/contributions_schema.sql`). At this scope there is no automated moderation workflow and no staffing commitment to confirm. Revisit only if contribution volume outgrows manual review. Design and accepted limitations: `docs/tasks/product-images/BLOCKERS.md` → RESOLUTION.

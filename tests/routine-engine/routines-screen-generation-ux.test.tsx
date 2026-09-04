@@ -125,7 +125,17 @@ jest.mock('@/store/profileStore', () => ({
   useProfileStore: jest.fn((selector: any) => selector({ profile: null })),
 }));
 jest.mock('@/store/settingsStore', () => ({
-  useSettingsStore: jest.fn((selector: any) => selector({ routineCycleType: 'fixed' })),
+  useSettingsStore: jest.fn((selector: any) =>
+    selector({
+      routineCycleType: 'fixed',
+      routineAccordion: null,
+      setRoutineAccordion: jest.fn(),
+      rehabNoticeCollapsed: {},
+      setRehabNoticeCollapsed: jest.fn(),
+      routineNoticeCollapsed: {},
+      setRoutineNoticeCollapsed: jest.fn(),
+    }),
+  ),
 }));
 jest.mock('@/store/trackingStore', () => ({
   useTrackingStore: jest.fn((selector: any) => selector({ applicationStats: [] })),
@@ -229,11 +239,15 @@ describe('Story 1 AC: the bottom Optimize strip appears once routines are popula
   });
 });
 
-describe('Story 1 AC: header actions stay limited to regenerate + add, separate from committing a plan', () => {
-  // img-03 replaced the edit-mode pencil: reordering is now a long-press on the
-  // card itself, so the header carries exactly two actions — Regenerate
-  // (immediately left) and Add product (rightmost, always one tap away).
-  it('exposes Regenerate and Add product in the header, with no edit-mode toggle', () => {
+describe('Story 1 AC: header actions stay limited to view/edit, regenerate + add move to the footer', () => {
+  // routine-step-grouping follow-up (mockup-driven header chrome pass):
+  // Regenerate and Add product moved out of the header entirely — the
+  // footer's OptimizeStrip ("Optimize or Regenerate Routine") and "Add
+  // product" button already call the same handlers, so only the
+  // calendar/list switch (leftAction) and the edit-mode toggle
+  // (rightAction) remain in the header. Updated from the prior assertion
+  // that Regenerate/Add lived in the header alongside edit-mode.
+  it('exposes the calendar/list switch and the edit-mode toggle in the header, and Regenerate/Add in the footer', () => {
     const product = makeProduct({ id: 'p1', name: 'Gentle Cleanser' });
     mockProducts = [product];
     mockRoutines = [
@@ -243,15 +257,15 @@ describe('Story 1 AC: header actions stay limited to regenerate + add, separate 
 
     renderScreen();
 
-    expect(screen.getByLabelText('Regenerate routine')).toBeTruthy();
-    // The header "+" and the in-content footer button share this label — both
-    // open the same add flow, so at least one must always be present.
-    expect(screen.getAllByLabelText('Add product to routine').length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByLabelText('Edit routine')).toBeNull();
+    expect(screen.getByLabelText('Calendar view')).toBeTruthy();
+    expect(screen.getByLabelText('Edit routine')).toBeTruthy();
     expect(screen.queryByLabelText('Done editing')).toBeNull();
+    expect(screen.queryByLabelText('Regenerate routine')).toBeNull();
+    expect(screen.getByLabelText('Optimize or Regenerate Routine')).toBeTruthy();
+    expect(screen.getByLabelText('Add product to routine')).toBeTruthy();
   });
 
-  it('opens the Draft Preview from the header Regenerate action without committing a plan', () => {
+  it('opens the Draft Preview from the footer Optimize/Regenerate strip without committing a plan', () => {
     const product = makeProduct({ id: 'p1', name: 'Gentle Cleanser' });
     mockProducts = [product];
     mockRoutines = [
@@ -260,7 +274,7 @@ describe('Story 1 AC: header actions stay limited to regenerate + add, separate 
     ];
 
     renderScreen();
-    fireEvent.press(screen.getByLabelText('Regenerate routine'));
+    fireEvent.press(screen.getByLabelText('Optimize or Regenerate Routine'));
 
     // Regenerating only previews — nothing is written until the user commits.
     const { applyRoutinePlan } = require('@/domain/routinePlanActions');

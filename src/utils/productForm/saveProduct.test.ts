@@ -79,6 +79,31 @@ describe('buildProductFromDraft', () => {
   });
 });
 
+describe('buildProductFromDraft — SPF value (US-29)', () => {
+  it('carries the captured SPF onto a sunscreen product', () => {
+    // Arrange
+    const draft = completedDraft({ productType: 'spf', spfValue: 50 });
+    // Act
+    const product = buildProductFromDraft(draft, 'id-spf', '2026-07-26T10:00:00.000Z');
+    // Assert
+    expect(product.spfValue).toBe(50);
+  });
+
+  it('saves null when the SPF was left blank', () => {
+    const draft = completedDraft({ productType: 'spf', spfValue: null });
+    expect(buildProductFromDraft(draft, 'id-spf', '2026-07-26T10:00:00.000Z').spfValue).toBeNull();
+  });
+
+  it('never carries an SPF value onto a non-sunscreen product', () => {
+    // Arrange — a stale draft value must not survive a category change
+    const draft = completedDraft({ productType: 'serum', spfValue: 50 });
+    // Act
+    const product = buildProductFromDraft(draft, 'id-serum', '2026-07-26T10:00:00.000Z');
+    // Assert
+    expect(product.spfValue).toBeNull();
+  });
+});
+
 describe('buildSuggestPayload — privacy boundary', () => {
   it('contains exactly the shareable fields and nothing else', () => {
     const draft = completedDraft({

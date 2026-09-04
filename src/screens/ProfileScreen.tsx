@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
-  Pressable,
   SafeAreaView,
   ScrollView,
   Share,
@@ -9,29 +7,29 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
 import { DebugAccountSyncCard } from '@/components/debug/DebugAccountSyncCard';
 import { DebugOnboardingPreview } from '@/components/debug/DebugOnboardingPreview';
+import { CityPicker } from '@/components/profile/CityPicker';
 import { SkinProfileEditModal } from '@/components/profile/SkinProfileEditModal';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { ListRow } from '@/components/ui/core/ListRow';
-import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
-import { switchCycleType } from '@/domain/trackingActions';
+import { LOCAL_STORAGE_NOTICE_ENABLED } from '@/constants/featureFlags';
+import { GOAL_LABELS } from '@/constants/labels';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import { searchCities } from '@/utils/citySearch';
 import { setContributionConsent } from '@/utils/contributionConsent';
+import { contributedProductsCount } from '@/utils/contributionConsentFlow';
 import type {
-  CityLocation,
   SkinPhototype,
   SkinType,
   UserProfile,
@@ -92,176 +90,121 @@ function SectionHeader({ title }: { title: string }) {
 
 const sectionStyles = StyleSheet.create({
   header: {
-    ...typography.label,
-    color: colors.textSecondary,
-    marginBottom: space[1],
-    marginTop: space[2],
+    fontFamily: 'DMSans-Bold',
+    fontSize: 18,
+    lineHeight: 23,
+    letterSpacing: -0.18,
+    color: colors.textPrimary,
   },
 });
 
-function ProfileSummary({ profile }: { profile: UserProfile | null }) {
-  const chips: { label: string; filled: boolean }[] = [
-    {
-      label: profile?.gender === 'female' ? 'Female' : profile?.gender === 'male' ? 'Male' : 'Gender',
-      filled: profile?.gender != null,
-    },
-    {
-      label: profile?.age != null ? `Age ${profile.age}` : 'Age',
-      filled: profile?.age != null,
-    },
-    {
-      label: profile?.skinType ? SKIN_TYPE_LABELS[profile.skinType] : 'Skin type',
-      filled: profile?.skinType != null,
-    },
-    {
-      // Numeric Fitzpatrick is authoritative since FE-9; grouped is the fallback
-      label: profile?.fitzpatrick
-        ? `FP ${['I', 'II', 'III', 'IV', 'V', 'VI'][profile.fitzpatrick - 1]}`
-        : profile?.phototype
-          ? `FP ${PHOTOTYPE_LABELS[profile.phototype]}`
-          : 'Phototype',
-      filled: profile?.fitzpatrick != null || profile?.phototype != null,
-    },
-  ];
-
+// Shared plum-tinted circle used for every leading glyph on this screen —
+// stats, settings rows, weather, data — so icons read as one family.
+function IconCircle({ name }: { name: IconName }) {
   return (
-    <View style={summaryStyles.wrap}>
-      <View style={summaryStyles.chips}>
-        {chips.map(({ label, filled }) => (
-          <View
-            key={label}
-            style={[summaryStyles.chip, filled && summaryStyles.chipFilled]}
-          >
-            <Text style={[summaryStyles.chipText, filled && summaryStyles.chipTextFilled]}>
-              {label}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {profile && profile.concerns.length > 0 ? (
-        <Text style={summaryStyles.concerns}>
-          {profile.concerns.map((c) => CONCERN_LABELS[c] ?? c).join(' · ')}
-        </Text>
-      ) : null}
+    <View style={iconCircleStyles.circle}>
+      <Icon name={name} size={18} color={palette.plum} />
     </View>
   );
 }
 
-const summaryStyles = StyleSheet.create({
-  wrap: { gap: space[2] },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space[2],
-  },
-  chip: {
-    paddingHorizontal: space[2] + 2,
-    paddingVertical: 5,
-    borderRadius: radius.xs,
+const iconCircleStyles = StyleSheet.create({
+  circle: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: palette.plumTint,
     borderWidth: 1,
-    borderColor: colors.borderDivider,
-    backgroundColor: colors.surfaceSunken,
-  },
-  chipFilled: {
-    backgroundColor: colors.surfaceCard,
-    borderColor: colors.borderStrong,
-  },
-  chipText: {
-    ...typography.caption,
-    color: colors.textTertiary,
-  },
-  chipTextFilled: {
-    fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
-  },
-  concerns: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    lineHeight: 18,
+    borderColor: colors.bgBase,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
 });
 
-// ─── City autocomplete (offline, research §1.7 — no GPS, no network) ──────────
+function ProfileGrid({ profile }: { profile: UserProfile | null }) {
+  const genderValue =
+    profile?.gender === 'female' ? 'Female' : profile?.gender === 'male' ? 'Male' : '—';
+  const ageValue = profile?.age != null ? String(profile.age) : '—';
+  const skinTypeValue = profile?.skinType ? SKIN_TYPE_LABELS[profile.skinType] : '—';
+  // Numeric Fitzpatrick is authoritative since FE-9; grouped is the fallback.
+  const fitzpatrickValue = profile?.fitzpatrick
+    ? ['I', 'II', 'III', 'IV', 'V', 'VI'][profile.fitzpatrick - 1]
+    : profile?.phototype
+      ? PHOTOTYPE_LABELS[profile.phototype]
+      : '—';
 
-function CityField({
-  city,
-  onSelect,
-  onClear,
-}: {
-  city: CityLocation | null;
-  onSelect: (city: CityLocation) => void;
-  onClear: () => void;
-}) {
-  const [query, setQuery] = useState('');
-  const suggestions = searchCities(query, 5);
+  const goalsValue = profile
+    ? [profile.primaryGoal, profile.secondaryGoal]
+        .filter((g): g is NonNullable<typeof g> => g != null)
+        .map((g) => GOAL_LABELS[g])
+        .join(', ')
+    : '—';
 
-  if (city) {
-    return (
-      <View style={cityStyles.selectedRow}>
-        <Icon name="map-pin" size={16} color={colors.textSecondary} />
-        <Text style={cityStyles.selectedName}>{city.name}</Text>
-        <IconButton
-          icon={<Icon name="x" size={16} color={colors.textTertiary} />}
-          label="Clear city"
-          variant="ghost"
-          size="xs"
-          onPress={onClear}
-        />
-      </View>
-    );
-  }
+  const concernsValue =
+    profile && profile.concerns.length > 0
+      ? profile.concerns.map((c) => CONCERN_LABELS[c] ?? c).join(', ')
+      : 'None reported';
 
   return (
-    <View style={cityStyles.wrap}>
-      <Input
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search your city…"
-        autoCorrect={false}
-        returnKeyType="search"
-      />
-      {suggestions.map((suggestion) => (
-        <Pressable
-          key={suggestion.name}
-          onPress={() => {
-            onSelect(suggestion);
-            setQuery('');
-          }}
-          style={cityStyles.suggestionRow}
-          accessibilityRole="button"
-          accessibilityLabel={`Select ${suggestion.name}`}
-        >
-          <Icon name="map-pin" size={14} color={colors.textTertiary} />
-          <Text style={cityStyles.suggestionText}>{suggestion.name}</Text>
-        </Pressable>
-      ))}
+    <View style={gridStyles.wrap}>
+      <View style={[gridStyles.row, gridStyles.rowDivider]}>
+        <GridCell label="Gender" value={genderValue} />
+        <View style={gridStyles.colDivider} />
+        <GridCell label="Age" value={ageValue} />
+      </View>
+      <View style={[gridStyles.row, gridStyles.rowDivider]}>
+        <GridCell label="Skin type" value={skinTypeValue} />
+        <View style={gridStyles.colDivider} />
+        <GridCell label="Fitzpatrick" value={fitzpatrickValue} />
+      </View>
+      <View style={gridStyles.row}>
+        <GridCell label="Skin goals" value={goalsValue} />
+        <View style={gridStyles.colDivider} />
+        <GridCell label="Concerns" value={concernsValue} />
+      </View>
     </View>
   );
 }
 
-const cityStyles = StyleSheet.create({
-  wrap: { gap: space[1] },
-  selectedRow: {
+function GridCell({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={gridStyles.cell}>
+      <Text style={gridStyles.cellLabel}>{label}</Text>
+      <Text style={gridStyles.cellValue}>{value}</Text>
+    </View>
+  );
+}
+
+const gridStyles = StyleSheet.create({
+  wrap: {},
+  row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    paddingVertical: space[2],
   },
-  selectedName: {
-    ...typography.body,
-    color: colors.textPrimary,
+  rowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderDivider,
+    paddingBottom: space[3],
+    marginBottom: space[3],
+  },
+  colDivider: {
+    width: 1,
+    backgroundColor: colors.borderDivider,
+    marginHorizontal: space[4],
+  },
+  cell: {
     flex: 1,
+    gap: 4,
   },
-  suggestionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    paddingVertical: space[2],
-    paddingHorizontal: space[2],
+  cellLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
-  suggestionText: {
-    ...typography.bodySmall,
+  cellValue: {
+    fontFamily: 'DMSans-Medium',
+    fontSize: 16,
+    lineHeight: 20,
+    letterSpacing: -0.16,
     color: colors.textPrimary,
   },
 });
@@ -274,29 +217,24 @@ export default function ProfileScreen() {
 
   const gamificationEnabled = useSettingsStore((s) => s.gamificationEnabled);
   const setGamificationEnabled = useSettingsStore((s) => s.setGamificationEnabled);
-  const routineCycleType = useSettingsStore((s) => s.routineCycleType);
 
-  function handleCycleToggle(enableDynamic: boolean) {
-    if (!enableDynamic) {
-      // Dynamic → fixed discards cycle progress — confirm first (research §1.4).
-      // Manual weekly schedules are preserved: dynamic mode only masks them at
-      // render (phase-06), so switching back restores them exactly.
-      Alert.alert(
-        'Switch to fixed days?',
-        'Your skin-cycle progress will be discarded. Your manual weekly schedule and application counters are kept.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Switch', style: 'destructive', onPress: () => switchCycleType('fixed') },
-        ],
-      );
-      return;
+  const contributionConsentStatus = useSettingsStore((s) => s.contributionConsentStatus);
+  const setContributionConsentStatus = useSettingsStore((s) => s.setContributionConsentStatus);
+  const products = useProductsStore((s) => s.products);
+  const contributedCount = contributedProductsCount(products);
+
+  function handleContributionToggle(v: boolean) {
+    if (v) {
+      // Re-enabling from 'disabled' is a fresh start (unset), not a silent
+      // resume of 'accepted' — the full explainer modal reappears next save.
+      setContributionConsentStatus(contributionConsentStatus === 'disabled' ? 'unset' : 'accepted');
+    } else {
+      setContributionConsentStatus('disabled');
     }
-    // Enabling dynamic keeps your saved weekly schedule — it is masked while
-    // cycling, and returns unchanged if you switch back.
-    switchCycleType('dynamic');
   }
 
-  const productCount = useProductsStore((s) => s.products.length);
+
+  const productCount = products.length;
   const procedureCount = useProceduresStore((s) => s.procedures.length);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -329,29 +267,37 @@ export default function ProfileScreen() {
               Edit
             </Button>
           </View>
-          <ProfileSummary profile={profile} />
+          <ProfileGrid profile={profile} />
         </View>
 
         {/* ── Stats ────────────────────────────────────────────────────── */}
         <View style={styles.statsRow}>
           <View style={styles.statCell}>
-            <Text style={styles.statValue}>{productCount}</Text>
-            <Text style={styles.statLabel}>Products</Text>
+            <IconCircle name="package" />
+            <View>
+              <Text style={styles.statValue}>{productCount}</Text>
+              <Text style={styles.statLabel}>Products</Text>
+            </View>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statCell}>
-            <Text style={styles.statValue}>{procedureCount}</Text>
-            <Text style={styles.statLabel}>Procedures</Text>
+            <IconCircle name="syringe" />
+            <View>
+              <Text style={styles.statValue}>{procedureCount}</Text>
+              <Text style={styles.statLabel}>Procedures</Text>
+            </View>
           </View>
         </View>
 
         {/* ── Settings ─────────────────────────────────────────────────── */}
         <View style={styles.section}>
-          <SectionHeader title="Settings" />
           <View style={styles.card}>
+            <SectionHeader title="Settings" />
             <ListRow
+              leading={<IconCircle name="award" />}
               title="Gamification"
-              subtitle="Routine completion streaks and progress rings"
+              subtitle="Track what you've used by tapping products in your routine"
+              titleNumberOfLines={0}
               trailing={
                 <Switch
                   checked={gamificationEnabled}
@@ -362,8 +308,10 @@ export default function ProfileScreen() {
               divider
             />
             <ListRow
+              leading={<IconCircle name="shield-check" />}
               title="SPF Sensitivity"
               subtitle="Flag chemical SPF conflicts in your routines"
+              titleNumberOfLines={0}
               trailing={
                 <Switch
                   checked={profile?.spfSensitivity ?? false}
@@ -373,21 +321,23 @@ export default function ProfileScreen() {
               }
               divider
             />
+            {/* "Dynamic Skin Cycling" removed 2026-08-31 (code-review round,
+                Priority 1 item 4): its only advancement mechanism,
+                performDailyCheckIn, has had zero reachable UI callers since
+                before this task started (PRD_Spec.md §6.1 already documented
+                TodayScreen — its one caller — as dead/unreachable code), so
+                the toggle promised "driven by your daily check-in" while no
+                check-in affordance existed anywhere in the app; a user who
+                enabled it got permanently stuck at cycle phase 0 with no way
+                to ever advance it. routineCycleType/switchCycleType/
+                performDailyCheckIn are left fully intact in the store/domain
+                layer for a future task that gives this a real entry point —
+                only the misleading Profile toggle is removed. */}
             <ListRow
-              title="Dynamic Skin Cycling"
-              subtitle="4-night cycle driven by your daily check-in instead of fixed weekdays"
-              trailing={
-                <Switch
-                  checked={routineCycleType === 'dynamic'}
-                  onValueChange={handleCycleToggle}
-                  size="sm"
-                />
-              }
-              divider
-            />
-            <ListRow
+              leading={<IconCircle name="camera" />}
               title="Share my photos with Vials"
               subtitle="Include your product photo in community contributions"
+              titleNumberOfLines={0}
               trailing={
                 <Switch
                   checked={profile?.contributionConsent?.granted ?? false}
@@ -396,23 +346,47 @@ export default function ProfileScreen() {
                   size="sm"
                 />
               }
+              divider
+            />
+            <ListRow
+              leading={<IconCircle name="gift" />}
+              title="Share new products with Vials"
+              subtitle={`${contributedCount} products contributed so far`}
+              titleNumberOfLines={0}
+              trailing={
+                <Switch
+                  checked={contributionConsentStatus === 'accepted'}
+                  onValueChange={handleContributionToggle}
+                  accessibilityLabel="Share new products with Vials"
+                  size="sm"
+                />
+              }
               divider={false}
             />
+            <InlineAlert tone="neutral">
+              <View style={styles.settingsHintStack}>
+                <Text style={styles.settingsHintText}>
+                  Previously shared photos remain in the database.
+                </Text>
+                <Text style={styles.settingsHintText}>
+                  Turning this off stops future contributions. Products already shared stay in the database.
+                </Text>
+              </View>
+            </InlineAlert>
           </View>
-          <Text style={styles.settingsHint}>
-            Previously shared photos remain in the database.
-          </Text>
         </View>
 
         {/* ── Weather & Seasons ────────────────────────────────────────── */}
         <View style={styles.section}>
-          <SectionHeader title="Weather & Seasons" />
           <View style={styles.card}>
-            <Text style={styles.cityHint}>
-              Pick your city to let seasonal routine rules follow the real
-              weather. No GPS — a weekly forecast check only.
-            </Text>
-            <CityField
+            <SectionHeader title="Weather & Seasons" />
+            <ListRow
+              leading={<IconCircle name="cloud-sun" />}
+              title="Pick your city"
+              subtitle="Follow seasonal routine rules based on real weather."
+              divider={false}
+            />
+            <CityPicker
               city={profile?.city ?? null}
               onSelect={(city) => updateProfile({ city })}
               onClear={() => updateProfile({ city: null })}
@@ -422,17 +396,19 @@ export default function ProfileScreen() {
 
         {/* ── Data ─────────────────────────────────────────────────────── */}
         <View style={styles.section}>
-          <SectionHeader title="Your Data" />
-          <InlineAlert
-            tone="info"
-            icon={<Icon name="hard-drive" size={14} color={colors.statusInfo} />}
-            title="Stored locally on this device"
-          >
-            Vials does not sync to the cloud. Export your data regularly to avoid losing it if you switch devices or reinstall the app.
-          </InlineAlert>
+          {LOCAL_STORAGE_NOTICE_ENABLED ? (
+            <InlineAlert
+              tone="info"
+              icon={<Icon name="hard-drive" size={14} color={colors.statusInfo} />}
+              title="Stored locally on this device"
+            >
+              Vials does not sync to the cloud. Export your data regularly to avoid losing it if you switch devices or reinstall the app.
+            </InlineAlert>
+          ) : null}
           <View style={styles.card}>
+            <SectionHeader title="Your Data" />
             <ListRow
-              leading={<Icon name="upload-cloud" size={18} color={colors.textSecondary} />}
+              leading={<IconCircle name="upload-cloud" />}
               title="Export All Data"
               subtitle="Share a JSON backup of your full vault"
               onPress={exportAllData}
@@ -445,8 +421,8 @@ export default function ProfileScreen() {
         {/* ── Developer Tools (DEBUG ONLY — remove before shipping) ──────── */}
         {__DEV__ && (
           <View style={styles.section}>
-            <SectionHeader title="Developer Tools (Debug)" />
             <View style={[styles.card, styles.debugCard]}>
+              <SectionHeader title="Developer Tools (Debug)" />
               <ListRow
                 leading={<Icon name="eye" size={18} color={colors.statusWarning} />}
                 title="Debug: View Onboarding"
@@ -462,10 +438,10 @@ export default function ProfileScreen() {
 
         {/* ── About ────────────────────────────────────────────────────── */}
         <View style={styles.section}>
-          <SectionHeader title="About" />
           <View style={styles.card}>
+            <SectionHeader title="About" />
             <ListRow
-              leading={<Icon name="info" size={18} color={colors.textSecondary} />}
+              leading={<IconCircle name="info" />}
               title="Vials"
               subtitle="Version 1.0.0 — Phase 1 MVP"
               divider={false}
@@ -509,13 +485,13 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
     paddingHorizontal: space[4],
-    paddingVertical: space[3],
+    paddingVertical: space[4],
     gap: space[3],
+    ...shadow.sm,
   },
   debugCard: {
+    borderWidth: 1,
     borderColor: colors.statusWarningLine,
     backgroundColor: colors.statusWarningTint,
   },
@@ -528,15 +504,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: colors.surfaceCard,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
-    overflow: 'hidden',
+    ...shadow.sm,
   },
   statCell: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    // Matches the card padding (space[4]) + ListRow's own inset (space[1])
+    // so this icon lines up with every leading icon below it (e.g. Settings).
     paddingVertical: space[4],
-    gap: 2,
+    paddingLeft: space[4] + space[1],
+    gap: space[3],
   },
   statDivider: {
     width: 1,
@@ -544,7 +522,10 @@ const styles = StyleSheet.create({
     marginVertical: space[3],
   },
   statValue: {
-    ...typography.h3,
+    fontFamily: 'DMSans-Medium',
+    fontSize: 16,
+    lineHeight: 20,
+    letterSpacing: -0.16,
     color: colors.textPrimary,
   },
   statLabel: {
@@ -554,13 +535,9 @@ const styles = StyleSheet.create({
 
   section: { gap: space[2] },
 
-  settingsHint: {
-    ...typography.caption,
-    color: colors.textTertiary,
-  },
-
-  cityHint: {
-    ...typography.caption,
+  settingsHintStack: { gap: space[1] },
+  settingsHintText: {
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
 });

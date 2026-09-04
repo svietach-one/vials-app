@@ -15,6 +15,7 @@ import { Icon } from '@/components/ui/Icon';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Input } from '@/components/ui/forms/Input';
 import { Button } from '@/components/ui/core/Button';
+import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
@@ -162,6 +163,41 @@ export function AddProcedureModal({
     [selectedKey, profile?.phototype],
   );
 
+  const pregnancyResult = useMemo(
+    () =>
+      isCustom
+        ? null
+        : ConflictEngine.checkPregnancyConflict(selectedKey, profile?.pregnantOrBreastfeeding ?? false),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedKey, profile?.pregnantOrBreastfeeding],
+  );
+
+  // Memoized element (not just the data): the mount-time reset effect below
+  // commits twice (initial state, then its own batched setState calls), and
+  // botox — the default selection — is itself an avoid-severity procedure, so
+  // unlike the three pre-existing checks (all null for the untouched default)
+  // this alert can be non-null on that very first commit. Caching the element
+  // itself lets React bail out of re-invoking InlineAlert on the second,
+  // data-unchanged commit instead of rendering the identical alert twice.
+  const pregnancyAlert = useMemo(() => {
+    if (!pregnancyResult) return null;
+    return (
+      <InlineAlert
+        tone={pregnancyResult.severity === 'avoid' ? 'sos' : 'warning'}
+        icon={
+          <Icon
+            name="alert-circle"
+            size={14}
+            color={pregnancyResult.severity === 'avoid' ? colors.statusSOS : colors.statusWarningAccent}
+          />
+        }
+        title="Pregnancy / breastfeeding advisory"
+      >
+        {`${pregnancyResult.explanation}\n\n${pregnancyResult.suggestion}`}
+      </InlineAlert>
+    );
+  }, [pregnancyResult]);
+
   // ── Save ──────────────────────────────────────────────────────────────────
 
   function handleSave() {
@@ -287,18 +323,21 @@ export function AddProcedureModal({
                   <Pressable
                     key={opt.key}
                     onPress={() => setSelectedKey(opt.key)}
-                    style={[optStyles.row, active && optStyles.rowActive]}
+                    style={({ pressed }) => [
+                      optStyles.row,
+                      active && optStyles.rowActive,
+                      pressed && optStyles.rowPressed,
+                    ]}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: active }}
                   >
-                    <View style={[optStyles.radio, active && optStyles.radioActive]}>
-                      {active ? <View style={optStyles.radioDot} /> : null}
-                    </View>
                     <View style={optStyles.content}>
                       <Text style={[optStyles.label, active && optStyles.labelActive]}>
                         {opt.label}
                       </Text>
-                      <Text style={optStyles.meta}>{opt.meta}</Text>
+                      <Text style={[optStyles.meta, active && optStyles.metaActive]}>
+                        {opt.meta}
+                      </Text>
                     </View>
                   </Pressable>
                 );
@@ -355,18 +394,21 @@ export function AddProcedureModal({
                         setSymptomPreset(active ? null : preset.key);
                         setRecoveryError(null);
                       }}
-                      style={[optStyles.row, active && optStyles.rowActive]}
+                      style={({ pressed }) => [
+                        optStyles.row,
+                        active && optStyles.rowActive,
+                        pressed && optStyles.rowPressed,
+                      ]}
                       accessibilityRole="radio"
                       accessibilityState={{ selected: active }}
                     >
-                      <View style={[optStyles.radio, active && optStyles.radioActive]}>
-                        {active ? <View style={optStyles.radioDot} /> : null}
-                      </View>
                       <View style={optStyles.content}>
                         <Text style={[optStyles.label, active && optStyles.labelActive]}>
                           {preset.label}
                         </Text>
-                        <Text style={optStyles.meta}>{preset.meta}</Text>
+                        <Text style={[optStyles.meta, active && optStyles.metaActive]}>
+                          {preset.meta}
+                        </Text>
                       </View>
                     </Pressable>
                   );
@@ -388,23 +430,16 @@ export function AddProcedureModal({
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Treated Zones</Text>
               <View style={styles.zoneRow}>
-                {ZONE_OPTIONS.map(({ key, label }) => {
-                  const active = zones.includes(key);
-                  return (
-                    <Pressable
-                      key={key}
-                      onPress={() => toggleZone(key)}
-                      style={[styles.zoneChip, active && styles.zoneChipActive]}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: active }}
-                      accessibilityLabel={`${label} zone`}
-                    >
-                      <Text style={[styles.zoneChipText, active && styles.zoneChipTextActive]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {ZONE_OPTIONS.map(({ key, label }) => (
+                  <FilterChip
+                    key={key}
+                    selected={zones.includes(key)}
+                    onPress={() => toggleZone(key)}
+                    accessibilityLabel={`${label} zone`}
+                  >
+                    {label}
+                  </FilterChip>
+                ))}
               </View>
               <Text style={styles.fieldHint}>
                 Routines are face routines — a procedure that does not touch the face never pauses your products.
@@ -459,6 +494,8 @@ export function AddProcedureModal({
                 {`${phototypeResult.explanation}\n\n${phototypeResult.suggestion}`}
               </InlineAlert>
             ) : null}
+
+            {pregnancyAlert}
           </ScrollView>
 
           {/* Footer */}
@@ -540,26 +577,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: space[2],
   },
-  zoneChip: {
-    paddingHorizontal: space[3],
-    paddingVertical: space[2],
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
-    backgroundColor: colors.bgBase,
-  },
-  zoneChipActive: {
-    borderColor: palette.black,
-    backgroundColor: colors.bgSubtle,
-  },
-  zoneChipText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  zoneChipTextActive: {
-    fontFamily: 'DMSans-Medium',
-    color: colors.textPrimary,
-  },
   footer: {
     paddingHorizontal: space.gutterScreen,
     paddingVertical: space[4],
@@ -582,27 +599,11 @@ const optStyles = StyleSheet.create({
     backgroundColor: colors.bgBase,
   },
   rowActive: {
-    borderColor: palette.black,
-    backgroundColor: colors.bgSubtle,
+    borderColor: palette.plum,
+    backgroundColor: palette.plumTintLight,
   },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: colors.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  radioActive: {
-    borderColor: palette.black,
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: palette.black,
+  rowPressed: {
+    backgroundColor: palette.plumTintLight,
   },
   content: {
     flex: 1,
@@ -619,5 +620,11 @@ const optStyles = StyleSheet.create({
   meta: {
     ...typography.caption,
     color: colors.textTertiary,
+  },
+  // Same darker gray as ReplaceStepSheet's selected-row secondary text
+  // (optionBrand) — the light tertiary gray reads too faint once the card
+  // itself is already highlighted (plum border + tint).
+  metaActive: {
+    color: colors.textSecondary,
   },
 });

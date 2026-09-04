@@ -34,8 +34,40 @@ jest.mock('@expo/vector-icons', () => {
 
 import { DuplicateSlotWarningInline } from '@/components/routine/DuplicateSlotWarningInline';
 
+// routine-step-grouping polish round 3 (Change 1 addendum): the banner now
+// only fires when every group member carries an active ingredient — CREAM_A/
+// CREAM_B (shared fixtures used across this whole folder) intentionally carry
+// none, so tests that need the banner to actually render use these local
+// active-bearing copies instead of touching the shared fixtures.
+const CREAM_A_ACTIVE = { ...CREAM_A, activeTags: ['niacinamide' as const] };
+const CREAM_B_ACTIVE = { ...CREAM_B, activeTags: ['niacinamide' as const] };
+
 describe('Story 3 AC1: a shared-slot pair renders a passive, human-readable warning', () => {
   it('shows "2 similar products (moisturizers) in this routine" for two moisturizers in one routine', () => {
+    const amRoutine: Routine = makeRoutine({
+      id: 'routine-am',
+      timeOfDay: 'morning',
+      steps: [
+        makeStep({ productType: 'moisturizer', productId: CREAM_A_ACTIVE.id }),
+        makeStep({ productType: 'moisturizer', productId: CREAM_B_ACTIVE.id }),
+      ],
+    });
+
+    render(
+      <DuplicateSlotWarningInline
+        {...makeDuplicateSlotWarningInlineProps({
+          routines: [amRoutine],
+          products: [CREAM_A_ACTIVE, CREAM_B_ACTIVE],
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/2 similar products \(moisturizers\) in this routine/i)).toBeTruthy();
+  });
+});
+
+describe('routine-step-grouping polish round 3: suppressed when the duplicated products carry no active ingredient', () => {
+  it('renders nothing for two plain moisturizers sharing the moisturizer slot', () => {
     const amRoutine: Routine = makeRoutine({
       id: 'routine-am',
       timeOfDay: 'morning',
@@ -45,7 +77,7 @@ describe('Story 3 AC1: a shared-slot pair renders a passive, human-readable warn
       ],
     });
 
-    render(
+    const { toJSON } = render(
       <DuplicateSlotWarningInline
         {...makeDuplicateSlotWarningInlineProps({
           routines: [amRoutine],
@@ -54,7 +86,29 @@ describe('Story 3 AC1: a shared-slot pair renders a passive, human-readable warn
       />,
     );
 
-    expect(screen.getByText(/2 similar products \(moisturizers\) in this routine/i)).toBeTruthy();
+    expect(toJSON()).toBeNull();
+  });
+
+  it('renders nothing when only one of the two duplicated products carries an active ingredient', () => {
+    const amRoutine: Routine = makeRoutine({
+      id: 'routine-am',
+      timeOfDay: 'morning',
+      steps: [
+        makeStep({ productType: 'moisturizer', productId: CREAM_A_ACTIVE.id }),
+        makeStep({ productType: 'moisturizer', productId: CREAM_B.id }),
+      ],
+    });
+
+    const { toJSON } = render(
+      <DuplicateSlotWarningInline
+        {...makeDuplicateSlotWarningInlineProps({
+          routines: [amRoutine],
+          products: [CREAM_A_ACTIVE, CREAM_B],
+        })}
+      />,
+    );
+
+    expect(toJSON()).toBeNull();
   });
 });
 
@@ -149,8 +203,8 @@ describe('Tapping a duplicate-group row reports the group to the caller', () => 
       id: 'routine-am',
       timeOfDay: 'morning',
       steps: [
-        makeStep({ id: 'step-a', productType: 'moisturizer', productId: CREAM_A.id }),
-        makeStep({ id: 'step-b', productType: 'moisturizer', productId: CREAM_B.id }),
+        makeStep({ id: 'step-a', productType: 'moisturizer', productId: CREAM_A_ACTIVE.id }),
+        makeStep({ id: 'step-b', productType: 'moisturizer', productId: CREAM_B_ACTIVE.id }),
       ],
     });
 
@@ -158,7 +212,7 @@ describe('Tapping a duplicate-group row reports the group to the caller', () => 
       <DuplicateSlotWarningInline
         {...makeDuplicateSlotWarningInlineProps({
           routines: [amRoutine],
-          products: [CREAM_A, CREAM_B],
+          products: [CREAM_A_ACTIVE, CREAM_B_ACTIVE],
           onPressGroup,
         })}
       />,
@@ -169,6 +223,6 @@ describe('Tapping a duplicate-group row reports the group to the caller', () => 
     expect(onPressGroup).toHaveBeenCalledTimes(1);
     const arg = onPressGroup.mock.calls[0][0];
     expect(arg.routineId).toBe('routine-am');
-    expect(new Set(arg.productIds)).toEqual(new Set([CREAM_A.id, CREAM_B.id]));
+    expect(new Set(arg.productIds)).toEqual(new Set([CREAM_A_ACTIVE.id, CREAM_B_ACTIVE.id]));
   });
 });

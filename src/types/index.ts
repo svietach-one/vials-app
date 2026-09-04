@@ -17,6 +17,21 @@ export type ActiveIngredientKey =
   | 'niacinamide'
   | 'benzoyl_peroxide'
   | 'azelaic_acid'
+  /**
+   * Abrasive-particle signal, sourced ONLY from `Product.isPhysicalExfoliant`
+   * — never derived from INCI text (tech-design vials-conflict-matrix-
+   * expansion.md §3 FE-1/FE-2). The corresponding `actives.json` class is
+   * deliberately matcher-less (FE-3): an ingredient label can never, on its
+   * own, cause this key to be attributed to a product.
+   */
+  | 'physical_exfoliant'
+  /**
+   * Pregnancy-restricted skin-lightening agent (ACOG/AAD-consensus tier,
+   * engine4.1 handoff §4). Not wired into `actives.json`'s `goals` block —
+   * this class exists so the pregnancy freeze can see it, not to compete for
+   * treatment-slot selection.
+   */
+  | 'hydroquinone'
   | 'copper_peptides'
   | 'peptide_signal'
   | 'peptide_neuro'
@@ -35,6 +50,34 @@ export interface ActiveIngredient {
   key: ActiveIngredientKey;
   displayName: string;
 }
+
+/**
+ * Non-conflict, presence-only ingredient groups consumed by the recommendation
+ * layer only (PRD v1.2 §5.2). Deliberately a SEPARATE key space from
+ * {@link ActiveIngredientKey}: barrier tags must never reach the pairwise
+ * conflict matrix or an ActiveIngredientKey[] array. See
+ * src/utils/barrierTags.ts for the parser.
+ */
+export type BarrierIngredientKey =
+  | 'CERA' // Ceramides
+  | 'PANT' // Panthenol
+  | 'GLYC' // Glycerin / humectant glycols
+  | 'NIAC' // Niacinamide
+  | 'ZPCA' // Zinc PCA
+  | 'HYAL'; // Hyaluronic acid / sodium hyaluronate
+
+/**
+ * Ordered three-level advisory scale (PRD v1.2 §5.2) used by the v1.2
+ * recommendation layers — condition modifiers and density insights — only.
+ *
+ * The production conflict matrix keeps its own two-level
+ * {@link ConflictSeverity} ('caution' | 'avoid') and is NEVER rewritten to this
+ * scale. The two meet at one documented projection in
+ * src/utils/skinConditionModifiers.ts (`caution` ↔ medium, `avoid` ↔ high), so
+ * a one-level escalation of a rendered pairwise conflict means
+ * caution → avoid, and an `avoid` pair renders unchanged (capped).
+ */
+export type AdvisorySeverity = 'low' | 'medium' | 'high';
 
 /** Functional grouping used to color-code active-ingredient badges on the shelf card. */
 export type ActiveBadgeCategory = 'exfoliant' | 'soothing' | 'hydrator' | 'other';
@@ -127,6 +170,17 @@ export interface CityLocation {
 
 export type SkinType = 'oily' | 'dry' | 'combination' | 'normal';
 
+/**
+ * Optional, self-reported skin conditions (PRD v1.2 §4.2.2, US-23). Presence
+ * only — no severity level in v1, and NOT a diagnosis. Deliberately kept
+ * separate from {@link SkinConcern} (which shares an `eczema` member): concerns
+ * are symptoms the user reports to steer product selection, conditions are risk
+ * modifiers that make existing warnings more conservative and never more
+ * permissive. Whether the two should be merged is an open product question
+ * (PRD §5.1) — until it is answered, nothing derives one from the other.
+ */
+export type SkinConditionType = 'eczema' | 'seborrheic_dermatitis' | 'rosacea';
+
 export type SkinConcern =
   | 'acne'
   | 'dryness'
@@ -159,7 +213,8 @@ export interface UserProfile {
   age: number | null;
   skinType: SkinType | null;
   /**
-   * Grouped phototype (authoritative input while onboarding uses 3 cards).
+   * Grouped phototype, derived from the numeric {@link fitzpatrick} the
+   * 6-card onboarding selector writes (see `deriveGroupedPhototype`).
    * Critical for laser/peel safety checks.
    */
   phototype: SkinPhototype | null;
@@ -172,6 +227,13 @@ export interface UserProfile {
   /** Selected city for weather-driven season masks; null until the user picks one. */
   city: CityLocation | null;
   concerns: SkinConcern[];
+  /**
+   * Self-reported skin conditions (v1.2, US-23). Default `[]` — an empty list
+   * is the guaranteed no-op state (US-27): every v1.2 condition layer returns
+   * an empty result and the engine behaves exactly as it did before the
+   * feature shipped.
+   */
+  skinConditions: SkinConditionType[];
   /**
    * Primary care goal driving treatment selection (V2.1 Step 0). Defaults to
    * 'maintenance'; heuristically derived from concerns for pre-goal profiles.
@@ -189,6 +251,14 @@ export interface UserProfile {
    */
   phototypeNeedsConfirmation: boolean;
   spfSensitivity: boolean;
+  /**
+   * Self-reported skin sensitivity — reacts easily to new products/actives,
+   * added in schema v7. Independent of `skinType`. Reachable both via
+   * `SkinTypeQuizSheet`'s Quiz B (B4) and a direct manual control (parity
+   * with `hormoneTherapy`/`pregnantOrBreastfeeding`/`spfSensitivity`). Also
+   * the field `Product.isPhysicalExfoliant`'s docstring forward-references.
+   */
+  sensitive: boolean;
   onboardingCompleted: boolean;
   /** Per-procedure duration overrides set when the user confirms actual fading. */
   individualDurationMonths: Partial<Record<CosmeticProcedureKey, number>>;
@@ -200,6 +270,18 @@ export interface UserProfile {
    * `src/utils/contributionConsent.ts` for the gating helper.
    */
   contributionConsent: ContributionConsent;
+  /**
+   * Currently on hormone therapy (gender-affirming or otherwise), added in
+   * schema v6. Collected for future personalization (sebum/sensitivity
+   * weighting) — no downstream logic reads it yet.
+   */
+  hormoneTherapy: boolean;
+  /**
+   * Pregnant or breastfeeding, added in schema v6. Safety-relevant flag for
+   * a planned conflict-engine check (retinoids / high-concentration acids)
+   * and a clinic-procedure block — both separate, not-yet-built follow-ups.
+   */
+  pregnantOrBreastfeeding: boolean;
 }
 
 /** Consent to share a product photo in community contributions (schema v4). */
@@ -240,6 +322,9 @@ export type ProductType =
  */
 export type ProductSource = 'vials_seed' | 'obf_import' | 'community' | 'user_local';
 
+/** My Shelf's two entities — see docs/tasks/ux-explore-vials/01-entry-points.md §0. */
+export type ProductStatus = 'owned' | 'wishlist';
+
 export interface Product {
   id: string;
   name: string;
@@ -262,6 +347,13 @@ export interface Product {
   openedDate: string | null;
   /** Period-After-Opening in months. Combined with openedDate to compute expiry. */
   paoMonths: number | null;
+  /**
+   * Labelled sun protection factor, only meaningful when
+   * `productType === 'spf'` (v1.2, US-29). Optional by design: `null` /
+   * absent means "unknown", which the SPF adequacy check treats as "can't
+   * check", never as "assume the worst".
+   */
+  spfValue?: number | null;
   /** EAN/UPC barcode scanned during add flow. Null when skipped or entered manually. */
   barcode?: string | null;
   /**
@@ -272,6 +364,13 @@ export interface Product {
   source?: ProductSource;
   /** Soft-hide flag. When true the product is excluded from routine step lists and rendered dimmed in the catalog. Absence is treated as false. */
   isHidden?: boolean;
+  /**
+   * My Shelf status — 'owned' (physically in use, feeds routine/PAO/conflict
+   * logic) or 'wishlist' (considering, no inventory side effects). Absent is
+   * treated as 'owned', same convention as isHidden — every record saved
+   * before Wishlist existed is implicitly on-shelf.
+   */
+  status?: ProductStatus;
   /**
    * Set true by the schema-v2 migration when a legacy `vitamin_c` tag was
    * auto-mapped to `vitamin_c_pure`. Drives the product-detail infobox that
@@ -290,12 +389,120 @@ export interface Product {
    * Render precedence everywhere: `localImageUri ?? imageUrl ?? <placeholder>`.
    */
   localImageUri?: string | null;
+  /**
+   * Whether the user explicitly opted in to sharing THIS product with the
+   * Vials product database at save time (see docs/specs/contribution-consent-flow/).
+   * Set once at save and never mutated afterward — the running contributor
+   * counter reads this field directly, independent of the user's current
+   * global `contributionConsentStatus`. Absent on records saved before this
+   * field existed; treat as false.
+   */
+  contributionOptIn?: boolean;
+  /**
+   * User-asserted "this product physically abrades the skin" signal (a
+   * scrub, an exfoliating cleansing tool) — orthogonal to `productType`, the
+   * same relationship the `sensitive` profile flag has to skin type. Never
+   * derived from `fullIngredientText`: abrasive particles generally do not
+   * show up in an ingredient list the way a chemical active does. Absent on
+   * records saved before this field; treat as false. Drives the
+   * `physical_exfoliant` key in {@link ActiveIngredientKey} via
+   * `getProductActiveKeys` (tech-design vials-conflict-matrix-expansion.md).
+   */
+  isPhysicalExfoliant?: boolean;
+  /**
+   * Cached result of the last EU fragrance-allergen scan of
+   * `fullIngredientText` (tech-design vials-eu-allergen-detection.md FE-2/
+   * FE-3). Only trustworthy when {@link allergenListVersion} equals the
+   * bundled seed's current `list_version` — `getProductAllergenMatches`
+   * recomputes live otherwise, so a JSON swap (26→82 substances) or a
+   * pre-existing product without this field both self-heal with no
+   * migration. Absent on records saved before this field existed.
+   */
+  detectedAllergens?: DetectedAllergenMatch[];
+  /**
+   * The seed list's `list_version` this product's {@link detectedAllergens}
+   * was computed against — read from `assets/eu_allergens_seed.json`, never
+   * hand-typed. `null`/absent means "never scanned" and is treated the same
+   * as a version mismatch: live recompute, not trusted as zero matches.
+   */
+  allergenListVersion?: string | null;
+  /**
+   * Body area(s) this product is applied to (routine-step-grouping PRD_Spec.md
+   * §4.1). Stored once on the product — not copied onto `RoutineStep` — since
+   * zone is intrinsic to the product and identical across every routine it
+   * appears in. Absent/empty means `['face']`.
+   */
+  zones?: Zone[];
+  /**
+   * Whether this product is applied inline during the routine or reapplied
+   * later in the day (routine-step-grouping PRD_Spec.md §4.2). Absent means
+   * `'inline'`.
+   */
+  timing?: StepTiming;
+  /** Only meaningful when `timing === 'reapply'`. Hours until reapplication. */
+  reapplyAfterHours?: number;
+}
+
+/**
+ * One matched EU-regulated fragrance allergen for a product (tech-design
+ * vials-eu-allergen-detection.md FE-2). `canonical` is the seed entry's
+ * display name; `restricted` mirrors that seed entry's own `restricted`
+ * flag (true only for the two banned-but-retained entries — Lilial and
+ * Lyral/HICC in the original 26-substance seed) and drives the Amber-vs-
+ * Cobalt badge precedence. Deliberately has no per-user dimension (no
+ * `isPersonal` flag) — personal-allergen flagging is a separate, descoped
+ * follow-up (see spec Non-Goals).
+ */
+export interface DetectedAllergenMatch {
+  canonical: string;
+  restricted: boolean;
 }
 
 
 // ─── Routine target ───────────────────────────────────────────────────────────
 
 export type RoutineTarget = 'none' | 'morning' | 'evening' | 'both';
+
+// ─── Routine step grouping (docs/specs/routine-step-grouping) ─────────────────
+
+/**
+ * The eight render-time "process" buckets a routine step belongs to, derived
+ * from `ProductType` via `STEP_ACTION_FOR_TYPE` (PRD_Spec.md §3.2). Grouping
+ * lives at the render layer only — `RoutineStep`/`Routine` are unchanged.
+ */
+export type StepAction =
+  | 'cleanse'
+  | 'exfoliate'
+  | 'tone'
+  | 'treat'
+  | 'moisturize'
+  | 'mask'
+  | 'seal'
+  | 'protect';
+
+/**
+ * Body area(s) a product is applied to (PRD_Spec.md §4.1). Multi-valued so
+ * one product used on face + eyes + neck renders as one card with three
+ * tags, not three cards. Absent/empty/exactly `['face']` is the silent
+ * default and renders no tag.
+ */
+export type Zone = 'face' | 'eyes' | 'neck' | 'lips' | 'hands';
+
+/**
+ * Whether a product is applied in sequence during the routine (`inline`,
+ * default) or later in the day outside the routine flow (`reapply`, e.g. an
+ * SPF stick) — PRD_Spec.md §4.2.
+ */
+export type StepTiming = 'inline' | 'reapply';
+
+/**
+ * The gap between two adjacent rendered steps (PRD_Spec.md §5.1). Purely
+ * informational — nothing counts down, nothing blocks. Deliberately has no
+ * numeric `wait` variant; see PRD_Spec.md §5.2 before reintroducing one.
+ */
+export type StepTransition =
+  | { kind: 'note'; text: 'dry_skin' | 'immediate' | 'until_dry' | 'before_sun' }
+  | { kind: 'none' };
 
 // ─── Routines ─────────────────────────────────────────────────────────────────
 
@@ -389,6 +596,14 @@ export interface RehabNotice {
   totalDays: number;
   barrierStatus: 'disrupted' | 'sensitive';
   restrictions: string[];
+  /**
+   * True when every merged procedure is in the aggressive set (deep peel,
+   * energy-based lifting, injectable micro-wounding — see
+   * AGGRESSIVE_PROCEDURES in src/utils/skinConditionModifiers.ts). Drives the
+   * eczema/rosacea recovery caution line (US-25), which never appears for
+   * Botox- or filler-only rehab. Derived per render, never persisted.
+   */
+  aggressive: boolean;
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
@@ -447,6 +662,88 @@ export interface AppSettings {
    * endpoint backs a global number in this scope.
    */
   communityContributionCount: number;
+  /**
+   * Routines screen Morning/Evening accordion snapshot, so a manual collapse
+   * survives an app restart for the rest of the skincare day. Re-decided from
+   * the 15:00 AM/PM rule once a new skincare day starts (see
+   * getSkincareDateString). Null before the first decision is made.
+   */
+  routineAccordion: RoutineAccordionSettings | null;
+  /**
+   * ISO 8601 timestamp of when the user accepted the onboarding medical
+   * disclaimer (MarketingSlidesScreen slide 3 consent checkbox). Null until
+   * accepted.
+   */
+  medicalDisclaimerAcceptedAt: string | null;
+  /**
+   * Copy version of the medical disclaimer the user last accepted. Defaults
+   * to 0 pre-acceptance — a value that can never collide with a real version
+   * (versions start at 1) so "never accepted" is unambiguous from this field
+   * alone.
+   */
+  medicalDisclaimerVersion: number;
+  /**
+   * Global state for the product-contribution consent flow
+   * (docs/specs/contribution-consent-flow/) — distinct from
+   * `ContributionConsent` (the photo-sharing consent on `UserProfile`).
+   * Governs whether `ContributionConsentModal` / `ContributionToggle` appear
+   * when a manually-added product is saved.
+   */
+  contributionConsentStatus: ContributionConsentStatus;
+  /**
+   * Manual saves declined (toggle off) since the last reminder modal was
+   * shown. Only meaningful while `contributionConsentStatus === 'declined'`.
+   */
+  declinedSaveCountSinceLastReminder: number;
+  /**
+   * Reminder modals shown so far: 0 = none yet, 1 = 1st shown, 2 = 2nd,
+   * 3+ = 3rd/every-30 tier. Drives the next reminder threshold (5/15/30/30…).
+   */
+  reminderCountShown: number;
+  /**
+   * Per-procedure RehabNoticeCard collapse state on the Routines screen,
+   * keyed by RehabNotice.key, so a manual collapse survives a re-visit for
+   * the rest of the skincare day — mirrors `routineAccordion`'s day-scoping.
+   * Re-decided (defaults to expanded) once a new skincare day starts.
+   */
+  rehabNoticeCollapsed: Record<string, NoticeCollapseEntry>;
+  /**
+   * Per-row collapse state for ConflictWarningInline's conflict /
+   * condition-advisory / density rows on the Routines screen, keyed by each
+   * row's own stable id (rule id, advisory id, or finding id, prefixed by
+   * row kind). Same day-scoped shape and semantics as `rehabNoticeCollapsed`:
+   * a manual collapse/expand survives a re-visit for the rest of the
+   * skincare day, and re-decides (defaults to expanded) once a new one
+   * starts. Kept as a separate map from `rehabNoticeCollapsed` since row ids
+   * are not guaranteed unique across the two features.
+   */
+  routineNoticeCollapsed: Record<string, NoticeCollapseEntry>;
+}
+
+/**
+ * Product-contribution consent state machine (docs/specs/contribution-consent-flow/01-copy-and-consent-states.md).
+ * - unset: never seen the modal — shown on next manual save.
+ * - declined: seen at least once, not opted in — reminder cadence applies.
+ * - accepted: opted in at least once — no modal, ever again.
+ * - disabled: explicit opt-out in Profile — no modal, no toggle, ever.
+ */
+export type ContributionConsentStatus = 'unset' | 'declined' | 'accepted' | 'disabled';
+
+export interface RoutineAccordionSettings {
+  /** Skincare-day date string (see getSkincareDateString) this snapshot applies to. */
+  date: string;
+  morningExpanded: boolean;
+  eveningExpanded: boolean;
+}
+
+/**
+ * Shared day-scoped collapse decision shape for Routines-screen advisory
+ * rows — used by `rehabNoticeCollapsed` and `routineNoticeCollapsed`.
+ */
+export interface NoticeCollapseEntry {
+  /** Skincare-day date string (see getSkincareDateString) this decision applies to. */
+  date: string;
+  collapsed: boolean;
 }
 
 // ─── Catalog filters ──────────────────────────────────────────────────────────
@@ -474,6 +771,32 @@ export const CATALOG_FILTER_DEFAULT: CatalogFilterState = {
   selectedBenefits: [],
 };
 
+// ─── Wishlist entry (docs/specs/explore-composition.md §6) ───────────────────
+// A lightweight, identity-optional composition saved from the Explore
+// Composition flow — deliberately isolated from `Product`/`productsStore`:
+// no `conflictEngine.ts` evaluation, no Catalog filter/biomarker logic, never
+// reaches the community-contribution flow. Promoted to a full `Product` (and
+// removed) via `ManualProductFormScreen`'s `explorePrefill` mode.
+
+export interface WishlistEntry {
+  id: string;
+  brand: string | null;
+  name: string | null;
+  category: ProductType | null;
+  rawIngredientsText: string;
+  parsedIngredientIds: ActiveIngredientKey[];
+  sourceFlow: 'explore_composition' | 'add_product';
+  createdAt: string;
+  /**
+   * Story 9 (docs/tech-design/explore-composition.md FE-16) — a free-form
+   * note the user types on `WishlistEntryDetailScreen`. Optional so
+   * already-persisted entries from prior slices need no migration: absent
+   * means "no note", the same convention as other optional fields added to
+   * an existing entity in this codebase (e.g. `Product.isHidden?`).
+   */
+  notes?: string | null;
+}
+
 // ─── Add Product wizard ───────────────────────────────────────────────────────
 
 /** Which capture flow the shared camera modal runs. */
@@ -494,6 +817,13 @@ export interface AddProductDraft {
    * reads — so it lives on the draft. null until a photo is taken/chosen.
    */
   localImageUri: string | null;
+
+  /**
+   * Labelled SPF, captured only when productType is 'spf' (US-29). Null =
+   * unknown; the adequacy check skips the product rather than assuming a
+   * worst case. Cleared when the category moves away from SPF.
+   */
+  spfValue: number | null;
 
   // Section 2 — barcode
   barcode: string | null; // null = skipped, never blocks progress
@@ -526,10 +856,15 @@ export interface AddProductDraft {
 
 /** Data returned from the camera modal to the launching section. */
 export type CaptureResult =
-  | { mode: 'label'; rawText: string }
+  /** sourceUri: the captured/picked photo's local file uri, when known — lets
+   *  a caller reuse the identification shot as the product's cover photo
+   *  even when OCR/corpus matching doesn't pan out. Null for a re-OCR of an
+   *  already-stored image (CameraCaptureModal's `sourceImageUri` prop) or a
+   *  gallery pick that didn't report one. */
+  | { mode: 'label'; rawText: string; sourceUri: string | null }
   | { mode: 'barcode'; code: string }
   /** hadNonLatin: ocrTextCleaner stripped a significant non-Latin share. */
-  | { mode: 'inci'; rawText: string; hadNonLatin: boolean };
+  | { mode: 'inci'; rawText: string; hadNonLatin: boolean; sourceUri: string | null };
 
 /**
  * Background-suggest payload. Structurally distinct from Product —
@@ -545,4 +880,130 @@ export interface SuggestPayload {
   barcode: string | null;
   inciRaw: string | null;
   status: 'pending';
+}
+
+// ─── Product Profile (docs/tasks/product_profile/01-product-profile.md §5) ────
+// Milestone 1 (docs/specs/2026-08-05-product-profile-m1.md): a single composed
+// object describing "what this product is," built by src/utils/productProfile/
+// from resolvedActiveKeys × actives.json. Descriptive only — never a
+// recommendation/eligibility verdict (that stays Conflict Engine / Routine
+// Engine territory). Types transcribed verbatim from the locked source design.
+
+/** Three-tier confidence model applied per-field, not just per-profile. */
+export type ProfileConfidence = 'deterministic' | 'heuristic' | 'insufficient_data';
+
+/**
+ * Attached to any field whose value depends on more than a direct
+ * pass-through lookup. Required so a consumer can decide whether to
+ * display, hide, or caveat a value without re-deriving its provenance.
+ */
+export interface ConfidenceNote {
+  confidence: ProfileConfidence;
+  /** Populated whenever confidence !== 'deterministic'. Human-readable. */
+  caveat?: string;
+  /** Which source(s) this value was derived from, for auditability.
+   *  e.g. ['actives.json:goals.hydration', 'labels.ts:FUNCTIONAL_BENEFIT_INGREDIENTS'] */
+  sourceRefs: string[];
+}
+
+/**
+ * All 10 capability keys are declared now; only `barrierRepair`/`exfoliation`
+ * are scored in Milestone 1 (docs/tasks/product_profile/03-capabilities.md).
+ * The remaining 8 ship with `score: null`/`confidence: 'insufficient_data'`.
+ */
+export type CapabilityKey =
+  | 'hydration'
+  | 'barrierRepair'
+  | 'brightening'
+  | 'pigmentation'
+  | 'acneControl'
+  | 'sebumRegulation'
+  | 'antioxidantProtection'
+  | 'soothing'
+  | 'exfoliation'
+  | 'antiAging';
+
+export interface CapabilityScore extends ConfidenceNote {
+  /** Normalized 0–1 presence-weighted score. Null iff confidence === 'insufficient_data'. */
+  score: number | null;
+  /** Active classes that contributed positively to this score. */
+  contributingClasses: ActiveIngredientKey[];
+}
+
+export interface IrritationProfile extends ConfidenceNote {
+  /** Aggregate 0–5 scale, same units as actives.json's per-class irritancy. Null iff insufficient_data. */
+  score: number | null;
+  photosensitizing: boolean;
+  lowPh: boolean;
+  /** Which aggregation method produced `score` — see 02-profile-builder.md §5. */
+  aggregationMethod: 'max_of_present' | 'potency_weighted_average';
+}
+
+export interface SensitivityCompatibility extends ConfidenceNote {
+  /** Null iff irritation.score is null. */
+  compatible: boolean | null;
+  /** The irritation-scale cutoff applied to produce `compatible`. */
+  thresholdUsed: number | null;
+}
+
+export interface RoutinePosition extends ConfidenceNote {
+  /** Merged from allowedPeriods across all present classes. */
+  eligiblePeriods: ('AM' | 'PM')[];
+  preferredPeriod: 'AM' | 'PM' | null;
+  /** Position in the (relocated) layering-order table. Null if the product's
+   *  type/classes aren't represented in that table. */
+  layeringOrder: number | null;
+  rinseOff: boolean;
+}
+
+export interface ProfileStrengthsWeaknesses {
+  /** Template-generated, references capability scores above the strength threshold. */
+  strengths: string[];
+  /** Template-generated. MUST include structural caveats (e.g. "no concentration
+   *  data available") when relevant — never presented as a simple negative-findings list. */
+  weaknesses: string[];
+}
+
+export interface ProductProfile {
+  // ── Identity — required, deterministic pass-through, no aggregation ──
+  productId: string;
+  productType: ProductType;
+  brand: string | null;
+  name: string;
+
+  // ── Ingredient basis — required ──
+  sourceInciText: string | null;
+  resolvedActiveKeys: ActiveIngredientKey[];
+  /** Text tokens present in the INCI list that matched no known class.
+   *  Non-empty values are a live signal of matcher-table gaps. */
+  unresolvedIngredientTokens: string[];
+
+  // ── Primary functions — required, heuristic pending taxonomy consolidation ──
+  primaryFunctions: {
+    key: CapabilityKey;
+    rank: number;
+  }[];
+
+  // ── Capability scores — required object; individual entries may be null-scored ──
+  capabilities: Record<CapabilityKey, CapabilityScore>;
+
+  // ── Irritation & sensitivity — required ──
+  irritation: IrritationProfile;
+  sensitivityCompatibility: SensitivityCompatibility;
+
+  // ── Routine placement — required ──
+  routinePosition: RoutinePosition;
+
+  // ── Synthesis — optional; null until capabilities/irritation are populated ──
+  strengthsWeaknesses: ProfileStrengthsWeaknesses | null;
+
+  // ── Build metadata ──
+  builtAt: string; // ISO 8601
+  /** Schema/algorithm version. A mismatch against the current builder version
+   *  means "treat as stale," per the lifecycle rules in
+   *  docs/tasks/product_profile/01-product-profile.md §3. */
+  builderVersion: string;
+  /** Worst-case confidence across all required fields — a fast filter for
+   *  "is this profile trustworthy enough to use," without inspecting every field. */
+  overallConfidence: ProfileConfidence;
 }

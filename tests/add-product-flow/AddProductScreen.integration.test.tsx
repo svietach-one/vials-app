@@ -2,8 +2,9 @@
  * Integration tests — AddProductScreen (tasks 08/09, QA task 10).
  * Covers: accordion single-expansion, save-validation UX (expand first
  * incomplete section + inline message, no dialog), the local-first save
- * contract (synchronous store write → immediate goBack, suggest fired but
- * never awaited, failures silent), and discard confirmation.
+ * contract (synchronous store write → immediate navigation to the shelf with
+ * a success toast, suggest fired but never awaited, failures silent), and
+ * discard confirmation.
  */
 import React from 'react';
 import { Alert } from 'react-native';
@@ -74,8 +75,9 @@ const mockDeleteProductPhoto: jest.Mock = jest.requireMock(
 import AddProductScreen from '@/screens/catalog/AddProductScreen';
 
 const mockGoBack = jest.fn();
+const mockNavigate = jest.fn();
 function renderScreen() {
-  const navigation = { goBack: mockGoBack, navigate: jest.fn() } as never;
+  const navigation = { goBack: mockGoBack, navigate: mockNavigate } as never;
   return render(<AddProductScreen navigation={navigation} route={{} as never} />);
 }
 
@@ -125,7 +127,7 @@ describe('save validation UX', () => {
     // Move away from Section 1 first so the auto-expand is observable.
     fireEvent.press(screen.getByLabelText('Section 3: Ingredients'));
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
 
     expect(screen.getByText('Add a brand, name, and category to continue.')).toBeTruthy();
     expect(screen.getByLabelText('Brand')).toBeTruthy();
@@ -142,7 +144,7 @@ describe('save validation UX', () => {
     fireEvent.changeText(screen.getByLabelText('Product name'), 'Foaming Cleanser');
     fireEvent.press(screen.getByLabelText('Cleanser'));
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
 
     expect(screen.getByText('Pick a period-after-opening (PAO) to continue.')).toBeTruthy();
     expect(mockAddProduct).not.toHaveBeenCalled();
@@ -151,13 +153,13 @@ describe('save validation UX', () => {
 
 describe('local-first save', () => {
   it('writes to productsStore synchronously and leaves before the suggest call resolves', () => {
-    // A suggest promise that never resolves during the test: goBack firing
-    // proves nothing in the save path awaits the network.
+    // A suggest promise that never resolves during the test: navigating away
+    // firing proves nothing in the save path awaits the network.
     mockSubmitContribution.mockReturnValue(new Promise(() => undefined));
     renderScreen();
     fillRequiredFields();
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
 
     expect(mockAddProduct).toHaveBeenCalledTimes(1);
     const saved = mockAddProduct.mock.calls[0][0];
@@ -170,7 +172,14 @@ describe('local-first save', () => {
       barcode: null,
       source: 'user_local',
     });
-    expect(mockGoBack).toHaveBeenCalledTimes(1);
+    // Lands on the shelf (not just one screen back, which would strand the
+    // user on the search hub) with the one-shot success toast.
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      'Catalog',
+      expect.objectContaining({ toast: expect.objectContaining({ contributionOptIn: false }) }),
+    );
+    expect(mockGoBack).not.toHaveBeenCalled();
     expect(mockSubmitContribution).toHaveBeenCalledTimes(1);
   });
 
@@ -178,12 +187,12 @@ describe('local-first save', () => {
     renderScreen();
     fillRequiredFields();
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
 
     const saved = mockAddProduct.mock.calls[0][0];
     expect(saved.activeTags).toEqual([]);
     expect(saved.barcode).toBeNull();
-    expect(mockGoBack).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('Catalog', expect.anything());
   });
 
   // Contribution failures are SURFACED, not swallowed. The old behaviour
@@ -193,12 +202,12 @@ describe('local-first save', () => {
     renderScreen();
     fillRequiredFields();
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
     await act(async () => Promise.resolve());
 
     // Local save and navigation are unaffected…
     expect(mockAddProduct).toHaveBeenCalledTimes(1);
-    expect(mockGoBack).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('Catalog', expect.anything());
     // …and the failure is reported rather than hidden.
     expect(Alert.alert).toHaveBeenCalledWith(
       expect.stringContaining('share'),
@@ -211,7 +220,7 @@ describe('local-first save', () => {
     renderScreen();
     fillRequiredFields();
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
     await act(async () => Promise.resolve());
 
     // Nothing the user did failed, and this screen has already closed — the
@@ -224,7 +233,7 @@ describe('local-first save', () => {
     renderScreen();
     fillRequiredFields();
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
     await act(async () => Promise.resolve());
 
     const [payload, blob] = mockSubmitContribution.mock.calls[0];

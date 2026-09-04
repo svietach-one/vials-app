@@ -1,13 +1,30 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
-import { colors, radius, space, typography } from '@/constants/tokens';
+import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
+import { colors, space, typography } from '@/constants/tokens';
 import type { RehabNotice } from '@/types';
 
 export interface RehabNoticeCardProps {
   /** One merged rehab notice (see buildRehabNotices). */
   notice: RehabNotice;
+  /**
+   * Additive eczema/rosacea recovery line (US-25), or null when it does not
+   * apply. Computed by the caller via getRecoveryConditionCaution — copy-only:
+   * it never changes the rehab window, the restrictions, or the card's tone.
+   */
+  conditionCaution?: string | null;
+  /**
+   * Controlled collapse state, resolved by the caller from the persisted
+   * per-day snapshot (src/utils/noticeCollapse.ts) so a manual collapse
+   * survives a re-visit for the rest of the skincare day instead of
+   * re-expanding on every remount. Defaults to expanded for callers that
+   * don't need day-scoped persistence (e.g. presentational tests).
+   */
+  collapsed?: boolean;
+  /** Fires on header tap; the caller owns persisting the new value. */
+  onToggleCollapse?: () => void;
 }
 
 const BARRIER_COPY: Record<RehabNotice['barrierStatus'], string> = {
@@ -17,92 +34,65 @@ const BARRIER_COPY: Record<RehabNotice['barrierStatus'], string> = {
 
 /**
  * The single merged rehab card on the Routines screen (one per procedure).
- * Consolidates the former rehab shield + lifestyle-restrictions cards: the
- * restriction list rides inside this card during the acute (disrupted) phase
- * and disappears once the notice reports no restrictions, so the user never
- * sees two anxious cards about the same procedure. Amber "alarm" tone (calmer
- * than the old red SOS), collapsible to its header line. Pure render of a
- * RehabNotice — self-destructs when the window ends and the notice is gone.
+ * Built on InlineAlert's collapsible variant — the "dropdown" alert type — so
+ * this card shares the same chrome (tone, radius, padding, title typography)
+ * as every other alert in the app instead of reimplementing it. Consolidates
+ * the former rehab shield + lifestyle-restrictions cards: the restriction
+ * list rides inside this card during the acute (disrupted) phase and
+ * disappears once the notice reports no restrictions, so the user never sees
+ * two anxious cards about the same procedure. Amber "alarm" tone (calmer than
+ * the old red SOS), collapsible to its header + day-count line. Pure render
+ * of a RehabNotice — self-destructs when the window ends and the notice is
+ * gone.
  */
-export function RehabNoticeCard({ notice }: RehabNoticeCardProps) {
-  // Local UI only — collapses the card to its header line to save space.
-  const [collapsed, setCollapsed] = useState(false);
-
+export function RehabNoticeCard({
+  notice,
+  conditionCaution = null,
+  collapsed = false,
+  onToggleCollapse,
+}: RehabNoticeCardProps) {
   return (
-    <View style={styles.card} accessibilityRole="summary">
-      <Pressable
-        style={styles.headerRow}
-        onPress={() => setCollapsed((c) => !c)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: !collapsed }}
-        accessibilityLabel={`Rehabilitation: ${notice.procedureName}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
-      >
-        <View style={styles.headerLeft}>
-          <Icon name="shield" size={14} color={colors.statusWarning} />
-          <Text style={styles.headerText}>Rehabilitation: {notice.procedureName}</Text>
-        </View>
-        <Icon
-          name={collapsed ? 'chevron-down' : 'chevron-up'}
-          size={16}
-          color={colors.statusWarning}
-        />
-      </Pressable>
-
-      {!collapsed ? (
-        <>
+    <View accessibilityRole="summary">
+      <InlineAlert
+        tone="warning"
+        icon={<Icon name="shield" size={16} color={colors.statusWarning} />}
+        title={`Rehabilitation: ${notice.procedureName}`}
+        collapsed={collapsed}
+        onToggleCollapse={onToggleCollapse}
+        collapseAccessibilityLabel={`Rehabilitation: ${notice.procedureName}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
+        summary={
           <Text style={styles.dayText}>
             Day {notice.currentDay} of {notice.totalDays}
           </Text>
-          <Text style={styles.bodyText}>{BARRIER_COPY[notice.barrierStatus]}</Text>
+        }
+      >
+        <Text style={styles.bodyText}>{BARRIER_COPY[notice.barrierStatus]}</Text>
 
-          {notice.restrictions.length > 0 ? (
-            <View style={styles.restrictions}>
-              {notice.restrictions.map((text, i) => (
-                <View key={i} style={styles.restrictionRow}>
-                  <Icon
-                    name="x-circle"
-                    size={13}
-                    color={colors.statusWarning}
-                    style={styles.restrictionIcon}
-                  />
-                  <Text style={styles.restrictionText}>{text}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-        </>
-      ) : null}
+        {notice.restrictions.length > 0 ? (
+          <View style={styles.restrictions}>
+            {notice.restrictions.map((text, i) => (
+              <View key={i} style={styles.restrictionRow}>
+                <Icon
+                  name="x-circle"
+                  size={13}
+                  color={colors.statusWarning}
+                  style={styles.restrictionIcon}
+                />
+                <Text style={styles.restrictionText}>{text}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {conditionCaution ? (
+          <Text style={styles.conditionCaution}>{conditionCaution}</Text>
+        ) : null}
+      </InlineAlert>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.statusWarningTint,
-    borderWidth: 1,
-    borderColor: colors.statusWarningLine,
-    borderRadius: radius.md,
-    paddingVertical: space[3],
-    paddingHorizontal: space[4],
-    gap: space[1],
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: space[2],
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    flexShrink: 1,
-  },
-  headerText: {
-    ...typography.label,
-    color: colors.statusWarning,
-    flexShrink: 1,
-  },
   dayText: {
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
@@ -129,5 +119,13 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.statusWarning,
     flex: 1,
+  },
+  // Additive advisory line — same Amber caution family as the card, set apart
+  // from the restriction list so it never reads as another restriction.
+  conditionCaution: {
+    ...typography.bodySmall,
+    color: colors.statusWarning,
+    marginTop: space[2],
+    fontStyle: 'italic',
   },
 });

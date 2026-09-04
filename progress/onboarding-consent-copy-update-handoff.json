@@ -1,0 +1,38 @@
+{
+  "task": "onboarding-consent-copy-update",
+  "phase": "review",
+  "status": "ACCEPTED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/onboarding-consent-copy-update.md",
+    "tech_design": "docs/tech-design/onboarding-consent-copy-update.md",
+    "tests": [
+      "tests/onboarding-consent-copy-update/MarketingSlidesScreen.test.tsx",
+      "tests/onboarding-consent-copy-update/fixtures.ts"
+    ],
+    "code": [
+      "src/types/index.ts",
+      "src/store/settingsStore.ts",
+      "src/screens/onboarding/MarketingSlidesScreen.tsx"
+    ],
+    "docs": [
+      "docs/SCREENS.md",
+      "docs/PRD_Spec.md",
+      "docs/USER_STORIES.md",
+      "docs/IMPLEMENTATION_PLAN.md"
+    ]
+  },
+  "test_status": {
+    "tsc": "clean",
+    "jest_target_suite": "11/11 passing (tests/onboarding-consent-copy-update/MarketingSlidesScreen.test.tsx), was 9 failing / 2 passing before implementation",
+    "jest_full_suite_baseline": "19 failed suites / 49 failed tests / 1550 passed (verified via git stash before implementing)",
+    "jest_full_suite_after": "18 failed suites / 40 failed tests / 1559 passed — delta matches exactly the 9 target-suite tests flipping from red to green; no new failures introduced; remaining failures are pre-existing and unrelated (AddProductModal module-mapping errors, palette/shadow token-shape errors in catalog/shelf code untouched by this task)"
+  },
+  "next": "human-merge",
+  "verdict": "ACCEPT",
+  "notes": "FE-1..FE-7 implemented exactly per tech design, no deviations. No test files edited. Architecture-review passed: no AsyncStorage outside services/storage.ts, no React imports in src/utils/, no fetch outside src/services/, no hardcoded colors, no RU/Cyrillic strings, all font sizes >=14px, tsc clean, 11/11 tests passing. One non-blocking WARNING: MarketingSlidesScreen's default-export function is ~76 lines (was ~62 pre-existing before this task), over the 50-line guideline; no sub-component split was in tech design scope so left inline, recommended as a future follow-up if the screen grows further. Ready for human merge. Roadmap sync recommended per .claude/rules/roadmap-sync.md (US-23 shipped, new spec+tech-design docs created)."
+}

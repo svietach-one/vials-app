@@ -4,47 +4,252 @@ import { Icon } from '@/components/ui/Icon';
 
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, space } from '@/constants/tokens';
+import { useSettingsStore } from '@/store/settingsStore';
+import {
+  applyConditionDensityModifiers,
+  getActiveDensityFindings,
+  type DensityFinding,
+} from '@/utils/activeIngredientDensity';
 import { ConflictEngine } from '@/utils/conflictEngine';
-import type { Product, Routine } from '@/types';
+import { resolveNoticeCollapsed, toNoticeCollapseEntry } from '@/utils/noticeCollapse';
+import {
+  applyConditionSeverityModifiers,
+  getConditionRiskWarnings,
+  type ConditionAdvisory,
+  type ModifiedConflict,
+} from '@/utils/skinConditionModifiers';
+import type { ConflictSeverity, Product, RoutineStep, SkinConditionType } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ConflictWarningInlineProps {
-  routines: Routine[];
+  /**
+   * The morning steps the user is actually looking at — already filtered for
+   * the selected day, hidden steps, hidden products, and clinical freezes.
+   * Taking rendered steps rather than whole routines is deliberate: warning
+   * about a step the screen has removed (a retinoid frozen during peel rehab)
+   * names products that are not in today's routine.
+   */
+  morningSteps: RoutineStep[];
+  /** The evening steps the user is actually looking at. Same contract. */
+  eveningSteps: RoutineStep[];
+  /**
+   * Optional override of the step set used ONLY for pairwise ingredient
+   * conflict detection (`ConflictEngine.detectConflicts`). Product-pair
+   * chemistry doesn't care which tab is currently open — a retinoid used in
+   * the morning and an AHA used in the evening still clash — so a caller
+   * that scopes `morningSteps`/`eveningSteps` to a single active period (a
+   * single-active-period UI, e.g. RoutinesScreen's Morning/Evening
+   * PillToggle) must pass the FULL routine here to keep that detection
+   * working across both periods. Condition advisories and density findings
+   * intentionally stay scoped to `morningSteps`/`eveningSteps` only — those
+   * warn about what's actually rendered right now, and merging periods
+   * there previously caused a stale advisory for a product from the
+   * inactive period (progress/routine-step-grouping.md, bug-fix round
+   * 2026-08-31). Defaults to `[...morningSteps, ...eveningSteps]`, so
+   * existing callers that already pass both periods' steps (e.g. rendering
+   * both accordions at once) are unaffected.
+   */
+  allSteps?: RoutineStep[];
   products: Product[];
+  /**
+   * Self-reported conditions from the profile. Default `[]` — with none
+   * selected this component renders exactly the pairwise conflict rows it
+   * rendered before v1.2 (US-27).
+   */
+  skinConditions?: SkinConditionType[];
+}
+
+// ─── Rows ─────────────────────────────────────────────────────────────────────
+
+interface RowCollapseProps {
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}
+
+/**
+ * Severity-driven copy prefix (tech-design vials-conflict-matrix-expansion.md
+ * §3 FE-5). Exactly two tiers — `ConflictSeverity` is deliberately never
+ * extended to a third ("Low"/"Minor") tier, so this map must stay exhaustive
+ * over the two-member union rather than growing a fallback branch. Tone stays
+ * `tone="warning"` (amber) for both — the prefix is the only visible
+ * distinction between an `avoid` and a `caution` row.
+ */
+const CONFLICT_SEVERITY_PREFIX: Record<ConflictSeverity, string> = {
+  avoid: 'Strong conflict — ',
+  caution: 'Possible conflict — ',
+};
+
+function ConflictRow({
+  conflict,
+  collapsed,
+  onToggleCollapse,
+}: { conflict: ModifiedConflict } & RowCollapseProps) {
+  const { rule } = conflict.result;
+  const title = 'Ingredient conflict';
+  return (
+    <InlineAlert
+      tone="warning"
+      icon={<Icon name="alert-triangle" size={16} color={colors.statusWarningAccent} />}
+      title={title}
+      collapsed={collapsed}
+      onToggleCollapse={onToggleCollapse}
+      collapseAccessibilityLabel={`${title}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
+    >
+      {`${CONFLICT_SEVERITY_PREFIX[rule.severity]}${rule.explanation}\n\n${rule.suggestion}${
+        conflict.escalated
+          ? '\n\nFlagged more strongly because of a skin condition in your profile.'
+          : ''
+      }`}
+    </InlineAlert>
+  );
+}
+
+function AdvisoryRow({
+  advisory,
+  collapsed,
+  onToggleCollapse,
+}: { advisory: ConditionAdvisory } & RowCollapseProps) {
+  const title = `Sensitivity note · ${advisory.conditionLabels.join(' + ')}`;
+  return (
+    <InlineAlert
+      tone="warning"
+      icon={<Icon name="alert-circle" size={16} color={colors.statusWarningAccent} />}
+      title={title}
+      collapsed={collapsed}
+      onToggleCollapse={onToggleCollapse}
+      collapseAccessibilityLabel={`${title}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
+    >
+      {`${advisory.message}\n\nIn your routine: ${advisory.productNames.join(', ')}.`}
+    </InlineAlert>
+  );
+}
+
+function DensityRow({
+  finding,
+  collapsed,
+  onToggleCollapse,
+}: { finding: DensityFinding } & RowCollapseProps) {
+  const isWarning = finding.tier === 'warning';
+  const title = isWarning ? 'Ingredient overlap' : 'Routine insight';
+  return (
+    <InlineAlert
+      tone={isWarning ? 'warning' : 'info'}
+      icon={
+        <Icon
+          name={isWarning ? 'alert-circle' : 'info'}
+          size={16}
+          color={isWarning ? colors.statusWarningAccent : colors.statusInfo}
+        />
+      }
+      title={title}
+      collapsed={collapsed}
+      onToggleCollapse={onToggleCollapse}
+      collapseAccessibilityLabel={`${title}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
+    >
+      {`${finding.message}\n\n${finding.period === 'morning' ? 'Morning' : 'Evening'}: ${finding.productNames.join(', ')}.`}
+    </InlineAlert>
+  );
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
- * Renders an InlineAlert (amber) for each unique ingredient conflict found
- * across all steps in the provided routines. Returns null when no conflicts exist.
+ * The routine's advisory stack, in descending seriousness:
+ *
+ * | Row kind | Tone | Source |
+ * |---|---|---|
+ * | `conflict` | Amber | pairwise matrix, severity possibly escalated (US-24) |
+ * | `condition-advisory` | Amber | single ingredient + a selected condition (US-24) |
+ * | `density-warning` | Amber | 2+ irritant-tier products in one period (US-28) |
+ * | `density-insight` | **Cobalt** | 2+ mild-active products in one period (US-28) |
+ *
+ * None of these block anything, and all four are visually distinct from the
+ * Cabernet (`sos`) hard blocks used for clinical seasonal/spacing rules — an
+ * advisory must never be mistakable for a block (US-26). The insight row is
+ * Cobalt on purpose: rendering "you have two vitamin C serums" in warning
+ * colours would defeat the whole tier split.
  */
-export function ConflictWarningInline({ routines, products }: ConflictWarningInlineProps) {
-  const allSteps = routines.flatMap((r) => r.steps);
-  const conflicts = ConflictEngine.detectConflicts(allSteps, products);
+export function ConflictWarningInline({
+  morningSteps,
+  eveningSteps,
+  allSteps: allStepsOverride,
+  products,
+  skinConditions = [],
+}: ConflictWarningInlineProps) {
+  // Each row collapses independently and persists for the rest of the
+  // skincare day (same day-scoped pattern as RehabNoticeCard) — with a
+  // pairwise conflict, a condition advisory, and 2+ density findings all
+  // possible at once, an all-expanded stack would otherwise pin the whole
+  // screen until every one of them is resolved.
+  const persistedCollapse = useSettingsStore((s) => s.routineNoticeCollapsed);
+  const setRoutineNoticeCollapsed = useSettingsStore((s) => s.setRoutineNoticeCollapsed);
+  const collapseProps = (key: string): RowCollapseProps => {
+    const collapsed = resolveNoticeCollapsed(persistedCollapse[key]);
+    return {
+      collapsed,
+      onToggleCollapse: () => setRoutineNoticeCollapsed(key, toNoticeCollapseEntry(!collapsed)),
+    };
+  };
 
-  if (conflicts.length === 0) return null;
+  // Advisories/density stay scoped to exactly what's rendered right now.
+  const visibleSteps = [...morningSteps, ...eveningSteps];
+  // Conflicts use the full routine (both periods) unless the caller scopes
+  // morningSteps/eveningSteps to a single active period — see allSteps' doc
+  // comment above for why this must not be tab-scoped.
+  const conflictSteps = allStepsOverride ?? visibleSteps;
 
   // De-duplicate: one alert per unique rule (same pair may appear multiple times)
   const seen = new Set<string>();
-  const unique = conflicts.filter((c) => {
-    if (seen.has(c.rule.id)) return false;
-    seen.add(c.rule.id);
+  const conflicts = applyConditionSeverityModifiers(
+    ConflictEngine.detectConflicts(conflictSteps, products),
+    skinConditions,
+  ).filter((c) => {
+    if (seen.has(c.result.rule.id)) return false;
+    seen.add(c.result.rule.id);
     return true;
   });
 
+  const scheduledProducts = products.filter((product) =>
+    visibleSteps.some((step) => step.productId === product.id),
+  );
+  const advisories = getConditionRiskWarnings(scheduledProducts, skinConditions);
+
+  const density = applyConditionDensityModifiers(
+    getActiveDensityFindings(
+      [
+        { period: 'morning', steps: morningSteps },
+        { period: 'evening', steps: eveningSteps },
+      ],
+      products,
+    ),
+    skinConditions,
+  );
+
+  if (conflicts.length === 0 && advisories.length === 0 && density.length === 0) return null;
+
   return (
     <View style={styles.wrap}>
-      {unique.map((c) => (
-        <InlineAlert
-          key={c.rule.id}
-          tone="warning"
-          icon={<Icon name="alert-triangle" size={14} color={colors.statusWarningAccent} />}
-          title="Ingredient conflict"
-        >
-          {`${c.rule.explanation}\n\n${c.rule.suggestion}`}
-        </InlineAlert>
+      {conflicts.map((c) => (
+        <ConflictRow
+          key={c.result.rule.id}
+          conflict={c}
+          {...collapseProps(`conflict:${c.result.rule.id}`)}
+        />
+      ))}
+      {advisories.map((advisory) => (
+        <AdvisoryRow
+          key={advisory.id}
+          advisory={advisory}
+          {...collapseProps(`advisory:${advisory.id}`)}
+        />
+      ))}
+      {density.map((finding) => (
+        <DensityRow
+          key={finding.id}
+          finding={finding}
+          {...collapseProps(`density:${finding.id}`)}
+        />
       ))}
     </View>
   );
