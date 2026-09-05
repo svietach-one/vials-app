@@ -158,6 +158,9 @@ jest.mock('@/utils/conflictEngine', () => ({
   ConflictEngine: jest.fn().mockImplementation(() => ({})),
 }));
 
+// explore-insights-v2 task 07 — spy on the analytics seam.
+jest.mock('@/utils/analytics', () => ({ trackEvent: jest.fn() }));
+
 const mockAddEntry = jest.fn();
 // NOTE: this project's `@/*` jest moduleNameMapper cannot resolve ANY
 // mock (real or virtual) for a path with no file on disk (verified
@@ -213,6 +216,7 @@ import { buildProductProfileFromProduct, buildProductProfileFromActiveKeys } fro
 import { joinActiveKeys } from '@/utils/productProfile/join';
 import { getSlotCategoryLabelPlural } from '@/constants/labels';
 import { ConflictEngine, matchPairRule } from '@/utils/conflictEngine';
+import { trackEvent } from '@/utils/analytics';
 import { makeNavigation, makeResolvedIngredients, makeProduct } from './fixtures';
 
 const RAW_TEXT = 'Aqua, Niacinamide, Hyaluronic Acid, Xanthan Weirdum';
@@ -703,5 +707,87 @@ describe('Story 8: routine placement — buildRoutinePosition IS now called when
     renderScreen({ category: null });
 
     expect(screen.queryByTestId('routine-placement')).toBeNull();
+  });
+});
+
+// ── Analytics (explore-insights-v2 task 07) ───────────────────────────────────
+
+describe('Analytics: explore_result_viewed fires once per mount with the real insights values', () => {
+  it('reads ingredientCount/activesCount/onePercentLineFound/shelfOverlapCount/hasSkinType/shelfSize off the real pipeline', () => {
+    renderScreen();
+
+    const viewedCalls = (trackEvent as jest.Mock).mock.calls
+      .map(([event]) => event)
+      .filter((event) => event.name === 'explore_result_viewed');
+
+    expect(viewedCalls).toHaveLength(1);
+    expect(viewedCalls[0]).toEqual({
+      name: 'explore_result_viewed',
+      ingredientCount: 4, // RAW_TEXT's 4 comma-separated tokens
+      activesCount: 2, // the mocked resolvedActiveKeys: niacinamide + hyaluronic_acid
+      onePercentLineFound: false, // 4 tokens is below findOnePercentLine's 6-token floor
+      shelfOverlapCount: 0, // default empty Shelf
+      hasSkinType: false, // default mockProfile.skinType is null
+      shelfSize: 0,
+    });
+  });
+
+  it('does not re-fire on a re-render of the same mounted screen', () => {
+    const navigation = makeNavigation();
+    const props = {
+      navigation,
+      route: { params: { rawIngredientsText: RAW_TEXT, category: null } },
+    } as any;
+    const { rerender } = render(<ExploreCompositionResultScreen {...props} />);
+
+    rerender(<ExploreCompositionResultScreen {...props} />);
+    rerender(<ExploreCompositionResultScreen {...props} />);
+
+    const viewedCalls = (trackEvent as jest.Mock).mock.calls
+      .map(([event]) => event)
+      .filter((event) => event.name === 'explore_result_viewed');
+    expect(viewedCalls).toHaveLength(1);
+  });
+});
+
+describe('Analytics: explore_saved fires from both footer paths', () => {
+  it('fires with destination "shelf" from Put on Shelf', () => {
+    renderScreen({ category: 'serum' });
+    fireEvent.press(screen.getByText('Put on Shelf'));
+
+    expect(trackEvent).toHaveBeenCalledWith({ name: 'explore_saved', destination: 'shelf' });
+  });
+
+  it('fires with destination "wishlist" from the Wishlist modal\'s Save', () => {
+    renderScreen();
+    fireEvent.press(screen.getByText('Add to Wishlist'));
+    fireEvent.changeText(screen.getByLabelText('Brand'), 'Some Brand');
+    fireEvent(screen.getByLabelText('Brand'), 'blur');
+    fireEvent.changeText(screen.getByLabelText('Name'), 'Some Serum');
+    fireEvent.press(screen.getByTestId('wishlist-entry-save-confirm'));
+
+    expect(trackEvent).toHaveBeenCalledWith({ name: 'explore_saved', destination: 'wishlist' });
+  });
+});
+
+describe('Analytics: explore_skin_type_nudge_tapped and explore_dismissed', () => {
+  it('fires explore_skin_type_nudge_tapped when the skin-type nudge action is pressed', () => {
+    mockProfile = { skinType: null };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({ resolvedActiveKeys: ['aha'], unresolvedIngredientTokens: [] }),
+    );
+    renderScreen();
+
+    fireEvent.press(screen.getByText('Set skin type'));
+
+    expect(trackEvent).toHaveBeenCalledWith({ name: 'explore_skin_type_nudge_tapped' });
+  });
+
+  it('fires explore_dismissed when the header back action is pressed', () => {
+    renderScreen();
+
+    fireEvent.press(screen.getByLabelText('Back'));
+
+    expect(trackEvent).toHaveBeenCalledWith({ name: 'explore_dismissed' });
   });
 });

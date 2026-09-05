@@ -23,6 +23,7 @@ import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import type { CaptureResult, ProductType } from '@/types';
+import { trackEvent } from '@/utils/analytics';
 import { extractIngredientSection } from '@/utils/productProfile/ingredientSectionExtractor';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -83,6 +84,7 @@ export default function ExploreCompositionCaptureScreen({ navigation, route }: P
   function handleCapture(result: CaptureResult) {
     setCameraVisible(false);
     if (result.mode !== 'inci') return;
+    trackEvent({ name: 'explore_capture_started', method: 'photo', category });
     goToResult(result.rawText);
   }
 
@@ -90,7 +92,10 @@ export default function ExploreCompositionCaptureScreen({ navigation, route }: P
     const text = pasteText.trim();
     setPasteVisible(false);
     setPasteText('');
-    if (text) goToResult(text);
+    if (text) {
+      trackEvent({ name: 'explore_capture_started', method: 'paste', category });
+      goToResult(text);
+    }
   }
 
   function toggleCategory(value: ProductType) {

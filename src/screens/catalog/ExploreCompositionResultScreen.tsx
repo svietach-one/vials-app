@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -21,7 +21,9 @@ import { CompositionInsightsSection } from '@/components/catalog/CompositionInsi
 import { colors, space, typography } from '@/constants/tokens';
 import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useCompositionInsights } from '@/hooks/useCompositionInsights';
+import { trackEvent } from '@/utils/analytics';
 import { generateId } from '@/utils/generateId';
+import { findOnePercentLine } from '@/utils/productProfile/onePercentLine';
 import { useWishlistStore } from '@/store/wishlistStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -73,6 +75,26 @@ export default function ExploreCompositionResultScreen({ navigation, route }: Pr
   // existing testID/text/assertion this screen already shipped is preserved.
   const insights = useCompositionInsights(rawIngredientsText, category);
 
+  // explore-insights-v2 task 07 — fires exactly once per mount, never on a
+  // later insights recomputation (a ref guard, not the effect's dependency
+  // array, since a re-render must not re-fire this even if `insights`
+  // itself changes, e.g. a store update while this screen stays mounted).
+  const hasTrackedView = useRef(false);
+  useEffect(() => {
+    if (hasTrackedView.current) return;
+    hasTrackedView.current = true;
+    trackEvent({
+      name: 'explore_result_viewed',
+      ingredientCount: insights.ingredientCount,
+      activesCount: insights.resolvedActiveKeys.length,
+      onePercentLineFound: findOnePercentLine(insights.ingredientTokens) !== null,
+      shelfOverlapCount: insights.shelfOverlap.length,
+      hasSkinType: insights.skinType !== null,
+      shelfSize: insights.shelfProductCount,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function openWishlistModal() {
     setWishlistBrand('');
     setWishlistName('');
@@ -90,11 +112,13 @@ export default function ExploreCompositionResultScreen({ navigation, route }: Pr
       sourceFlow: 'explore_composition',
       createdAt: new Date().toISOString(),
     });
+    trackEvent({ name: 'explore_saved', destination: 'wishlist' });
     setWishlistModalVisible(false);
     navigation.navigate('Catalog');
   }
 
   function handlePutOnShelf() {
+    trackEvent({ name: 'explore_saved', destination: 'shelf' });
     navigation.navigate('ManualProductForm', {
       explorePrefill: {
         rawIngredientsText,
@@ -116,7 +140,10 @@ export default function ExploreCompositionResultScreen({ navigation, route }: Pr
             label="Back"
             variant="ghost"
             size="sm"
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              trackEvent({ name: 'explore_dismissed' });
+              navigation.goBack();
+            }}
           />
         }
       />
@@ -127,7 +154,10 @@ export default function ExploreCompositionResultScreen({ navigation, route }: Pr
       >
         <CompositionInsightsSection
           {...insights}
-          onSetSkinType={() => navigation.navigate('Profile' as never)}
+          onSetSkinType={() => {
+            trackEvent({ name: 'explore_skin_type_nudge_tapped' });
+            navigation.navigate('Profile' as never);
+          }}
         />
       </ScrollView>
 

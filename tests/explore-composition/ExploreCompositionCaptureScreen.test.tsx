@@ -110,7 +110,10 @@ function findButtonCall(label: string) {
   return mockButtonCalls.find((call) => call.children === label);
 }
 
+jest.mock('@/utils/analytics', () => ({ trackEvent: jest.fn() }));
+
 import ExploreCompositionCaptureScreen from '@/screens/catalog/ExploreCompositionCaptureScreen';
+import { trackEvent } from '@/utils/analytics';
 import { makeNavigation } from './fixtures';
 
 function renderScreen() {
@@ -127,6 +130,51 @@ beforeEach(() => {
   jest.clearAllMocks();
   capturedCaptureProps = null;
   mockButtonCalls = [];
+});
+
+describe('Analytics (explore-insights-v2 task 07): explore_capture_started', () => {
+  it('fires with method "photo" and the selected category when the photo path captures', () => {
+    renderScreen();
+    selectCategory();
+    fireEvent.press(screen.getByText('Take a photo'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+
+    expect(trackEvent).toHaveBeenCalledWith({
+      name: 'explore_capture_started',
+      method: 'photo',
+      category: 'serum',
+    });
+  });
+
+  it('fires with method "paste" and the selected category when the paste path parses', () => {
+    renderScreen();
+    selectCategory();
+    fireEvent.press(screen.getByText('Paste text manually'));
+    fireEvent.changeText(screen.getByLabelText(/paste.*ingredient/i), 'Aqua, Retinol');
+    fireEvent.press(screen.getByText('Parse ingredients'));
+
+    expect(trackEvent).toHaveBeenCalledWith({
+      name: 'explore_capture_started',
+      method: 'paste',
+      category: 'serum',
+    });
+  });
+
+  it('does not fire when capture is blocked by a missing category', () => {
+    renderScreen();
+    fireEvent.press(screen.getByText('Take a photo'));
+
+    expect(trackEvent).not.toHaveBeenCalled();
+  });
+
+  it('does not fire when the paste modal is cancelled with empty text', () => {
+    renderScreen();
+    selectCategory();
+    fireEvent.press(screen.getByText('Paste text manually'));
+    fireEvent.press(screen.getByText('Parse ingredients'));
+
+    expect(trackEvent).not.toHaveBeenCalled();
+  });
 });
 
 describe('Redesign (2026-08-27, consolidated to a single headline): explains the screen, no ownership implied', () => {
