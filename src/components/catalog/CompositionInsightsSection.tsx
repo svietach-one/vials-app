@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { CompositionComparisonMatrix } from '@/components/catalog/CompositionComparisonMatrix';
@@ -8,6 +8,7 @@ import { RoutinePlacementCard } from '@/components/catalog/RoutinePlacementCard'
 import { SkinTypeCautionNotice } from '@/components/catalog/SkinTypeCautionNotice';
 import { space, typography, colors } from '@/constants/tokens';
 import type { CompositionInsights } from '@/hooks/useCompositionInsights';
+import { findOnePercentLine } from '@/utils/productProfile/onePercentLine';
 
 type Props = CompositionInsights;
 
@@ -28,16 +29,29 @@ type Props = CompositionInsights;
 export function CompositionInsightsSection({
   capabilityTags,
   resolvedActiveKeys,
+  ingredientTokens,
+  positionByKey,
   skinType,
   skinTypeCaution,
   shelfComparison,
   routinePosition,
 }: Props) {
+  // Computed once here, not inside useCompositionInsights — a pure
+  // presentation-layer derivation from the hook's already-exposed
+  // `ingredientTokens`, same convention as this component owning the
+  // null-skinType suppression for SkinTypeCautionNotice below.
+  const onePercentLine = useMemo(() => findOnePercentLine(ingredientTokens), [ingredientTokens]);
+
   return (
     <>
       <FunctionalProfileCard capabilityTags={capabilityTags} />
 
-      <DetectedActivesCard resolvedActiveKeys={resolvedActiveKeys} />
+      <DetectedActivesCard
+        resolvedActiveKeys={resolvedActiveKeys}
+        ingredientTokens={ingredientTokens}
+        positionByKey={positionByKey}
+        onePercentLine={onePercentLine}
+      />
 
       <SkinTypeCautionNotice caution={skinTypeCaution} skinType={skinType} />
 
