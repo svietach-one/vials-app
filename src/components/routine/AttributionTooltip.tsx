@@ -76,11 +76,11 @@ export function AttributionTooltip({ visible, onClose, displayName, matches }: A
 
 const styles = StyleSheet.create({
   root: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'flex-end',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(9, 9, 11, 0.5)',
   },
   card: {

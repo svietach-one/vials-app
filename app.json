@@ -31,6 +31,7 @@
       ]
     },
     "plugins": [
+      "expo-status-bar",
       "expo-font",
       "expo-asset",
       [

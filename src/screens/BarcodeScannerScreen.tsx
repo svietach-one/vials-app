@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   loader: { flex: 1 },
 
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     gap: space[4],
