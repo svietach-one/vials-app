@@ -49,6 +49,12 @@ const CAPABILITY_ORDER: CapabilityKey[] = [
 export interface CompositionInsights {
   capabilityTags: CapabilityKey[];
   resolvedActiveKeys: ActiveIngredientKey[];
+  /** Ordered comma-split ingredient tokens, verbatim from the captured text. */
+  ingredientTokens: string[];
+  /** `ingredientTokens.length`, exposed separately so consumers need not depend on the array. */
+  ingredientCount: number;
+  /** 1-based INCI position per resolved key; a key may be absent. */
+  positionByKey: Partial<Record<ActiveIngredientKey, number>>;
   skinType: SkinType | null;
   skinTypeCaution: SkinTypeCautionResult | null;
   shelfComparison: ShelfComparisonResult | null;
@@ -64,9 +70,9 @@ export function useCompositionInsights(
 
   const resolved = useMemo(() => resolveFromRawText(rawIngredientsText), [rawIngredientsText]);
 
-  // Still computed for Story 6's "Ingredient count" matrix parameter, even
-  // though the full token-by-token list is no longer rendered on-screen
-  // (2026-08-27, spec Story 2 supersession).
+  // Ordered comma-split tokens — exposed on the public return value as
+  // `ingredientTokens`/`ingredientCount` (explore-insights-v2 task 01), not
+  // just an internal input to the "Ingredient count" matrix parameter below.
   const tokens = useMemo(() => tokenizeIngredientsText(rawIngredientsText), [rawIngredientsText]);
 
   const classFacts = useMemo(
@@ -118,6 +124,9 @@ export function useCompositionInsights(
   return {
     capabilityTags,
     resolvedActiveKeys: resolved.resolvedActiveKeys,
+    ingredientTokens: tokens,
+    ingredientCount: tokens.length,
+    positionByKey: resolved.positionByKey,
     skinType: profile?.skinType ?? null,
     skinTypeCaution,
     shelfComparison,

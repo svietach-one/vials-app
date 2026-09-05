@@ -116,6 +116,24 @@ describe('resolveFromProduct — activeTags union fullIngredientText', () => {
 
     expect(resolved.potencyByKey.retinoid).toBe('rx');
   });
+
+  it('records the 1-based comma-token position of a key resolved from fullIngredientText', () => {
+    const resolved = resolveFromProduct(
+      makeProduct({ fullIngredientText: 'Aqua, Niacinamide, Ceramide NP' }),
+    );
+
+    expect(resolved.positionByKey.niacinamide).toBe(2);
+    expect(resolved.positionByKey.ceramides).toBe(3);
+  });
+
+  it('leaves a tag-only key (no source text evidence) absent from positionByKey', () => {
+    const resolved = resolveFromProduct(
+      makeProduct({ activeTags: ['ceramides'], fullIngredientText: 'Aqua, Niacinamide' }),
+    );
+
+    expect(resolved.positionByKey.ceramides).toBeUndefined();
+    expect(resolved.positionByKey.niacinamide).toBe(2);
+  });
 });
 
 describe('resolveFromActiveKeys — resolved-corpus entry point', () => {
@@ -154,6 +172,12 @@ describe('resolveFromActiveKeys — resolved-corpus entry point', () => {
     const resolved = resolveFromActiveKeys([]);
 
     expect(resolved.resolvedActiveKeys).toEqual([]);
+  });
+
+  it('returns an empty positionByKey — there is no source text to position against', () => {
+    const resolved = resolveFromActiveKeys(['niacinamide', 'ceramides']);
+
+    expect(resolved.positionByKey).toEqual({});
   });
 });
 
@@ -202,6 +226,21 @@ describe('resolveFromRawText — Explore Composition entry point (no Product yet
     const resolved = resolveFromRawText('Niacinamide');
 
     expect(resolved.resolvedActiveKeys).toEqual(['niacinamide']);
+  });
+
+  it('records a 1-based comma-token position per resolved key, matching comma order', () => {
+    const resolved = resolveFromRawText('Aqua, Niacinamide, Ceramide NP');
+
+    expect(resolved.positionByKey.niacinamide).toBe(2);
+    expect(resolved.positionByKey.ceramides).toBe(3);
+  });
+
+  it('keeps the earliest position when a class matches at more than one comma-token', () => {
+    // Both tokens are `retinoid` matchers (retinyl palmitate then retinol) —
+    // earliest (position 2) must win, not the last match (position 3).
+    const resolved = resolveFromRawText('Aqua, Retinyl Palmitate, Retinol');
+
+    expect(resolved.positionByKey.retinoid).toBe(2);
   });
 });
 

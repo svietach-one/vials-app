@@ -43,6 +43,7 @@ export function makeResolvedIngredients(
     resolvedActiveKeys: ['niacinamide'],
     unresolvedIngredientTokens: [],
     potencyByKey: {},
+    positionByKey: {},
     ...overrides,
   };
 }

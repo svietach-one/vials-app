@@ -15,7 +15,11 @@
 import { DEFAULT_TAG_POTENCY } from '@/constants/rulesets/productFacts';
 import { ACTIVES_RULESET, type Potency } from '@/constants/rulesets/rulesetTypes';
 import type { ActiveIngredientKey, Product } from '@/types';
-import { normalizeActiveKey, parseActiveIngredientDetails } from '@/utils/ingredientParser';
+import {
+  normalizeActiveKey,
+  parseActiveIngredientDetails,
+  type ParsedActiveDetail,
+} from '@/utils/ingredientParser';
 
 /** Output of stage 1 — the shared shape both entry points converge on. */
 export interface ResolvedIngredients {
@@ -26,6 +30,9 @@ export interface ResolvedIngredients {
   /** Best-evidenced potency per key, when the raw-INCI path found one. Internal
    *  to the builder pipeline (not part of the public ProductProfile shape). */
   potencyByKey: Partial<Record<ActiveIngredientKey, Potency>>;
+  /** 1-based comma-token index of the earliest match for each resolved key.
+   *  Empty for the corpus path, which has no source text to position against. */
+  positionByKey: Partial<Record<ActiveIngredientKey, number>>;
 }
 
 function sortKeys(keys: Iterable<ActiveIngredientKey>): ActiveIngredientKey[] {
@@ -65,6 +72,23 @@ function findUnresolvedTokens(inciText: string): string[] {
   const tokens = tokenizeIngredientsText(inciText);
 
   return tokens.filter((token) => parseActiveIngredientDetails(token).length === 0);
+}
+
+/**
+ * Builds the earliest-match position map from a parsed-details list. Written
+ * defensively with `Math.min` — `ParsedActiveDetail.position` is already the
+ * earliest match per class per `ingredientParser.ts:157`, but a future parser
+ * change must not be able to silently regress "earliest wins" here.
+ */
+function buildPositionByKey(
+  parsed: ParsedActiveDetail[],
+): Partial<Record<ActiveIngredientKey, number>> {
+  const positionByKey: Partial<Record<ActiveIngredientKey, number>> = {};
+  for (const detail of parsed) {
+    const existing = positionByKey[detail.key];
+    positionByKey[detail.key] = existing === undefined ? detail.position : Math.min(existing, detail.position);
+  }
+  return positionByKey;
 }
 
 /**
@@ -119,8 +143,11 @@ export function resolveFromProduct(product: Product): ResolvedIngredients {
   const unresolvedIngredientTokens = product.fullIngredientText
     ? findUnresolvedTokens(product.fullIngredientText)
     : [];
+  // Tag-only keys (no source text) get no position — a tag with no source
+  // text has no position, and inventing one would be a false claim.
+  const positionByKey = buildPositionByKey(parsed);
 
-  return { resolvedActiveKeys, unresolvedIngredientTokens, potencyByKey };
+  return { resolvedActiveKeys, unresolvedIngredientTokens, potencyByKey, positionByKey };
 }
 
 /**
@@ -145,8 +172,9 @@ export function resolveFromRawText(inciText: string): ResolvedIngredients {
   applyTagPotencyDefaults(resolvedActiveKeys, potencyByKey);
 
   const unresolvedIngredientTokens = findUnresolvedTokens(inciText);
+  const positionByKey = buildPositionByKey(parsed);
 
-  return { resolvedActiveKeys, unresolvedIngredientTokens, potencyByKey };
+  return { resolvedActiveKeys, unresolvedIngredientTokens, potencyByKey, positionByKey };
 }
 
 /**
@@ -165,5 +193,5 @@ export function resolveFromActiveKeys(activeKeys: ActiveIngredientKey[]): Resolv
   const potencyByKey: Partial<Record<ActiveIngredientKey, Potency>> = {};
   applyTagPotencyDefaults(resolvedActiveKeys, potencyByKey);
 
-  return { resolvedActiveKeys, unresolvedIngredientTokens: [], potencyByKey };
+  return { resolvedActiveKeys, unresolvedIngredientTokens: [], potencyByKey, positionByKey: {} };
 }

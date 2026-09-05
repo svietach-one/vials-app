@@ -221,7 +221,9 @@ already own, so I can judge it against my own real Shelf rather than a fabricate
       from `resolveFromRawText` — never a value obtained by calling `getProductActiveKeys()` (which
       requires a `Product` this flow doesn't have).
 - [ ] Given the matrix renders, when inspected, then no ingredient position/concentration-order value
-      appears anywhere in it — position stays solely a §3.3 ingredient-list display-order attribute.
+      appears anywhere in it — this constraint is scoped to the comparison matrix specifically
+      (explore-insights-v2 plan decision D1, confirmed 2026-09-05); `DetectedActivesCard` may surface
+      an ingredient's INCI position elsewhere on the result screen.
 
 ### Story 7: See an honest caution when an active may not suit my skin type
 As a user reviewing a captured composition, I want to be told plainly, in real language, when an

@@ -108,3 +108,24 @@ describe('shelfComparison / routinePosition — gated on category, reads product
     expect(result.current.shelfComparison?.sameCategoryCount).toBe(0);
   });
 });
+
+describe('ingredientTokens / ingredientCount / positionByKey — explore-insights-v2 task 01', () => {
+  it('exposes the ordered comma-split tokens and a matching count', () => {
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, null));
+
+    expect(result.current.ingredientTokens).toEqual(['Aqua', 'Niacinamide', 'Hyaluronic Acid']);
+    expect(result.current.ingredientCount).toBe(result.current.ingredientTokens.length);
+  });
+
+  it('exposes the real resolve.ts positionByKey for the given raw text', () => {
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, null));
+
+    expect(result.current.positionByKey.niacinamide).toBe(2);
+  });
+
+  it('does not expose unresolvedIngredientTokens — it is a matcher-gap signal, not a user-facing metric', () => {
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, null));
+
+    expect('unresolvedIngredientTokens' in result.current).toBe(false);
+  });
+});
