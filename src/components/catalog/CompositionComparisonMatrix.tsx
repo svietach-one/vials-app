@@ -5,8 +5,9 @@ import { Card } from '@/components/ui/core/Card';
 import { Icon } from '@/components/ui/Icon';
 import { ACTIVE_INGREDIENT_LABELS, getSlotCategoryLabel, getSlotCategoryLabelPlural } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { formatLabelList } from '@/utils/productProfile/productLabel';
 import type { ShelfComparisonResult } from '@/utils/productProfile/shelfComparison';
-import type { OverlappingProduct, SharedActive } from '@/utils/productProfile/shelfOverlap';
+import type { SharedActive } from '@/utils/productProfile/shelfOverlap';
 
 interface Props {
   comparison: ShelfComparisonResult;
@@ -17,11 +18,7 @@ interface Props {
 }
 
 /** At most 3 labels, then a `+{n} more` suffix — copy per task 04. */
-function formatProductList(products: OverlappingProduct[]): string {
-  const shown = products.slice(0, 3).map((p) => p.label);
-  const remainder = products.length - shown.length;
-  return remainder > 0 ? [...shown, `+${remainder} more`].join(', ') : shown.join(', ');
-}
+const MAX_OVERLAP_PRODUCT_LABELS = 3;
 
 /** Show at most 4 overlapping actives — copy per task 04. */
 const MAX_OVERLAP_ROWS = 4;
@@ -86,7 +83,12 @@ export function CompositionComparisonMatrix({ comparison, shelfOverlap, shelfPro
                         {ACTIVE_INGREDIENT_LABELS[shared.key] ?? shared.key} — you already have{' '}
                         {shared.products.length}
                       </Text>
-                      <Text style={styles.rowMuted}>{formatProductList(shared.products)}</Text>
+                      <Text style={styles.rowMuted}>
+                        {formatLabelList(
+                          shared.products.map((p) => p.label),
+                          MAX_OVERLAP_PRODUCT_LABELS,
+                        )}
+                      </Text>
                     </View>
                   ))}
                   {shelfOverlap.length > MAX_OVERLAP_ROWS ? (

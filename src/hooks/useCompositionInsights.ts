@@ -1,15 +1,15 @@
 import { useMemo } from 'react';
 
-import { LAYERING_ORDER } from '@/constants/rulesets/productFacts';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
 import { useRoutinesStore } from '@/store/routinesStore';
-import type { ActiveIngredientKey, CapabilityKey, ProductType, SkinType } from '@/types';
+import type { ActiveIngredientKey, CapabilityKey, Product, ProductType, Routine, SkinType } from '@/types';
 import { buildCapabilities } from '@/utils/productProfile/capabilities';
+import type { ClassFactsRecord } from '@/utils/productProfile/join';
 import { joinActiveKeys } from '@/utils/productProfile/join';
 import { getMorningSpfState, type MorningSpfState } from '@/utils/productProfile/morningSpfPresence';
-import { labelForProduct } from '@/utils/productProfile/productLabel';
-import { resolveFromRawText, tokenizeIngredientsText } from '@/utils/productProfile/resolve';
+import { resolveFromRawText, tokenizeIngredientsText, type ResolvedIngredients } from '@/utils/productProfile/resolve';
+import { findRoutineOccupants, type RoutineOccupant } from '@/utils/productProfile/routineOccupancy';
 import { buildRoutinePosition } from '@/utils/productProfile/routinePosition';
 import { buildShelfComparison, type ShelfComparisonResult } from '@/utils/productProfile/shelfComparison';
 import { buildShelfOverlap, type SharedActive } from '@/utils/productProfile/shelfOverlap';
@@ -53,7 +53,7 @@ const CAPABILITY_ORDER: CapabilityKey[] = [
 
 export interface RoutineFit {
   /** Products already occupying the phase this composition maps to (`RoutinePosition.layeringOrder`). */
-  occupants: Array<{ id: string; label: string }>;
+  occupants: RoutineOccupant[];
   morningSpf: MorningSpfState;
 }
 
@@ -78,14 +78,15 @@ export interface CompositionInsights {
   routineFit: RoutineFit | null;
 }
 
-export function useCompositionInsights(
-  rawIngredientsText: string,
-  category: ProductType | null,
-): CompositionInsights {
-  const products = useProductsStore((s) => s.products);
-  const profile = useProfileStore((s) => s.profile);
-  const routines = useRoutinesStore((s) => s.routines);
-
+/**
+ * Stage 1 of the pipeline — text-to-active-keys resolution through the
+ * capability tag list and the skin-type caution trigger. Split out of
+ * `useCompositionInsights` itself (architecture-review.md §5's 50-line
+ * function limit) — this half depends only on `rawIngredientsText`, never on
+ * `products`/`routines`/`category`, so it composes cleanly as its own hook
+ * rather than an inline block.
+ */
+function useResolvedComposition(rawIngredientsText: string) {
   const resolved = useMemo(() => resolveFromRawText(rawIngredientsText), [rawIngredientsText]);
 
   // Ordered comma-split tokens — exposed on the public return value as
@@ -117,9 +118,26 @@ export function useCompositionInsights(
   // resolved classes, not the profile).
   const skinTypeCaution = useMemo(() => buildSkinTypeCaution(classFacts), [classFacts]);
 
-  // Story 6 — same gating rule as Story 8 below: only when a category was
-  // captured. "Functional profile breadth" reuses `capabilityTags.length`
-  // (the exact count already driving the tag list) rather than recomputing it.
+  return { resolved, tokens, classFacts, capabilityTags, skinTypeCaution };
+}
+
+/**
+ * Stage 2 — Shelf/routine-store-dependent insights (comparison, whole-Shelf
+ * overlap, routine fit). Split out for the same reason as
+ * `useResolvedComposition`: a distinct, independently-reasonable-about
+ * dependency set (`category`/`products`/`routines`), not just an arbitrary
+ * line-count cut.
+ */
+function useShelfAndRoutineInsights(
+  category: ProductType | null,
+  resolved: ResolvedIngredients,
+  classFacts: ClassFactsRecord[],
+  capabilityTags: CapabilityKey[],
+  tokens: string[],
+  products: Product[],
+  routines: Routine[],
+) {
+  // Story 6 — only when a category was captured, same gate as Story 8 below.
   const shelfComparison = useMemo(() => {
     if (category === null) return null;
     return buildShelfComparison(
@@ -139,39 +157,47 @@ export function useCompositionInsights(
     return buildRoutinePosition(category, classFacts);
   }, [category, classFacts]);
 
-  // explore-insights-v2 task 04 — unlike shelfComparison, NOT gated on
-  // category: a duplicate active is a duplicate regardless of the captured
-  // composition's category.
+  // task 04 — unlike shelfComparison, NOT gated on category: a duplicate is
+  // a duplicate regardless of the captured composition's category.
   const shelfOverlap = useMemo(
     () => buildShelfOverlap(resolved.resolvedActiveKeys, products),
     [resolved.resolvedActiveKeys, products],
   );
 
-  // explore-insights-v2 task 06 — same gate as routinePosition (`category === null` -> null).
-  // Occupants are steps across ALL routines whose productType shares this
-  // composition's layering slot (`LAYERING_ORDER`, e.g. serum/gel both slot
-  // 6) — a phase, not a single ProductType. `morningSpf` is a SEPARATE rule
-  // (`morningSpfPresence.ts`, absence-only, never `spfAdequacy.ts`'s
-  // strength threshold) from the same `routines`/`products` data.
+  // task 06 — same gate as routinePosition. Occupant matching and morning
+  // SPF presence are extracted pure modules (routineOccupancy.ts,
+  // morningSpfPresence.ts) with their own direct unit tests.
   const routineFit = useMemo((): RoutineFit | null => {
     if (category === null || routinePosition === null) return null;
-
-    const targetPhase = routinePosition.layeringOrder;
-    const occupants: Array<{ id: string; label: string }> = [];
-    if (targetPhase !== null) {
-      for (const routine of routines) {
-        for (const step of routine.steps) {
-          if (step.hidden || !step.productId) continue;
-          if (LAYERING_ORDER[step.productType] !== targetPhase) continue;
-          const product = products.find((p) => p.id === step.productId);
-          if (!product || product.isHidden) continue;
-          occupants.push({ id: product.id, label: labelForProduct(product) });
-        }
-      }
-    }
-
-    return { occupants, morningSpf: getMorningSpfState(routines, products) };
+    return {
+      occupants: findRoutineOccupants(routinePosition.layeringOrder, routines, products),
+      morningSpf: getMorningSpfState(routines, products),
+    };
   }, [category, routinePosition, routines, products]);
+
+  return { shelfComparison, routinePosition, shelfOverlap, routineFit };
+}
+
+export function useCompositionInsights(
+  rawIngredientsText: string,
+  category: ProductType | null,
+): CompositionInsights {
+  const products = useProductsStore((s) => s.products);
+  const profile = useProfileStore((s) => s.profile);
+  const routines = useRoutinesStore((s) => s.routines);
+
+  const { resolved, tokens, classFacts, capabilityTags, skinTypeCaution } =
+    useResolvedComposition(rawIngredientsText);
+
+  const { shelfComparison, routinePosition, shelfOverlap, routineFit } = useShelfAndRoutineInsights(
+    category,
+    resolved,
+    classFacts,
+    capabilityTags,
+    tokens,
+    products,
+    routines,
+  );
 
   return {
     capabilityTags,

@@ -153,4 +153,26 @@ describe('findOnePercentLine — guards', () => {
   it('returns null for a single-element array without throwing', () => {
     expect(findOnePercentLine(['Aqua'])).toBeNull();
   });
+
+  it('falls back to a valid medium-confidence marker when the earliest high-confidence marker fails the position guard', () => {
+    // Phenoxyethanol (high) sits at index 1 — fails the index<3 guard — but
+    // must not suppress Limonene (medium) at index 4, which is independently
+    // a valid boundary on its own (regression: a prior version returned null
+    // here because it picked the high-tier index up front and gated once).
+    const tokens = ['Aqua', 'Phenoxyethanol', 'Niacinamide', 'Panthenol', 'Limonene', 'Allantoin', 'Glycerin'];
+
+    const result = findOnePercentLine(tokens);
+
+    expect(result?.confidence).toBe('medium');
+    expect(result?.markerToken).toBe('Limonene');
+    expect(result?.lineIndex).toBe(4);
+  });
+
+  it('still returns null when the only high-confidence marker fails the guard and no medium marker is valid either', () => {
+    // Phenoxyethanol at index 1 fails the guard, and Limonene at index 5 is
+    // the last token — also invalid. Neither tier has a usable candidate.
+    const tokens = ['Aqua', 'Phenoxyethanol', 'Niacinamide', 'Panthenol', 'Allantoin', 'Limonene'];
+
+    expect(findOnePercentLine(tokens)).toBeNull();
+  });
 });

@@ -8,6 +8,7 @@ import { LAYERING_ORDER } from '@/constants/rulesets/productFacts';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RoutineFit } from '@/hooks/useCompositionInsights';
 import type { RoutinePosition } from '@/types';
+import { formatLabelList } from '@/utils/productProfile/productLabel';
 
 interface Props {
   position: RoutinePosition;
@@ -17,12 +18,6 @@ interface Props {
 
 /** At most 2 labels, then a `+{n} more` suffix — copy per task 06 (narrower than task 04's 3, deliberately). */
 const MAX_OCCUPANT_LABELS = 2;
-
-function formatOccupantList(occupants: Array<{ label: string }>): string {
-  const shown = occupants.slice(0, MAX_OCCUPANT_LABELS).map((o) => o.label);
-  const remainder = occupants.length - shown.length;
-  return remainder > 0 ? [...shown, `+${remainder} more`].join(', ') : shown.join(', ');
-}
 
 /**
  * Story 8 routine placement (2026-08-26 decision batch, FE-13), extended by
@@ -67,7 +62,10 @@ export function RoutinePlacementCard({ position, routineFit }: Props) {
             {routineFit.occupants.length > 0 ? (
               <Text style={styles.occupancyText} testID="routine-occupancy">
                 You already have {routineFit.occupants.length} here:{' '}
-                {formatOccupantList(routineFit.occupants)}
+                {formatLabelList(
+                  routineFit.occupants.map((o) => o.label),
+                  MAX_OCCUPANT_LABELS,
+                )}
               </Text>
             ) : (
               <Text style={styles.occupancyText} testID="routine-occupancy">

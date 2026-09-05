@@ -99,6 +99,16 @@ function earliestMatchIndex(tokens: string[], markers: RegExp[]): number | null 
 }
 
 /**
+ * A marker in the first three positions means either a very unusual formula
+ * or a mis-parsed list — either way we do not know where the line is. A
+ * boundary with nothing below it (the last token) tells the user nothing
+ * either.
+ */
+function isValidBoundary(index: number, tokenCount: number): boolean {
+  return index >= MIN_MARKER_INDEX && index !== tokenCount - 1;
+}
+
+/**
  * Infers the 1% boundary from an ordered INCI token array. Returns `null`
  * when no boundary can be inferred with confidence — silence is the correct
  * output when unsure, never a guess.
@@ -106,23 +116,24 @@ function earliestMatchIndex(tokens: string[], markers: RegExp[]): number | null 
  * Tier is checked before position: a high-confidence marker anywhere in the
  * list wins over an earlier medium-confidence marker, since a
  * concentration-capped preservative is stronger evidence than an allergen
- * declaration (see task doc's worked example).
+ * declaration (see task doc's worked example). But a high-confidence marker
+ * that exists yet fails the position guards (too early, or the last token)
+ * must not suppress a separately valid medium-confidence marker elsewhere in
+ * the list — each tier's validity is checked independently, in priority
+ * order, rather than picking one index up front and gating it once.
  */
 export function findOnePercentLine(tokens: string[]): OnePercentLineResult | null {
   if (tokens.length < MIN_TOKENS) return null;
 
   const highIndex = earliestMatchIndex(tokens, HIGH_CONFIDENCE_MARKERS);
-  const index = highIndex ?? earliestMatchIndex(tokens, MEDIUM_CONFIDENCE_MARKERS);
-  if (index === null) return null;
+  if (highIndex !== null && isValidBoundary(highIndex, tokens.length)) {
+    return { lineIndex: highIndex, markerToken: tokens[highIndex], confidence: 'high' };
+  }
 
-  const confidence: 'high' | 'medium' = highIndex !== null ? 'high' : 'medium';
+  const mediumIndex = earliestMatchIndex(tokens, MEDIUM_CONFIDENCE_MARKERS);
+  if (mediumIndex !== null && isValidBoundary(mediumIndex, tokens.length)) {
+    return { lineIndex: mediumIndex, markerToken: tokens[mediumIndex], confidence: 'medium' };
+  }
 
-  // A marker in the first three positions means either a very unusual
-  // formula or a mis-parsed list — either way we do not know where the line
-  // is. A boundary with nothing below it (the last token) tells the user
-  // nothing either.
-  if (index < MIN_MARKER_INDEX) return null;
-  if (index === tokens.length - 1) return null;
-
-  return { lineIndex: index, markerToken: tokens[index], confidence };
+  return null;
 }
