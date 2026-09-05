@@ -40,6 +40,7 @@ export function CompositionInsightsSection({
   shelfOverlap,
   shelfProductCount,
   routinePosition,
+  routineFit,
   onSetSkinType,
 }: Props) {
   // Computed once here, not inside useCompositionInsights — a pure
@@ -73,7 +74,9 @@ export function CompositionInsightsSection({
         />
       ) : null}
 
-      {routinePosition ? <RoutinePlacementCard position={routinePosition} /> : null}
+      {routinePosition ? (
+        <RoutinePlacementCard position={routinePosition} routineFit={routineFit} />
+      ) : null}
 
       <View testID="explore-result-disclaimer" style={styles.disclaimer}>
         <Text style={styles.disclaimerText}>

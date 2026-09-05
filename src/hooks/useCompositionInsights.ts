@@ -1,10 +1,14 @@
 import { useMemo } from 'react';
 
+import { LAYERING_ORDER } from '@/constants/rulesets/productFacts';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
+import { useRoutinesStore } from '@/store/routinesStore';
 import type { ActiveIngredientKey, CapabilityKey, ProductType, SkinType } from '@/types';
 import { buildCapabilities } from '@/utils/productProfile/capabilities';
 import { joinActiveKeys } from '@/utils/productProfile/join';
+import { getMorningSpfState, type MorningSpfState } from '@/utils/productProfile/morningSpfPresence';
+import { labelForProduct } from '@/utils/productProfile/productLabel';
 import { resolveFromRawText, tokenizeIngredientsText } from '@/utils/productProfile/resolve';
 import { buildRoutinePosition } from '@/utils/productProfile/routinePosition';
 import { buildShelfComparison, type ShelfComparisonResult } from '@/utils/productProfile/shelfComparison';
@@ -47,6 +51,12 @@ const CAPABILITY_ORDER: CapabilityKey[] = [
   'antiAging',
 ];
 
+export interface RoutineFit {
+  /** Products already occupying the phase this composition maps to (`RoutinePosition.layeringOrder`). */
+  occupants: Array<{ id: string; label: string }>;
+  morningSpf: MorningSpfState;
+}
+
 export interface CompositionInsights {
   capabilityTags: CapabilityKey[];
   resolvedActiveKeys: ActiveIngredientKey[];
@@ -64,6 +74,8 @@ export interface CompositionInsights {
   /** Total Shelf product count, regardless of category — distinguishes an empty Shelf from a same-category-empty one. */
   shelfProductCount: number;
   routinePosition: RoutinePosition | null;
+  /** `null` when `category === null` — same gate as `routinePosition`. */
+  routineFit: RoutineFit | null;
 }
 
 export function useCompositionInsights(
@@ -72,6 +84,7 @@ export function useCompositionInsights(
 ): CompositionInsights {
   const products = useProductsStore((s) => s.products);
   const profile = useProfileStore((s) => s.profile);
+  const routines = useRoutinesStore((s) => s.routines);
 
   const resolved = useMemo(() => resolveFromRawText(rawIngredientsText), [rawIngredientsText]);
 
@@ -134,6 +147,32 @@ export function useCompositionInsights(
     [resolved.resolvedActiveKeys, products],
   );
 
+  // explore-insights-v2 task 06 — same gate as routinePosition (`category === null` -> null).
+  // Occupants are steps across ALL routines whose productType shares this
+  // composition's layering slot (`LAYERING_ORDER`, e.g. serum/gel both slot
+  // 6) — a phase, not a single ProductType. `morningSpf` is a SEPARATE rule
+  // (`morningSpfPresence.ts`, absence-only, never `spfAdequacy.ts`'s
+  // strength threshold) from the same `routines`/`products` data.
+  const routineFit = useMemo((): RoutineFit | null => {
+    if (category === null || routinePosition === null) return null;
+
+    const targetPhase = routinePosition.layeringOrder;
+    const occupants: Array<{ id: string; label: string }> = [];
+    if (targetPhase !== null) {
+      for (const routine of routines) {
+        for (const step of routine.steps) {
+          if (step.hidden || !step.productId) continue;
+          if (LAYERING_ORDER[step.productType] !== targetPhase) continue;
+          const product = products.find((p) => p.id === step.productId);
+          if (!product || product.isHidden) continue;
+          occupants.push({ id: product.id, label: labelForProduct(product) });
+        }
+      }
+    }
+
+    return { occupants, morningSpf: getMorningSpfState(routines, products) };
+  }, [category, routinePosition, routines, products]);
+
   return {
     capabilityTags,
     resolvedActiveKeys: resolved.resolvedActiveKeys,
@@ -146,5 +185,6 @@ export function useCompositionInsights(
     shelfOverlap,
     shelfProductCount: products.length,
     routinePosition,
+    routineFit,
   };
 }

@@ -20,14 +20,42 @@ jest.mock('@/store/profileStore', () => ({
   useProfileStore: jest.fn((selector: any) => selector({ profile: mockProfile })),
 }));
 
+let mockRoutines: import('@/types').Routine[] = [];
+jest.mock('@/store/routinesStore', () => ({
+  useRoutinesStore: jest.fn((selector: any) => selector({ routines: mockRoutines })),
+}));
+
 import { useCompositionInsights } from '@/hooks/useCompositionInsights';
+import type { Routine, RoutineStep } from '@/types';
 import { makeProduct } from '../../tests/explore-composition/fixtures';
 
 const RAW_TEXT = 'Aqua, Niacinamide, Hyaluronic Acid';
 
+function makeStep(overrides: Partial<RoutineStep> = {}): RoutineStep {
+  return {
+    id: 'step-1',
+    productType: 'serum',
+    productId: 'p1',
+    hidden: false,
+    scheduledDays: [],
+    ...overrides,
+  };
+}
+
+function makeRoutine(overrides: Partial<Routine> = {}): Routine {
+  return {
+    id: 'r1',
+    name: 'Morning',
+    timeOfDay: 'morning',
+    steps: [],
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   mockProducts = [];
   mockProfile = { skinType: null };
+  mockRoutines = [];
 });
 
 describe('resolvedActiveKeys / capabilityTags — real resolve/join/capabilities pipeline, no reimplementation', () => {
@@ -127,5 +155,52 @@ describe('ingredientTokens / ingredientCount / positionByKey — explore-insight
     const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, null));
 
     expect('unresolvedIngredientTokens' in result.current).toBe(false);
+  });
+});
+
+describe('routineFit — explore-insights-v2 task 06', () => {
+  it('is null when category is null, same gate as routinePosition', () => {
+    mockRoutines = [makeRoutine({ steps: [makeStep({ productId: 'p1' })] })];
+    mockProducts = [makeProduct({ id: 'p1', productType: 'serum' })];
+
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, null));
+
+    expect(result.current.routineFit).toBeNull();
+  });
+
+  it('resolves an occupant by matching the whole layering phase, not just an exact ProductType (serum/gel share a slot)', () => {
+    mockRoutines = [
+      makeRoutine({ steps: [makeStep({ productId: 'p1', productType: 'gel' })] }),
+    ];
+    mockProducts = [makeProduct({ id: 'p1', brand: 'CeraVe', name: 'PM Lotion', productType: 'gel' })];
+
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, 'serum'));
+
+    expect(result.current.routineFit?.occupants).toEqual([{ id: 'p1', label: 'CeraVe PM Lotion' }]);
+  });
+
+  it('contributes nothing for a step with a null productId, and does not crash', () => {
+    mockRoutines = [makeRoutine({ steps: [makeStep({ productId: null })] })];
+
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, 'serum'));
+
+    expect(result.current.routineFit?.occupants).toEqual([]);
+  });
+
+  it('excludes a hidden step from occupants', () => {
+    mockRoutines = [makeRoutine({ steps: [makeStep({ productId: 'p1', hidden: true })] })];
+    mockProducts = [makeProduct({ id: 'p1', productType: 'serum' })];
+
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, 'serum'));
+
+    expect(result.current.routineFit?.occupants).toEqual([]);
+  });
+
+  it('exposes the real getMorningSpfState result via morningSpf', () => {
+    mockRoutines = [];
+
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, 'serum'));
+
+    expect(result.current.routineFit?.morningSpf).toBe('no-morning-routine');
   });
 });

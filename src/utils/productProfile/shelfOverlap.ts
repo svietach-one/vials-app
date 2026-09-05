@@ -16,6 +16,7 @@
  * (.claude/rules/architecture-review.md §2).
  */
 import type { ActiveIngredientKey, Product } from '@/types';
+import { labelForProduct } from '@/utils/productProfile/productLabel';
 import { resolveFromProduct } from '@/utils/productProfile/resolve';
 
 export interface OverlappingProduct {
@@ -27,10 +28,6 @@ export interface OverlappingProduct {
 export interface SharedActive {
   key: ActiveIngredientKey;
   products: OverlappingProduct[];
-}
-
-function labelFor(product: Product): string {
-  return product.brand ? `${product.brand} ${product.name}`.trim() : product.name;
 }
 
 /**
@@ -57,7 +54,7 @@ export function buildShelfOverlap(
     const resolved = resolveFromProduct(product);
     for (const key of resolved.resolvedActiveKeys) {
       if (!activeKeySet.has(key)) continue;
-      const entry: OverlappingProduct = { id: product.id, label: labelFor(product) };
+      const entry: OverlappingProduct = { id: product.id, label: labelForProduct(product) };
       const existing = byKey.get(key);
       if (existing) existing.push(entry);
       else byKey.set(key, [entry]);
