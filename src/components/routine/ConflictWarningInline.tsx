@@ -33,6 +33,24 @@ export interface ConflictWarningInlineProps {
   morningSteps: RoutineStep[];
   /** The evening steps the user is actually looking at. Same contract. */
   eveningSteps: RoutineStep[];
+  /**
+   * Optional override of the step set used ONLY for pairwise ingredient
+   * conflict detection (`ConflictEngine.detectConflicts`). Product-pair
+   * chemistry doesn't care which tab is currently open — a retinoid used in
+   * the morning and an AHA used in the evening still clash — so a caller
+   * that scopes `morningSteps`/`eveningSteps` to a single active period (a
+   * single-active-period UI, e.g. RoutinesScreen's Morning/Evening
+   * PillToggle) must pass the FULL routine here to keep that detection
+   * working across both periods. Condition advisories and density findings
+   * intentionally stay scoped to `morningSteps`/`eveningSteps` only — those
+   * warn about what's actually rendered right now, and merging periods
+   * there previously caused a stale advisory for a product from the
+   * inactive period (progress/routine-step-grouping.md, bug-fix round
+   * 2026-08-31). Defaults to `[...morningSteps, ...eveningSteps]`, so
+   * existing callers that already pass both periods' steps (e.g. rendering
+   * both accordions at once) are unaffected.
+   */
+  allSteps?: RoutineStep[];
   products: Product[];
   /**
    * Self-reported conditions from the profile. Default `[]` — with none
@@ -155,6 +173,7 @@ function DensityRow({
 export function ConflictWarningInline({
   morningSteps,
   eveningSteps,
+  allSteps: allStepsOverride,
   products,
   skinConditions = [],
 }: ConflictWarningInlineProps) {
@@ -173,12 +192,17 @@ export function ConflictWarningInline({
     };
   };
 
-  const allSteps = [...morningSteps, ...eveningSteps];
+  // Advisories/density stay scoped to exactly what's rendered right now.
+  const visibleSteps = [...morningSteps, ...eveningSteps];
+  // Conflicts use the full routine (both periods) unless the caller scopes
+  // morningSteps/eveningSteps to a single active period — see allSteps' doc
+  // comment above for why this must not be tab-scoped.
+  const conflictSteps = allStepsOverride ?? visibleSteps;
 
   // De-duplicate: one alert per unique rule (same pair may appear multiple times)
   const seen = new Set<string>();
   const conflicts = applyConditionSeverityModifiers(
-    ConflictEngine.detectConflicts(allSteps, products),
+    ConflictEngine.detectConflicts(conflictSteps, products),
     skinConditions,
   ).filter((c) => {
     if (seen.has(c.result.rule.id)) return false;
@@ -187,7 +211,7 @@ export function ConflictWarningInline({
   });
 
   const scheduledProducts = products.filter((product) =>
-    allSteps.some((step) => step.productId === product.id),
+    visibleSteps.some((step) => step.productId === product.id),
   );
   const advisories = getConditionRiskWarnings(scheduledProducts, skinConditions);
 

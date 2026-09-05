@@ -20,10 +20,12 @@ import { RemoveRoutineActionSheet } from '@/components/routine/RemoveRoutineActi
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
+import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Tag } from '@/components/ui/core/Tag';
 import { Badge } from '@/components/ui/feedback/Badge';
+import { Input } from '@/components/ui/forms/Input';
 import { Textarea } from '@/components/ui/forms/Textarea';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
@@ -35,31 +37,50 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { getProductAllergenMatches } from '@/utils/allergenDetector';
 import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
 import {
+  derivePeriodSchedules,
   deriveProductSchedule,
   formatRoutineLabel,
   formatScheduleDays,
+  type PeriodSchedules,
   type ProductSchedule,
 } from '@/utils/routineLabel';
 import {
   buildProductProfileFromActiveKeys,
   buildProductProfileFromProduct,
 } from '@/utils/productProfile';
-import type { ActiveIngredientKey, Product, ProductProfile } from '@/types';
+import type { ActiveIngredientKey, Product, ProductProfile, Zone } from '@/types';
 
-/** "Morning, daily" / "Evening, Mon, Wed, Fri" — used-schedule summary for the
- *  product hero. Returns null when the product isn't in any routine, so the
- *  callout can be hidden rather than showing a hollow "not scheduled" state. */
-function formatUsedSummary(schedule: ProductSchedule): string | null {
-  if (!schedule.morning && !schedule.evening) return null;
-  const timeLabel =
-    schedule.morning && schedule.evening
-      ? 'Morning & Evening'
-      : schedule.morning
-      ? 'Morning'
-      : 'Evening';
-  const dayLabel =
-    schedule.scheduledDays.length === 0 ? 'daily' : formatScheduleDays(schedule.scheduledDays);
-  return `${timeLabel}, ${dayLabel}`;
+/**
+ * "Morning, daily" / "Evening, Mon, Wed, Fri" / "Morning: daily · Evening: Mon,
+ * Wed, Fri" — used-schedule summary for the product hero. Returns null when
+ * the product isn't in any routine, so the callout can be hidden rather than
+ * showing a hollow "not scheduled" state.
+ *
+ * Built on `derivePeriodSchedules` (not the old merged `deriveProductSchedule`)
+ * so a genuinely diverging per-period schedule — now possible since
+ * RoutineSchedulerSheet/AddToRoutineSheet let morning/evening scheduledDays
+ * differ (progress/routine-step-grouping.md) — is shown distinctly per period
+ * instead of silently collapsing to one misleading merged day list (code-review
+ * round 2026-08-31, Priority 2 item 5).
+ */
+function formatUsedSummary(periods: PeriodSchedules): string | null {
+  const { morning, evening } = periods;
+  if (!morning.included && !evening.included) return null;
+
+  const dayLabel = (scheduledDays: number[]) =>
+    scheduledDays.length === 0 ? 'daily' : formatScheduleDays(scheduledDays);
+
+  if (morning.included && evening.included) {
+    const sameDays =
+      morning.scheduledDays.length === evening.scheduledDays.length &&
+      morning.scheduledDays.every((d) => evening.scheduledDays.includes(d));
+    if (sameDays) return `Morning & Evening, ${dayLabel(morning.scheduledDays)}`;
+    return `Morning: ${dayLabel(morning.scheduledDays)} · Evening: ${dayLabel(evening.scheduledDays)}`;
+  }
+
+  return morning.included
+    ? `Morning, ${dayLabel(morning.scheduledDays)}`
+    : `Evening, ${dayLabel(evening.scheduledDays)}`;
 }
 
 /**
@@ -99,6 +120,19 @@ const ALLERGEN_NEUTRAL_COPY = 'Fragrance component regulated in the EU as a pote
 const ALLERGEN_RESTRICTED_NOTE =
   'No longer permitted in new EU products (banned 2021–2022) — this may be older stock, worth checking for expiry.';
 
+// routine-step-grouping PRD_Spec.md §4.1 — the five recognised zones, in
+// display order. `face` is the default and renders no tag on the routine
+// card (RoutineProductCard), but is still offered here as an explicit chip
+// so a product can be edited back to face-only after being tagged otherwise.
+const ZONE_OPTIONS: Zone[] = ['face', 'eyes', 'neck', 'lips', 'hands'];
+const ZONE_LABELS: Record<Zone, string> = {
+  face: 'Face',
+  eyes: 'Eyes',
+  neck: 'Neck',
+  lips: 'Lips',
+  hands: 'Hands',
+};
+
 type Props = NativeStackScreenProps<CatalogStackParamList, 'ProductDetail'>;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -118,6 +152,10 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
   const [removeSheetVisible, setRemoveSheetVisible] = useState(false);
   const [attributionKey, setAttributionKey] = useState<ActiveIngredientKey | null>(null);
   const [notesText, setNotesText] = useState(product?.notes ?? '');
+  // routine-step-grouping PRD_Spec.md §4.2 — reapplyAfterHours is only
+  // meaningful once `timing === 'reapply'`; kept as local text so the field
+  // is freely editable before committing a valid number on blur.
+  const [hoursText, setHoursText] = useState(String(product?.reapplyAfterHours ?? 2));
 
   // ── Not found guard ───────────────────────────────────────────────────────
 
@@ -150,7 +188,8 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
 
   const schedule = deriveProductSchedule(routines, product.id);
   const routineLabel: string | null = formatRoutineLabel(schedule);
-  const usedSummary = formatUsedSummary(schedule);
+  const periodSchedules = derivePeriodSchedules(routines, product.id);
+  const usedSummary = formatUsedSummary(periodSchedules);
 
   // Resolve active tags: use saved activeTags; fall back to activeIngredients keys
   // for products saved before activeTags was introduced.
@@ -175,6 +214,39 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
     const trimmed = notesText.trim();
     if (trimmed === (product.notes ?? '')) return;
     updateProduct(product.id, { notes: trimmed.length > 0 ? trimmed : null });
+  };
+
+  // routine-step-grouping PRD_Spec.md §4.1/§4.2: zones and timing live on
+  // Product (not RoutineStep) — edited here, read wherever the product
+  // appears in a routine. No write-through to any RoutineStep.
+  const zones: Zone[] = product.zones && product.zones.length > 0 ? product.zones : ['face'];
+  const timing = product.timing ?? 'inline';
+
+  const handleToggleZone = (zone: Zone) => {
+    const next = zones.includes(zone) ? zones.filter((z) => z !== zone) : [...zones, zone];
+    updateProduct(product.id, { zones: next.length > 0 ? next : ['face'] });
+  };
+
+  const handleSetTiming = (next: 'inline' | 'reapply') => {
+    if (next === 'inline') {
+      updateProduct(product.id, { timing: 'inline', reapplyAfterHours: undefined });
+    } else {
+      const hours = Number(hoursText);
+      updateProduct(product.id, {
+        timing: 'reapply',
+        reapplyAfterHours: Number.isFinite(hours) && hours > 0 ? hours : 2,
+      });
+    }
+  };
+
+  const handleHoursBlur = () => {
+    if (timing !== 'reapply') return;
+    const hours = Number(hoursText);
+    if (Number.isFinite(hours) && hours > 0) {
+      updateProduct(product.id, { reapplyAfterHours: hours });
+    } else {
+      setHoursText(String(product.reapplyAfterHours ?? 2));
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -230,9 +302,13 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           <View style={styles.usedBar}>
             <View style={styles.usedIconCircle}>
               <Icon
-                name={schedule.evening && !schedule.morning ? 'moon' : 'sun'}
+                name={periodSchedules.evening.included && !periodSchedules.morning.included ? 'moon' : 'sun'}
                 size={18}
-                color={schedule.evening && !schedule.morning ? palette.cobalt : palette.golden}
+                color={
+                  periodSchedules.evening.included && !periodSchedules.morning.included
+                    ? palette.cobalt
+                    : palette.golden
+                }
               />
             </View>
             <Text style={styles.usedText}>
@@ -241,6 +317,53 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
             </Text>
           </View>
         ) : null}
+
+        {/* ── Routine placement (zones + timing) ──────────────────────────
+            routine-step-grouping PRD_Spec.md §4 — how this product's card
+            renders inside the routine: which body area(s) it's tagged with,
+            and whether it's applied inline or reapplied later in the day. */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardIconCircle}>
+              <Icon name="map-pin" size={18} color={palette.plum} />
+            </View>
+            <Text style={styles.cardTitle}>Routine Placement</Text>
+          </View>
+
+          <Text style={styles.fieldLabel}>Zones</Text>
+          <View style={styles.tagWrap}>
+            {ZONE_OPTIONS.map((zone) => (
+              <FilterChip
+                key={zone}
+                selected={zones.includes(zone)}
+                size="sm"
+                onPress={() => handleToggleZone(zone)}
+              >
+                {ZONE_LABELS[zone]}
+              </FilterChip>
+            ))}
+          </View>
+
+          <Text style={styles.fieldLabel}>Timing</Text>
+          <View style={styles.tagWrap}>
+            <FilterChip selected={timing === 'inline'} size="sm" onPress={() => handleSetTiming('inline')}>
+              Inline
+            </FilterChip>
+            <FilterChip selected={timing === 'reapply'} size="sm" onPress={() => handleSetTiming('reapply')}>
+              Reapply
+            </FilterChip>
+          </View>
+          {timing === 'reapply' ? (
+            <Input
+              label="Reapply after"
+              suffix="hours"
+              keyboardType="numeric"
+              value={hoursText}
+              onChangeText={setHoursText}
+              onBlur={handleHoursBlur}
+            />
+          ) : null}
+        </View>
 
         {/* ── Active Ingredients ────────────────────────────────────────── */}
         <View style={styles.card}>
@@ -546,6 +669,10 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontFamily: 'DMSans-Medium',
     color: colors.textPrimary,
+  },
+  fieldLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
   },
   tagWrap: {
     flexDirection: 'row',

@@ -7,7 +7,7 @@ import { TimeChip } from '@/components/ui/core/TimeChip';
 import { WeeklySchedulePicker } from '@/components/routine/WeeklySchedulePicker';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import { useRoutinesStore } from '@/store/routinesStore';
-import { deriveProductSchedule } from '@/utils/routineLabel';
+import { derivePeriodSchedules } from '@/utils/routineLabel';
 import type { ProductType } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -42,7 +42,12 @@ export function RoutineSchedulerSheet({
 
   const [morning, setMorning] = useState(false);
   const [evening, setEvening] = useState(false);
-  const [scheduledDays, setScheduledDays] = useState<number[]>([]);
+  // Morning and evening are independently schedulable for the same product
+  // (a step's scheduledDays lives on RoutineStep, per period) — these must
+  // stay two separate values, never one shared array, or Save silently
+  // overwrites one period's real schedule with the other's.
+  const [morningScheduledDays, setMorningScheduledDays] = useState<number[]>([]);
+  const [eveningScheduledDays, setEveningScheduledDays] = useState<number[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // Pre-populate from current store state when the sheet opens.
@@ -53,13 +58,14 @@ export function RoutineSchedulerSheet({
       setValidationError(null);
       return;
     }
-    const current = deriveProductSchedule(
+    const current = derivePeriodSchedules(
       useRoutinesStore.getState().routines,
       productId,
     );
-    setMorning(current.morning);
-    setEvening(current.evening);
-    setScheduledDays(current.scheduledDays);
+    setMorning(current.morning.included);
+    setEvening(current.evening.included);
+    setMorningScheduledDays(current.morning.scheduledDays);
+    setEveningScheduledDays(current.evening.scheduledDays);
   }, [visible, productId]);
 
   function handleSave() {
@@ -75,7 +81,7 @@ export function RoutineSchedulerSheet({
 
     if (morningRoutine) {
       if (morning) {
-        upsertProductStep(morningRoutine.id, productId, productType, scheduledDays);
+        upsertProductStep(morningRoutine.id, productId, productType, morningScheduledDays);
       } else {
         removeProductStep(morningRoutine.id, productId);
       }
@@ -83,7 +89,7 @@ export function RoutineSchedulerSheet({
 
     if (eveningRoutine) {
       if (evening) {
-        upsertProductStep(eveningRoutine.id, productId, productType, scheduledDays);
+        upsertProductStep(eveningRoutine.id, productId, productType, eveningScheduledDays);
       } else {
         removeProductStep(eveningRoutine.id, productId);
       }
@@ -125,11 +131,23 @@ export function RoutineSchedulerSheet({
         </View>
       ) : null}
 
-      {/* Section 2: Weekly Planner */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Weekly Planner</Text>
-        <WeeklySchedulePicker scheduledDays={scheduledDays} onUpdate={setScheduledDays} />
-      </View>
+      {/* Section 2: Weekly Planner — one independent picker per active period.
+          Each period keeps its own scheduledDays; showing a single shared
+          picker here would imply a unified schedule that doesn't exist in
+          the data model. */}
+      {morning ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Morning days</Text>
+          <WeeklySchedulePicker scheduledDays={morningScheduledDays} onUpdate={setMorningScheduledDays} />
+        </View>
+      ) : null}
+
+      {evening ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Evening days</Text>
+          <WeeklySchedulePicker scheduledDays={eveningScheduledDays} onUpdate={setEveningScheduledDays} />
+        </View>
+      ) : null}
 
       {/* Section 3: Actions */}
       <View style={styles.actions}>

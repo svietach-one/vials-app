@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   Share,
@@ -23,7 +22,6 @@ import { Switch } from '@/components/ui/forms/Switch';
 import { LOCAL_STORAGE_NOTICE_ENABLED } from '@/constants/featureFlags';
 import { GOAL_LABELS } from '@/constants/labels';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
-import { switchCycleType } from '@/domain/trackingActions';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
@@ -219,7 +217,6 @@ export default function ProfileScreen() {
 
   const gamificationEnabled = useSettingsStore((s) => s.gamificationEnabled);
   const setGamificationEnabled = useSettingsStore((s) => s.setGamificationEnabled);
-  const routineCycleType = useSettingsStore((s) => s.routineCycleType);
 
   const contributionConsentStatus = useSettingsStore((s) => s.contributionConsentStatus);
   const setContributionConsentStatus = useSettingsStore((s) => s.setContributionConsentStatus);
@@ -236,25 +233,6 @@ export default function ProfileScreen() {
     }
   }
 
-  function handleCycleToggle(enableDynamic: boolean) {
-    if (!enableDynamic) {
-      // Dynamic → fixed discards cycle progress — confirm first (research §1.4).
-      // Manual weekly schedules are preserved: dynamic mode only masks them at
-      // render (phase-06), so switching back restores them exactly.
-      Alert.alert(
-        'Switch to fixed days?',
-        'Your skin-cycle progress will be discarded. Your manual weekly schedule and application counters are kept.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Switch', style: 'destructive', onPress: () => switchCycleType('fixed') },
-        ],
-      );
-      return;
-    }
-    // Enabling dynamic keeps your saved weekly schedule — it is masked while
-    // cycling, and returns unchanged if you switch back.
-    switchCycleType('dynamic');
-  }
 
   const productCount = products.length;
   const procedureCount = useProceduresStore((s) => s.procedures.length);
@@ -318,7 +296,7 @@ export default function ProfileScreen() {
             <ListRow
               leading={<IconCircle name="award" />}
               title="Gamification"
-              subtitle="Routine completion streaks and progress rings"
+              subtitle="Track what you've used by tapping products in your routine"
               titleNumberOfLines={0}
               trailing={
                 <Switch
@@ -343,20 +321,18 @@ export default function ProfileScreen() {
               }
               divider
             />
-            <ListRow
-              leading={<IconCircle name="target" />}
-              title="Dynamic Skin Cycling"
-              subtitle="4-night cycle driven by your daily check-in instead of fixed weekdays"
-              titleNumberOfLines={0}
-              trailing={
-                <Switch
-                  checked={routineCycleType === 'dynamic'}
-                  onValueChange={handleCycleToggle}
-                  size="sm"
-                />
-              }
-              divider
-            />
+            {/* "Dynamic Skin Cycling" removed 2026-08-31 (code-review round,
+                Priority 1 item 4): its only advancement mechanism,
+                performDailyCheckIn, has had zero reachable UI callers since
+                before this task started (PRD_Spec.md §6.1 already documented
+                TodayScreen — its one caller — as dead/unreachable code), so
+                the toggle promised "driven by your daily check-in" while no
+                check-in affordance existed anywhere in the app; a user who
+                enabled it got permanently stuck at cycle phase 0 with no way
+                to ever advance it. routineCycleType/switchCycleType/
+                performDailyCheckIn are left fully intact in the store/domain
+                layer for a future task that gives this a real entry point —
+                only the misleading Profile toggle is removed. */}
             <ListRow
               leading={<IconCircle name="camera" />}
               title="Share my photos with Vials"
