@@ -10,7 +10,10 @@ import { space, typography, colors } from '@/constants/tokens';
 import type { CompositionInsights } from '@/hooks/useCompositionInsights';
 import { findOnePercentLine } from '@/utils/productProfile/onePercentLine';
 
-type Props = CompositionInsights;
+type Props = CompositionInsights & {
+  /** Navigates to the Profile tab so the user can set a skin type (explore-insights-v2 task 05). */
+  onSetSkinType: () => void;
+};
 
 /**
  * Shared insight-sections block (Story 9, tech design FE-20) — composes, in
@@ -37,6 +40,7 @@ export function CompositionInsightsSection({
   shelfOverlap,
   shelfProductCount,
   routinePosition,
+  onSetSkinType,
 }: Props) {
   // Computed once here, not inside useCompositionInsights — a pure
   // presentation-layer derivation from the hook's already-exposed
@@ -55,7 +59,11 @@ export function CompositionInsightsSection({
         onePercentLine={onePercentLine}
       />
 
-      <SkinTypeCautionNotice caution={skinTypeCaution} skinType={skinType} />
+      <SkinTypeCautionNotice
+        caution={skinTypeCaution}
+        skinType={skinType}
+        onSetSkinType={onSetSkinType}
+      />
 
       {shelfComparison ? (
         <CompositionComparisonMatrix

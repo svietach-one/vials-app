@@ -125,7 +125,10 @@ export default function ExploreCompositionResultScreen({ navigation, route }: Pr
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <CompositionInsightsSection {...insights} />
+        <CompositionInsightsSection
+          {...insights}
+          onSetSkinType={() => navigation.navigate('Profile' as never)}
+        />
       </ScrollView>
 
       <View style={styles.footer}>

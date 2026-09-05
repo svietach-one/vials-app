@@ -150,7 +150,10 @@ export default function WishlistEntryDetailScreen({ navigation, route }: Props) 
             ) : null}
           </View>
 
-          <CompositionInsightsSection {...insights} />
+          <CompositionInsightsSection
+            {...insights}
+            onSetSkinType={() => navigation.navigate('Profile' as never)}
+          />
 
           <View style={styles.card}>
             <View style={styles.cardHeader}>
