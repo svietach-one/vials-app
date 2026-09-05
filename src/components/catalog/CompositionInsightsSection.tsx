@@ -34,6 +34,8 @@ export function CompositionInsightsSection({
   skinType,
   skinTypeCaution,
   shelfComparison,
+  shelfOverlap,
+  shelfProductCount,
   routinePosition,
 }: Props) {
   // Computed once here, not inside useCompositionInsights — a pure
@@ -55,7 +57,13 @@ export function CompositionInsightsSection({
 
       <SkinTypeCautionNotice caution={skinTypeCaution} skinType={skinType} />
 
-      {shelfComparison ? <CompositionComparisonMatrix comparison={shelfComparison} /> : null}
+      {shelfComparison ? (
+        <CompositionComparisonMatrix
+          comparison={shelfComparison}
+          shelfOverlap={shelfOverlap}
+          shelfProductCount={shelfProductCount}
+        />
+      ) : null}
 
       {routinePosition ? <RoutinePlacementCard position={routinePosition} /> : null}
 

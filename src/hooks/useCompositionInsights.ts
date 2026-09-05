@@ -8,6 +8,7 @@ import { joinActiveKeys } from '@/utils/productProfile/join';
 import { resolveFromRawText, tokenizeIngredientsText } from '@/utils/productProfile/resolve';
 import { buildRoutinePosition } from '@/utils/productProfile/routinePosition';
 import { buildShelfComparison, type ShelfComparisonResult } from '@/utils/productProfile/shelfComparison';
+import { buildShelfOverlap, type SharedActive } from '@/utils/productProfile/shelfOverlap';
 import { buildSkinTypeCaution, type SkinTypeCautionResult } from '@/utils/productProfile/skinTypeCaution';
 import type { RoutinePosition } from '@/types';
 
@@ -58,6 +59,10 @@ export interface CompositionInsights {
   skinType: SkinType | null;
   skinTypeCaution: SkinTypeCautionResult | null;
   shelfComparison: ShelfComparisonResult | null;
+  /** Which of this composition's actives already appear elsewhere on the whole Shelf — not category-gated. */
+  shelfOverlap: SharedActive[];
+  /** Total Shelf product count, regardless of category — distinguishes an empty Shelf from a same-category-empty one. */
+  shelfProductCount: number;
   routinePosition: RoutinePosition | null;
 }
 
@@ -121,6 +126,14 @@ export function useCompositionInsights(
     return buildRoutinePosition(category, classFacts);
   }, [category, classFacts]);
 
+  // explore-insights-v2 task 04 — unlike shelfComparison, NOT gated on
+  // category: a duplicate active is a duplicate regardless of the captured
+  // composition's category.
+  const shelfOverlap = useMemo(
+    () => buildShelfOverlap(resolved.resolvedActiveKeys, products),
+    [resolved.resolvedActiveKeys, products],
+  );
+
   return {
     capabilityTags,
     resolvedActiveKeys: resolved.resolvedActiveKeys,
@@ -130,6 +143,8 @@ export function useCompositionInsights(
     skinType: profile?.skinType ?? null,
     skinTypeCaution,
     shelfComparison,
+    shelfOverlap,
+    shelfProductCount: products.length,
     routinePosition,
   };
 }

@@ -210,9 +210,7 @@ import ExploreCompositionResultScreen from '@/screens/catalog/ExploreComposition
 import { buildIrritationProfile, buildSensitivityCompatibility } from '@/utils/productProfile/irritation';
 import { buildRoutinePosition } from '@/utils/productProfile/routinePosition';
 import { buildProductProfileFromProduct, buildProductProfileFromActiveKeys } from '@/utils/productProfile';
-import { getProductActiveKeys } from '@/utils/ingredientParser';
 import { joinActiveKeys } from '@/utils/productProfile/join';
-import { buildCapabilities } from '@/utils/productProfile/capabilities';
 import { getSlotCategoryLabelPlural } from '@/constants/labels';
 import { ConflictEngine, matchPairRule } from '@/utils/conflictEngine';
 import { makeNavigation, makeResolvedIngredients, makeProduct } from './fixtures';
@@ -439,66 +437,110 @@ describe('Story 4 AC1: Put on My Shelf opens the shared completion form, never r
 
 // ── Story 6: Comparison matrix (2026-08-26 decision batch, FE-9/FE-10/FE-13/FE-14) ──
 
-describe('Story 6: comparison matrix — exactly 4 parameters, category-filtered Shelf comparison', () => {
-  it('renders exactly 4 comparison rows — no 5th slot, no position/concentration/skin-type row', () => {
+describe('Story 6 (superseded, explore-insights-v2 task 04): named Shelf overlaps replace the abstract matrix', () => {
+  it('deletes the Functional profile breadth and Ingredient count rows entirely — plan decision D2', () => {
     mockProducts = [makeProduct({ id: 'p1', productType: 'serum' })];
     renderScreen({ category: 'serum' });
 
+    expect(screen.queryByTestId('matrix-row-functional-breadth')).toBeNull();
+    expect(screen.queryByTestId('matrix-row-ingredient-count')).toBeNull();
+    expect(screen.queryByText(/functional profile breadth/i)).toBeNull();
+    expect(screen.queryByText(/^ingredient count$/i)).toBeNull();
+  });
+
+  it('renders no position/concentration/skin-type value in the matrix — stays position-free per decision D1', () => {
+    mockProducts = [
+      makeProduct({ id: 'p1', productType: 'serum', fullIngredientText: 'Aqua, Niacinamide' }),
+    ];
+    renderScreen({ category: 'serum' });
+
     const matrix = screen.getByTestId('composition-comparison-matrix');
-    const rows = screen.getAllByTestId(/^matrix-row-/);
-    expect(rows).toHaveLength(4);
-
-    expect(
-      within(screen.getByTestId('matrix-row-functional-breadth')).getByText(/functional profile breadth/i),
-    ).toBeTruthy();
-    expect(
-      within(screen.getByTestId('matrix-row-ingredient-count')).getByText(/ingredient count/i),
-    ).toBeTruthy();
-    expect(within(screen.getByTestId('matrix-row-active-tags')).getByText(/active tags/i)).toBeTruthy();
-    expect(within(screen.getByTestId('matrix-row-category-signal')).getByText(/category/i)).toBeTruthy();
-
     expect(within(matrix).queryByText(/position/i)).toBeNull();
     expect(within(matrix).queryByText(/concentration/i)).toBeNull();
     expect(within(matrix).queryByText(/skin type/i)).toBeNull();
     expect(within(matrix).queryByText(/suitability/i)).toBeNull();
   });
 
-  it('computes "Functional profile breadth" as the same distinct-capability count already driving the Functional Profile tag list — not new detection logic', () => {
-    mockProducts = [makeProduct({ id: 'p1', productType: 'serum' })];
+  it('names the specific overlapping active and the specific Shelf products carrying it', () => {
+    mockProducts = [
+      makeProduct({
+        id: 'p1',
+        productType: 'serum',
+        brand: 'CeraVe',
+        name: 'PM Lotion',
+        fullIngredientText: 'Aqua, Niacinamide',
+      }),
+    ];
     renderScreen({ category: 'serum' });
 
-    // Independently derived via the SAME real join.ts/capabilities.ts
-    // functions the screen itself uses, per Story 6 AC5 ("neither is
-    // computed by new detection logic") — not a hardcoded guess.
-    const classFacts = joinActiveKeys(['niacinamide', 'hyaluronic_acid'], {});
-    const capabilities = buildCapabilities(['niacinamide', 'hyaluronic_acid'], classFacts);
-    const expectedBreadth = Object.values(capabilities).filter(
-      (c) => c.score !== null && c.score > 0,
-    ).length;
-
-    const row = screen.getByTestId('matrix-row-functional-breadth');
-    expect(within(row).getByText(String(expectedBreadth))).toBeTruthy();
+    const row = screen.getByTestId('shelf-overlap-row-niacinamide');
+    expect(within(row).getByText(/niacinamide.*you already have 1/i)).toBeTruthy();
+    expect(within(row).getByText('CeraVe PM Lotion')).toBeTruthy();
   });
 
-  it('computes "Ingredient count" as the total raw comma-tokens (2026-08-27: no longer shown as an on-screen list, but the count itself is unchanged)', () => {
-    mockProducts = [makeProduct({ id: 'p1', productType: 'serum' })];
-    renderScreen({ category: 'serum' }); // RAW_TEXT has 4 comma-separated tokens
-
-    const row = screen.getByTestId('matrix-row-ingredient-count');
-    expect(within(row).getByText('4')).toBeTruthy();
-  });
-
-  it('computes "Active tags" directly from resolveFromRawText\'s resolvedActiveKeys — never via getProductActiveKeys()', () => {
-    mockProducts = [makeProduct({ id: 'p1', productType: 'serum' })];
+  it('detects overlap across the WHOLE Shelf, not only the captured category', () => {
+    mockProducts = [
+      makeProduct({
+        id: 'p1',
+        productType: 'moisturizer', // different category from the captured 'serum'
+        brand: 'CeraVe',
+        name: 'PM Lotion',
+        fullIngredientText: 'Aqua, Niacinamide',
+      }),
+    ];
     renderScreen({ category: 'serum' });
 
-    const row = screen.getByTestId('matrix-row-active-tags');
-    expect(within(row).getByText(/niacinamide/i)).toBeTruthy();
-    expect(within(row).getByText(/hyaluronic acid/i)).toBeTruthy();
-    expect(getProductActiveKeys).not.toHaveBeenCalled();
+    const row = screen.getByTestId('shelf-overlap-row-niacinamide');
+    expect(within(row).getByText('CeraVe PM Lotion')).toBeTruthy();
   });
 
-  it('filters the Shelf-comparison population to the captured category only, nothing else', () => {
+  it('lists at most 3 product names on one active, then a "+{n} more" suffix', () => {
+    mockProducts = [
+      makeProduct({ id: 'p1', brand: 'A', name: 'One', fullIngredientText: 'Niacinamide' }),
+      makeProduct({ id: 'p2', brand: 'B', name: 'Two', fullIngredientText: 'Niacinamide' }),
+      makeProduct({ id: 'p3', brand: 'C', name: 'Three', fullIngredientText: 'Niacinamide' }),
+      makeProduct({ id: 'p4', brand: 'D', name: 'Four', fullIngredientText: 'Niacinamide' }),
+    ];
+    renderScreen({ category: 'serum' });
+
+    const row = screen.getByTestId('shelf-overlap-row-niacinamide');
+    expect(within(row).getByText('A One, B Two, C Three, +1 more')).toBeTruthy();
+  });
+
+  it('shows at most 4 overlapping actives, then a muted "+{n} more shared with your Shelf" line', () => {
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({
+        resolvedActiveKeys: ['niacinamide', 'hyaluronic_acid', 'ceramides', 'retinoid', 'aha'],
+      }),
+    );
+    mockProducts = [
+      makeProduct({ id: 'p1', fullIngredientText: 'Niacinamide' }),
+      makeProduct({ id: 'p2', fullIngredientText: 'Hyaluronic Acid' }),
+      makeProduct({ id: 'p3', fullIngredientText: 'Ceramide NP' }),
+      makeProduct({ id: 'p4', fullIngredientText: 'Retinol' }),
+      makeProduct({ id: 'p5', fullIngredientText: 'Glycolic Acid' }),
+    ];
+    renderScreen({ category: 'serum' });
+
+    const matrix = screen.getByTestId('composition-comparison-matrix');
+    expect(within(matrix).getAllByTestId(/^shelf-overlap-row-/)).toHaveLength(4);
+    expect(within(matrix).getByText('+1 more shared with your Shelf')).toBeTruthy();
+  });
+
+  it('renders "Nothing on your Shelf overlaps..." as ordinary content, not an empty state, when the Shelf has items but none overlap', () => {
+    mockProducts = [
+      makeProduct({ id: 'p1', productType: 'serum', fullIngredientText: 'Aqua, Ceramide NP' }),
+    ];
+    renderScreen({ category: 'serum' });
+
+    expect(
+      screen.getByText('Nothing on your Shelf overlaps with this composition.'),
+    ).toBeTruthy();
+    // Still fully within the matrix card's normal content, not a suppressed section.
+    expect(screen.getByTestId('composition-comparison-matrix')).toBeTruthy();
+  });
+
+  it('keeps the Category row unchanged, filtered to the captured category only', () => {
     mockProducts = [
       makeProduct({ id: 'p1', productType: 'serum' }),
       makeProduct({ id: 'p2', productType: 'cleanser' }),
@@ -510,8 +552,8 @@ describe('Story 6: comparison matrix — exactly 4 parameters, category-filtered
     expect(within(row).getByText('1')).toBeTruthy();
   });
 
-  it('shows a plain "no other [category] on your Shelf yet" message, never fabricated numbers, when zero same-category Shelf items exist', () => {
-    mockProducts = [makeProduct({ id: 'p2', productType: 'cleanser' })]; // different category only
+  it('shows the existing "no other [category] on your Shelf yet" message for the Category row, unchanged, while the overlap block still renders independently', () => {
+    mockProducts = [makeProduct({ id: 'p2', productType: 'cleanser' })]; // different category, no matching ingredients
     renderScreen({ category: 'serum' });
 
     expect(
@@ -519,10 +561,23 @@ describe('Story 6: comparison matrix — exactly 4 parameters, category-filtered
         new RegExp(`no other ${getSlotCategoryLabelPlural('serum')} on your shelf yet`, 'i'),
       ),
     ).toBeTruthy();
-    expect(screen.queryByTestId('matrix-row-functional-breadth')).toBeNull();
-    expect(screen.queryByTestId('matrix-row-ingredient-count')).toBeNull();
-    expect(screen.queryByTestId('matrix-row-active-tags')).toBeNull();
+    // The Category row itself is replaced by the message above, but the
+    // whole-Shelf overlap block is unaffected by the category-zero state.
     expect(screen.queryByTestId('matrix-row-category-signal')).toBeNull();
+    expect(screen.getByTestId('matrix-row-shelf-overlap')).toBeTruthy();
+    expect(screen.getByText('Nothing on your Shelf overlaps with this composition.')).toBeTruthy();
+  });
+
+  it('shows a distinct "Your Shelf is empty" message when the Shelf has no products at all', () => {
+    mockProducts = [];
+    renderScreen({ category: 'serum' });
+
+    expect(
+      screen.getByText('Your Shelf is empty — add a product to start comparing.'),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(new RegExp(`no other ${getSlotCategoryLabelPlural('serum')} on your shelf yet`, 'i')),
+    ).toBeNull();
   });
 
   it('renders no comparison matrix at all when no category was captured (same gating rule as the first slice)', () => {

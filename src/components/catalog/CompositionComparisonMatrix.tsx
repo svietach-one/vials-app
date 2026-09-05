@@ -3,38 +3,47 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/core/Card';
 import { Icon } from '@/components/ui/Icon';
-import {
-  ACTIVE_INGREDIENT_LABELS,
-  getSlotCategoryLabel,
-  getSlotCategoryLabelPlural,
-} from '@/constants/labels';
+import { ACTIVE_INGREDIENT_LABELS, getSlotCategoryLabel, getSlotCategoryLabelPlural } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { ShelfComparisonResult } from '@/utils/productProfile/shelfComparison';
+import type { OverlappingProduct, SharedActive } from '@/utils/productProfile/shelfOverlap';
 
 interface Props {
   comparison: ShelfComparisonResult;
+  /** Whole-Shelf active overlap (explore-insights-v2 task 04) — not category-filtered, unlike `comparison`. */
+  shelfOverlap: SharedActive[];
+  /** Total Shelf product count, regardless of category — distinguishes "empty Shelf" from "no same-category items". */
+  shelfProductCount: number;
 }
 
-/** 1-decimal average, per the tech design's shelf-comparison-rendering assumption. */
-function formatAverage(value: number): string {
-  return value.toFixed(1);
+/** At most 3 labels, then a `+{n} more` suffix — copy per task 04. */
+function formatProductList(products: OverlappingProduct[]): string {
+  const shown = products.slice(0, 3).map((p) => p.label);
+  const remainder = products.length - shown.length;
+  return remainder > 0 ? [...shown, `+${remainder} more`].join(', ') : shown.join(', ');
 }
+
+/** Show at most 4 overlapping actives — copy per task 04. */
+const MAX_OVERLAP_ROWS = 4;
 
 /**
- * Story 6 comparison matrix (2026-08-26 decision batch, FE-13). Exactly 4
- * rows against the user's own same-category Shelf items — never a 5th
- * parameter, never position/concentration/skin-type-suitability (spec Story
- * 6, §3 Non-Goals). Renders a plain zero-items message instead of the rows
- * when `sameCategoryCount` is 0 — never fabricated comparison numbers. The
- * two averages additionally surface their real data coverage
- * (`sameCategoryWithDataCount` of `sameCategoryCount`) instead of silently
- * averaging in same-category items with no recorded ingredient data; when
- * none of the same-category items have data, this reads as "no data
- * available", never as a real zero score (2026-08-26 tech-lead fix).
+ * "How this fits your Shelf" insight card (explore-insights-v2 task 04,
+ * superseding the 2026-08-26 decision batch's original 4-parameter matrix).
+ * `Functional profile breadth` and `Ingredient count` are deleted (plan
+ * decision D2) — abstract shelf statistics that changed no purchase
+ * decision. `Active tags` is replaced by a NAMED overlap block: which
+ * actives this composition shares with the Shelf, and which specific
+ * products carry them, scanned across the WHOLE Shelf regardless of
+ * category (`shelfOverlap`, unlike `comparison`, which stays
+ * category-filtered per its own documented contract). `Category` is
+ * unchanged.
+ *
+ * Overlap detection is informational, not a conflict — no amber, no
+ * cabernet; the flow's existing `palette.plum`/muted-text treatment only.
+ * Conflict detection on this screen remains a non-goal (plan decision D3).
  */
-export function CompositionComparisonMatrix({ comparison }: Props) {
-  const { category, sameCategoryCount, sameCategoryWithDataCount } = comparison;
-  const hasCoverage = sameCategoryWithDataCount > 0;
+export function CompositionComparisonMatrix({ comparison, shelfOverlap, shelfProductCount }: Props) {
+  const { category, sameCategoryCount } = comparison;
 
   // testID lives on the outer View, not <Card> — the test suite's Card mock
   // renders only `children`, dropping any other prop, so a testID placed
@@ -46,62 +55,63 @@ export function CompositionComparisonMatrix({ comparison }: Props) {
           <View style={styles.cardIconCircle}>
             <Icon name="grid" size={18} color={palette.plum} />
           </View>
-          <Text style={styles.cardTitle}>Compare to your Shelf</Text>
+          <Text style={styles.cardTitle}>How this fits your Shelf</Text>
         </View>
 
-        {sameCategoryCount === 0 ? (
-          <Text style={styles.mutedText}>
-            No other {getSlotCategoryLabelPlural(category)} on your Shelf yet to compare against.
-          </Text>
+        {shelfProductCount === 0 ? (
+          <Text style={styles.mutedText}>Your Shelf is empty — add a product to start comparing.</Text>
         ) : (
           <View style={styles.rows}>
-            <View style={styles.row} testID="matrix-row-functional-breadth">
-              <Text style={styles.rowLabel}>Functional profile breadth</Text>
-              <View style={styles.rowValues}>
-                <Text style={styles.rowValue}>{comparison.thisFunctionalTagCount}</Text>
-                <Text style={styles.rowMuted}>
-                  {hasCoverage
-                    ? `Shelf avg ${formatAverage(comparison.shelfFunctionalTagAverage)} (${sameCategoryWithDataCount} of ${sameCategoryCount} with data)`
-                    : `No ingredient data yet among your ${sameCategoryCount} same-category Shelf items`}
-                </Text>
-              </View>
+            {/*
+              Overlap detection scans the WHOLE Shelf regardless of category
+              (task 04's core point — a niacinamide moisturiser duplicates a
+              niacinamide serum just as surely), so this block renders
+              independently of `sameCategoryCount` below, never nested inside
+              its zero-state.
+            */}
+            <View style={styles.overlapBlock} testID="matrix-row-shelf-overlap">
+              {shelfOverlap.length === 0 ? (
+                // A result, not an empty state — the composition fills a gap.
+                // Rendered in the normal content style, never EmptyState/greyed out.
+                <Text style={styles.rowLabel}>Nothing on your Shelf overlaps with this composition.</Text>
+              ) : (
+                <>
+                  {shelfOverlap.slice(0, MAX_OVERLAP_ROWS).map((shared) => (
+                    <View
+                      key={shared.key}
+                      testID={`shelf-overlap-row-${shared.key}`}
+                      style={styles.overlapRow}
+                    >
+                      <Text style={styles.rowLabel}>
+                        {ACTIVE_INGREDIENT_LABELS[shared.key] ?? shared.key} — you already have{' '}
+                        {shared.products.length}
+                      </Text>
+                      <Text style={styles.rowMuted}>{formatProductList(shared.products)}</Text>
+                    </View>
+                  ))}
+                  {shelfOverlap.length > MAX_OVERLAP_ROWS ? (
+                    <Text style={styles.rowMuted}>
+                      +{shelfOverlap.length - MAX_OVERLAP_ROWS} more shared with your Shelf
+                    </Text>
+                  ) : null}
+                </>
+              )}
             </View>
 
-            <View style={styles.row} testID="matrix-row-ingredient-count">
-              <Text style={styles.rowLabel}>Ingredient count</Text>
-              <View style={styles.rowValues}>
-                <Text style={styles.rowValue}>{comparison.thisIngredientCount}</Text>
-                <Text style={styles.rowMuted}>
-                  {hasCoverage
-                    ? `Shelf avg ${formatAverage(comparison.shelfIngredientCountAverage)} (${sameCategoryWithDataCount} of ${sameCategoryCount} with data)`
-                    : `No ingredient data yet among your ${sameCategoryCount} same-category Shelf items`}
-                </Text>
+            {sameCategoryCount === 0 ? (
+              <Text style={styles.mutedText}>
+                No other {getSlotCategoryLabelPlural(category)} on your Shelf yet to compare against.
+              </Text>
+            ) : (
+              <View style={styles.row} testID="matrix-row-category-signal">
+                <Text style={styles.rowLabel}>Category</Text>
+                <View style={styles.rowValues}>
+                  <Text style={styles.rowValue}>{getSlotCategoryLabel(category)}</Text>
+                  <Text style={styles.rowMuted}>{sameCategoryCount}</Text>
+                  <Text style={styles.rowMuted}>on your Shelf</Text>
+                </View>
               </View>
-            </View>
-
-            <View style={styles.row} testID="matrix-row-active-tags">
-              <Text style={styles.rowLabel}>Active tags</Text>
-              <View style={styles.rowValues}>
-                <Text style={styles.rowValue}>
-                  {comparison.thisActiveKeys.length > 0
-                    ? comparison.thisActiveKeys.map((key) => ACTIVE_INGREDIENT_LABELS[key]).join(', ')
-                    : 'None detected'}
-                </Text>
-                <Text style={styles.rowMuted}>
-                  {comparison.shelfActiveTagOverlapCount} Shelf {getSlotCategoryLabelPlural(category)}{' '}
-                  share a tag
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.row} testID="matrix-row-category-signal">
-              <Text style={styles.rowLabel}>Category</Text>
-              <View style={styles.rowValues}>
-                <Text style={styles.rowValue}>{getSlotCategoryLabel(category)}</Text>
-                <Text style={styles.rowMuted}>{sameCategoryCount}</Text>
-                <Text style={styles.rowMuted}>on your Shelf</Text>
-              </View>
-            </View>
+            )}
           </View>
         )}
       </Card>
@@ -139,12 +149,18 @@ const styles = StyleSheet.create({
   rows: {
     gap: space[3],
   },
+  overlapBlock: {
+    gap: space[3],
+  },
+  overlapRow: {
+    gap: 2,
+  },
   row: {
     gap: space[1],
   },
   rowLabel: {
     ...typography.bodySmall,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
   rowValues: {
     flexDirection: 'row',
