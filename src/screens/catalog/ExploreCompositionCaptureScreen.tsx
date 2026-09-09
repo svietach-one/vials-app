@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -25,6 +26,8 @@ import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import type { CaptureResult, ProductType } from '@/types';
 import { trackEvent } from '@/utils/analytics';
 import { extractIngredientSection } from '@/utils/productProfile/ingredientSectionExtractor';
+import { mergeIngredientCaptures } from '@/utils/productProfile/mergeIngredientCaptures';
+import { tokenizeIngredientsText } from '@/utils/productProfile/resolve';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,10 +58,24 @@ const CATEGORY_OPTIONS = Object.keys(PRODUCT_TYPE_LABELS) as ProductType[];
  * the primary/secondary weighting from `06-capture-screen-hierarchy.md`, only
  * the primary action's own presentation changed from a filled `Button` to
  * `ScanTile`). No hero illustration — not available yet. No brand/name field
- * anywhere. Either path navigates straight to `ExploreCompositionResult` the
- * instant capture completes, in the same synchronous handler, so the raw
- * text is never at risk of being lost to an intermediate step (spec Story 1
- * AC2/AC3).
+ * anywhere.
+ *
+ * **2026-09-09 (docs/investigations/ocr-incomplete-ingredient-capture.md):**
+ * the PHOTO path no longer navigates the instant a shot completes — a single
+ * photo often can't fit a long ingredient list in one legible frame (real
+ * device-QA sample: a long single-line wrap on a narrow box side), and there
+ * is no reliable way to auto-detect that (an earlier geometry-based attempt
+ * shipped and had to be reverted the same day — see the investigation doc
+ * §6a). Instead, after a capture the screen pauses on an explicit "Text
+ * didn't fit? Add another shot." / "Continue" choice, mirroring the
+ * already-shipped pattern in `IngredientsSection.tsx`; a second shot is
+ * merged onto the first via `mergeIngredientCaptures.ts` (fuzzy tail/head
+ * overlap dedup, not naive concatenation). This deliberately supersedes this
+ * file's own previously-documented "instant navigate, no intermediate step"
+ * contract — but PHOTO ONLY. The PASTE path is unchanged and still navigates
+ * the instant "Parse ingredients" is pressed (spec Story 1 AC2/AC3 stands
+ * for paste): pasted text has no framing/multi-shot problem to solve, and
+ * the user can already edit it before submitting.
  */
 export default function ExploreCompositionCaptureScreen({ navigation, route }: Props) {
   const [category, setCategory] = useState<ProductType | null>(route.params?.category ?? null);
@@ -66,17 +83,63 @@ export default function ExploreCompositionCaptureScreen({ navigation, route }: P
   const [cameraVisible, setCameraVisible] = useState(false);
   const [pasteVisible, setPasteVisible] = useState(false);
   const [pasteText, setPasteText] = useState('');
+  // Raw text accumulated across the photo path's shots — null before any
+  // shot completes. Merged (not overwritten, see mergeIngredientCaptures) on
+  // every subsequent capture, so "Add another shot" can be tapped more than
+  // once for a very long list.
+  const [capturedIngredientsText, setCapturedIngredientsText] = useState<string | null>(null);
+  // One thumbnail per shot taken, in order — the visible proof (2026-09-09
+  // user feedback: "не понимаю что оно прикрепилось") that every photo the
+  // user took was actually picked up, not just the most recent one.
+  const [capturedPhotoUris, setCapturedPhotoUris] = useState<string[]>([]);
+  // Dedicated shot counter — NOT derived from capturedPhotoUris.length.
+  // sourceUri can legitimately come back null (CameraCaptureModal.tsx sets
+  // it from `assets[0]?.uri ?? null`), in which case that array would
+  // undercount how many shots were actually merged into
+  // capturedIngredientsText. finalizeCapturedText's single-vs-multi-shot
+  // decision must never depend on optional data — code-review caught that
+  // exactly this gap could silently reintroduce the §6d data-loss bug.
+  const [shotCount, setShotCount] = useState(0);
+
+  // `extractIngredientSection`'s single "cut at the first stop-marker" pass
+  // is built for ONE complete label capture — on a multi-shot merge it can
+  // silently drop real content. Confirmed on a real device photo pair
+  // (2026-09-09, docs/investigations/ocr-incomplete-ingredient-capture.md):
+  // shot 1 already contained its own trailing "Made in Poland by:" footer
+  // (its photo happened to capture both), so once shot 2's genuinely new
+  // ingredients (Isopropyl Myristate, Cetearyl Alcohol, Hydroxyacetophenone)
+  // were appended after it, the single cut-at-first-marker pass stopped at
+  // shot 1's OWN "Made in" and discarded all of shot 2's contribution.
+  // Extracting each shot individually before merging doesn't fix this
+  // either — a shot with no header of its own (a mid-label continuation)
+  // can have a warnings sentence sitting before ITS OWN real ingredient
+  // tail, with nothing to anchor on. So: skip the trim entirely once more
+  // than one photo has been merged, and trust `mergeIngredientCaptures`'s
+  // own overlap dedup instead — a noisier ingredient count (some
+  // Directions/Warnings prose may show up as fake tokens) is the accepted
+  // cost of never silently losing real ingredient data, consistent with
+  // this module's own "under-filtering over over-filtering" principle.
+  function finalizeCapturedText(rawText: string): string {
+    return shotCount > 1 ? rawText : extractIngredientSection(rawText);
+  }
+
+  // Live count for the "N ingredients recognized" status line — mirrors
+  // exactly what will navigate to the Result screen (see
+  // `finalizeCapturedText`), so the number shown here is never lying about
+  // what actually made it through. Memoized: this reruns a regex-based
+  // header search over the full accumulated text, and this screen re-renders
+  // for reasons unrelated to it (category chip taps, paste modal state).
+  const finalizedCapturedText = useMemo(
+    () => (capturedIngredientsText !== null ? finalizeCapturedText(capturedIngredientsText) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- finalizeCapturedText closes over shotCount, already a dep
+    [capturedIngredientsText, shotCount],
+  );
+  const recognizedIngredientCount =
+    finalizedCapturedText !== null ? tokenizeIngredientsText(finalizedCapturedText).length : 0;
 
   function goToResult(rawIngredientsText: string) {
-    // Cuts off Directions/Warnings/manufacturer text that a real product
-    // photo often captures right after the ingredients paragraph (2026-08-27
-    // tech-lead review follow-up) — applied once, here, before the text is
-    // ever stored or analyzed, so both capture paths and every downstream
-    // consumer (matrix count, active-ingredient parsing, a promoted
-    // Product's fullIngredientText) see the same clean text.
-    const trimmedIngredientsText = extractIngredientSection(rawIngredientsText);
     navigation.navigate('ExploreCompositionResult', {
-      rawIngredientsText: trimmedIngredientsText,
+      rawIngredientsText,
       category,
     });
   }
@@ -84,8 +147,26 @@ export default function ExploreCompositionCaptureScreen({ navigation, route }: P
   function handleCapture(result: CaptureResult) {
     setCameraVisible(false);
     if (result.mode !== 'inci') return;
-    trackEvent({ name: 'explore_capture_started', method: 'photo', category });
-    goToResult(result.rawText);
+    // Fires once per FLOW, not once per shot (docs/tasks/explore_insights/
+    // 07-analytics-events.md names this a capture-flow-start event, and the
+    // funnel it feeds compares it against explore_result_viewed) — a
+    // "Add another shot" reshoot is a continuation of the same flow, not a
+    // new one, so it must not re-fire this.
+    if (capturedIngredientsText === null) {
+      trackEvent({ name: 'explore_capture_started', method: 'photo', category });
+    }
+    setShotCount((prev) => prev + 1);
+    setCapturedIngredientsText((prev) =>
+      prev !== null ? mergeIngredientCaptures(prev, result.rawText) : result.rawText,
+    );
+    const { sourceUri } = result;
+    if (sourceUri) {
+      setCapturedPhotoUris((prev) => [...prev, sourceUri]);
+    }
+  }
+
+  function handleContinue() {
+    if (finalizedCapturedText !== null) goToResult(finalizedCapturedText);
   }
 
   function handleParsePress() {
@@ -94,7 +175,7 @@ export default function ExploreCompositionCaptureScreen({ navigation, route }: P
     setPasteText('');
     if (text) {
       trackEvent({ name: 'explore_capture_started', method: 'paste', category });
-      goToResult(text);
+      goToResult(extractIngredientSection(text));
     }
   }
 
@@ -167,17 +248,57 @@ export default function ExploreCompositionCaptureScreen({ navigation, route }: P
           <Text style={styles.categoryErrorText}>Please select a category to continue.</Text>
         ) : null}
 
-        <View style={styles.captureBlock}>
-          <ScanTile
-            icon="camera"
-            label="Take a photo"
-            caption="Photograph the ingredient list on the label"
-            onPress={handlePhotographPress}
-          />
-          <Button variant="textActive" size="md" onPress={handlePastePress} style={styles.pasteLinkBtn}>
-            Paste text manually
-          </Button>
-        </View>
+        {capturedIngredientsText === null ? (
+          <View style={styles.captureBlock}>
+            <ScanTile
+              icon="camera"
+              label="Take a photo"
+              caption="Photograph the ingredient list on the label"
+              onPress={handlePhotographPress}
+            />
+            <Button variant="textActive" size="md" onPress={handlePastePress} style={styles.pasteLinkBtn}>
+              Paste text manually
+            </Button>
+          </View>
+        ) : (
+          <View style={styles.captureBlock}>
+            <View style={styles.thumbnailRow}>
+              {capturedPhotoUris.map((uri, index) => (
+                <Image
+                  key={`${uri}-${index}`}
+                  source={{ uri }}
+                  style={styles.thumbnail}
+                  accessibilityLabel={`Captured photo ${index + 1}`}
+                />
+              ))}
+            </View>
+            <Text style={styles.capturedNotice}>
+              {capturedPhotoUris.length > 1
+                ? `${capturedPhotoUris.length} photos combined — `
+                : ''}
+              {recognizedIngredientCount === 1
+                ? '1 ingredient recognized'
+                : `${recognizedIngredientCount} ingredients recognized`}
+            </Text>
+            <Button variant="primary" size="lg" fullWidth onPress={handleContinue}>
+              Continue
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              fullWidth
+              onPress={handlePhotographPress}
+              accessibilityLabel="Add another shot"
+            >
+              Missing something? Add another shot.
+            </Button>
+            <Text style={styles.addShotHint}>
+              Turn the jar or unfold the label to show what&apos;s left, and make sure
+              it all fits in the new photo — it will be added to what we already read,
+              not replace it.
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       <CameraCaptureModal
@@ -264,6 +385,31 @@ const styles = StyleSheet.create({
   captureBlock: {
     gap: space[3],
     paddingVertical: space[2],
+  },
+  thumbnailRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: space[2],
+  },
+  thumbnail: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderDivider,
+    backgroundColor: colors.surfaceSunken,
+  },
+  capturedNotice: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Medium',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  addShotHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   pasteLinkBtn: {
     alignSelf: 'center',

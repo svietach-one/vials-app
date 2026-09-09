@@ -19,10 +19,17 @@
  *
  * Contract this suite pins down where the redesign leaves it open (qa-lead
  * judgment call, flagged for engineer/tech-lead to confirm or override):
- *   - Both capture methods converge on setting local raw-text state and
- *     immediately navigating to `ExploreCompositionResult` with
- *     `{ rawIngredientsText, category }` — no intermediate "Continue" step.
- *     UNCHANGED by either revision (layout only).
+ *   - The PASTE method sets local raw-text state and immediately navigates
+ *     to `ExploreCompositionResult` with `{ rawIngredientsText, category }` —
+ *     no intermediate "Continue" step. UNCHANGED by either revision (layout
+ *     only).
+ *   - The PHOTO method, as of 2026-09-09 (docs/investigations/
+ *     ocr-incomplete-ingredient-capture.md), no longer navigates instantly —
+ *     it pauses on a "Missing something? Add another shot." / "Continue"
+ *     choice, since a single photo can't always fit a long ingredient list
+ *     in one legible frame. A second shot merges onto the first via
+ *     `mergeIngredientCaptures.ts` before "Continue" navigates. This
+ *     deliberately supersedes what this suite pinned down before that date.
  *   - The paste path's submit control is literally "Parse ingredients" —
  *     copied verbatim from `IngredientsSection.tsx`'s existing paste modal.
  *     UNCHANGED — only the *trigger* that opens this modal has ever changed
@@ -55,8 +62,15 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 // CaptureResult shape for mode="inci" per CameraCaptureModal.tsx:
-// { mode: 'inci', rawText, hadNonLatin, sourceUri }.
+// { mode: 'inci', rawText, hadNonLatin, sourceUri }. `mockNextCaptureText`/
+// `mockNextSourceUri` are read at press time (not baked in at mock-definition
+// time) so a test can simulate a *second* shot returning different text (the
+// "Add another shot" merge path) or a null sourceUri (CameraCaptureModal.tsx
+// sets it from `assets[0]?.uri ?? null`, so real code must not assume it's
+// always present).
 let capturedCaptureProps: { onCapture: (r: unknown) => void } | null = null;
+let mockNextCaptureText = 'Aqua, Niacinamide, Glycerin';
+let mockNextSourceUri: string | null = 'file://ingredients.jpg';
 jest.mock('@/components/camera/CameraCaptureModal', () => {
   const { Pressable, Text: RNText } = require('react-native');
   return {
@@ -69,9 +83,9 @@ jest.mock('@/components/camera/CameraCaptureModal', () => {
           onPress={() =>
             props.onCapture({
               mode: 'inci',
-              rawText: 'Aqua, Niacinamide, Glycerin',
+              rawText: mockNextCaptureText,
               hadNonLatin: false,
-              sourceUri: 'file://ingredients.jpg',
+              sourceUri: mockNextSourceUri,
             })
           }
         >
@@ -130,6 +144,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   capturedCaptureProps = null;
   mockButtonCalls = [];
+  mockNextCaptureText = 'Aqua, Niacinamide, Glycerin';
+  mockNextSourceUri = 'file://ingredients.jpg';
 });
 
 describe('Analytics (explore-insights-v2 task 07): explore_capture_started', () => {
@@ -174,6 +190,21 @@ describe('Analytics (explore-insights-v2 task 07): explore_capture_started', () 
     fireEvent.press(screen.getByText('Parse ingredients'));
 
     expect(trackEvent).not.toHaveBeenCalled();
+  });
+
+  it('fires exactly once per capture FLOW, not once per shot (code review 2026-09-09: "Add another shot" must not re-fire it)', () => {
+    renderScreen();
+    selectCategory();
+    fireEvent.press(screen.getByText('Take a photo'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+
+    fireEvent.press(screen.getByLabelText('Add another shot'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+
+    const captureStartedCalls = (trackEvent as jest.Mock).mock.calls.filter(
+      (call) => call[0].name === 'explore_capture_started',
+    );
+    expect(captureStartedCalls).toHaveLength(1);
   });
 });
 
@@ -252,7 +283,7 @@ describe('AC (Story 1, bullet 4): no brand/name input anywhere on this screen', 
 });
 
 describe('AC (Story 1, bullets 2+3): raw text is persisted the instant capture completes, before navigation', () => {
-  it('photo path: opens CameraCaptureModal(mode="inci") and, on capture, navigates to the result screen with the captured raw text', () => {
+  it('photo path: opens CameraCaptureModal(mode="inci"), then navigates with the captured raw text once "Continue" is pressed', () => {
     const navigation = renderScreen();
 
     selectCategory();
@@ -261,12 +292,141 @@ describe('AC (Story 1, bullets 2+3): raw text is persisted the instant capture c
 
     fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
 
+    // Does not navigate immediately — pauses on the Continue/Add-another-shot
+    // choice (2026-09-09 revision) instead of the pre-revision instant nav.
+    expect(navigation.navigate).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByText('Continue'));
+
     expect(navigation.navigate).toHaveBeenCalledWith(
       'ExploreCompositionResult',
       expect.objectContaining({ rawIngredientsText: 'Aqua, Niacinamide, Glycerin' }),
     );
   });
 
+  it('photo path: "Add another shot" merges a second capture onto the first before Continue navigates', () => {
+    const navigation = renderScreen();
+
+    selectCategory();
+    fireEvent.press(screen.getByText('Take a photo'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+
+    expect(screen.getByText("Missing something? Add another shot.")).toBeTruthy();
+
+    mockNextCaptureText = 'Glycerin, Sodium Hyaluronate';
+    fireEvent.press(screen.getByLabelText('Add another shot'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+    fireEvent.press(screen.getByText('Continue'));
+
+    // mergeIngredientCaptures dedupes the "Glycerin" overlap between the two
+    // shots rather than concatenating them naively.
+    expect(navigation.navigate).toHaveBeenCalledWith(
+      'ExploreCompositionResult',
+      expect.objectContaining({
+        rawIngredientsText: 'Aqua, Niacinamide, Glycerin, Sodium Hyaluronate',
+      }),
+    );
+  });
+});
+
+describe('Capture confirmation feedback (2026-09-09 user feedback: unclear whether a photo attached, unclear merge-vs-overwrite, unsure all photos counted)', () => {
+  it('shows a thumbnail and an ingredient count after a single capture', () => {
+    renderScreen();
+
+    selectCategory();
+    fireEvent.press(screen.getByText('Take a photo'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+
+    expect(screen.getByLabelText('Captured photo 1')).toBeTruthy();
+    expect(screen.queryByLabelText('Captured photo 2')).toBeNull();
+    // mockNextCaptureText defaults to 'Aqua, Niacinamide, Glycerin' — 3 tokens.
+    expect(screen.getByText('3 ingredients recognized')).toBeTruthy();
+    // Single-shot case: no "N photos combined" prefix.
+    expect(screen.queryByText(/photos combined/i)).toBeNull();
+  });
+
+  it('shows a thumbnail per shot and a "combined" count once a second shot is added', () => {
+    renderScreen();
+
+    selectCategory();
+    fireEvent.press(screen.getByText('Take a photo'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+
+    mockNextCaptureText = 'Glycerin, Sodium Hyaluronate';
+    fireEvent.press(screen.getByLabelText('Add another shot'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+
+    expect(screen.getByLabelText('Captured photo 1')).toBeTruthy();
+    expect(screen.getByLabelText('Captured photo 2')).toBeTruthy();
+    // Merged, deduped text is "Aqua, Niacinamide, Glycerin, Sodium Hyaluronate" — 4 tokens.
+    expect(screen.getByText('2 photos combined — 4 ingredients recognized')).toBeTruthy();
+  });
+
+  it('explains that a second shot adds to the first rather than replacing it', () => {
+    renderScreen();
+
+    selectCategory();
+    fireEvent.press(screen.getByText('Take a photo'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+
+    expect(
+      screen.getByText(/added to what we already read, not replace it/i),
+    ).toBeTruthy();
+  });
+
+  it('regression (2026-09-09 real device photos): does not silently drop a second shot\'s new ingredients behind the first shot\'s own trailing Directions/Warnings text', () => {
+    // Real-world shape confirmed via actual Tesseract output on the user's
+    // photos: shot 1's own photo happened to also capture the trailing
+    // "Made in ..." manufacturer footer, so extractIngredientSection's
+    // single cut-at-first-stop-marker pass — if applied to the merged
+    // text — would stop there and discard everything shot 2 contributed.
+    const navigation = renderScreen();
+
+    selectCategory();
+    mockNextCaptureText = 'Ingredients Aqua, Niacinamide, Made in Poland by Farmapol';
+    fireEvent.press(screen.getByText('Take a photo'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+
+    mockNextCaptureText = 'Isopropyl Myristate, Cetearyl Alcohol, Hydroxyacetophenone';
+    fireEvent.press(screen.getByLabelText('Add another shot'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+    fireEvent.press(screen.getByText('Continue'));
+
+    const navigatedText = (navigation.navigate as jest.Mock).mock.calls[0][1].rawIngredientsText as string;
+    expect(navigatedText).toContain('Isopropyl Myristate');
+    expect(navigatedText).toContain('Cetearyl Alcohol');
+    expect(navigatedText).toContain('Hydroxyacetophenone');
+  });
+
+  it('regression (code review 2026-09-09): still treats it as a multi-shot merge even when a shot\'s sourceUri comes back null', () => {
+    // CameraCaptureModal.tsx sets sourceUri from `assets[0]?.uri ?? null` —
+    // it can legitimately be null. The single-vs-multi-shot decision in
+    // finalizeCapturedText must not be derived from capturedPhotoUris.length
+    // (which only grows when sourceUri is truthy), or a null sourceUri on
+    // either shot would silently re-enable the extraction pass and
+    // reintroduce the exact data-loss bug the previous test guards against.
+    const navigation = renderScreen();
+
+    selectCategory();
+    mockNextCaptureText = 'Ingredients Aqua, Niacinamide, Made in Poland by Farmapol';
+    mockNextSourceUri = null;
+    fireEvent.press(screen.getByText('Take a photo'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+
+    mockNextCaptureText = 'Isopropyl Myristate, Cetearyl Alcohol, Hydroxyacetophenone';
+    mockNextSourceUri = null;
+    fireEvent.press(screen.getByLabelText('Add another shot'));
+    fireEvent.press(screen.getByLabelText('Simulate OCR capture'));
+    fireEvent.press(screen.getByText('Continue'));
+
+    const navigatedText = (navigation.navigate as jest.Mock).mock.calls[0][1].rawIngredientsText as string;
+    expect(navigatedText).toContain('Isopropyl Myristate');
+    expect(navigatedText).toContain('Cetearyl Alcohol');
+    expect(navigatedText).toContain('Hydroxyacetophenone');
+  });
+});
+
+describe('Paste path (AC Story 1, bullets 2+3, unchanged by the 2026-09-09 photo-path revision): persists raw text and navigates instantly', () => {
   it('paste path: applies no OCR step and navigates with the exact pasted text', () => {
     const navigation = renderScreen();
 
