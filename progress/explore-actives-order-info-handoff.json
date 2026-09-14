@@ -1,0 +1,34 @@
+{
+  "task": "explore-actives-order-info",
+  "phase": "planner",
+  "status": "DESIGNED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/explore-actives-order-info.md",
+    "tech_design": "docs/tech-design/explore-actives-order-info.md",
+    "tests": "TBD (qa-lead)"
+  },
+  "step0_findings": {
+    "premise_correction": "The original brief assumed DetectedActivesCard shows no per-ingredient position data. Direct file/git verification found this is false: explore-insights-v2 tasks 01-03 (git 47ad52c/1235824/1fbd528/1694419), already merged to dev, wired real INCI position and a '1% line' heuristic through resolve.ts/onePercentLine.ts into DetectedActivesCard.tsx, which already renders '{ordinal} of {n}' and a below-the-line note per row. Scope was corrected (product-confirmed) from 'explain why no position is shown' to 'explain the position/1%-line data already shown'.",
+    "reusable_shell": "src/components/routine/AttributionTooltip.tsx already implements the exact backdrop+slide-up-card+header+close tooltip shell needed here, currently used for per-ingredient-match attribution copy in RoutineStepCard.tsx. This task reuses its visual pattern via a new, simpler static-content component (InfoTooltip.tsx) rather than widening AttributionTooltip itself.",
+    "deferred_scope_confirmed": "docs/tasks/explore_insights/03-actives-card-position-dose.md's own 'Out of scope' section already named 'making the rows tappable / an ingredient detail sheet' as a later batch - this task's single card-level info trigger is deliberately distinct from that deferred per-row idea, not a partial implementation of it."
+  },
+  "open_items_resolution": {
+    "copy_wording": "NEEDS_CLARIFICATION -> owner: design. Draft copy provided in spec §5, marked PLACEHOLDER per this project's established convention (docs/specs/explore-composition.md Story 7 precedent). Does not block engineer starting FE-1/FE-2/FE-3 (tech design §5)."
+  },
+  "guardrails_respected": [
+    "resolve.ts / ingredientParser.ts / onePercentLine.ts - not touched, no new position/parsing logic",
+    "No per-row detail sheet - single card-level trigger only",
+    "No % match / efficacy score / invented number introduced",
+    "No existing DetectedActivesCard copy strings reworded",
+    "CompositionInsightsSection.tsx / useCompositionInsights.ts / ExploreCompositionResultScreen.tsx / WishlistEntryDetailScreen.tsx - unchanged, feature inherited automatically via the shared component"
+  ],
+  "notes": {
+    "branch": "feature/explore-personalization (from origin/dev) - shared with the concurrent explore-fit-signals task, no file overlap (this task touches only DetectedActivesCard.tsx and the new InfoTooltip.tsx).",
+    "authored_by": "Written directly by the coordinating session after the planner subagent's own approval gate could not be satisfied through agent-to-agent relay (see progress log for context) - content matches the planner's own fully-drafted proposal verbatim."
+  }
+}

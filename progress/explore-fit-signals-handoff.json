@@ -1,0 +1,28 @@
+{
+  "task": "explore-fit-signals",
+  "phase": "design",
+  "status": "DESIGNED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/explore-fit-signals.md",
+    "tech_design": "docs/tech-design/explore-fit-signals.md"
+  },
+  "branch": "feature/explore-personalization (branched from origin/dev, checked out locally, not yet pushed)",
+  "planner_notes": {
+    "context_note": "Task brief's Context section was written against a stale snapshot of the codebase. A prior 'explore-insights-v2' round (git 47ad52c/0d7a47d/9280677/11db0e1/1694419) already shipped on top of the original Explore Composition feature and changed SkinTypeCautionNotice.tsx/useCompositionInsights.ts before this task started. In particular, a skin-type-unset nudge already exists (commit 9280677), scoped narrower than this task's original Story E description. Product has since confirmed (2026-09-14) that narrower scope should be KEPT, not widened. See progress/explore-fit-signals.md Log for full detail.",
+    "open_questions_resolved_2026_09_14": [
+      "Goal-fit 'no overlap' rendering: RESOLVED - SHOW the miss sentence (goalCoverage.ts 'not_owned' tone). Story 1 AC4 finalized, GoalFitCard miss branch (FE-2) unblocked.",
+      "Two-simultaneous-goal-findings layout: RESOLVED - ONE card, one line per goal (mirrors GoalCoverageBanner). Story 1 AC2 finalized.",
+      "Skin-type-unset nudge scope: RESOLVED - KEEP current caution !== null && skinType === null gate, confirmed as a deliberate non-change, not widened. Story 3 AC3 finalized."
+    ],
+    "open_questions_remaining": [
+      "Exact copy wording for goal-fit match/miss sentences - owner: design. PLACEHOLDER per project convention (same as explore-composition.md's Story 7 caution copy), not invented here."
+    ],
+    "unblocked_tasks": "All of FE-1 through FE-6 (tech design §3) are now fully specified and unblocked, including GoalFitCard's (FE-2) miss-rendering branch and two-finding layout. Only the literal copy strings remain PLACEHOLDER pending design; no implementation task is blocked by that.",
+    "no_production_code_touched": true
+  }
+}
