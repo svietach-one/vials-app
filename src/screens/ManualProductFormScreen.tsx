@@ -17,6 +17,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ContributionConsentModal, type ContributionConsentModalVariant } from '@/components/product/ContributionConsentModal';
 import { ContributionToggle } from '@/components/product/ContributionToggle';
+import { GrowDatabasePromptModal } from '@/components/product/GrowDatabasePromptModal';
 import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { AppHeader } from '@/components/ui/core/AppHeader';
@@ -51,17 +52,18 @@ import type {
   ProductSource,
   ProductType,
 } from '@/types';
-import type { CatalogStackParamList } from '@/navigation/AppNavigator';
+import type { AddProductFlowParamList, CatalogStackParamList } from '@/navigation/AppNavigator';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useWishlistStore } from '@/store/wishlistStore';
-import { canShareContributionPhoto } from '@/utils/contributionConsent';
+import { canShareContributionPhoto, setContributionConsent, shouldShowGrowDatabasePrompt } from '@/utils/contributionConsent';
 import { contributedProductsCount, decideManualSave } from '@/utils/contributionConsentFlow';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Props = NativeStackScreenProps<CatalogStackParamList, 'ManualProductForm'>;
+type Props = NativeStackScreenProps<AddProductFlowParamList, 'ManualProductForm'>;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -447,12 +449,14 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
     ocrPrefill,
     capturedPhotoUri,
     explorePrefill,
+    entryContext,
   } = route.params;
 
   const products = useProductsStore((st) => st.products);
   const addProduct = useProductsStore((st) => st.addProduct);
   const updateProduct = useProductsStore((st) => st.updateProduct);
   const profile = useProfileStore((s) => s.profile);
+  const updateProfile = useProfileStore((s) => s.updateProfile);
   const productRepository = useProductRepository();
   // Explore Composition flow (docs/specs/explore-composition.md Story 5) —
   // only used to remove a promoted WishlistEntry, and only after a
@@ -532,6 +536,12 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   // waiting for the modal to close before continuing to the scheduler sheet
   // (reminder — that save already resolved, see handleConsentContinue).
   const [pendingConsentProduct, setPendingConsentProduct] = useState<Product | null>(null);
+  // "Help grow the Vials database" prompt (tech design FE-9, spec Story 3) —
+  // the just-saved product waiting on this SEPARATE, global, once-per-install
+  // decision. Deliberately not merged with `pendingConsentProduct`/
+  // `ContributionConsentModal` above (tech design Assumption 3): the two
+  // gate different settings and can appear back-to-back, never together.
+  const [growDatabasePendingProduct, setGrowDatabasePendingProduct] = useState<Product | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -788,16 +798,53 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
    * already saved (per the "no retroactive share" scope decision) — they
    * only govern the global status/toggle for future saves.
    */
-  // Lands the user back on My Shelf with the usual "Saved" toast — the exit
-  // both the routine scheduler's own close AND a skipped scheduler share.
-  function finishSave(product: Product) {
-    navigation.navigate('Catalog', {
-      toast: {
-        savedAt: Date.now(),
-        contributionOptIn: product.contributionOptIn === true,
-        contributedCount: contributedProductsCount(useProductsStore.getState().products),
+  // Lands the user back on My Shelf with the usual "Saved" toast, or — during
+  // onboarding — completes onboarding instead (tech design FE-9, spec Story
+  // 4 AC3). `AddProductFlowParamList` deliberately has no `Catalog` route
+  // (it's shared with OnboardingStack, which has no such screen), so the
+  // catalog-only branch below is typed against the wider `CatalogStackParamList`
+  // navigation this screen also has whenever `entryContext` isn't 'onboarding'.
+  function exitAfterSave(product: Product) {
+    if (entryContext === 'onboarding') {
+      updateProfile({ onboardingCompleted: true });
+      return;
+    }
+    (navigation as unknown as NativeStackNavigationProp<CatalogStackParamList>).navigate(
+      'Catalog',
+      {
+        toast: {
+          savedAt: Date.now(),
+          contributionOptIn: product.contributionOptIn === true,
+          contributedCount: contributedProductsCount(useProductsStore.getState().products),
+        },
       },
-    });
+    );
+  }
+
+  // Genuinely manual, new (non-edit, non-corpus, non-Explore-Composition)
+  // saves are the only ones the "Help grow the Vials database" prompt can
+  // gate (spec Story 3 AC4) — the exit above always runs for everything else.
+  function finishSave(product: Product) {
+    const isGenuinelyManual = !isEditMode && !prefillSource && !explorePrefill;
+    if (isGenuinelyManual && shouldShowGrowDatabasePrompt(profile?.contributionConsent)) {
+      setGrowDatabasePendingProduct(product);
+      return;
+    }
+    exitAfterSave(product);
+  }
+
+  function handleGrowDatabaseAgree() {
+    updateProfile({ contributionConsent: setContributionConsent(true) });
+    const product = growDatabasePendingProduct;
+    setGrowDatabasePendingProduct(null);
+    if (product) exitAfterSave(product);
+  }
+
+  function handleGrowDatabaseNotNow() {
+    updateProfile({ contributionConsent: setContributionConsent(false) });
+    const product = growDatabasePendingProduct;
+    setGrowDatabasePendingProduct(null);
+    if (product) exitAfterSave(product);
   }
 
   // A Wishlist save has no routine to place it in — it isn't physically
@@ -1155,6 +1202,12 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         variant={consentModalVariant ?? 'first-time'}
         onContinue={handleConsentContinue}
         onNotNow={handleConsentNotNow}
+      />
+
+      <GrowDatabasePromptModal
+        visible={growDatabasePendingProduct !== null}
+        onAgree={handleGrowDatabaseAgree}
+        onNotNow={handleGrowDatabaseNotNow}
       />
 
       <RoutineSchedulerSheet

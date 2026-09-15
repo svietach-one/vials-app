@@ -224,10 +224,17 @@ describe('SkinProfileSetupScreen — Skip advances without persisting that step\
   });
 });
 
-// ── Regression pin: Step 6 Finish target (tech design Assumption 4) ─────────────
+// ── Regression pin: Step 6 Finish target ─────────────────────────────────────
+//
+// Originally pinned "Finish -> ContributionConsent" (tech design Assumption
+// 4). Superseded by docs/tech-design/onboarding-simplification.md FE-4,
+// which removes ContributionConsent from the onboarding stack entirely and
+// retargets Finish at FirstProduct — see
+// tests/onboarding-simplification/SkinProfileSetupScreen.finishTarget.test.tsx
+// for that task's own, more complete coverage of this contract.
 
-describe('SkinProfileSetupScreen — Finish navigates to ContributionConsent, never FirstProduct or onboardingCompleted (tech design Assumption 4)', () => {
-  it('calls navigation.replace("ContributionConsent") when Finish is pressed on step 6', () => {
+describe('SkinProfileSetupScreen — Finish navigates to FirstProduct, never ContributionConsent or onboardingCompleted (tech design onboarding-simplification.md FE-4)', () => {
+  it('calls navigation.replace("FirstProduct") when Finish is pressed on step 6', () => {
     const navigation = renderScreen();
 
     advanceSkinType();
@@ -237,8 +244,8 @@ describe('SkinProfileSetupScreen — Finish navigates to ContributionConsent, ne
     advanceAdditionalInfo();
     finishCityStep();
 
-    expect(navigation.replace).toHaveBeenCalledWith('ContributionConsent');
-    expect(navigation.replace).not.toHaveBeenCalledWith('FirstProduct');
+    expect(navigation.replace).toHaveBeenCalledWith('FirstProduct');
+    expect(navigation.replace).not.toHaveBeenCalledWith('ContributionConsent');
   });
 
   it('never writes onboardingCompleted in any updateProfile call across the whole flow', () => {
@@ -256,7 +263,7 @@ describe('SkinProfileSetupScreen — Finish navigates to ContributionConsent, ne
     });
   });
 
-  it('lands on ContributionConsent even when every step was skipped', () => {
+  it('lands on FirstProduct even when every step was skipped', () => {
     const navigation = renderScreen();
 
     fireEvent.press(screen.getByText('Skip'));
@@ -267,14 +274,14 @@ describe('SkinProfileSetupScreen — Finish navigates to ContributionConsent, ne
     fireEvent.press(screen.getByText('Skip'));
 
     expect(mockUpdateProfile).not.toHaveBeenCalled();
-    expect(navigation.replace).toHaveBeenCalledWith('ContributionConsent');
+    expect(navigation.replace).toHaveBeenCalledWith('FirstProduct');
   });
 });
 
 // ── CityStep (step 6 of 6) — weather-driven seasonal rules ──────────────────────
 
 describe('SkinProfileSetupScreen — CityStep persists the selected city (Story 6, tech design §1.7)', () => {
-  it('commits the selected city and finishes onto ContributionConsent', () => {
+  it('commits the selected city and finishes onto FirstProduct', () => {
     const navigation = renderScreen();
 
     advanceSkinType();
@@ -293,6 +300,6 @@ describe('SkinProfileSetupScreen — CityStep persists the selected city (Story 
     expect(mockUpdateProfile).toHaveBeenCalledWith({
       city: expect.objectContaining({ name: 'Warsaw, Poland' }),
     });
-    expect(navigation.replace).toHaveBeenCalledWith('ContributionConsent');
+    expect(navigation.replace).toHaveBeenCalledWith('FirstProduct');
   });
 });

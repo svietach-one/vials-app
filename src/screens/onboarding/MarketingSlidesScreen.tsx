@@ -38,13 +38,6 @@ const SLIDES = [
     accent: colors.statusInfo,
   },
   {
-    eyebrow: 'PRIVACY FIRST',
-    title: 'Your beauty secrets stay exactly that — yours.',
-    body: 'Your skin profile, routines, and procedure history stay on your device by default — nothing personal is uploaded unless you choose to. When you add a new product to your shelf, anonymous data about it joins the Vials database, so the catalog grows for the whole community.',
-    cta: 'Next',
-    accent: colors.statusWarning,
-  },
-  {
     eyebrow: 'SAFETY LOGIC',
     title: 'Warnings that actually matter.',
     body: 'Instead of long lists of generic advice, Vials watches your own routine and warns you only about the combinations of products and procedures that actually apply to you.',

@@ -15,12 +15,12 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProductRepository } from '@/hooks/useCorpusRepositories';
-import type { CatalogStackParamList } from '@/navigation/AppNavigator';
+import type { AddProductFlowParamList } from '@/navigation/AppNavigator';
 import type { CorpusProduct } from '@/services/corpus/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Props = NativeStackScreenProps<CatalogStackParamList, 'BarcodeScanner'>;
+type Props = NativeStackScreenProps<AddProductFlowParamList, 'BarcodeScanner'>;
 
 type ScanState = 'scanning' | 'looking_up' | 'found' | 'not_found';
 
@@ -122,7 +122,8 @@ function ScanResultCard({ scanState, corpusResult, onAdd, onAddManually, onScanA
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function BarcodeScannerScreen({ navigation }: Props) {
+export default function BarcodeScannerScreen({ navigation, route }: Props) {
+  const entryContext = route.params?.entryContext;
   const [permission, requestPermission] = useCameraPermissions();
   const [scanState, setScanState] = useState<ScanState>('scanning');
   const [corpusResult, setCorpusResult] = useState<CorpusProduct | null>(null);
@@ -228,12 +229,15 @@ export default function BarcodeScannerScreen({ navigation }: Props) {
         corpusResult={corpusResult}
         onAdd={() => {
           if (corpusResult) {
-            navigation.navigate('ManualProductForm', { prefillCorpusProduct: corpusResult });
+            navigation.navigate('ManualProductForm', {
+              prefillCorpusProduct: corpusResult,
+              entryContext,
+            });
           }
         }}
         onAddManually={() => {
           setCorpusResult(null);
-          navigation.navigate('ManualProductForm', {});
+          navigation.navigate('ManualProductForm', { entryContext });
         }}
         onScanAgain={resetScanner}
       />

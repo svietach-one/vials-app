@@ -47,7 +47,11 @@ export default function SkinProfileSetupScreen({ navigation }: Props) {
 
   function advance() {
     if (step === TOTAL_STEPS) {
-      navigation.replace('ContributionConsent');
+      // ContributionConsent is no longer an onboarding route (tech design
+      // FE-4) — the "Help grow the Vials database" prompt now fires from the
+      // first genuinely manual product save instead (see
+      // GrowDatabasePromptModal / shouldShowGrowDatabasePrompt).
+      navigation.replace('FirstProduct');
       return;
     }
     setStep((s) => s + 1);

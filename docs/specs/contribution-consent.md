@@ -4,6 +4,17 @@ Author: planner-agent
 Jira: N/A (kebab-case task slug per agent-layer-protocol.md: `contribution-consent`)
 Status: DRAFT
 
+> **Sync note (2026-09-15, onboarding-simplification):** Story 1's claim below
+> that this screen appears "before FirstProduct" during onboarding is
+> superseded by `docs/tech-design/onboarding-simplification.md` FE-3/FE-4.
+> `ContributionConsentScreen` is no longer a registered onboarding route — its
+> copy now ships as `GrowDatabasePromptModal`, shown at most once per install,
+> immediately after the user's first genuinely manual product save (whether
+> that happens during onboarding's `FirstProduct` flow or later from "My
+> Shelf"), still gated on `contributionConsent.timestamp === null`. This spec
+> is not otherwise rewritten — the consent data model, copy, and gating rule
+> below remain accurate.
+
 ## AI-SDLC Flags
 ```
 backend_layer:  false

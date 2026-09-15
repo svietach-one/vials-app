@@ -12,7 +12,6 @@ import type { ActiveIngredientKey, ProductStatus, ProductType } from '@/types';
 
 import MarketingSlidesScreen from '@/screens/onboarding/MarketingSlidesScreen';
 import SkinProfileSetupScreen from '@/screens/onboarding/SkinProfileSetupScreen';
-import ContributionConsentScreen from '@/screens/onboarding/ContributionConsentScreen';
 import FirstProductScreen from '@/screens/onboarding/FirstProductScreen';
 
 // ─── Main tab screens ─────────────────────────────────────────────────────────
@@ -37,27 +36,21 @@ import WishlistEntryDetailScreen from '@/screens/catalog/WishlistEntryDetailScre
 
 // ─── Param lists ──────────────────────────────────────────────────────────────
 
-export type OnboardingStackParamList = {
-  MarketingSlides: undefined;
-  SkinProfileSetup: undefined;
-  ContributionConsent: undefined;
-  FirstProduct: undefined;
-};
-
-export type CatalogStackParamList = {
-  Catalog: {
-    /**
-     * One-shot success toast for a manual save, shown once and cleared
-     * (see docs/specs/contribution-consent-flow/03-visual-spec.md).
-     * `savedAt` disambiguates back-to-back saves with identical content.
-     */
-    toast?: { savedAt: number; contributionOptIn: boolean; contributedCount: number };
-  } | undefined;
+/**
+ * Shared slice of the 5 "Add Product" screens reused by both the shelf
+ * (`CatalogStackParamList`) and onboarding (`OnboardingStackParamList`) —
+ * see docs/tech-design/onboarding-simplification.md FE-5/Assumption 4.
+ * `entryContext` (defaulted to `'catalog'` wherever absent, per Assumption 5)
+ * tells the shared screens whether a completed save should return to "My
+ * Shelf" or complete onboarding.
+ */
+export type AddProductFlowParamList = {
   AddProductHub: {
     /** "Explore new" forwards 'wishlist' through the shared add pipeline — see
      * docs/tasks/ux-explore-vials/01-entry-points.md §1. Absent/'owned' is the
      * default "Add new" outcome. */
     initialStatus?: ProductStatus;
+    entryContext?: 'catalog' | 'onboarding';
   } | undefined;
   ManualProductForm: {
     /** A corpus (Turso) hit the user picked via search or barcode scan — see src/services/corpus. */
@@ -95,11 +88,29 @@ export type CatalogStackParamList = {
       category: ProductType | null;
       wishlistEntryId?: string;
     };
+    entryContext?: 'catalog' | 'onboarding';
   };
+  BarcodeScanner: { entryContext?: 'catalog' | 'onboarding' } | undefined;
+  AddProduct: { initialStatus?: ProductStatus; entryContext?: 'catalog' | 'onboarding' } | undefined;
+  CaptureFlow: { initialStatus?: ProductStatus; entryContext?: 'catalog' | 'onboarding' } | undefined;
+};
+
+export type OnboardingStackParamList = AddProductFlowParamList & {
+  MarketingSlides: undefined;
+  SkinProfileSetup: undefined;
+  FirstProduct: undefined;
+};
+
+export type CatalogStackParamList = AddProductFlowParamList & {
+  Catalog: {
+    /**
+     * One-shot success toast for a manual save, shown once and cleared
+     * (see docs/specs/contribution-consent-flow/03-visual-spec.md).
+     * `savedAt` disambiguates back-to-back saves with identical content.
+     */
+    toast?: { savedAt: number; contributionOptIn: boolean; contributedCount: number };
+  } | undefined;
   ProductDetail: { productId: string };
-  BarcodeScanner: undefined;
-  AddProduct: { initialStatus?: ProductStatus } | undefined;
-  CaptureFlow: { initialStatus?: ProductStatus } | undefined;
   /**
    * Explore Composition flow's capture screen — replaces `CaptureFlow` as
    * "Explore new"'s destination when `EXPLORE_COMPOSITION_ENABLED` is on
@@ -149,8 +160,16 @@ function OnboardingNavigator() {
     <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
       <OnboardingStack.Screen name="MarketingSlides" component={MarketingSlidesScreen} />
       <OnboardingStack.Screen name="SkinProfileSetup" component={SkinProfileSetupScreen} />
-      <OnboardingStack.Screen name="ContributionConsent" component={ContributionConsentScreen} />
+      {/* FirstProduct is onboarding's own thin wrapper around the shared
+          AddProductOptionsList (tech design FE-8) — the 4 screens below are
+          the exact same components "My Shelf" uses, registered here under
+          identical route names so onboarding can navigate into them
+          (tech design FE-5). */}
       <OnboardingStack.Screen name="FirstProduct" component={FirstProductScreen} />
+      <OnboardingStack.Screen name="CaptureFlow" component={CaptureFlowScreen} />
+      <OnboardingStack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
+      <OnboardingStack.Screen name="ManualProductForm" component={ManualProductFormScreen} />
+      <OnboardingStack.Screen name="AddProduct" component={AddProductScreen} />
     </OnboardingStack.Navigator>
   );
 }

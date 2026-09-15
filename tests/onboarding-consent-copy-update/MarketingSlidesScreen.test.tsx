@@ -3,9 +3,14 @@
  * consent gate (docs/tech-design/onboarding-consent-copy-update.md FE-3,
  * spec docs/specs/onboarding-consent-copy-update.md Stories 1 & 2).
  *
- * Screen not yet updated by the engineer (FE-2/FE-3 unimplemented) — this
- * file is expected to fail at runtime against today's copy/CTA/no-checkbox
- * screen until those land. Red before green, per .claude/rules/testing.md.
+ * Updated for docs/tech-design/onboarding-simplification.md FE-1: the
+ * "Privacy First" slide (this file's former slide 2, `SLIDE2_*`) is deleted
+ * outright rather than just hidden, so `MarketingSlidesScreen` now has
+ * exactly 2 slides. The former slide 3 (`SLIDE3_*`, "Safety logic" + the
+ * medical-disclaimer consent checkbox) is now slide index 1, the last slide —
+ * every `advanceToConsentSlide()` (index 2) call below is replaced with
+ * `advanceToSlide(1)`, and the "slide 2 verbatim copy" describe block for the
+ * now-deleted slide is removed. See this task's SubagentHandback report.
  *
  * `settingsStore` is mocked at the selector boundary, matching every other
  * `useSettingsStore` call site + its existing test convention (see
@@ -26,15 +31,10 @@ import {
   SLIDE1_CTA,
   SLIDE1_HEADLINE,
   SLIDE1_KICKER,
-  SLIDE2_BODY,
-  SLIDE2_CTA,
-  SLIDE2_HEADLINE,
-  SLIDE2_KICKER,
   SLIDE3_BODY,
   SLIDE3_CTA,
   SLIDE3_HEADLINE,
   SLIDE3_KICKER,
-  advanceToConsentSlide,
   advanceToSlide,
   makeMarketingSlidesNavigation,
 } from './fixtures';
@@ -73,24 +73,6 @@ describe('MarketingSlidesScreen — slide 1 verbatim copy (spec Story 1)', () =>
   });
 });
 
-describe('MarketingSlidesScreen — slide 2 verbatim copy (spec Story 1)', () => {
-  it('renders the exact kicker, headline, and body (mounted regardless of active slide)', () => {
-    renderScreen();
-
-    expect(screen.getByText(SLIDE2_KICKER)).toBeTruthy();
-    expect(screen.getByText(SLIDE2_HEADLINE)).toBeTruthy();
-    expect(screen.getByText(SLIDE2_BODY)).toBeTruthy();
-  });
-
-  it('renders the exact CTA once slide 2 becomes the active slide', () => {
-    renderScreen();
-
-    advanceToSlide(1);
-
-    expect(screen.getByText(SLIDE2_CTA)).toBeTruthy();
-  });
-});
-
 describe('MarketingSlidesScreen — stale privacy claim removed (spec Goal 1)', () => {
   it('does not render the outdated "no cloud, no tracking" claim anywhere on the screen', () => {
     // This exact sentence contradicts the shipped crowdsourcing pipeline
@@ -108,7 +90,7 @@ describe('MarketingSlidesScreen — stale privacy claim removed (spec Goal 1)', 
 describe('MarketingSlidesScreen — slide 3 verbatim copy (spec §5)', () => {
   it('renders the exact kicker, headline, body, and consent checkbox label', () => {
     renderScreen();
-    advanceToConsentSlide();
+    advanceToSlide(1);
 
     expect(screen.getByText(SLIDE3_KICKER)).toBeTruthy();
     expect(screen.getByText(SLIDE3_HEADLINE)).toBeTruthy();
@@ -120,7 +102,7 @@ describe('MarketingSlidesScreen — slide 3 verbatim copy (spec §5)', () => {
 describe('MarketingSlidesScreen — consent checkbox default state (spec Story 2 AC1)', () => {
   it('renders the checkbox unchecked by default', () => {
     renderScreen();
-    advanceToConsentSlide();
+    advanceToSlide(1);
 
     const checkbox = screen.getByRole('checkbox');
     expect(checkbox.props.accessibilityState.checked).toBe(false);
@@ -130,7 +112,7 @@ describe('MarketingSlidesScreen — consent checkbox default state (spec Story 2
 describe('MarketingSlidesScreen — CTA disabled while unchecked (spec Story 2 AC1/AC2)', () => {
   it('does nothing when the CTA is pressed while the checkbox is still unchecked', () => {
     const navigation = renderScreen();
-    advanceToConsentSlide();
+    advanceToSlide(1);
 
     fireEvent.press(screen.getByText(SLIDE3_CTA));
 
@@ -142,7 +124,7 @@ describe('MarketingSlidesScreen — CTA disabled while unchecked (spec Story 2 A
 describe('MarketingSlidesScreen — checking the box enables the CTA (spec Story 2 AC3)', () => {
   it('checks the box on tap, with no other control able to check it', () => {
     renderScreen();
-    advanceToConsentSlide();
+    advanceToSlide(1);
 
     fireEvent.press(screen.getByRole('checkbox'));
 
@@ -151,7 +133,7 @@ describe('MarketingSlidesScreen — checking the box enables the CTA (spec Story
 
   it('records acceptance and navigates once the box is checked and the CTA is pressed', () => {
     const navigation = renderScreen();
-    advanceToConsentSlide();
+    advanceToSlide(1);
 
     fireEvent.press(screen.getByRole('checkbox'));
     fireEvent.press(screen.getByText(SLIDE3_CTA));
@@ -168,7 +150,7 @@ describe('MarketingSlidesScreen — checking the box enables the CTA (spec Story
 describe('MarketingSlidesScreen — unchecking re-disables the CTA (spec Story 2 AC4)', () => {
   it('disables the CTA again after the box is checked then unchecked', () => {
     const navigation = renderScreen();
-    advanceToConsentSlide();
+    advanceToSlide(1);
 
     fireEvent.press(screen.getByRole('checkbox')); // check
     fireEvent.press(screen.getByRole('checkbox')); // uncheck
@@ -184,7 +166,7 @@ describe('MarketingSlidesScreen — unchecking re-disables the CTA (spec Story 2
 describe('MarketingSlidesScreen — no skip path on slide 3 (spec Story 2 AC6)', () => {
   it('renders no "Skip" action of any kind once the consent slide is active', () => {
     renderScreen();
-    advanceToConsentSlide();
+    advanceToSlide(1);
 
     expect(screen.queryByText(/skip/i)).toBeNull();
   });

@@ -61,6 +61,19 @@ jest.mock('@/services/contributions', () => ({
   submitContribution: jest.fn(),
 }));
 
+// The "Help grow the Vials database" prompt (docs/tech-design/
+// onboarding-simplification.md FE-9) only gates the exit navigation this
+// suite exercises when `contributionConsent.timestamp` is null; a
+// pre-answered profile keeps this suite's original "always navigates
+// immediately" contract intact and out of scope of that separate feature.
+jest.mock('@/store/profileStore', () => ({
+  useProfileStore: (selector: (s: { profile: unknown; updateProfile: jest.Mock }) => unknown) =>
+    selector({
+      profile: { contributionConsent: { granted: true, timestamp: '2026-01-01T00:00:00.000Z' } },
+      updateProfile: jest.fn(),
+    }),
+}));
+
 const mockAddProduct: jest.Mock = jest.requireMock('@/store/productsStore').__state.addProduct;
 const mockSubmitContribution: jest.Mock = jest.requireMock(
   '@/services/contributions',

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProductRepository } from '@/hooks/useCorpusRepositories';
-import type { CatalogStackParamList } from '@/navigation/AppNavigator';
+import type { AddProductFlowParamList } from '@/navigation/AppNavigator';
 import type { CorpusProduct } from '@/services/corpus/types';
 import type { CaptureResult } from '@/types';
 import { splitLabelText } from '@/utils/productForm/ocrNormalizer';
@@ -35,12 +35,13 @@ import { splitLabelText } from '@/utils/productForm/ocrNormalizer';
  * ManualProductForm's `ocrPrefill` param.
  */
 
-type Props = NativeStackScreenProps<CatalogStackParamList, 'CaptureFlow'>;
+type Props = NativeStackScreenProps<AddProductFlowParamList, 'CaptureFlow'>;
 
 type Step = 'shot1_prompt' | 'searching' | 'match_results' | 'no_match';
 
 export default function CaptureFlowScreen({ navigation, route }: Props) {
   const initialStatus = route.params?.initialStatus;
+  const entryContext = route.params?.entryContext;
   const productRepository = useProductRepository();
 
   const [step, setStep] = useState<Step>('shot1_prompt');
@@ -65,6 +66,7 @@ export default function CaptureFlowScreen({ navigation, route }: Props) {
     const { brand, name } = splitLabelText(shot1Text);
     navigation.replace('ManualProductForm', {
       initialStatus,
+      entryContext,
       ocrPrefill: brand || name ? { brand: brand || undefined, name: name || undefined } : undefined,
       capturedPhotoUri: shot1PhotoUri ?? undefined,
     });
@@ -103,6 +105,7 @@ export default function CaptureFlowScreen({ navigation, route }: Props) {
       const { brand, name } = splitLabelText(shot1Text);
       navigation.replace('ManualProductForm', {
         initialStatus,
+        entryContext,
         ocrPrefill: {
           brand: brand || undefined,
           name: name || undefined,
@@ -118,6 +121,7 @@ export default function CaptureFlowScreen({ navigation, route }: Props) {
     navigation.replace('ManualProductForm', {
       prefillCorpusProduct: item,
       initialStatus,
+      entryContext,
       capturedPhotoUri: shot1PhotoUri ?? undefined,
     });
   }

@@ -15,22 +15,26 @@ import { IngredientsSection } from '@/components/addProduct/IngredientsSection';
 import { SaveBar } from '@/components/addProduct/SaveBar';
 import { SectionAccordion } from '@/components/addProduct/SectionAccordion';
 import { UsageDetailsSection } from '@/components/addProduct/UsageDetailsSection';
+import { GrowDatabasePromptModal } from '@/components/product/GrowDatabasePromptModal';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { COMMUNITY_CONTRIBUTION_ENABLED } from '@/constants/featureFlags';
 import { ACTIVE_INGREDIENT_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, space, typography } from '@/constants/tokens';
-import type { CatalogStackParamList } from '@/navigation/AppNavigator';
+import type { AddProductFlowParamList, CatalogStackParamList } from '@/navigation/AppNavigator';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { submitContribution } from '@/services/contributions';
 import { deleteProductPhoto } from '@/services/productImage';
 import { useProductsStore } from '@/store/productsStore';
+import { useProfileStore } from '@/store/profileStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import type { AddProductDraft } from '@/types';
+import type { AddProductDraft, Product } from '@/types';
 import { canSave, formReducer, initialDraft } from '@/utils/productForm/formReducer';
 import { buildProductFromDraft, buildSuggestPayload } from '@/utils/productForm/saveProduct';
 import { generateId } from '@/utils/generateId';
+import { setContributionConsent, shouldShowGrowDatabasePrompt } from '@/utils/contributionConsent';
 
-type Props = NativeStackScreenProps<CatalogStackParamList, 'AddProduct'>;
+type Props = NativeStackScreenProps<AddProductFlowParamList, 'AddProduct'>;
 
 // ─── Collapsed-row summaries ──────────────────────────────────────────────────
 
@@ -90,8 +94,16 @@ function Section4Summary({ draft }: { draft: AddProductDraft }) {
  */
 export default function AddProductScreen({ navigation, route }: Props) {
   const initialStatus = route.params?.initialStatus;
+  const entryContext = route.params?.entryContext;
   const [draft, dispatch] = useReducer(formReducer, undefined, initialDraft);
   const [validation, setValidation] = useState<{ section: 1 | 4; message: string } | null>(null);
+  // "Help grow the Vials database" prompt (tech design FE-9, spec Story 3) —
+  // the just-saved product waiting on this once-per-install decision. This
+  // wizard is always a genuinely manual, new save (no corpus/edit path), so
+  // the gate below has no further scoping beyond `shouldShowGrowDatabasePrompt`.
+  const [growDatabasePendingProduct, setGrowDatabasePendingProduct] = useState<Product | null>(
+    null,
+  );
 
   // Established once so the front-label photo can be stored (and its file
   // named) before save; reused as the product id when the draft is saved.
@@ -101,6 +113,8 @@ export default function AddProductScreen({ navigation, route }: Props) {
   const incrementCommunityContribution = useSettingsStore(
     (s) => s.incrementCommunityContribution,
   );
+  const profile = useProfileStore((s) => s.profile);
+  const updateProfile = useProfileStore((s) => s.updateProfile);
 
   function isDirty(): boolean {
     return (
@@ -162,21 +176,51 @@ export default function AddProductScreen({ navigation, route }: Props) {
       incrementCommunityContribution();
     }
 
-    // 2. Leave the screen and confirm immediately — nothing below is awaited.
-    // Land back on the shelf (not just one screen back, which would strand
-    // the user on the search hub) with the same one-shot "Saved" toast
-    // ManualProductFormScreen uses, so both manual-entry paths confirm the
-    // same way on every platform.
-    navigation.navigate('Catalog', {
-      toast: { savedAt: Date.now(), contributionOptIn: false, contributedCount: 0 },
-    });
+    // 2. Leave the screen and confirm — unless the once-per-install "Help
+    // grow the Vials database" prompt is still due (tech design FE-9, spec
+    // Story 3), in which case it's shown first and the exit below is
+    // deferred until it resolves.
+    if (shouldShowGrowDatabasePrompt(profile?.contributionConsent)) {
+      setGrowDatabasePendingProduct(product);
+    } else {
+      exitAfterSave();
+    }
 
     // 3. Share with the community database. The local save above is already
     //    committed and is never rolled back, so this only reports on itself.
     //    The wizard carries no photo (text-only contribution); a failure is
-    //    surfaced rather than swallowed — this screen has already navigated
-    //    away, so an Alert is the honest surface available.
+    //    surfaced rather than swallowed — this screen may have already
+    //    navigated away, so an Alert is the honest surface available.
     void shareDraft(draft);
+  }
+
+  // Lands the user back on My Shelf with the usual "Saved" toast, or —
+  // during onboarding — completes onboarding instead (tech design FE-9, spec
+  // Story 4 AC3). `AddProductFlowParamList` has no `Catalog` route (it's
+  // shared with OnboardingStack, which has no such screen), so the
+  // catalog-only branch below is typed against the wider `CatalogStackParamList`
+  // navigation this screen also has whenever `entryContext` isn't 'onboarding'.
+  function exitAfterSave() {
+    if (entryContext === 'onboarding') {
+      updateProfile({ onboardingCompleted: true });
+      return;
+    }
+    (navigation as unknown as NativeStackNavigationProp<CatalogStackParamList>).navigate(
+      'Catalog',
+      { toast: { savedAt: Date.now(), contributionOptIn: false, contributedCount: 0 } },
+    );
+  }
+
+  function handleGrowDatabaseAgree() {
+    updateProfile({ contributionConsent: setContributionConsent(true) });
+    setGrowDatabasePendingProduct(null);
+    exitAfterSave();
+  }
+
+  function handleGrowDatabaseNotNow() {
+    updateProfile({ contributionConsent: setContributionConsent(false) });
+    setGrowDatabasePendingProduct(null);
+    exitAfterSave();
   }
 
   async function shareDraft(draft: AddProductDraft) {
@@ -264,6 +308,12 @@ export default function AddProductScreen({ navigation, route }: Props) {
         onPress={handleSave}
         privacyNote=""
         label={initialStatus === 'wishlist' ? 'Add to Wishlist' : 'Put on My Shelf'}
+      />
+
+      <GrowDatabasePromptModal
+        visible={growDatabasePendingProduct !== null}
+        onAgree={handleGrowDatabaseAgree}
+        onNotNow={handleGrowDatabaseNotNow}
       />
     </SafeAreaView>
   );

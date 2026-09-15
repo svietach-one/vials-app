@@ -1,4 +1,8 @@
-import { canShareContributionPhoto, setContributionConsent } from '@/utils/contributionConsent';
+import {
+  canShareContributionPhoto,
+  setContributionConsent,
+  shouldShowGrowDatabasePrompt,
+} from '@/utils/contributionConsent';
 
 // ─── canShareContributionPhoto ─────────────────────────────────────────────────
 
@@ -72,5 +76,36 @@ describe('setContributionConsent', () => {
     const parsed = new Date(result.timestamp as string).getTime();
     expect(parsed).toBeGreaterThanOrEqual(before);
     expect(parsed).toBeLessThanOrEqual(after);
+  });
+});
+
+// ─── shouldShowGrowDatabasePrompt ───────────────────────────────────────────────
+
+describe('shouldShowGrowDatabasePrompt', () => {
+  it('returns true when consent is undefined (not yet migrated/hydrated)', () => {
+    // Arrange
+    const consent = undefined;
+    // Act
+    const result = shouldShowGrowDatabasePrompt(consent);
+    // Assert
+    expect(result).toBe(true);
+  });
+
+  it('returns true when consent.timestamp is null (never asked)', () => {
+    // Arrange
+    const consent = { granted: false, timestamp: null };
+    // Act
+    const result = shouldShowGrowDatabasePrompt(consent);
+    // Assert
+    expect(result).toBe(true);
+  });
+
+  it('returns false when consent.timestamp is already set, regardless of granted', () => {
+    // Arrange
+    const grantedConsent = { granted: true, timestamp: '2026-01-01T00:00:00.000Z' };
+    const declinedConsent = { granted: false, timestamp: '2026-01-01T00:00:00.000Z' };
+    // Act / Assert
+    expect(shouldShowGrowDatabasePrompt(grantedConsent)).toBe(false);
+    expect(shouldShowGrowDatabasePrompt(declinedConsent)).toBe(false);
   });
 });
