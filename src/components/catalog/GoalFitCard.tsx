@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/core/Card';
 import { Icon } from '@/components/ui/Icon';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import { buildGoalFitMatchMessage, buildGoalFitMissMessage, type GoalFitFinding } from '@/utils/productProfile/goalFit';
 
 interface Props {
@@ -55,6 +55,8 @@ const styles = StyleSheet.create({
   card: {
     padding: space[4],
     gap: space[3],
+    borderWidth: 0,
+    ...shadow.sm,
   },
   cardHeader: {
     flexDirection: 'row',

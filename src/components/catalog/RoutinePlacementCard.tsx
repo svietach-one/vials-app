@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/core/Card';
 import { Icon } from '@/components/ui/Icon';
 import { ROUTINE_PHASE_LABELS } from '@/constants/labels';
 import { LAYERING_ORDER } from '@/constants/rulesets/productFacts';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { RoutineFit } from '@/hooks/useCompositionInsights';
 import type { RoutinePosition } from '@/types';
 import { formatLabelList } from '@/utils/productProfile/productLabel';
@@ -93,6 +93,8 @@ const styles = StyleSheet.create({
   card: {
     padding: space[4],
     gap: space[2],
+    borderWidth: 0,
+    ...shadow.sm,
   },
   cardHeader: {
     flexDirection: 'row',

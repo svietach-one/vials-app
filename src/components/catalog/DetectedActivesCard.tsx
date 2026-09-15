@@ -6,7 +6,7 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { Icon } from '@/components/ui/Icon';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { ACTIVE_INGREDIENT_LABELS } from '@/constants/labels';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { ActiveIngredientKey } from '@/types';
 import type { OnePercentLineResult } from '@/utils/productProfile/onePercentLine';
 
@@ -182,6 +182,8 @@ const styles = StyleSheet.create({
   card: {
     padding: space[4],
     gap: space[3],
+    borderWidth: 0,
+    ...shadow.sm,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -213,7 +215,7 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     ...typography.caption,
-    color: colors.textTertiary,
+    color: colors.textSecondary,
   },
   rows: {
     gap: space[3],
@@ -248,6 +250,6 @@ const styles = StyleSheet.create({
   },
   mutedText: {
     ...typography.bodySmall,
-    color: colors.textTertiary,
+    color: colors.textSecondary,
   },
 });

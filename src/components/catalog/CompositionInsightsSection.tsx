@@ -107,6 +107,6 @@ const styles = StyleSheet.create({
   },
   disclaimerText: {
     ...typography.caption,
-    color: colors.textTertiary,
+    color: colors.textSecondary,
   },
 });
