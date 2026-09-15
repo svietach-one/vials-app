@@ -39,6 +39,20 @@ This document defines the complete functional requirements and behavior specific
 > but the shipped onboarding screens use a plum/wine primary button —
 > predates this task, needs its own reconciliation pass. See
 > `docs/specs/contribution-consent-flow/`.
+>
+> **Sync note (2026-09-15, onboarding-simplification):** Three changes per
+> `docs/tech-design/onboarding-simplification.md`: (1) `MarketingSlidesScreen`
+> drops its "Privacy First" slide, leaving 2 slides; (2) the standalone
+> `ContributionConsentScreen` onboarding step (`docs/specs/contribution-consent.md`,
+> not `US-24`) is removed — its "Help grow the Vials database" copy now shows as
+> `GrowDatabasePromptModal`, right after a user's first genuinely manual product
+> save (during `US-21`'s `FirstProductScreen` flow or later), gated on
+> `contributionConsent.timestamp === null`, not as an onboarding step; (3)
+> `US-21`'s `FirstProductScreen` gains full Scan/Search/Manual parity with "My
+> Shelf" (see `US-21`'s own implementation note below). `US-24`'s
+> `ContributionConsentModal` cadence is unchanged and can now sequence
+> back-to-back with the relocated prompt on a user's very first manual save —
+> see `US-24`'s own implementation note below.
 
 ---
 
@@ -230,6 +244,17 @@ This document defines the complete functional requirements and behavior specific
 * Tapping skip instantiates `catalogStore` empty and proceeds directly into the main tab navigator.
 * On first arrival at Tab 2 with an empty catalog, `CatalogList` renders its standard empty state (not an error or blank screen), prompting the user to add their first product via `ProductHeaderAction`.
 
+> **Implementation note (2026-09-15, onboarding-simplification):**
+> `FirstProductScreen` is no longer a bespoke quick-search-only screen — it now
+> renders the shared `AddProductOptionsList` component, giving it the exact
+> same Scan Product / Search Database / Create Product Manually entry points
+> as "My Shelf"'s `AddProductHubScreen`, via the same downstream
+> `CaptureFlowScreen` / `BarcodeScannerScreen` / `ManualProductFormScreen` /
+> `AddProductScreen` components. A search-result tap now opens
+> `ManualProductFormScreen` for confirmation instead of auto-saving. "Skip for
+> now" is unchanged. See `docs/tech-design/onboarding-simplification.md`
+> FE-5–FE-8.
+
 ---
 
 ### US-22 · Universal Scanning & Database Crowdsourcing
@@ -317,6 +342,13 @@ This document defines the complete functional requirements and behavior specific
 * Given the checkbox is checked, when the user taps the enabled CTA, then `settingsStore.acceptMedicalDisclaimer(version)` is called — setting `medicalDisclaimerAcceptedAt` to the current ISO 8601 timestamp and `medicalDisclaimerVersion` to the current copy version — and the user is navigated to `SkinProfileSetupScreen`.
 * Slide 3 has no secondary "Skip" action of any kind — checking the box and tapping the CTA is the only way to proceed. This is distinct from `US-21`'s `FirstProductScreen` "Skip for now" path, which this story does not change.
 
+> **Implementation note (2026-09-15, onboarding-simplification):**
+> `MarketingSlidesScreen` now has exactly 2 slides — the "Privacy First" slide
+> (formerly slide 2) is deleted, so the consent checkbox and CTA described
+> above as "slide 3" now render on slide index 1 (the 2nd and final slide).
+> The behavior above is otherwise unchanged. See
+> `docs/tech-design/onboarding-simplification.md` FE-1.
+
 ---
 
 ### US-24 · Product Contribution Consent
@@ -333,3 +365,14 @@ This document defines the complete functional requirements and behavior specific
 * A `ContributionSettingsRow` in the Profile screen lets the user explicitly set status to `disabled` at any time, which silences the modal and toggle entirely going forward, without deleting or un-sharing any products already contributed. Re-enabling from `disabled` resets status to `unset`, so the full first-time modal is shown again on the next manual save.
 * A running counter — "{N} products contributed so far" — is shown in Profile and referenced in the post-save success toast. It counts only products where `contributionOptIn === true` was set at time of save, regardless of the user's current global status.
 * The success toast after a manual save uses a green ("success") visual treatment, distinct from the app's default black/monochrome UI, per `docs/specs/contribution-consent-flow/03-visual-spec.md`.
+
+> **Implementation note (2026-09-15, onboarding-simplification):** This
+> story's `ContributionConsentModal` cadence is a separate, untouched system
+> from the relocated "Help grow the Vials database" prompt
+> (`GrowDatabasePromptModal`, `docs/specs/contribution-consent.md`, gated on
+> the global `contributionConsent.timestamp`). On a user's very first
+> genuinely manual save, if this story's modal is also due, it is shown
+> first; the grow-database prompt (if also due) follows immediately after it
+> resolves — only one modal is ever visible at a time. Reconciling or merging
+> the two prompts remains explicitly out of scope. See
+> `docs/tech-design/onboarding-simplification.md` §4/§5.

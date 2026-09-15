@@ -1,0 +1,93 @@
+{
+  "task": "onboarding-simplification",
+  "phase": "tech-lead",
+  "status": "ACCEPTED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/onboarding-simplification.md",
+    "tech_design": "docs/tech-design/onboarding-simplification.md",
+    "progress": "progress/onboarding-simplification.md",
+    "qa_tests": [
+      "tests/onboarding-simplification/fixtures.ts",
+      "tests/onboarding-simplification/MarketingSlidesScreen.test.tsx",
+      "tests/onboarding-simplification/SkinProfileSetupScreen.finishTarget.test.tsx",
+      "tests/onboarding-simplification/OnboardingNavigator.routes.test.tsx",
+      "tests/onboarding-simplification/GrowDatabasePromptModal.test.tsx",
+      "tests/onboarding-simplification/AddProductScreen.growDatabasePrompt.test.tsx",
+      "tests/onboarding-simplification/ManualProductFormScreen.growDatabasePrompt.test.tsx",
+      "tests/onboarding-simplification/AddProductOptionsList.test.tsx",
+      "tests/onboarding-simplification/FirstProductScreen.test.tsx"
+    ]
+  },
+  "engineer_notes": {
+    "implementation_status": "FE-1 through FE-11 all implemented; post-review addendum: Scan Product gated behind new SCAN_PRODUCT_ENABLED flag (off by default) per late product request, before tech-lead review",
+    "quality_gates": {
+      "tsc": "clean (npx tsc --noEmit \u2014 zero errors)",
+      "task_tests": "npx jest tests/onboarding-simplification tests/onboarding-5-step-redesign tests/onboarding-consent-copy-update \u2014 16 suites / 103 tests green; after the Scan Product gate addendum, npx jest tests/onboarding-simplification alone \u2014 8 suites / 42 tests green",
+      "full_repo_regression": "npx jest --testPathIgnorePatterns=\".claude/worktrees\" \u2014 10 failed suites / 77 failed tests, byte-identical failing-suite set to the pre-existing baseline on this branch (verified via git stash before/after) \u2014 zero new regressions; re-verified after the Scan Product gate addendum with the same result (10 failed suites / 77 failed tests, same file set)"
+    },
+    "post_review_addendum": {
+      "reason": "Product request to hide 'Scan Product' (photograph-the-label -> CaptureFlow/OCR) everywhere, arriving after FE-1..FE-11 passed tsc/jest and were queued for tech-lead review. The capture/OCR flow is still rough and not ready to offer users.",
+      "flag_added": "SCAN_PRODUCT_ENABLED = false (src/constants/featureFlags.ts) \u2014 pure UI gate, CaptureFlowScreen stays registered in the navigator",
+      "files_modified": [
+        "src/constants/featureFlags.ts",
+        "src/components/addProduct/AddProductOptionsList.tsx",
+        "tests/onboarding-simplification/AddProductOptionsList.test.tsx",
+        "tests/onboarding-simplification/FirstProductScreen.test.tsx"
+      ]
+    },
+    "files_created": [
+      "src/components/product/GrowDatabasePromptModal.tsx",
+      "src/components/addProduct/AddProductOptionsList.tsx"
+    ],
+    "files_deleted": [
+      "src/screens/onboarding/ContributionConsentScreen.tsx",
+      "tests/contribution-consent/ContributionConsentScreen.test.tsx"
+    ],
+    "files_modified": [
+      "src/screens/onboarding/MarketingSlidesScreen.tsx",
+      "src/utils/contributionConsent.ts",
+      "src/utils/contributionConsent.test.ts",
+      "src/navigation/AppNavigator.tsx",
+      "src/screens/onboarding/SkinProfileSetupScreen.tsx",
+      "src/screens/AddProductHubScreen.tsx",
+      "src/screens/catalog/CaptureFlowScreen.tsx",
+      "src/screens/BarcodeScannerScreen.tsx",
+      "src/screens/ManualProductFormScreen.tsx",
+      "src/screens/catalog/AddProductScreen.tsx",
+      "src/screens/onboarding/FirstProductScreen.tsx",
+      "src/components/debug/DebugOnboardingPreview.tsx",
+      "docs/SCREENS.md",
+      "docs/USER_STORIES.md",
+      "docs/specs/contribution-consent.md",
+      "tests/onboarding-5-step-redesign/SkinProfileSetupScreen.test.tsx",
+      "tests/onboarding-consent-copy-update/MarketingSlidesScreen.test.tsx",
+      "tests/add-product-flow/AddProductScreen.integration.test.tsx"
+    ],
+    "deviations_for_tech_lead_review": [
+      "FE-6: ManualProductFormScreen/AddProductScreen retype Props to AddProductFlowParamList per tech design, but use a local `navigation as unknown as NativeStackNavigationProp<CatalogStackParamList>` cast at their own exit-navigation function to reach 'Catalog' (not a member of AddProductFlowParamList by design \u2014 it's shared with OnboardingStack, which has no Catalog screen). See progress/onboarding-simplification.md Log for full reasoning.",
+      "Discovered + fixed 2 additional pre-existing test conflicts beyond the 2 qa-lead named (both mechanical consequences of FE-3/FE-9): deleted tests/contribution-consent/ContributionConsentScreen.test.tsx (its subject screen no longer exists); added a profileStore mock to tests/add-product-flow/AddProductScreen.integration.test.tsx (that suite ran against the real, unmocked profileStore, so FE-9's new contributionConsent read always deferred its exit-navigation assertions).",
+      "FE-10 drops FirstProduct (not just ContributionConsent) from DebugOnboardingPreview's steps, per the tech design's own literal instruction \u2014 logged since it's a behavior change beyond 'stop crashing'.",
+      "FE-11 doc sync also touched US-23 in USER_STORIES.md (not in tech design's file list) to correct its now-stale 'slide 3' reference after FE-1's slide deletion."
+    ]
+  },
+  "next_agent": null,
+  "tech_lead_notes": {
+    "verdict": "ACCEPT",
+    "summary": "FE-1..FE-11 verified against tech design by direct code read; tsc clean; layer-separation and duplication greps clean (no new violations); both engineer-flagged deviations (the AddProductFlowParamList->CatalogStackParamList navigation cast, and the 2 extra pre-existing test-conflict fixes) reviewed and confirmed safe/adequate. entryContext threading traced through every call site (AddProductOptionsList, CaptureFlowScreen x3, BarcodeScannerScreen x2; BarcodeSection confirmed to use an inline modal, not a screen navigate) -- the exitAfterSave cast never fires while mounted under OnboardingStack.",
+    "tests_reproduced": {
+      "command": "npx jest tests/onboarding-simplification tests/onboarding-5-step-redesign tests/onboarding-consent-copy-update tests/catalog --testPathIgnorePatterns=.claude/worktrees",
+      "result": "16 onboarding-only suites / 103 tests green (matches engineer's log exactly); tests/catalog: 5 failing suites (engineer's log named 4, omitting product-shelf-card-hidden.test.tsx) -- independently confirmed via git show origin/dev that the failing suites/root causes already exist on origin/dev untouched by this branch",
+      "fe2_unit_tests": "src/utils/contributionConsent.test.ts run directly: 10/10 green"
+    },
+    "warnings_non_blocking": [
+      "tests/catalog pre-existing-failure count in progress log says 4 suites, actual is 5 (product-shelf-card-hidden.test.tsx not named) -- confirmed harmless, just an undercount",
+      "ManualProductFormScreen.handleSave (~90 lines, ~894-984) exceeds the 50-line guideline -- pre-existing, only marginally touched by this task, recommend follow-up refactor"
+    ],
+    "blockers": []
+  }
+}

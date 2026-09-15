@@ -5,8 +5,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
-import ContributionConsentScreen from '@/screens/onboarding/ContributionConsentScreen';
-import FirstProductScreen from '@/screens/onboarding/FirstProductScreen';
 import MarketingSlidesScreen from '@/screens/onboarding/MarketingSlidesScreen';
 import SkinProfileSetupScreen from '@/screens/onboarding/SkinProfileSetupScreen';
 import { useProfileStore } from '@/store/profileStore';
@@ -16,8 +14,8 @@ import type { UserProfile } from '@/types';
  * TEMPORARY DEBUG COMPONENT — remove together with the "Developer Tools"
  * section in ProfileScreen.tsx.
  *
- * Renders the four onboarding screens via plain local-state step switching
- * instead of a real React Navigation stack. A previous version nested a full
+ * Renders the onboarding screens via plain local-state step switching instead
+ * of a real React Navigation stack. A previous version nested a full
  * `createNativeStackNavigator` (backed by react-native-screens) inside this
  * component's `Modal` — RN's `Modal` renders its subtree in a separate native
  * root, and nesting a react-native-screens native stack inside a `Modal` is a
@@ -26,19 +24,22 @@ import type { UserProfile } from '@/types';
  * rendering sidesteps this entirely — no native view controllers, no
  * disconnected gesture root.
  *
- * Each of the four screens only ever calls `navigation.replace(nextScreen)`
- * (verified: MarketingSlides -> SkinProfileSetup -> ContributionConsent ->
- * FirstProduct, single literal target per call site) and never reads
- * `route.params` — so a minimal hand-built navigation/route pair is enough to
- * drive them without a real navigator.
+ * The preview stops after SkinProfileSetup (tech design
+ * onboarding-simplification.md FE-10): `ContributionConsentScreen` no longer
+ * exists (it's now the `GrowDatabasePromptModal`, shown from a real product
+ * save, not an onboarding step), and the rewritten `FirstProductScreen`
+ * navigates into real stack screens (CaptureFlow/ManualProductForm/
+ * AddProduct) that this Modal-based fake-navigation harness — which only
+ * ever hands each screen a `replace(nextStep)` stub, never a real `navigate`
+ * — cannot drive. Previewing MarketingSlides -> SkinProfileSetup still
+ * exercises the harness's one real hazard area (native-screens-in-a-Modal).
  *
- * SkinProfileSetupScreen and FirstProductScreen write straight to
- * profileStore/productsStore, including nulling out real skin-profile fields
- * on "Skip" — so the real profile is snapshotted on open and restored on
- * close/completion to avoid clobbering real data.
+ * SkinProfileSetupScreen writes straight to profileStore, including nulling
+ * out real skin-profile fields on "Skip" — so the real profile is snapshotted
+ * on open and restored on close to avoid clobbering real data.
  */
 
-type DebugStep = 'MarketingSlides' | 'SkinProfileSetup' | 'ContributionConsent' | 'FirstProduct';
+type DebugStep = 'MarketingSlides' | 'SkinProfileSetup';
 
 interface Props {
   visible: boolean;
@@ -76,8 +77,12 @@ export function DebugOnboardingPreview({ visible, onClose }: Props) {
     onClose();
   }
 
-  function fakeNavigation(next: DebugStep) {
-    return { replace: () => setStep(next) } as never;
+  // Each remaining preview screen only ever calls `navigation.replace(...)`
+  // (never reads its argument's value here — the action to take on Finish is
+  // decided by the caller below) and never reads `route.params`, so a
+  // minimal hand-built navigation/route pair is enough to drive it.
+  function fakeNavigation(onReplace: () => void) {
+    return { replace: onReplace } as never;
   }
 
   return (
@@ -85,21 +90,14 @@ export function DebugOnboardingPreview({ visible, onClose }: Props) {
       <GestureHandlerRootView style={styles.flex}>
         {step === 'MarketingSlides' ? (
           <MarketingSlidesScreen
-            navigation={fakeNavigation('SkinProfileSetup')}
-            route={FAKE_ROUTE}
-          />
-        ) : step === 'SkinProfileSetup' ? (
-          <SkinProfileSetupScreen
-            navigation={fakeNavigation('ContributionConsent')}
-            route={FAKE_ROUTE}
-          />
-        ) : step === 'ContributionConsent' ? (
-          <ContributionConsentScreen
-            navigation={fakeNavigation('FirstProduct')}
+            navigation={fakeNavigation(() => setStep('SkinProfileSetup'))}
             route={FAKE_ROUTE}
           />
         ) : (
-          <FirstProductScreen navigation={fakeNavigation('FirstProduct')} route={FAKE_ROUTE} />
+          // Preview ends here (tech design FE-10) — SkinProfileSetup's Finish
+          // would normally advance to FirstProduct, which now navigates into
+          // real stack screens this Modal-based harness cannot drive.
+          <SkinProfileSetupScreen navigation={fakeNavigation(handleClose)} route={FAKE_ROUTE} />
         )}
 
         <SafeAreaView style={[styles.overlay, { pointerEvents: 'box-none' }]}>
