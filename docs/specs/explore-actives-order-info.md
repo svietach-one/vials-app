@@ -96,12 +96,13 @@ Copy (marked `PLACEHOLDER — pending design review`, same convention `docs/spec
 explore-composition.md` used for Story 7's caution sentence before it was finalized):
 
 - Title: **"What ingredient order means"**
-- Body (four `\n\n`-separated paragraphs, rendered as separate blocks, all regular weight):
+- Body (four `\n\n`-separated paragraphs, rendered as separate blocks, all regular weight — no
+  bold/medium emphasis on any paragraph):
   1. "Ingredients are conventionally ordered by concentration, from highest to lowest — items at
-     the top of the list are typically present in the largest amounts."
-  2. "Amounts generally decrease further down the list. This ordering is only reliable down to
-     about the 1% mark; below that line, brands can list ingredients in any order, so position
-     alone can't meaningfully rank the smallest amounts."
+     the top of the list are typically present in the largest amounts. Amounts generally decrease
+     further down the list."
+  2. "This ordering is only reliable down to about the 1% mark; below that line, brands can list
+     ingredients in any order, so position alone can't meaningfully rank the smallest amounts."
   3. "In practice, this means an active near the top of a label is more likely to be at a working
      concentration, while one further down — especially below the 1% mark — may be present in a
      smaller, sometimes cosmetic amount."
