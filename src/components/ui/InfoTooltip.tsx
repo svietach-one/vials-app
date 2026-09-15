@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -24,10 +24,17 @@ export interface InfoTooltipProps {
  * than an in-place absolutely-positioned `View`, so it renders above
  * everything regardless of where `DetectedActivesCard` sits inside a
  * scrollable list — a local sibling `View` would only cover that card's own
- * bounds, not the full screen. No backdrop dimming — tapping outside the
- * card still closes it via an invisible full-screen `Pressable`.
+ * bounds, not the full screen. Backdrop dimming matches
+ * `AttributionTooltip.tsx`'s own bottom-sheet convention (this presents as a
+ * bottom sheet, so it gets the same scrim); tapping the dimmed area still
+ * closes it via the same `Pressable`. `body` may contain `\n\n`-separated
+ * paragraphs — each renders as its own block instead of one dense run-on
+ * block, all at the same regular weight (no per-paragraph emphasis); a
+ * single-paragraph `body` (no `\n\n`) renders exactly as before.
  */
 export function InfoTooltip({ visible, onClose, title, body }: InfoTooltipProps) {
+  const paragraphs = body.split('\n\n');
+
   return (
     <Modal
       visible={visible}
@@ -54,7 +61,13 @@ export function InfoTooltip({ visible, onClose, title, body }: InfoTooltipProps)
             />
           </View>
 
-          <Text style={styles.copy}>{body}</Text>
+          <ScrollView>
+            {paragraphs.map((paragraph) => (
+              <Text key={paragraph} style={styles.copy}>
+                {paragraph}
+              </Text>
+            ))}
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -68,7 +81,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(9, 9, 11, 0.5)',
   },
   card: {
     backgroundColor: colors.bgBase,
@@ -95,5 +108,6 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textPrimary,
     lineHeight: 20,
+    marginBottom: space[3],
   },
 });

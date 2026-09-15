@@ -14,17 +14,21 @@ const ACTIVES_ORDER_INFO_TITLE = 'What ingredient order means';
 
 // PLACEHOLDER — pending design review (spec §5, §10). Explains the general
 // INCI-ordering labeling convention and the 1% line; not a measured claim
-// about this specific product.
-const ACTIVES_ORDER_INFO_BODY =
-  'Ingredient lists are conventionally ordered by concentration, from highest to lowest — ' +
-  'the ingredients at the top of the list are typically present in the largest amounts, and ' +
-  'amounts generally decrease further down. This ordering is only reliable down to about the ' +
-  "1% mark; below that line, brands can list ingredients in any order, so position alone can't " +
-  'meaningfully rank the smallest amounts. In practice, this means an active near the top of a ' +
-  'label is more likely to be at a working concentration, while one further down — especially ' +
-  'below the 1% mark — may be present in a smaller, sometimes cosmetic amount. This explains ' +
-  "the general labeling convention only; it isn't a measured percentage for this specific " +
-  'product.';
+// about this specific product. Broken into `\n\n`-separated paragraphs —
+// InfoTooltip renders each as its own block and bolds the first (the main
+// takeaway) instead of one dense run-on paragraph.
+const ACTIVES_ORDER_INFO_BODY = [
+  'Ingredients are conventionally ordered by concentration, from highest to lowest — items at ' +
+    'the top of the list are typically present in the largest amounts.',
+  'Amounts generally decrease further down the list. This ordering is only reliable down to ' +
+    "about the 1% mark; below that line, brands can list ingredients in any order, so position " +
+    "alone can't meaningfully rank the smallest amounts.",
+  'In practice, this means an active near the top of a label is more likely to be at a working ' +
+    'concentration, while one further down — especially below the 1% mark — may be present in ' +
+    'a smaller, sometimes cosmetic amount.',
+  "This explains the general labeling convention only; it isn't a measured percentage for this " +
+    'specific product.',
+].join('\n\n');
 
 interface Props {
   resolvedActiveKeys: ActiveIngredientKey[];

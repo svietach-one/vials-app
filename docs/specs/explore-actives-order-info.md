@@ -84,24 +84,29 @@ inside RN's `Modal` (`transparent`, `animationType="fade"`) rather than as a loc
 — `AttributionTooltip.tsx`'s own absolutely-positioned `View` only fills its nearest parent's
 bounds, which for a card nested in a scrollable list is that card's own box, not the full screen;
 wrapping in `Modal` (this app's established overlay primitive elsewhere) makes it genuinely render
-above everything. Also, no backdrop dimming (`AttributionTooltip.tsx`'s `rgba(9, 9, 11, 0.5)`
-scrim is dropped — tap-outside-to-close still works via an invisible full-screen `Pressable`), and
-body text uses `colors.textPrimary` (black) rather than `colors.textSecondary`. These three
-changes are this component's own presentation, not a retroactive change to `AttributionTooltip.tsx`
-itself.
+above everything. Backdrop dimming (`rgba(9, 9, 11, 0.5)`, matching `AttributionTooltip.tsx`'s own
+scrim) is kept, since this still presents as a bottom sheet. Body text uses `colors.textPrimary`
+(black) rather than `colors.textSecondary`, and — a second review-time revision, also per direct
+product feedback — the body is broken into `\n\n`-separated paragraphs (see §5 Copy below) instead
+of one dense run-on block, all at the same regular weight (no bold/medium emphasis on any
+paragraph). These presentation choices are this component's own, not a retroactive change to
+`AttributionTooltip.tsx` itself.
 
 Copy (marked `PLACEHOLDER — pending design review`, same convention `docs/specs/
 explore-composition.md` used for Story 7's caution sentence before it was finalized):
 
 - Title: **"What ingredient order means"**
-- Body: **"Ingredient lists are conventionally ordered by concentration, from highest to lowest —
-  the ingredients at the top of the list are typically present in the largest amounts, and amounts
-  generally decrease further down. This ordering is only reliable down to about the 1% mark; below
-  that line, brands can list ingredients in any order, so position alone can't meaningfully rank the
-  smallest amounts. In practice, this means an active near the top of a label is more likely to be
-  at a working concentration, while one further down — especially below the 1% mark — may be
-  present in a smaller, sometimes cosmetic amount. This explains the general labeling convention
-  only; it isn't a measured percentage for this specific product."**
+- Body (four `\n\n`-separated paragraphs, rendered as separate blocks, all regular weight):
+  1. "Ingredients are conventionally ordered by concentration, from highest to lowest — items at
+     the top of the list are typically present in the largest amounts."
+  2. "Amounts generally decrease further down the list. This ordering is only reliable down to
+     about the 1% mark; below that line, brands can list ingredients in any order, so position
+     alone can't meaningfully rank the smallest amounts."
+  3. "In practice, this means an active near the top of a label is more likely to be at a working
+     concentration, while one further down — especially below the 1% mark — may be present in a
+     smaller, sometimes cosmetic amount."
+  4. "This explains the general labeling convention only; it isn't a measured percentage for this
+     specific product."
 
 ## 6. Data Requirements
 None. This task reads no new data and persists nothing — `title`/`body` are static strings owned by
