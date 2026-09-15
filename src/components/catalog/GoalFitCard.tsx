@@ -56,6 +56,12 @@ const styles = StyleSheet.create({
     padding: space[4],
     gap: space[3],
     borderWidth: 0,
+    // Card's own base style sets overflow:'hidden' (to clip content to the
+    // rounded corners) — RN clips the shadow along with it on the same
+    // view, same gotcha ProductShelfCard's own cardShadow/card split works
+    // around. This card has no edge-bleeding content, so un-clipping here
+    // is enough — no separate wrapper view needed.
+    overflow: 'visible',
     ...shadow.sm,
   },
   cardHeader: {
