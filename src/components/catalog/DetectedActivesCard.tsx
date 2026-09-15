@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   belowLineNoteWrap: {
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
     backgroundColor: palette.cobaltTint,
     borderRadius: radius.sm,
     paddingHorizontal: space[2],
