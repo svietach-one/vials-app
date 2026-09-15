@@ -1,11 +1,11 @@
-Status: DESIGNED
+Status: IN_PROGRESS
 Tech Design: docs/tech-design/ocr-multishot-overcount.md
 Code: —
 
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
-- [ ] QA tests (qa-lead)
+- [x] QA tests (qa-lead)
 - [ ] Implementation (engineer)
 - [ ] Architecture review (tech-lead)
 
@@ -67,3 +67,47 @@ Next agent: qa-lead, per `.claude/rules/agent-layer-protocol.md` §12. Given thi
 a pure utility module with no new/changed screen or component, qa-lead's role here is expected to
 be confirmatory (re-run `tests/explore-composition/` for regression) rather than new integration
 test authoring — see tech design §3's qa-lead task note. Exact scope remains qa-lead's own call.
+
+### 2026-09-15 — qa-lead: confirmatory review, no new integration test needed
+
+**Baseline (before any fix lands):**
+- `npx tsc --noEmit` — clean, zero errors.
+- `npm test` (full suite) — 24 suites / 114 tests failing, all pre-existing and unrelated to this
+  task: (a) `.claude/worktrees/agent-*` contains stray leftover sub-worktrees from other agent
+  sessions whose `tests/catalog/*.test.tsx` duplicate-mock the real `tests/catalog/` files and fail
+  with module-resolution errors; (b) `tests/catalog/product-detail.test.tsx`,
+  `catalog-screen.test.tsx`, `add-product-hub.test.tsx` fail on undefined `palette.plumTint` /
+  `palette.goldenTint` / `shadow.sm` — a design-token/palette regression unrelated to
+  `mergeIngredientCaptures.ts` or Explore Composition. Not investigated or fixed here — out of this
+  task's scope, flagged for a separate task.
+- `npx jest tests/explore-composition` (the suite this task's caller is checked against) — **14
+  suites / 226 tests, all green.**
+
+**Judgment call — no new/updated integration test authored for this task:**
+Read `tests/explore-composition/ExploreCompositionCaptureScreen.test.tsx` in full (526 lines,
+14 KB). It calls the real `mergeIngredientCaptures` (not mocked — no `jest.mock` boundary around
+`@/utils/productProfile/mergeIngredientCaptures` anywhere in the file or elsewhere in
+`tests/explore-composition/`), and does assert on merged output in three places: (1) the "genuine
+continuation" case (`'Aqua, Niacinamide, Glycerin'` + `'Glycerin, Sodium Hyaluronate'` →
+`'Aqua, Niacinamide, Glycerin, Sodium Hyaluronate'`, both the navigation-payload assertion at line
+~323 and the "2 photos combined — 4 ingredients recognized" status-line assertion at line ~362);
+(2) the fully-disjoint footer/Directions regression case (line ~377). Both shapes are classic
+positional-seam or fully-disjoint merges — exactly the two behaviors the tech design (Assumptions 1
+and the spec's AC 2/AC 3) requires to stay byte-for-byte unchanged by this fix. Neither fixture
+exercises the "second shot starts mid-way through the first shot's list, no valid positional seam"
+shape this fix targets (spec AC 1/AC 4, the real ~124-vs-~47 bug shape) — so no existing assertion
+in this component suite is expected to need updating once FE-1 lands, and no hardcoded merged-count
+or "N ingredients recognized" / "N photos combined" string in this suite is at risk.
+Conclusion: re-verifying the existing `tests/explore-composition/` suite stays green after FE-1
+lands is sufficient qa-lead coverage for this task, per the tech design's own default expectation
+(§3 qa-lead task note). No new integration/E2E test authored. The Story 1 near-duplicate/no-seam
+case remains covered exclusively by the engineer-owned co-located unit test
+(`src/utils/productProfile/mergeIngredientCaptures.test.ts`), per `.claude/rules/testing.md`'s
+unit/component test ownership split — appropriate here since that shape is pure-function-level
+behavior with no screen/component surface exercising it distinctly from the two cases already
+covered above.
+
+Next agent: engineer, per `.claude/rules/agent-layer-protocol.md` §12. Once FE-1 (and optionally
+FE-2) land, re-run `npx jest tests/explore-composition` (must stay 14/14 green, unmodified) plus
+`src/utils/productProfile/mergeIngredientCaptures.test.ts` (7 existing cases unmodified + new
+case(s) for the near-duplicate/no-seam shape) before handing off to tech-lead.

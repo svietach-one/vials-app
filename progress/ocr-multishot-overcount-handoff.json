@@ -1,7 +1,7 @@
 {
   "task": "ocr-multishot-overcount",
-  "phase": "design",
-  "status": "DESIGNED",
+  "phase": "qa",
+  "status": "IN_PROGRESS",
   "flags": {
     "backend_layer": false,
     "frontend_layer": true,
@@ -19,7 +19,7 @@
   },
   "root_cause_source": {
     "investigated_by": "coordinating session, prior to planner phase, from real user-reported evidence (a screenshot of the actual bug plus close inspection of the two real source photos involved)",
-    "reference_doc": "docs/investigations/ocr-incomplete-ingredient-capture.md (§4, §6c-6e)",
+    "reference_doc": "docs/investigations/ocr-incomplete-ingredient-capture.md (\u00a74, \u00a76c-6e)",
     "note": "Root cause was NOT re-investigated by planner - used as ground truth per explicit task instructions."
   },
   "planner_summary": {
@@ -53,5 +53,15 @@
     "mergeIngredientCaptures.ts stays a pure module - no React/react-native/store imports (architecture-review.md section 2) - fix design reuses the module's existing tokensMatch helper only",
     "No new capture-time UI/heuristic introduced (see explicit_non_goal above)"
   ],
-  "next_agent": "qa-lead"
+  "next_agent": "engineer",
+  "qa_summary": {
+    "baseline": {
+      "tsc": "clean, zero errors",
+      "full_npm_test": "24 suites / 114 tests failing, all pre-existing and unrelated to this task (.claude/worktrees stray sub-worktree module-resolution errors; tests/catalog/* palette/token (plumTint/goldenTint/shadow.sm) regressions) - not investigated or fixed here, out of scope",
+      "tests_explore_composition_suite": "14 suites / 226 tests, all green"
+    },
+    "new_integration_test_authored": false,
+    "reasoning": "tests/explore-composition/ExploreCompositionCaptureScreen.test.tsx exercises the real (unmocked) mergeIngredientCaptures via two shapes only: genuine positional-seam continuation, and fully-disjoint concatenation - both required by spec AC2/AC3 to stay byte-for-byte unchanged by this fix. Neither fixture exercises the near-duplicate/no-valid-seam shape (spec AC1/AC4, the actual ~124-vs-~47 bug) this fix targets, so no existing assertion (including the hardcoded \"N ingredients recognized\" / \"N photos combined\" status-line strings) is at risk of needing an update. Confirmatory re-run is sufficient; the near-duplicate case is covered by the engineer-owned co-located unit test per .claude/rules/testing.md ownership split.",
+    "follow_up_for_engineer": "After FE-1 (and optional FE-2) land: re-run npx jest tests/explore-composition (must stay 14/14 green, unmodified) plus src/utils/productProfile/mergeIngredientCaptures.test.ts (7 existing cases unmodified + new case(s) for the near-duplicate/no-seam shape) before handoff to tech-lead."
+  }
 }
