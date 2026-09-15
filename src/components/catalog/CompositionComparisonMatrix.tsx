@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/ui/core/Card';
 import { Icon } from '@/components/ui/Icon';
 import { ACTIVE_INGREDIENT_LABELS, getSlotCategoryLabel, getSlotCategoryLabelPlural } from '@/constants/labels';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import { formatLabelList } from '@/utils/productProfile/productLabel';
 import type { ShelfComparisonResult } from '@/utils/productProfile/shelfComparison';
 import type { SharedActive } from '@/utils/productProfile/shelfOverlap';
@@ -125,6 +125,14 @@ const styles = StyleSheet.create({
   card: {
     padding: space[4],
     gap: space[3],
+    borderWidth: 0,
+    // Card's own base style sets overflow:'hidden' (to clip content to the
+    // rounded corners) — RN clips the shadow along with it on the same
+    // view, same gotcha ProductShelfCard's own cardShadow/card split works
+    // around. This card has no edge-bleeding content, so un-clipping here
+    // is enough — no separate wrapper view needed.
+    overflow: 'visible',
+    ...shadow.sm,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -146,7 +154,7 @@ const styles = StyleSheet.create({
   },
   mutedText: {
     ...typography.bodySmall,
-    color: colors.textTertiary,
+    color: colors.textSecondary,
   },
   rows: {
     gap: space[3],
@@ -176,6 +184,6 @@ const styles = StyleSheet.create({
   },
   rowMuted: {
     ...typography.caption,
-    color: colors.textTertiary,
+    color: colors.textSecondary,
   },
 });

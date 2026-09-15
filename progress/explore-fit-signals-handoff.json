@@ -1,0 +1,99 @@
+{
+  "task": "explore-fit-signals",
+  "phase": "tech-lead",
+  "status": "ACCEPTED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/explore-fit-signals.md",
+    "tech_design": "docs/tech-design/explore-fit-signals.md",
+    "tests": [
+      "tests/explore-composition/GoalFitCard.test.tsx",
+      "tests/explore-composition/SkinTypeCautionNotice.test.tsx",
+      "tests/explore-composition/ExploreCompositionResultScreen.test.tsx",
+      "tests/explore-composition/WishlistEntryDetailScreen.test.tsx",
+      "tests/explore-composition/fixtures.ts"
+    ]
+  },
+  "branch": "feature/explore-personalization (branched from origin/dev, checked out locally, not yet pushed)",
+  "planner_notes": {
+    "context_note": "Task brief's Context section was written against a stale snapshot of the codebase. A prior 'explore-insights-v2' round (git 47ad52c/0d7a47d/9280677/11db0e1/1694419) already shipped on top of the original Explore Composition feature and changed SkinTypeCautionNotice.tsx/useCompositionInsights.ts before this task started. In particular, a skin-type-unset nudge already exists (commit 9280677), scoped narrower than this task's original Story E description. Product has since confirmed (2026-09-14) that narrower scope should be KEPT, not widened. See progress/explore-fit-signals.md Log for full detail.",
+    "open_questions_resolved_2026_09_14": [
+      "Goal-fit 'no overlap' rendering: RESOLVED - SHOW the miss sentence (goalCoverage.ts 'not_owned' tone). Story 1 AC4 finalized, GoalFitCard miss branch (FE-2) unblocked.",
+      "Two-simultaneous-goal-findings layout: RESOLVED - ONE card, one line per goal (mirrors GoalCoverageBanner). Story 1 AC2 finalized.",
+      "Skin-type-unset nudge scope: RESOLVED - KEEP current caution !== null && skinType === null gate, confirmed as a deliberate non-change, not widened. Story 3 AC3 finalized."
+    ],
+    "open_questions_remaining": [
+      "Exact copy wording for goal-fit match/miss sentences - owner: design. PLACEHOLDER per project convention (same as explore-composition.md's Story 7 caution copy), not invented here."
+    ],
+    "unblocked_tasks": "All of FE-1 through FE-6 (tech design §3) are now fully specified and unblocked, including GoalFitCard's (FE-2) miss-rendering branch and two-finding layout. Only the literal copy strings remain PLACEHOLDER pending design; no implementation task is blocked by that.",
+    "no_production_code_touched": true
+  },
+  "qa_notes": {
+    "summary": "Component/integration test suite written for tech design FE-1..FE-6, before any production code exists (qa-lead-before-engineer, .claude/rules/agent-layer-protocol.md §12). No src/ files created or edited.",
+    "new_files": ["tests/explore-composition/GoalFitCard.test.tsx"],
+    "extended_files": [
+      "tests/explore-composition/SkinTypeCautionNotice.test.tsx",
+      "tests/explore-composition/fixtures.ts",
+      "tests/explore-composition/ExploreCompositionResultScreen.test.tsx",
+      "tests/explore-composition/WishlistEntryDetailScreen.test.tsx"
+    ],
+    "coverage": [
+      "GoalFitCard: empty/no-goal render-nothing case; single-goal match branch (names active+goal, no score/%); single-goal miss branch (Open Question 1, RESOLVED: required render, not a stub); two-simultaneous-goal-findings layout (Open Question 2, RESOLVED: ONE card, one goal-fit-row-{goal} per goal, never dropped).",
+      "SkinTypeCautionNotice: 4 original caution x skinType branches kept as regression (now passing conditionCaution: [] explicitly); azelaic-acid-under-eczema case proving the render gate changed to `caution === null && conditionCaution.length === 0` (not just a new inert prop); KEY REGRESSION test proving the skin-type-unset nudge gate stayed `caution !== null && skinType === null` (Open Question 3, RESOLVED, not widened); same-active precedence (condition-specific wins, generic sentence excludes that key, still names other non-covered keys); explicit no-skinConditions-set unchanged-behavior block.",
+      "Result-screen ordering (both ExploreCompositionResultScreen and WishlistEntryDetailScreen, via CompositionInsightsSection): Functional profile -> Detected actives -> caution -> Goal-fit card -> Comparison matrix -> Routine placement -> disclaimer, asserted via a new collectRenderOrder fixtures helper.",
+      "Goal-fit/condition-caution wired end-to-end through the REAL buildGoalFit/buildConditionCaution pipeline on both screens (not just component-level fixtures), proving profile.primaryGoal/secondaryGoal/skinConditions actually reach the rendered output.",
+      "Guardrails on both screens: conflictEngine.ts (matchPairRule/ConflictEngine) never called; skinConditionModifiers.ts's Product[]-shaped conflict-wrapping half (applyConditionSeverityModifiers/getConditionRiskWarnings) never called; no goalFit/conditionCaution/primaryGoal/skinConditions key ever appears in the WishlistEntry save payload, the Put-on-Shelf explorePrefill navigation payload, or the wishlistStore.updateEntry patch (no new persisted fields, spec §3 Non-Goals)."
+    ],
+    "out_of_scope_per_instruction": "No unit tests written for goalFit.ts/conditionCaution.ts pure logic — that is engineer's co-located *.test.ts responsibility per the tech design's own task split and .claude/rules/testing.md's ownership table.",
+    "parallel_session_note": "DetectedActivesCard.test.tsx, WishlistEntryDetailScreen.test.tsx, ExploreCompositionResultScreen.test.tsx, and a new InfoTooltip.test.tsx already carried uncommitted, unrelated 'explore-actives-order-info' changes (a sibling task from the same 057827d planning commit) when this session resumed mid-task. Not touched or reverted. Verified via git diff before and after every edit that my anchor-based text substitutions/appends did not clobber that other work in either direction.",
+    "verification": "npx tsc --noEmit shows only the expected TS2307 (module not found)/TS2322 (prop not yet accepted) errors for FE-1/FE-2/FE-3/FE-4/FE-5 pieces that don't exist yet — no errors outside files this task touched. npx jest tests/explore-composition/ = 178 passing / 30 failing; every failure traces to this task's new not-yet-implemented behavior or to the pre-existing unrelated explore-actives-order-info work; the 4 original SkinTypeCautionNotice regression tests pass unmodified.",
+    "next_agent": "engineer — implement tech design FE-1 through FE-6, plus co-located goalFit.test.ts/conditionCaution.test.ts and the useCompositionInsights.test.ts extension, until this suite (and the pre-existing explore-composition suite) is green."
+  },
+  "engineer_notes": {
+    "summary": "Implemented FE-1 through FE-6 against the qa-lead's suite as written — no qa-lead test files edited, no genuine test bugs found.",
+    "new_files": [
+      "src/utils/productProfile/goalFit.ts",
+      "src/utils/productProfile/goalFit.test.ts",
+      "src/components/catalog/GoalFitCard.tsx",
+      "src/utils/productProfile/conditionCaution.ts",
+      "src/utils/productProfile/conditionCaution.test.ts"
+    ],
+    "modified_files": [
+      "src/components/catalog/SkinTypeCautionNotice.tsx",
+      "src/hooks/useCompositionInsights.ts",
+      "src/hooks/useCompositionInsights.test.ts",
+      "src/components/catalog/CompositionInsightsSection.tsx"
+    ],
+    "key_decisions": [
+      "goalFit.ts reuses goalCoverage.ts's exported coverageClasses directly, no GOALS re-export.",
+      "conditionCaution.ts adapts getConditionRiskWarnings' merge-by-tag algorithm to a direct resolvedActiveKeys.includes(tag) check instead of a Product[] carriers map; imports only CONDITION_MODIFIERS/ConditionModifier.",
+      "SkinTypeCautionNotice.tsx: top-level guard changed to `caution === null && conditionCaution.length === 0`; nudge gate stays exactly `caution !== null && skinType === null` (verified unchanged via qa-lead's KEY REGRESSION test); render order is condition line(s) -> nudge -> generic-sentence-minus-condition-covered-keys.",
+      "useCompositionInsights.ts computes goalFit/conditionCaution at the top-level hook only (own useMemo each), reading profile?.primaryGoal ?? 'maintenance' / profile?.secondaryGoal ?? null / profile?.skinConditions ?? [].",
+      "CompositionInsightsSection.tsx renders <GoalFitCard> immediately after <SkinTypeCautionNotice>, before the comparison matrix, matching the documented section order."
+    ],
+    "parallel_session_note": "explore-actives-order-info's uncommitted work (DetectedActivesCard.tsx diff, new InfoTooltip.tsx, progress/explore-actives-order-info* files) remains in the working tree, untouched by this session.",
+    "verification": "npx tsc --noEmit clean. npx jest tests/explore-composition/ src/utils/productProfile/goalFit.test.ts src/utils/productProfile/conditionCaution.test.ts src/hooks/useCompositionInsights.test.ts = 17 suites / 271 tests passing. Full-repo npx jest --testPathIgnorePatterns=\"worktrees\" run to confirm no regressions: 10 pre-existing failing suites remain (catalog/shelf-card/PAO-chip/routine-grouping, unrelated palette/shadow token errors), none touching files this task created or modified. Guardrail greps: zero hardcoded hex colors, zero console.log/TODO/FIXME/HACK, zero direct AsyncStorage use, zero React import in new src/utils/ modules, zero new conflictEngine.ts call sites.",
+    "next_agent": "tech-lead — architecture review of FE-1 through FE-6 against docs/tech-design/explore-fit-signals.md."
+  },
+  "tech_lead_summary": {
+    "reviewer": "A dedicated tech-lead subagent was launched but held indefinitely at its own Step-0 approval gate (requires the human's own direct message, does not accept a coordinator relay - same limitation hit earlier by the planner subagent on the sibling explore-actives-order-info task). The coordinating session applied architecture-review.md's checklist directly against commit 01073f0 instead of leaving the review permanently blocked.",
+    "verdict": "ACCEPT",
+    "checks_performed": [
+      "goalFit.ts imports coverageClasses from @/utils/goalCoverage (not a re-derived map) - confirms tech design's precise assumption over the commit message's looser wording",
+      "conditionCaution.ts imports only CONDITION_MODIFIERS/ConditionModifier; grep confirms applyConditionSeverityModifiers/getConditionRiskWarnings/conflictEngine never called anywhere in goalFit.ts/conditionCaution.ts/GoalFitCard.tsx outside disclaiming doc-comments",
+      "SkinTypeCautionNotice.tsx full diff read: top-level guard genuinely changed to `caution === null && conditionCaution.length === 0`; the azelaic-acid/eczema case renders correctly on its own",
+      "Skin-type-unset nudge gate `caution !== null && skinType === null` confirmed byte-identical in shape to the pre-task gate - not widened",
+      "Same-active precedence logic (conditionCoveredKeys/remainderKeys) confirmed to match spec Story 2 AC2 exactly",
+      "grep -ln \"from 'react'\" on goalFit.ts/conditionCaution.ts empty - no React import in either pure util",
+      "CompositionInsightsSection.tsx diff confirms <GoalFitCard> wired immediately after <SkinTypeCautionNotice>, matching spec §5 order",
+      "Zero hardcoded hex colors, zero TODO/FIXME/HACK/console.log/debugger in the four new/modified src/ files",
+      "npx tsc --noEmit clean; npx jest re-verified independently at 17 suites / 271 tests passing (re-run after the sibling task's InfoTooltip.tsx UI revision, confirming no cross-task regression)",
+      "CLAUDE.md: English-only copy, no font below 14px"
+    ],
+    "open_item_not_a_defect": "Copy wording for goal-fit sentences (spec §10 Open Question 4) remains PLACEHOLDER pending design review - not a defect."
+  }
+}

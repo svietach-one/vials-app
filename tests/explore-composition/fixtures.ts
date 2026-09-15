@@ -30,8 +30,35 @@
  *      existing call site (`WishlistEntryCard.test.tsx`,
  *      `CatalogScreen.wishlist-entries.enabled.test.tsx`) keeps compiling/
  *      passing unmodified — none of them assert on its absence.
+ *   5. **explore-fit-signals (2026-09-14):** `makeGoalFitFinding`/
+ *      `makeConditionCautionFinding` mirror `GoalFitFinding`/
+ *      `ConditionCautionFinding` (tech design FE-1/FE-3) — types don't exist
+ *      yet, same "expected to fail until the FE-task lands" convention as
+ *      judgment call #1 above. `makeProfileLike`/`ProfileGoalConditionLike`
+ *      give both result-screen test files one shared, typed shape for the
+ *      `mockProfile` closure now that it must also carry `primaryGoal`/
+ *      `secondaryGoal`/`skinConditions`, not just `skinType`.
+ *   6. `collectRenderOrder` is a single depth-first walk that collects BOTH
+ *      testID matches and exact-text matches into one ordered array — needed
+ *      because the result-screen order spans one untagged section
+ *      ("Functional profile", a plain text heading — `FunctionalProfileCard`
+ *      carries no wrapper testID) and several testID-tagged ones
+ *      (`detected-actives`, `skin-type-caution`, `goal-fit-card`,
+ *      `composition-comparison-matrix`, `routine-placement`,
+ *      `explore-result-disclaimer`). Two separate single-purpose collectors
+ *      (as in tests/vials-eu-allergen-detection/fixtures.ts) would produce
+ *      two independent arrays with no shared ordering signal between them.
  */
-import type { ActiveIngredientKey, Product, ProductType } from '@/types';
+import type {
+  ActiveIngredientKey,
+  AdvisorySeverity,
+  Product,
+  ProductType,
+  SkinConditionType,
+  SkinGoal,
+} from '@/types';
+import type { ConditionCautionFinding } from '@/utils/productProfile/conditionCaution';
+import type { GoalFitFinding } from '@/utils/productProfile/goalFit';
 import type { ResolvedIngredients } from '@/utils/productProfile/resolve';
 
 // ─── ResolvedIngredients (existing type, FE-3 will add resolveFromRawText) ────
@@ -126,4 +153,95 @@ export function makeNavigation(overrides: Record<string, unknown> = {}) {
     setParams: jest.fn(),
     ...overrides,
   } as unknown as never;
+}
+
+// ─── GoalFitFinding (new type, explore-fit-signals FE-1) ──────────────────────
+
+export function makeGoalFitFinding(overrides: Partial<GoalFitFinding> = {}): GoalFitFinding {
+  return {
+    goal: 'acne',
+    matchedKeys: ['niacinamide'],
+    ...overrides,
+  };
+}
+
+// ─── ConditionCautionFinding (new type, explore-fit-signals FE-3) ─────────────
+
+export function makeConditionCautionFinding(
+  overrides: Partial<ConditionCautionFinding> = {},
+): ConditionCautionFinding {
+  return {
+    tag: 'azelaic_acid',
+    conditions: ['eczema'],
+    conditionLabels: ['Eczema / atopic dermatitis'],
+    severity: 'low' as AdvisorySeverity,
+    message:
+      'Azelaic acid is usually well tolerated on eczema-prone skin. Some people notice mild tingling at first — introducing it gradually helps.',
+    ...overrides,
+  };
+}
+
+// ─── Profile-like fixture (primaryGoal/secondaryGoal/skinConditions reads, FE-5) ──
+// Both `ExploreCompositionResultScreen.test.tsx` and
+// `WishlistEntryDetailScreen.test.tsx` reassign a closure-captured
+// `mockProfile` per test case (see each file's own `let mockProfile = ...`).
+// This factory gives both files one shared, typed default shape so a new
+// profile field added here (or by a future task) needs updating in one
+// place, not two.
+
+export interface ProfileGoalConditionLike {
+  skinType: 'oily' | 'dry' | 'combination' | 'normal' | null;
+  primaryGoal: SkinGoal;
+  secondaryGoal: SkinGoal | null;
+  skinConditions: SkinConditionType[];
+}
+
+export function makeProfileLike(
+  overrides: Partial<ProfileGoalConditionLike> = {},
+): ProfileGoalConditionLike {
+  return {
+    skinType: null,
+    primaryGoal: 'maintenance',
+    secondaryGoal: null,
+    skinConditions: [],
+    ...overrides,
+  };
+}
+
+// ─── Render-tree order helper (judgment call #6) ───────────────────────────────
+
+type RNTestNode =
+  | {
+      type?: string;
+      props?: Record<string, unknown>;
+      children?: (RNTestNode | string)[] | null;
+    }
+  | null
+  | undefined;
+
+/**
+ * Depth-first collects, in true render order, every testID (from `testIds`)
+ * and every exact-match text node (from `texts`) found in the tree, merged
+ * into one array — so a testID-tagged section and a plain-text heading can be
+ * asserted relative to each other without two separately-ordered lists.
+ */
+export function collectRenderOrder(
+  node: RNTestNode,
+  testIds: Set<string>,
+  texts: Set<string>,
+  acc: string[] = [],
+): string[] {
+  if (!node) return acc;
+  const testID = node.props?.testID as string | undefined;
+  if (testID && testIds.has(testID)) acc.push(testID);
+  if (Array.isArray(node.children)) {
+    for (const child of node.children) {
+      if (typeof child === 'string') {
+        if (texts.has(child)) acc.push(child);
+      } else {
+        collectRenderOrder(child, testIds, texts, acc);
+      }
+    }
+  }
+  return acc;
 }

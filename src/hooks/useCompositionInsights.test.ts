@@ -15,7 +15,14 @@ jest.mock('@/store/productsStore', () => ({
   useProductsStore: jest.fn((selector: any) => selector({ products: mockProducts })),
 }));
 
-let mockProfile: { skinType: string | null } | null = { skinType: null };
+interface MockProfile {
+  skinType: string | null;
+  primaryGoal?: string;
+  secondaryGoal?: string | null;
+  skinConditions?: string[];
+}
+
+let mockProfile: MockProfile | null = { skinType: null };
 jest.mock('@/store/profileStore', () => ({
   useProfileStore: jest.fn((selector: any) => selector({ profile: mockProfile })),
 }));
@@ -202,5 +209,71 @@ describe('routineFit — explore-insights-v2 task 06', () => {
     const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, 'serum'));
 
     expect(result.current.routineFit?.morningSpf).toBe('no-morning-routine');
+  });
+});
+
+// ── goalFit / conditionCaution — explore-fit-signals FE-5 ─────────────────────
+// Reads profile.primaryGoal/secondaryGoal/skinConditions (new store reads),
+// delegates to the real buildGoalFit/buildConditionCaution builders — no
+// reimplementation in the hook itself, same convention as skinTypeCaution above.
+
+describe('goalFit — reads profile.primaryGoal/secondaryGoal, delegates to buildGoalFit', () => {
+  it('is empty when primaryGoal is maintenance and secondaryGoal is null (the profile default)', () => {
+    mockProfile = { skinType: null };
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, null));
+
+    expect(result.current.goalFit).toEqual([]);
+  });
+
+  it('exposes a real match finding for the stated primary goal', () => {
+    mockProfile = { skinType: null, primaryGoal: 'acne', secondaryGoal: null };
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, null));
+
+    expect(result.current.goalFit).toEqual([{ goal: 'acne', matchedKeys: ['niacinamide'] }]);
+  });
+
+  it('exposes a real miss finding (empty matchedKeys) when the stated goal has no overlap', () => {
+    // RAW_TEXT resolves to niacinamide/hyaluronic_acid, neither of which is
+    // in aging's coverage classes (retinoid/peptide_signal/copper_peptides/
+    // vitamin_c_pure/vitamin_c_derivative/peptide_neuro) — a real miss.
+    mockProfile = { skinType: null, primaryGoal: 'aging', secondaryGoal: null };
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, null));
+
+    expect(result.current.goalFit).toEqual([{ goal: 'aging', matchedKeys: [] }]);
+  });
+
+  it('exposes one finding per goal when both primaryGoal and secondaryGoal are set', () => {
+    mockProfile = { skinType: null, primaryGoal: 'acne', secondaryGoal: 'aging' };
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, null));
+
+    expect(result.current.goalFit).toEqual([
+      { goal: 'acne', matchedKeys: ['niacinamide'] },
+      { goal: 'aging', matchedKeys: [] },
+    ]);
+  });
+});
+
+describe('conditionCaution — reads profile.skinConditions, delegates to buildConditionCaution', () => {
+  it('is empty when skinConditions is unset (undefined on the mocked profile)', () => {
+    mockProfile = { skinType: null };
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, null));
+
+    expect(result.current.conditionCaution).toEqual([]);
+  });
+
+  it('is empty when skinConditions is an empty array', () => {
+    mockProfile = { skinType: null, skinConditions: [] };
+    const { result } = renderHook(() => useCompositionInsights(RAW_TEXT, null));
+
+    expect(result.current.conditionCaution).toEqual([]);
+  });
+
+  it('exposes a real condition-specific finding for a matching active/condition pair (azelaic acid under eczema)', () => {
+    mockProfile = { skinType: null, skinConditions: ['eczema'] };
+    const { result } = renderHook(() => useCompositionInsights('Aqua, Azelaic Acid', null));
+
+    expect(result.current.conditionCaution).toHaveLength(1);
+    expect(result.current.conditionCaution[0].tag).toBe('azelaic_acid');
+    expect(result.current.conditionCaution[0].conditions).toEqual(['eczema']);
   });
 });

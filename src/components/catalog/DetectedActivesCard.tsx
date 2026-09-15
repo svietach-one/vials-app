@@ -1,12 +1,34 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/core/Card';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { Icon } from '@/components/ui/Icon';
+import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { ACTIVE_INGREDIENT_LABELS } from '@/constants/labels';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { ActiveIngredientKey } from '@/types';
 import type { OnePercentLineResult } from '@/utils/productProfile/onePercentLine';
+
+const ACTIVES_ORDER_INFO_TITLE = 'What ingredient order means';
+
+// PLACEHOLDER — pending design review (spec §5, §10). Explains the general
+// INCI-ordering labeling convention and the 1% line; not a measured claim
+// about this specific product. Broken into `\n\n`-separated paragraphs —
+// InfoTooltip renders each as its own block and bolds the first (the main
+// takeaway) instead of one dense run-on paragraph.
+const ACTIVES_ORDER_INFO_BODY = [
+  'Ingredients are conventionally ordered by concentration, from highest to lowest — items at ' +
+    'the top of the list are typically present in the largest amounts. Amounts generally ' +
+    'decrease further down the list.',
+  'This ordering is only reliable down to about the 1% mark; below that line, brands can list ' +
+    "ingredients in any order, so position alone can't meaningfully rank the smallest amounts.",
+  'In practice, this means an active near the top of a label is more likely to be at a working ' +
+    'concentration, while one further down — especially below the 1% mark — may be present in ' +
+    'a smaller, sometimes cosmetic amount.',
+  "This explains the general labeling convention only; it isn't a measured percentage for this " +
+    'specific product.',
+].join('\n\n');
 
 interface Props {
   resolvedActiveKeys: ActiveIngredientKey[];
@@ -90,6 +112,7 @@ export function DetectedActivesCard({
 }: Props) {
   const totalCount = ingredientTokens.length;
   const rows = buildRows(resolvedActiveKeys, positionByKey, onePercentLine);
+  const [infoVisible, setInfoVisible] = useState(false);
 
   return (
     <View testID="detected-actives">
@@ -99,7 +122,17 @@ export function DetectedActivesCard({
             <Icon name="droplet" size={18} color={palette.plum} />
           </View>
           <View style={styles.cardHeaderText}>
-            <Text style={styles.cardTitle}>Detected actives</Text>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.cardTitle}>Detected actives</Text>
+              <IconButton
+                testID="detected-actives-info-icon"
+                icon={<Icon name="info" size={16} color={colors.statusInfo} />}
+                label="What ingredient order means"
+                variant="ghost"
+                size="sm"
+                onPress={() => setInfoVisible(true)}
+              />
+            </View>
             {rows.length > 0 ? (
               <Text style={styles.cardSubtitle}>{totalCount} ingredients in this list</Text>
             ) : null}
@@ -135,6 +168,12 @@ export function DetectedActivesCard({
           </Text>
         )}
       </Card>
+      <InfoTooltip
+        visible={infoVisible}
+        onClose={() => setInfoVisible(false)}
+        title={ACTIVES_ORDER_INFO_TITLE}
+        body={ACTIVES_ORDER_INFO_BODY}
+      />
     </View>
   );
 }
@@ -143,6 +182,14 @@ const styles = StyleSheet.create({
   card: {
     padding: space[4],
     gap: space[3],
+    borderWidth: 0,
+    // Card's own base style sets overflow:'hidden' (to clip content to the
+    // rounded corners) — RN clips the shadow along with it on the same
+    // view, same gotcha ProductShelfCard's own cardShadow/card split works
+    // around. This card has no edge-bleeding content, so un-clipping here
+    // is enough — no separate wrapper view needed.
+    overflow: 'visible',
+    ...shadow.sm,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -151,6 +198,13 @@ const styles = StyleSheet.create({
   },
   cardHeaderText: {
     gap: 2,
+    flex: 1,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[2],
   },
   cardIconCircle: {
     width: 36,
@@ -167,7 +221,7 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     ...typography.caption,
-    color: colors.textTertiary,
+    color: colors.textSecondary,
   },
   rows: {
     gap: space[3],
@@ -190,7 +244,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   belowLineNoteWrap: {
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
     backgroundColor: palette.cobaltTint,
     borderRadius: radius.sm,
     paddingHorizontal: space[2],
@@ -202,6 +256,6 @@ const styles = StyleSheet.create({
   },
   mutedText: {
     ...typography.bodySmall,
-    color: colors.textTertiary,
+    color: colors.textSecondary,
   },
 });

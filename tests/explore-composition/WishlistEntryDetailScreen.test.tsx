@@ -55,6 +55,20 @@
  * `explore-result-disclaimer`, any wrapper `testID` this screen needs
  * (identity header, notes card) must sit on a plain `View`, not directly on
  * `<Card>`, or it will never reach the rendered tree under this mock.
+ *
+ * Extended by explore-actives-order-info (FE-2, regression coverage): the
+ * "explore-actives-order-info regression" describe block at the bottom of
+ * this file confirms the new Detected Actives info tooltip (spec
+ * docs/specs/explore-actives-order-info.md, tech design
+ * docs/tech-design/explore-actives-order-info.md) is reachable on THIS
+ * screen too, matching `ExploreCompositionResultScreen.test.tsx`'s own
+ * equivalent block — spec Story 1 AC5's "no screen-specific wiring"
+ * requirement, since both screens share the exact same
+ * `DetectedActivesCard`/`CompositionInsightsSection` components untouched.
+ * As on the other screen, this file's own `IconButton` mock strips `testID`
+ * (keeps `accessibilityLabel`), so the trigger/close controls are queried by
+ * label here; the tooltip's own root is real/unmocked and stays
+ * testID-queryable.
  */
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
@@ -117,6 +131,28 @@ jest.mock('@/components/product/DeleteProductModal', () => {
   };
 });
 
+// Guardrail (explore-fit-signals, spec §3 Non-Goals): this screen must get
+// no new conflictEngine.ts call sites either — same rule already enforced on
+// ExploreCompositionResultScreen.test.tsx.
+jest.mock('@/utils/conflictEngine', () => ({
+  matchPairRule: jest.fn(),
+  ConflictEngine: jest.fn().mockImplementation(() => ({})),
+}));
+
+// Guardrail (explore-fit-signals, spec §3 Non-Goals): buildConditionCaution
+// (FE-3) reads CONDITION_MODIFIERS as a static table directly — it must
+// never reach skinConditionModifiers.ts's own Product[]-shaped
+// conflict-wrapping half (applyConditionSeverityModifiers/
+// getConditionRiskWarnings), out of scope for a single saved composition.
+jest.mock('@/utils/skinConditionModifiers', () => {
+  const actual = jest.requireActual('@/utils/skinConditionModifiers');
+  return {
+    ...actual,
+    applyConditionSeverityModifiers: jest.fn(actual.applyConditionSeverityModifiers),
+    getConditionRiskWarnings: jest.fn(actual.getConditionRiskWarnings),
+  };
+});
+
 // FE-3 boundary — same convention as ExploreCompositionResultScreen.test.tsx:
 // only resolveFromRawText is mocked, join.ts/capabilities.ts/shelfComparison.ts/
 // skinTypeCaution.ts/routinePosition.ts all run for REAL (already shipped,
@@ -133,7 +169,7 @@ jest.mock('@/store/productsStore', () => ({
   useProductsStore: jest.fn((selector: any) => selector({ products: mockProducts })),
 }));
 
-let mockProfile: { skinType: string | null } = { skinType: null };
+let mockProfile: ProfileGoalConditionLike = makeProfileLike();
 jest.mock('@/store/profileStore', () => ({
   useProfileStore: jest.fn((selector: any) => selector({ profile: mockProfile })),
 }));
@@ -153,8 +189,18 @@ jest.mock('@/store/wishlistStore', () => ({
 }));
 
 import WishlistEntryDetailScreen from '@/screens/catalog/WishlistEntryDetailScreen';
-import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
-import { makeNavigation, makeProduct, makeResolvedIngredients, makeWishlistEntry } from './fixtures';
+import { ACTIVE_INGREDIENT_LABELS, GOAL_LABELS, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { ConflictEngine, matchPairRule } from '@/utils/conflictEngine';
+import { applyConditionSeverityModifiers, getConditionRiskWarnings } from '@/utils/skinConditionModifiers';
+import {
+  collectRenderOrder,
+  makeNavigation,
+  makeProduct,
+  makeProfileLike,
+  makeResolvedIngredients,
+  makeWishlistEntry,
+  type ProfileGoalConditionLike,
+} from './fixtures';
 
 const RAW_TEXT = 'Aqua, Niacinamide, Hyaluronic Acid';
 
@@ -172,7 +218,7 @@ function renderScreen(wishlistEntryId = 'entry-1') {
 beforeEach(() => {
   jest.clearAllMocks();
   mockProducts = [];
-  mockProfile = { skinType: null };
+  mockProfile = { ...makeProfileLike(), skinType: null };
   mockEntries = [
     makeWishlistEntry({
       id: 'entry-1',
@@ -307,7 +353,7 @@ describe('Reuses the same 5 insight sections + disclaimer already on ExploreComp
   });
 
   it('renders the skin-type caution when its trigger fires and profile.skinType is set', () => {
-    mockProfile = { skinType: 'oily' };
+    mockProfile = { ...makeProfileLike(), skinType: 'oily' };
     mockResolveFromRawText.mockReturnValue(
       makeResolvedIngredients({ resolvedActiveKeys: ['aha'], unresolvedIngredientTokens: [] }),
     );
@@ -460,5 +506,257 @@ describe('Footer actions: Move to Shelf / Delete, additive to WishlistEntryCard\
 
     expect(screen.getByText('Move to Shelf')).toBeTruthy();
     expect(screen.getByText('Delete')).toBeTruthy();
+  });
+});
+
+// ── explore-actives-order-info regression (FE-2) ──────────────────────────────
+// Spec: docs/specs/explore-actives-order-info.md — Story 1 AC5 ("same
+// tooltip renders on WishlistEntryDetailScreen.tsx as on
+// ExploreCompositionResultScreen.tsx"). Confirms the new Detected Actives
+// info icon/tooltip is reachable unchanged from THIS screen too, matching
+// ExploreCompositionResultScreen.test.tsx's own equivalent block exactly —
+// no screen-specific wiring exists (tech design FE-3), since
+// DetectedActivesCard is rendered here, unmodified, via the same
+// CompositionInsightsSection. The tooltip's own open/close/backdrop
+// mechanics and copy are already fully covered in
+// tests/explore-composition/DetectedActivesCard.test.tsx and
+// tests/explore-composition/InfoTooltip.test.tsx — deliberately not
+// re-derived here.
+describe('explore-actives-order-info regression: Detected Actives info tooltip renders unchanged on this screen', () => {
+  it('opens the info tooltip with the expected title when the info icon is tapped', () => {
+    renderScreen();
+
+    fireEvent.press(screen.getByLabelText('What ingredient order means'));
+
+    const tooltip = screen.getByTestId('info-tooltip');
+    expect(within(tooltip).getByText('What ingredient order means')).toBeTruthy();
+  });
+
+  it('closes the tooltip when its close control is tapped, leaving Detected actives underneath', () => {
+    renderScreen();
+
+    fireEvent.press(screen.getByLabelText('What ingredient order means'));
+    fireEvent.press(screen.getByLabelText('Close'));
+
+    expect(screen.queryByTestId('info-tooltip')).toBeNull();
+    expect(screen.getByTestId('detected-actives')).toBeTruthy();
+  });
+});
+
+
+// ── explore-fit-signals: Story 1 Goal-fit card (real hook wiring) ─────────────
+// Spec: docs/specs/explore-fit-signals.md §4 Story 1
+// Tech design: docs/tech-design/explore-fit-signals.md §3 FE-1/FE-2/FE-5/FE-6
+//
+// Same reuse guarantee as `ExploreCompositionResultScreen.test.tsx`'s own
+// equivalent block: both screens render `CompositionInsightsSection` fed by
+// the same `useCompositionInsights` hook, so profile.primaryGoal/
+// secondaryGoal must reach the rendered card here too, with identical
+// behavior. `buildGoalFit`/`GoalFitCard` do not exist yet — every test below
+// is EXPECTED to fail until FE-1/FE-2/FE-5/FE-6 land.
+
+describe('Story 1: Goal-fit card — wired end-to-end through the real pipeline (parity with ExploreCompositionResultScreen)', () => {
+  it('renders a match line naming a detected active typically used for the stated primary goal', () => {
+    mockProfile = { ...makeProfileLike(), primaryGoal: 'acne' };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({ resolvedActiveKeys: ['niacinamide'], unresolvedIngredientTokens: [] }),
+    );
+    renderScreen();
+
+    const row = within(screen.getByTestId('goal-fit-card')).getByTestId('goal-fit-row-acne');
+    expect(within(row).getByText(new RegExp(ACTIVE_INGREDIENT_LABELS.niacinamide, 'i'))).toBeTruthy();
+    expect(within(row).getByText(new RegExp(GOAL_LABELS.acne, 'i'))).toBeTruthy();
+  });
+
+  it('renders the honest miss line when a real goal is set but no detected active overlaps it', () => {
+    mockProfile = { ...makeProfileLike(), primaryGoal: 'dehydration' };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({ resolvedActiveKeys: ['retinoid'], unresolvedIngredientTokens: [] }),
+    );
+    renderScreen();
+
+    const row = within(screen.getByTestId('goal-fit-card')).getByTestId('goal-fit-row-dehydration');
+    expect(within(row).getByText(new RegExp(GOAL_LABELS.dehydration, 'i'))).toBeTruthy();
+  });
+
+  it('renders ONE card with a match row and a miss row when primaryGoal and secondaryGoal each produce a finding', () => {
+    mockProfile = { ...makeProfileLike(), primaryGoal: 'acne', secondaryGoal: 'dehydration' };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({ resolvedActiveKeys: ['niacinamide'], unresolvedIngredientTokens: [] }),
+    );
+    renderScreen();
+
+    expect(screen.getAllByTestId('goal-fit-card')).toHaveLength(1);
+    const card = screen.getByTestId('goal-fit-card');
+    expect(within(card).getByTestId('goal-fit-row-acne')).toBeTruthy();
+    expect(within(card).getByTestId('goal-fit-row-dehydration')).toBeTruthy();
+  });
+
+  it('renders no goal-fit card, placeholder, or nudge when primaryGoal is maintenance and secondaryGoal is null', () => {
+    mockProfile = makeProfileLike(); // primaryGoal: 'maintenance', secondaryGoal: null
+    renderScreen();
+
+    expect(screen.queryByTestId('goal-fit-card')).toBeNull();
+    expect(screen.queryByTestId(/^goal-fit-row-/)).toBeNull();
+  });
+});
+
+// ── explore-fit-signals: Story 2 condition-aware caution (real hook wiring) ───
+// Spec: docs/specs/explore-fit-signals.md §4 Story 2
+// Tech design: docs/tech-design/explore-fit-signals.md §3 FE-3/FE-4/FE-5/FE-6
+
+describe('Story 2: condition-aware caution — wired end-to-end through the real pipeline (parity with ExploreCompositionResultScreen)', () => {
+  it('renders the condition-specific advisory for azelaic acid under eczema even though the generic skin-type trigger never fires for it', () => {
+    mockProfile = { ...makeProfileLike(), skinType: 'oily', skinConditions: ['eczema'] };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({ resolvedActiveKeys: ['azelaic_acid'], unresolvedIngredientTokens: [] }),
+    );
+    renderScreen();
+
+    const condition = screen.getByTestId('condition-caution');
+    expect(within(condition).getByText(/azelaic acid/i)).toBeTruthy();
+    expect(screen.queryByTestId('skin-type-caution')).toBeNull();
+  });
+
+  it('renders no condition-caution line at all when skinConditions is empty (unchanged behavior)', () => {
+    mockProfile = { ...makeProfileLike(), skinType: 'oily', skinConditions: [] };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({ resolvedActiveKeys: ['azelaic_acid'], unresolvedIngredientTokens: [] }),
+    );
+    renderScreen();
+
+    expect(screen.queryByTestId('condition-caution')).toBeNull();
+    expect(screen.queryByTestId('skin-type-caution')).toBeNull();
+  });
+});
+
+// ── explore-fit-signals: Story 3 regression — nudge scope did NOT widen ───────
+// Spec: docs/specs/explore-fit-signals.md §4 Story 3 AC3 (spec §10 Open
+// Question 3, RESOLVED 2026-09-14: KEEP the current gate, not widened).
+
+describe('Story 3 regression: skin-type-unset nudge stays gated on caution !== null && skinType === null, even with goal-fit/condition-caution active', () => {
+  it('does not fire the nudge from a condition-only finding when skinType is null and the generic trigger never fired', () => {
+    mockProfile = { ...makeProfileLike(), skinType: null, skinConditions: ['eczema'], primaryGoal: 'acne' };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({
+        resolvedActiveKeys: ['azelaic_acid', 'niacinamide'],
+        unresolvedIngredientTokens: [],
+      }),
+    );
+    renderScreen();
+
+    expect(screen.getByTestId('condition-caution')).toBeTruthy();
+    expect(screen.queryByTestId('skin-type-nudge')).toBeNull();
+  });
+
+  it('still fires the nudge, unchanged, when the generic trigger fires and skinType is null, regardless of goal-fit/condition-caution being active', () => {
+    mockProfile = { ...makeProfileLike(), skinType: null, skinConditions: ['eczema'], primaryGoal: 'acne' };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({ resolvedActiveKeys: ['aha', 'niacinamide'], unresolvedIngredientTokens: [] }),
+    );
+    renderScreen();
+
+    expect(screen.getByTestId('skin-type-nudge')).toBeTruthy();
+  });
+});
+
+// ── explore-fit-signals: result-screen order (shared via CompositionInsightsSection) ──
+// Spec: docs/specs/explore-fit-signals.md §5
+// Tech design: docs/tech-design/explore-fit-signals.md §1/§3 FE-6
+
+describe('Result-screen order: Functional profile -> Detected actives -> caution -> Goal-fit card -> Comparison matrix -> Routine placement -> disclaimer', () => {
+  it('renders every section, when all are populated, in the documented order — identical to ExploreCompositionResultScreen', () => {
+    mockProfile = { ...makeProfileLike(), skinType: 'oily', primaryGoal: 'acne' };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({ resolvedActiveKeys: ['aha', 'niacinamide'], unresolvedIngredientTokens: [] }),
+    );
+    mockProducts = [makeProduct({ id: 'p1', productType: 'serum' })];
+    renderScreen();
+
+    const order = collectRenderOrder(
+      screen.toJSON() as any,
+      new Set([
+        'detected-actives',
+        'skin-type-caution',
+        'goal-fit-card',
+        'composition-comparison-matrix',
+        'routine-placement',
+        'explore-result-disclaimer',
+      ]),
+      new Set(['Functional profile']),
+    );
+
+    expect(order).toEqual([
+      'Functional profile',
+      'detected-actives',
+      'skin-type-caution',
+      'goal-fit-card',
+      'composition-comparison-matrix',
+      'routine-placement',
+      'explore-result-disclaimer',
+    ]);
+  });
+});
+
+// ── explore-fit-signals: guardrails ─────────────────────────────────────────────
+// Spec: docs/specs/explore-fit-signals.md §3 Non-Goals
+
+describe('Guardrails: no new conflictEngine call sites, no Product[]-shaped condition-wrapping calls, no new persisted fields', () => {
+  it('never calls conflictEngine when goal-fit and condition-caution profile data is present', () => {
+    mockProfile = {
+      ...makeProfileLike(),
+      skinType: 'oily',
+      primaryGoal: 'acne',
+      skinConditions: ['eczema'],
+    };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({
+        resolvedActiveKeys: ['azelaic_acid', 'niacinamide'],
+        unresolvedIngredientTokens: [],
+      }),
+    );
+    renderScreen();
+
+    expect(matchPairRule).not.toHaveBeenCalled();
+    expect(ConflictEngine).not.toHaveBeenCalled();
+  });
+
+  it('never calls applyConditionSeverityModifiers or getConditionRiskWarnings — the Product[]-shaped conflict-wrapping half of skinConditionModifiers.ts is out of scope', () => {
+    mockProfile = {
+      ...makeProfileLike(),
+      skinType: 'oily',
+      primaryGoal: 'acne',
+      skinConditions: ['eczema', 'rosacea'],
+    };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({ resolvedActiveKeys: ['azelaic_acid', 'retinoid'], unresolvedIngredientTokens: [] }),
+    );
+    renderScreen();
+
+    expect(applyConditionSeverityModifiers).not.toHaveBeenCalled();
+    expect(getConditionRiskWarnings).not.toHaveBeenCalled();
+  });
+
+  it('persists no goalFit/conditionCaution/primaryGoal/skinConditions field via updateEntry (Notes save) — every new signal stays render-time-only', () => {
+    mockProfile = {
+      ...makeProfileLike(),
+      skinType: 'oily',
+      primaryGoal: 'acne',
+      skinConditions: ['eczema'],
+    };
+    mockResolveFromRawText.mockReturnValue(
+      makeResolvedIngredients({ resolvedActiveKeys: ['niacinamide'], unresolvedIngredientTokens: [] }),
+    );
+    renderScreen();
+
+    fireEvent.changeText(screen.getByTestId('wishlist-notes-input'), 'A new note');
+    fireEvent(screen.getByTestId('wishlist-notes-input'), 'blur');
+
+    expect(mockUpdateEntry).toHaveBeenCalledTimes(1);
+    const patchKeys = Object.keys(mockUpdateEntry.mock.calls[0][1]);
+    expect(patchKeys).not.toContain('goalFit');
+    expect(patchKeys).not.toContain('conditionCaution');
+    expect(patchKeys).not.toContain('primaryGoal');
+    expect(patchKeys).not.toContain('skinConditions');
   });
 });
