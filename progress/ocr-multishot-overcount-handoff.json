@@ -1,6 +1,6 @@
 {
   "task": "ocr-multishot-overcount",
-  "phase": "qa",
+  "phase": "implementation",
   "status": "IN_PROGRESS",
   "flags": {
     "backend_layer": false,
@@ -53,7 +53,17 @@
     "mergeIngredientCaptures.ts stays a pure module - no React/react-native/store imports (architecture-review.md section 2) - fix design reuses the module's existing tokensMatch helper only",
     "No new capture-time UI/heuristic introduced (see explicit_non_goal above)"
   ],
-  "next_agent": "engineer",
+  "next_agent": "tech-lead",
+  "engineer_summary": {
+    "fe1_status": "implemented",
+    "fe1_change": "mergeIngredientCaptures.ts: kept the positional seam-detection loop as-is; replaced the final blind-concatenation return line with an incremental build that appends each post-seam second-shot token only if it does not tokensMatch any token already in the accumulating merged list (firstTokens plus already-accepted post-seam tokens).",
+    "fe2_status": "deferred, not bundled",
+    "fe2_reasoning": "tokenizeIngredientsText (resolve.ts) is shared by resolveFromProduct, resolveFromRawText, shelfComparison.ts, and ExploreCompositionResultScreen.tsx, not just the merge path - a coalescing fix for internal-comma INCI names would touch behavior across all those call sites and needs its own dedicated tests/review, so it does not meet the 'cheap and low-risk' bar for bundling into this focused bug-fix PR. Remains tracked as a known secondary defect per spec section 10 / tech design assumption 5, owner: future follow-up task.",
+    "files_changed": [
+      "src/utils/productProfile/mergeIngredientCaptures.ts",
+      "src/utils/productProfile/mergeIngredientCaptures.test.ts"
+    ]
+  },
   "qa_summary": {
     "baseline": {
       "tsc": "clean, zero errors",

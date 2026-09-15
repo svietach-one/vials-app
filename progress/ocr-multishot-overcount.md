@@ -1,12 +1,12 @@
 Status: IN_PROGRESS
 Tech Design: docs/tech-design/ocr-multishot-overcount.md
-Code: —
+Code: src/utils/productProfile/mergeIngredientCaptures.ts, src/utils/productProfile/mergeIngredientCaptures.test.ts
 
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
 - [x] QA tests (qa-lead)
-- [ ] Implementation (engineer)
+- [x] Implementation (engineer)
 - [ ] Architecture review (tech-lead)
 
 ## Log
@@ -111,3 +111,51 @@ Next agent: engineer, per `.claude/rules/agent-layer-protocol.md` §12. Once FE-
 FE-2) land, re-run `npx jest tests/explore-composition` (must stay 14/14 green, unmodified) plus
 `src/utils/productProfile/mergeIngredientCaptures.test.ts` (7 existing cases unmodified + new
 case(s) for the near-duplicate/no-seam shape) before handing off to tech-lead.
+
+### 2026-09-15 — engineer: FE-1 implemented, FE-2 deferred
+
+**FE-1 (Task 1, must-fix) — implemented in
+`src/utils/productProfile/mergeIngredientCaptures.ts`.** Kept the existing positional
+seam-detection loop exactly as-is (still correct for a genuine continuation shot). Replaced the
+final blind-concatenation return line
+(`[...firstTokens, ...secondTokens.slice(overlapLength)].join(', ')`) with an incremental build:
+start from `[...firstTokens]`, then for each post-seam second-shot token, in order, append it only
+if it does not `tokensMatch` any token already present in the growing merged list so far (per tech
+design Assumption 4 — checked against the full accumulating list, not just the original
+`firstTokens`). No signature change; no caller changes needed.
+
+**Tests — `src/utils/productProfile/mergeIngredientCaptures.test.ts`.** All 7 existing cases pass
+unmodified (backward-compat proof). Added one new case:
+`'drops second-shot tokens that duplicate the middle of the first shot when there is no valid
+positional seam'` — first shot `[Aqua, Niacinamide, Glycerin, Panthenol, Tocopherol]`, second shot
+`[Niacinamlde, Glycerin, Panthenol, Retinol]` (head `Niacinamlde` does not match first's tail
+`Tocopherol`, so the seam search correctly finds `overlapLength === 0`, mirroring the real bug
+shape). The near-miss spelling `Niacinamlde` (vs. `Niacinamide`) proves the new global-dedup pass
+uses `tokensMatch`'s fuzzy equality, not exact string comparison. Expected/actual result:
+`'Aqua, Niacinamide, Glycerin, Panthenol, Tocopherol, Retinol'` — every unique ingredient present
+exactly once, only the genuinely new `Retinol` token added.
+
+**FE-2 (Task 2, optional/stretch) — deferred, not bundled into this PR.** `tokenizeIngredientsText`
+(`resolve.ts`) is shared by `resolveFromProduct`, `resolveFromRawText`, `shelfComparison.ts`, and
+`ExploreCompositionResultScreen.tsx` — not just the merge path this task targets. A coalescing fix
+for internal-comma INCI names (e.g. "1,2-Hexanediol") would touch behavior across all those call
+sites and needs its own dedicated tests/review, so it does not meet the "cheap and low-risk" bar
+for bundling here. Remains tracked as a known, documented secondary defect (spec §10, tech design
+Assumption 5) — owner: future follow-up task, does not block this task's Definition of Done.
+
+**Quality gates (all green, in order):**
+1. `npx tsc --noEmit` — clean, zero errors.
+2. `npx jest src/utils/productProfile/mergeIngredientCaptures.test.ts` — 8/8 passed (7 existing +
+   1 new).
+3. `npx jest tests/explore-composition` — 14 suites / 226 tests, all green, unmodified — matches
+   qa-lead's confirmed baseline exactly, no regression to the continuation or disjoint-shots
+   behavior.
+
+Pre-existing, unrelated failures (`.claude/worktrees/agent-*` module-resolution errors,
+`palette.plumTint`/`palette.goldenTint`/`shadow.sm` catalog-screen failures) were not investigated
+or touched, per task instructions — out of scope.
+
+Files changed: `src/utils/productProfile/mergeIngredientCaptures.ts`,
+`src/utils/productProfile/mergeIngredientCaptures.test.ts`.
+
+Next agent: tech-lead, per `.claude/rules/agent-layer-protocol.md` §12.

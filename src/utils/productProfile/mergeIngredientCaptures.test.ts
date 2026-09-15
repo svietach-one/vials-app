@@ -54,4 +54,19 @@ describe('mergeIngredientCaptures', () => {
       'Aqua, Glycerin, Niacinamide, Panthenol, Retinol',
     );
   });
+
+  it('drops second-shot tokens that duplicate the middle of the first shot when there is no valid positional seam', () => {
+    // Mirrors the real reported shape: a reshoot whose recognized head lines
+    // up with the MIDDLE of the first shot's list, not its tail, so the
+    // positional seam search correctly finds overlapLength === 0. The near
+    // -miss "Niacinamlde" spelling (vs. the first shot's "Niacinamide") also
+    // proves the global dedup pass uses tokensMatch's fuzzy equality, not
+    // exact string comparison.
+    const first = 'Aqua, Niacinamide, Glycerin, Panthenol, Tocopherol';
+    const second = 'Niacinamlde, Glycerin, Panthenol, Retinol';
+
+    expect(mergeIngredientCaptures(first, second)).toBe(
+      'Aqua, Niacinamide, Glycerin, Panthenol, Tocopherol, Retinol',
+    );
+  });
 });

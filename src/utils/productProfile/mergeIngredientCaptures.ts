@@ -77,5 +77,13 @@ export function mergeIngredientCaptures(firstText: string, secondText: string): 
     }
   }
 
-  return [...firstTokens, ...secondTokens.slice(overlapLength)].join(', ');
+  const mergedTokens = [...firstTokens];
+  for (const token of secondTokens.slice(overlapLength)) {
+    const isDuplicate = mergedTokens.some((existing) => tokensMatch(existing, token));
+    if (!isDuplicate) {
+      mergedTokens.push(token);
+    }
+  }
+
+  return mergedTokens.join(', ');
 }
