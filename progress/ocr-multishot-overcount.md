@@ -1,4 +1,4 @@
-Status: IN_PROGRESS
+Status: PR_REVIEW
 Tech Design: docs/tech-design/ocr-multishot-overcount.md
 Code: src/utils/productProfile/mergeIngredientCaptures.ts, src/utils/productProfile/mergeIngredientCaptures.test.ts
 
@@ -7,7 +7,7 @@ Code: src/utils/productProfile/mergeIngredientCaptures.ts, src/utils/productProf
 - [x] Technical design (planner)
 - [x] QA tests (qa-lead)
 - [x] Implementation (engineer)
-- [ ] Architecture review (tech-lead)
+- [x] Architecture review (tech-lead)
 
 ## Log
 
@@ -159,3 +159,58 @@ Files changed: `src/utils/productProfile/mergeIngredientCaptures.ts`,
 `src/utils/productProfile/mergeIngredientCaptures.test.ts`.
 
 Next agent: tech-lead, per `.claude/rules/agent-layer-protocol.md` §12.
+
+### 2026-09-15 — tech-lead: ACCEPT (PR_REVIEW, ready for human merge)
+
+**Design fidelity — MATCH.** Diff touches only the final return line of `mergeIngredientCaptures`;
+the existing positional seam-detection loop is byte-for-byte unchanged. The new code builds
+`mergedTokens` starting from `[...firstTokens]` and appends each post-seam second-shot token only
+if `tokensMatch` finds no match already inside the growing `mergedTokens` array itself (the `.some()`
+check runs against the same array being `.push()`-ed into on each iteration) — i.e. checked against
+the full accumulating list, not a frozen `firstTokens` snapshot, exactly matching tech design §3
+FE-1 / Assumption 4. No signature change, no caller changes, `tokensMatch` reused as-is.
+
+**Layer separation — CLEAN.** `mergeIngredientCaptures.ts` still imports only
+`tokenizeIngredientsText` from co-located `./resolve`. Grep confirms no React/react-native/store
+imports, no `AsyncStorage`, no `fetch(` in either changed file.
+
+**Type safety — CLEAN.** `npx tsc --noEmit` run personally: zero errors.
+
+**Tests — personally run, both green, matching claimed baselines exactly:**
+- `npx jest src/utils/productProfile/mergeIngredientCaptures.test.ts` → **8/8 passed** (7
+  pre-existing unmodified + 1 new).
+- `npx jest tests/explore-composition` → **14 suites / 226 tests, all green** — identical counts to
+  qa-lead's pre-fix baseline, confirming zero regression to continuation/disjoint-shot behavior.
+
+**Scope — CLEAN.** `git diff origin/dev..HEAD --name-only`: exactly 6 files (2 docs, 2 progress, the
+merge util + its co-located test). No touch to `ExploreCompositionCaptureScreen.tsx` /
+`finalizeCapturedText`, the OCR pipeline, camera code, or `resolve.ts` (FE-2 correctly left
+untouched/deferred, matching the engineer's log).
+
+**New test case — hand-verified against the fixture, not just trusted by name.** Confirmed
+`tokenizeIngredientsText` is a plain comma-split/trim/filter-empty (no dedup at that layer), then
+traced the seam loop by hand for first=[Aqua, Niacinamide, Glycerin, Panthenol, Tocopherol],
+second=[Niacinamlde, Glycerin, Panthenol, Retinol]: every candidate window (len 4 down to 1) fails —
+len=4 fails on its last pair (Tocopherol vs Retinol, Levenshtein ratio well above the 0.25
+threshold), and len 1-3 fail immediately since second's head token only fuzzy-matches first's *2nd*
+token, never a tail-aligned one. `overlapLength` genuinely resolves to 0, confirming this fixture
+exercises the new global-dedup pass, not the seam path. That pass then correctly drops Niacinamlde
+(fuzzy dup of Niacinamide), Glycerin and Panthenol (exact dups), keeping only the genuinely-new
+Retinol — matches both the test's expected string and the observed jest run. Cross-checked against
+the pre-fix formula (`[...firstTokens, ...secondTokens.slice(0)]`): it would have produced 9 tokens
+with the duplicates intact, so this test is a real regression guard, not a vacuous one.
+
+**Quality signals — CLEAN.** No TODO/FIXME/HACK, no console.log/debugger in either changed file.
+`mergeIngredientCaptures` is 28 lines total, well under the 50-line threshold. No hardcoded
+colors/spacing (no UI touched).
+
+**Process note, non-blocking, flagged for the human:** the spec's header states it was "not yet
+re-confirmed interactively against this exact document by the human" — planner adopted the
+coordinating session's root-cause + fix mechanism directly as a Type B technical assumption per
+`.claude/rules/tech-design-template.md`'s gap-type table, which permits proceeding without
+escalation for this gap type. No business-level assumption was smuggled in under that framing.
+Noting for awareness before merge, not as a review blocker.
+
+Verdict: **ACCEPT.** No blockers, no warnings requiring rework. Ready for human merge.
+
+Next: human (PR / merge). Pipeline complete per `.claude/rules/agent-layer-protocol.md` §12.
