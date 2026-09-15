@@ -1,6 +1,6 @@
 {
   "task": "explore-fit-signals",
-  "phase": "qa",
+  "phase": "engineer",
   "status": "IN_PROGRESS",
   "flags": {
     "backend_layer": false,
@@ -52,5 +52,31 @@
     "parallel_session_note": "DetectedActivesCard.test.tsx, WishlistEntryDetailScreen.test.tsx, ExploreCompositionResultScreen.test.tsx, and a new InfoTooltip.test.tsx already carried uncommitted, unrelated 'explore-actives-order-info' changes (a sibling task from the same 057827d planning commit) when this session resumed mid-task. Not touched or reverted. Verified via git diff before and after every edit that my anchor-based text substitutions/appends did not clobber that other work in either direction.",
     "verification": "npx tsc --noEmit shows only the expected TS2307 (module not found)/TS2322 (prop not yet accepted) errors for FE-1/FE-2/FE-3/FE-4/FE-5 pieces that don't exist yet — no errors outside files this task touched. npx jest tests/explore-composition/ = 178 passing / 30 failing; every failure traces to this task's new not-yet-implemented behavior or to the pre-existing unrelated explore-actives-order-info work; the 4 original SkinTypeCautionNotice regression tests pass unmodified.",
     "next_agent": "engineer — implement tech design FE-1 through FE-6, plus co-located goalFit.test.ts/conditionCaution.test.ts and the useCompositionInsights.test.ts extension, until this suite (and the pre-existing explore-composition suite) is green."
+  },
+  "engineer_notes": {
+    "summary": "Implemented FE-1 through FE-6 against the qa-lead's suite as written — no qa-lead test files edited, no genuine test bugs found.",
+    "new_files": [
+      "src/utils/productProfile/goalFit.ts",
+      "src/utils/productProfile/goalFit.test.ts",
+      "src/components/catalog/GoalFitCard.tsx",
+      "src/utils/productProfile/conditionCaution.ts",
+      "src/utils/productProfile/conditionCaution.test.ts"
+    ],
+    "modified_files": [
+      "src/components/catalog/SkinTypeCautionNotice.tsx",
+      "src/hooks/useCompositionInsights.ts",
+      "src/hooks/useCompositionInsights.test.ts",
+      "src/components/catalog/CompositionInsightsSection.tsx"
+    ],
+    "key_decisions": [
+      "goalFit.ts reuses goalCoverage.ts's exported coverageClasses directly, no GOALS re-export.",
+      "conditionCaution.ts adapts getConditionRiskWarnings' merge-by-tag algorithm to a direct resolvedActiveKeys.includes(tag) check instead of a Product[] carriers map; imports only CONDITION_MODIFIERS/ConditionModifier.",
+      "SkinTypeCautionNotice.tsx: top-level guard changed to `caution === null && conditionCaution.length === 0`; nudge gate stays exactly `caution !== null && skinType === null` (verified unchanged via qa-lead's KEY REGRESSION test); render order is condition line(s) -> nudge -> generic-sentence-minus-condition-covered-keys.",
+      "useCompositionInsights.ts computes goalFit/conditionCaution at the top-level hook only (own useMemo each), reading profile?.primaryGoal ?? 'maintenance' / profile?.secondaryGoal ?? null / profile?.skinConditions ?? [].",
+      "CompositionInsightsSection.tsx renders <GoalFitCard> immediately after <SkinTypeCautionNotice>, before the comparison matrix, matching the documented section order."
+    ],
+    "parallel_session_note": "explore-actives-order-info's uncommitted work (DetectedActivesCard.tsx diff, new InfoTooltip.tsx, progress/explore-actives-order-info* files) remains in the working tree, untouched by this session.",
+    "verification": "npx tsc --noEmit clean. npx jest tests/explore-composition/ src/utils/productProfile/goalFit.test.ts src/utils/productProfile/conditionCaution.test.ts src/hooks/useCompositionInsights.test.ts = 17 suites / 271 tests passing. Full-repo npx jest --testPathIgnorePatterns=\"worktrees\" run to confirm no regressions: 10 pre-existing failing suites remain (catalog/shelf-card/PAO-chip/routine-grouping, unrelated palette/shadow token errors), none touching files this task created or modified. Guardrail greps: zero hardcoded hex colors, zero console.log/TODO/FIXME/HACK, zero direct AsyncStorage use, zero React import in new src/utils/ modules, zero new conflictEngine.ts call sites.",
+    "next_agent": "tech-lead — architecture review of FE-1 through FE-6 against docs/tech-design/explore-fit-signals.md."
   }
 }

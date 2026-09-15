@@ -1,12 +1,12 @@
 Status: IN_PROGRESS
 Tech Design: docs/tech-design/explore-actives-order-info.md
-Code: —
+Code: src/components/ui/InfoTooltip.tsx (new), src/components/catalog/DetectedActivesCard.tsx (modified)
 
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
 - [x] QA tests (qa-lead)
-- [ ] Implementation (engineer)
+- [x] Implementation (engineer)
 - [ ] Architecture review (tech-lead)
 
 ## Log
@@ -41,3 +41,40 @@ Code: —
   Noted in passing (not this task's concern): `git status` shows unrelated in-flight changes to
   `SkinTypeCautionNotice.test.tsx`/`fixtures.ts`/new `GoalFitCard.test.tsx` — from the concurrent
   `explore-fit-signals` task sharing this branch, left untouched.
+
+- 2026-09-15 (engineer): Implemented FE-1/FE-2 per tech design; FE-3 confirmed no-op as designed.
+  New `src/components/ui/InfoTooltip.tsx` — visual shell copied verbatim from
+  `AttributionTooltip.tsx` (backdrop `Pressable` + slide-up card + header + close `IconButton`,
+  same tokens), dropping the `matches`/`getAliasMicroCopy` per-match logic for a single static
+  `body` `Text`; testIDs `info-tooltip` / `info-tooltip-backdrop` / `info-tooltip-close` match the
+  qa-lead's test contract exactly. Modified `src/components/catalog/DetectedActivesCard.tsx`:
+  added local `useState` boolean, an always-rendered `IconButton` (`testID=
+  detected-actives-info-icon`, `label="What ingredient order means"`, `Icon name="info"
+  color={colors.statusInfo}`) placed after the title `Text` inside a new `cardTitleRow` wrapper
+  (added to satisfy header layout — title + icon side by side — no existing style renamed or
+  removed), and a sibling `<InfoTooltip>` rendered at the end of the component. Copy constants
+  (`ACTIVES_ORDER_INFO_TITLE`/`ACTIVES_ORDER_INFO_BODY`) inlined as local constants in
+  `DetectedActivesCard.tsx` per tech design §4's assumption (not `labels.ts`), body text is spec
+  §5's placeholder copy verbatim, still marked `PLACEHOLDER — pending design review` in a code
+  comment. No changes to `resolve.ts`/`ingredientParser.ts`/`onePercentLine.ts`, no per-row detail
+  sheet, no existing `DetectedActivesCard` copy strings reworded.
+  Verification: `npx tsc --noEmit` shows zero errors in any file this task touches or in the four
+  qa-lead test files (`InfoTooltip.test.tsx`, `DetectedActivesCard.test.tsx`,
+  `ExploreCompositionResultScreen.test.tsx`, `WishlistEntryDetailScreen.test.tsx`); the only
+  remaining `tsc` errors are pre-existing, from the concurrent `explore-fit-signals` engineer
+  session's in-flight/untracked files (`GoalFitCard.tsx`, `goalFit.ts`, `conditionCaution.ts`,
+  `SkinTypeCautionNotice.test.tsx`). `npx jest` on the four target files: `InfoTooltip.test.tsx`
+  11/11 pass; `DetectedActivesCard.test.tsx` 24/24 pass (18 pre-existing + 6 new tooltip-trigger
+  tests, none of the pre-existing assertions touched); both screen files' own
+  "explore-actives-order-info regression" blocks (2 tests each, 4 total) pass. The full run of the
+  two screen files shows 13 additional failures — all under `Story 1: Goal-fit card`, `Story 2:
+  condition-aware caution`, and `Result-screen order` describe blocks, which belong to the
+  concurrent `explore-fit-signals` task's still-in-progress code (`GoalFitCard.tsx`/`goalFit.ts`/
+  `conditionCaution.ts` are untracked/incomplete on this shared branch) — out of this task's scope,
+  confirmed by `git status --short` and by the failing describe-block names matching that other
+  task's spec, not this one's. No qa-lead test files edited. No co-located unit test added for
+  `InfoTooltip.tsx` — per `.claude/rules/testing.md`, co-located `src/**/*.test.ts` unit tests are
+  for pure business logic in `src/utils/`, not components; `InfoTooltip` has no business logic
+  (pure presentational shell) and is already fully covered by the qa-lead's
+  `tests/explore-composition/InfoTooltip.test.tsx`, so an additional co-located test would be
+  redundant duplication of the same assertions.

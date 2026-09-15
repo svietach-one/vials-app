@@ -1,12 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/core/Card';
+import { IconButton } from '@/components/ui/core/IconButton';
 import { Icon } from '@/components/ui/Icon';
+import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { ACTIVE_INGREDIENT_LABELS } from '@/constants/labels';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { ActiveIngredientKey } from '@/types';
 import type { OnePercentLineResult } from '@/utils/productProfile/onePercentLine';
+
+const ACTIVES_ORDER_INFO_TITLE = 'What ingredient order means';
+
+// PLACEHOLDER — pending design review (spec §5, §10). Explains the general
+// INCI-ordering labeling convention and the 1% line; not a measured claim
+// about this specific product.
+const ACTIVES_ORDER_INFO_BODY =
+  'Ingredient lists are conventionally ordered by concentration, from highest to lowest — ' +
+  'the ingredients at the top of the list are typically present in the largest amounts, and ' +
+  'amounts generally decrease further down. This ordering is only reliable down to about the ' +
+  "1% mark; below that line, brands can list ingredients in any order, so position alone can't " +
+  'meaningfully rank the smallest amounts. In practice, this means an active near the top of a ' +
+  'label is more likely to be at a working concentration, while one further down — especially ' +
+  'below the 1% mark — may be present in a smaller, sometimes cosmetic amount. This explains ' +
+  "the general labeling convention only; it isn't a measured percentage for this specific " +
+  'product.';
 
 interface Props {
   resolvedActiveKeys: ActiveIngredientKey[];
@@ -90,6 +108,7 @@ export function DetectedActivesCard({
 }: Props) {
   const totalCount = ingredientTokens.length;
   const rows = buildRows(resolvedActiveKeys, positionByKey, onePercentLine);
+  const [infoVisible, setInfoVisible] = useState(false);
 
   return (
     <View testID="detected-actives">
@@ -99,7 +118,17 @@ export function DetectedActivesCard({
             <Icon name="droplet" size={18} color={palette.plum} />
           </View>
           <View style={styles.cardHeaderText}>
-            <Text style={styles.cardTitle}>Detected actives</Text>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.cardTitle}>Detected actives</Text>
+              <IconButton
+                testID="detected-actives-info-icon"
+                icon={<Icon name="info" size={16} color={colors.statusInfo} />}
+                label="What ingredient order means"
+                variant="ghost"
+                size="sm"
+                onPress={() => setInfoVisible(true)}
+              />
+            </View>
             {rows.length > 0 ? (
               <Text style={styles.cardSubtitle}>{totalCount} ingredients in this list</Text>
             ) : null}
@@ -135,6 +164,12 @@ export function DetectedActivesCard({
           </Text>
         )}
       </Card>
+      <InfoTooltip
+        visible={infoVisible}
+        onClose={() => setInfoVisible(false)}
+        title={ACTIVES_ORDER_INFO_TITLE}
+        body={ACTIVES_ORDER_INFO_BODY}
+      />
     </View>
   );
 }
@@ -151,6 +186,13 @@ const styles = StyleSheet.create({
   },
   cardHeaderText: {
     gap: 2,
+    flex: 1,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[2],
   },
   cardIconCircle: {
     width: 36,

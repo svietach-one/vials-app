@@ -5,6 +5,8 @@ import { useProfileStore } from '@/store/profileStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import type { ActiveIngredientKey, CapabilityKey, Product, ProductType, Routine, SkinType } from '@/types';
 import { buildCapabilities } from '@/utils/productProfile/capabilities';
+import { buildConditionCaution, type ConditionCautionFinding } from '@/utils/productProfile/conditionCaution';
+import { buildGoalFit, type GoalFitFinding } from '@/utils/productProfile/goalFit';
 import type { ClassFactsRecord } from '@/utils/productProfile/join';
 import { joinActiveKeys } from '@/utils/productProfile/join';
 import { getMorningSpfState, type MorningSpfState } from '@/utils/productProfile/morningSpfPresence';
@@ -68,6 +70,10 @@ export interface CompositionInsights {
   positionByKey: Partial<Record<ActiveIngredientKey, number>>;
   skinType: SkinType | null;
   skinTypeCaution: SkinTypeCautionResult | null;
+  /** Goal-fit findings for every real (non-`maintenance`) stated care goal (explore-fit-signals FE-5). */
+  goalFit: GoalFitFinding[];
+  /** Condition-specific caution findings for `profile.skinConditions` (explore-fit-signals FE-5). */
+  conditionCaution: ConditionCautionFinding[];
   shelfComparison: ShelfComparisonResult | null;
   /** Which of this composition's actives already appear elsewhere on the whole Shelf — not category-gated. */
   shelfOverlap: SharedActive[];
@@ -199,6 +205,17 @@ export function useCompositionInsights(
     routines,
   );
 
+  // Computed here (top-level hook), not inside either sub-hook — mirrors how
+  // `skinType` itself is read directly from `profile` (explore-fit-signals FE-5).
+  const goalFit = useMemo(
+    () => buildGoalFit(resolved.resolvedActiveKeys, profile?.primaryGoal ?? 'maintenance', profile?.secondaryGoal ?? null),
+    [resolved.resolvedActiveKeys, profile?.primaryGoal, profile?.secondaryGoal],
+  );
+  const conditionCaution = useMemo(
+    () => buildConditionCaution(resolved.resolvedActiveKeys, profile?.skinConditions ?? []),
+    [resolved.resolvedActiveKeys, profile?.skinConditions],
+  );
+
   return {
     capabilityTags,
     resolvedActiveKeys: resolved.resolvedActiveKeys,
@@ -207,6 +224,8 @@ export function useCompositionInsights(
     positionByKey: resolved.positionByKey,
     skinType: profile?.skinType ?? null,
     skinTypeCaution,
+    goalFit,
+    conditionCaution,
     shelfComparison,
     shelfOverlap,
     shelfProductCount: products.length,

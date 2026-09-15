@@ -1,7 +1,7 @@
 {
   "task": "explore-actives-order-info",
-  "phase": "qa-lead",
-  "status": "TESTS_WRITTEN",
+  "phase": "engineer",
+  "status": "IMPLEMENTED",
   "flags": {
     "backend_layer": false,
     "frontend_layer": true,
@@ -51,5 +51,20 @@
     "branch": "feature/explore-personalization (from origin/dev) - shared with the concurrent explore-fit-signals task, no file overlap (this task touches only DetectedActivesCard.tsx and the new InfoTooltip.tsx in src/, plus the 4 test files above).",
     "authored_by": "Written directly by the coordinating session after the planner subagent's own approval gate could not be satisfied through agent-to-agent relay (see progress log for context) - content matches the planner's own fully-drafted proposal verbatim.",
     "concurrent_session_observed": "git status at handoff time shows unrelated in-flight modifications to tests/explore-composition/SkinTypeCautionNotice.test.tsx and fixtures.ts, plus a new untracked tests/explore-composition/GoalFitCard.test.tsx - these belong to the concurrent explore-fit-signals task sharing this branch and were left untouched by this task's work."
+  },
+  "engineer_summary": {
+    "files_created": [
+      "src/components/ui/InfoTooltip.tsx"
+    ],
+    "files_modified": [
+      "src/components/catalog/DetectedActivesCard.tsx"
+    ],
+    "no_qa_test_files_edited": true,
+    "no_co_located_unit_test_added": "InfoTooltip is a pure presentational shell with no business logic; testing.md scopes co-located src/ unit tests to business logic in src/utils/. Full coverage already exists in tests/explore-composition/InfoTooltip.test.tsx (qa-lead).",
+    "verification": {
+      "tsc": "npx tsc --noEmit: zero errors in any file touched by this task or in the 4 qa-lead test files. Remaining repo-wide tsc errors are pre-existing, from the concurrent explore-fit-signals task's in-flight/untracked files (GoalFitCard.tsx, goalFit.ts, conditionCaution.ts, SkinTypeCautionNotice.test.tsx).",
+      "jest": "InfoTooltip.test.tsx: 11/11 pass. DetectedActivesCard.test.tsx: 24/24 pass (18 pre-existing untouched + 6 new tooltip-trigger tests). ExploreCompositionResultScreen.test.tsx and WishlistEntryDetailScreen.test.tsx: each file's 'explore-actives-order-info regression' block (2 tests) passes; both files' additional 13 combined failures belong to the concurrent explore-fit-signals task's Story 1/Story 2/Result-screen-order blocks (out of this task's scope, verified via git status --short showing those source files as untracked/incomplete)."
+    },
+    "deviations_from_tech_design": "None in substance. Added one new style, cardTitleRow (flex row wrapping the title Text + info IconButton), and added flex: 1 to the existing cardHeaderText style so the row can justify-content: space-between the title against the icon - purely a layout necessity for placing the icon inline after the title per tech design FE-2's instruction, no existing style values changed or removed."
   }
 }

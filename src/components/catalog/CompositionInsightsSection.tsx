@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { CompositionComparisonMatrix } from '@/components/catalog/CompositionComparisonMatrix';
 import { DetectedActivesCard } from '@/components/catalog/DetectedActivesCard';
 import { FunctionalProfileCard } from '@/components/catalog/FunctionalProfileCard';
+import { GoalFitCard } from '@/components/catalog/GoalFitCard';
 import { RoutinePlacementCard } from '@/components/catalog/RoutinePlacementCard';
 import { SkinTypeCautionNotice } from '@/components/catalog/SkinTypeCautionNotice';
 import { space, typography, colors } from '@/constants/tokens';
@@ -28,6 +29,13 @@ type Props = CompositionInsights & {
  * (FE-21 refactor) and the new `WishlistEntryDetailScreen.tsx` (FE-22) render
  * this one component instead of each keeping a parallel copy of the same
  * five sections.
+ *
+ * Extended by explore-fit-signals FE-6: order becomes Functional profile ->
+ * Detected actives -> caution (now condition-aware) -> Goal-fit card ->
+ * Comparison matrix -> Routine placement -> disclaimer. The goal-fit card
+ * sits immediately after the caution block, preserving that block's already-
+ * established "directly after ingredients" position rather than displacing
+ * it (spec §5, tech design §4 assumption).
  */
 export function CompositionInsightsSection({
   capabilityTags,
@@ -36,6 +44,8 @@ export function CompositionInsightsSection({
   positionByKey,
   skinType,
   skinTypeCaution,
+  goalFit,
+  conditionCaution,
   shelfComparison,
   shelfOverlap,
   shelfProductCount,
@@ -63,8 +73,11 @@ export function CompositionInsightsSection({
       <SkinTypeCautionNotice
         caution={skinTypeCaution}
         skinType={skinType}
+        conditionCaution={conditionCaution}
         onSetSkinType={onSetSkinType}
       />
+
+      <GoalFitCard goalFit={goalFit} />
 
       {shelfComparison ? (
         <CompositionComparisonMatrix

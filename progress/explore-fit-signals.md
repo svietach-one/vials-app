@@ -1,13 +1,23 @@
 Status: IN_PROGRESS
 Tech Design: docs/tech-design/explore-fit-signals.md
-Code: not yet implemented — target branch `feature/explore-personalization` (branched from
-origin/dev, confirmed checked out locally via `git branch --show-current`, not yet pushed to remote)
+Code:
+- src/utils/productProfile/goalFit.ts (new, FE-1)
+- src/utils/productProfile/goalFit.test.ts (new, co-located unit tests)
+- src/components/catalog/GoalFitCard.tsx (new, FE-2)
+- src/utils/productProfile/conditionCaution.ts (new, FE-3)
+- src/utils/productProfile/conditionCaution.test.ts (new, co-located unit tests)
+- src/components/catalog/SkinTypeCautionNotice.tsx (modified, FE-4)
+- src/hooks/useCompositionInsights.ts (modified, FE-5)
+- src/hooks/useCompositionInsights.test.ts (extended, FE-5 coverage)
+- src/components/catalog/CompositionInsightsSection.tsx (modified, FE-6)
+Target branch `feature/explore-personalization` (branched from origin/dev, checked out locally,
+not yet pushed to remote)
 
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
 - [x] QA tests (qa-lead)
-- [ ] Implementation (engineer)
+- [x] Implementation (engineer)
 - [ ] Architecture review (tech-lead)
 
 ## Log
@@ -155,3 +165,59 @@ to either this task's new not-yet-implemented behavior or the pre-existing,
 unrelated `explore-actives-order-info` tooltip work; the 4 original
 `SkinTypeCautionNotice` regression tests pass unmodified, confirming the
 no-conditions-set path is untouched by this task's own changes.
+
+2026-09-15 — engineer: Implemented tech design FE-1 through FE-6 against the qa-lead's suite, no
+test-file edits.
+
+- FE-1 `src/utils/productProfile/goalFit.ts` (+ co-located `goalFit.test.ts`) — pure
+  `buildGoalFit(resolvedActiveKeys, primaryGoal, secondaryGoal): GoalFitFinding[]`, reusing
+  `goalCoverage.ts`'s exported `coverageClasses` directly (no `GOALS` re-export, per tech design
+  assumption). `buildGoalFitMatchMessage`/`buildGoalFitMissMessage` copy builders are wired and
+  non-stub (Open Question 1 resolved: SHOW the miss sentence) — copy stays `PLACEHOLDER` per spec §10
+  Open Question 4, matching `goalCoverage.ts`'s "not_owned" tone, no score/percentage anywhere.
+- FE-2 `src/components/catalog/GoalFitCard.tsx` — icon-circle-header `Card` (never
+  `SkinTypeCautionNotice`'s tinted-alert style), `testID="goal-fit-card"` + one
+  `testID="goal-fit-row-{goal}"` per finding (up to 2), returns `null` for an empty `goalFit` array.
+- FE-3 `src/utils/productProfile/conditionCaution.ts` (+ co-located `conditionCaution.test.ts`) — pure
+  `buildConditionCaution(resolvedActiveKeys, skinConditions): ConditionCautionFinding[]`, adapting
+  `getConditionRiskWarnings`'s algorithm (filter `CONDITION_MODIFIERS`, one finding per matching tag,
+  merge-by-tag taking highest severity) from a `Product[]` carriers map to a direct
+  `resolvedActiveKeys.includes(tag)` check. Imports only `CONDITION_MODIFIERS`/`ConditionModifier` —
+  never `applyConditionSeverityModifiers`/`getConditionRiskWarnings`, never `conflictEngine.ts`
+  (verified via grep, guardrail tests in `ExploreCompositionResultScreen.test.tsx`/
+  `WishlistEntryDetailScreen.test.tsx` also pass). Message text is `CONDITION_MODIFIERS`'s existing
+  strings verbatim.
+- FE-4 `src/components/catalog/SkinTypeCautionNotice.tsx` — added required `conditionCaution` prop;
+  top-level guard changed to `caution === null && conditionCaution.length === 0`; render order is
+  condition line(s) first (`testID="condition-caution"`, independent of `skinType`/`caution`), then
+  the skin-type-unset nudge (gate unchanged: `caution !== null && skinType === null` — verified via the
+  qa-lead's KEY REGRESSION test that this did NOT widen), then the generic sentence built from
+  `caution.triggeringKeys` minus any key already covered by a `conditionCaution` finding, suppressed
+  entirely when that remainder is empty.
+- FE-5 `src/hooks/useCompositionInsights.ts` — added `goalFit`/`conditionCaution` to
+  `CompositionInsights`, each its own `useMemo` computed at the top-level hook only (mirrors how
+  `skinType` itself is read directly from `profile`), reading `profile?.primaryGoal ?? 'maintenance'`,
+  `profile?.secondaryGoal ?? null`, `profile?.skinConditions ?? []`. Extended the existing
+  `useCompositionInsights.test.ts` with new describe blocks for both fields (widened the local
+  `mockProfile` type to include the three new optional fields).
+- FE-6 `src/components/catalog/CompositionInsightsSection.tsx` — wired `<GoalFitCard>` immediately
+  after `<SkinTypeCautionNotice>` (now passing `conditionCaution`), before the comparison matrix —
+  matches the documented order Functional profile → Detected actives → caution → Goal-fit card →
+  Comparison matrix → Routine placement → disclaimer, verified by the qa-lead's `collectRenderOrder`
+  tests on both result screens.
+
+No qa-lead test files were edited — every assertion passed as originally written; no genuine test bug
+was found. Discovered and left untouched, as instructed: the same parallel-session
+`explore-actives-order-info` in-flight work qa-lead's log already documented (`DetectedActivesCard.tsx`
+diff, new `InfoTooltip.tsx`, `progress/explore-actives-order-info*` files) — confirmed via `git status
+--short` these remain someone else's uncommitted changes, not touched by any edit in this session.
+
+Verification: `npx tsc --noEmit` clean (zero errors). `npx jest tests/explore-composition/
+src/utils/productProfile/goalFit.test.ts src/utils/productProfile/conditionCaution.test.ts
+src/hooks/useCompositionInsights.test.ts` — 17 suites / 271 tests, all passing. Also ran the full repo
+suite (`npx jest --testPathIgnorePatterns="worktrees"`) to confirm no regressions outside this task's
+scope: 10 pre-existing failing suites remain (catalog/shelf-card/PAO-chip/routine-grouping tests,
+unrelated `palette`/`shadow` token resolution errors in that area), none of them touching any file this
+task created or modified. Guardrail greps confirm zero hardcoded hex colors, zero
+`console.log`/TODO/FIXME/HACK, zero direct `AsyncStorage` use, zero React import in the new
+`src/utils/` modules, and zero new `conflictEngine.ts` call sites in the files this task touched.
