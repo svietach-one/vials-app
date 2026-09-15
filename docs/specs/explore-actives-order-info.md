@@ -55,8 +55,11 @@ ingredient's list position and the "1% line" mean, so the numbers I'm already lo
 - [ ] Given the info icon, when tapped, then a tooltip/sheet opens showing a title and body
       explaining the INCI-ordering convention and the 1% line, using the copy in §5.
 - [ ] Given the tooltip is open, when the user taps its close control or its backdrop, then it
-      closes, returning to the card underneath — same interaction contract as
-      `AttributionTooltip.tsx`.
+      closes, returning to the card underneath — same dismiss interaction as
+      `AttributionTooltip.tsx` (tap close or backdrop), with two deliberate, product-directed
+      presentation differences (see §5): rendered via RN's `Modal` rather than a local sibling
+      `View` (so it overlays the full screen, not just the card's own bounds), and no backdrop
+      dimming.
 - [ ] Given the tooltip's copy, when read, then it explicitly states this is a general labeling
       convention, not a measured percentage for this specific product — no claim more specific than
       what the underlying data already supports.
@@ -74,9 +77,18 @@ local `useState` boolean + `IconButton.onPress`, `accessibilityRole="button"`, a
 (`detected-actives-info-icon`) — same convention `RoutineStepCard.tsx` already uses to open
 `AttributionTooltip`.
 
-Tooltip: new `InfoTooltip` component (see tech design), visually identical to
-`AttributionTooltip.tsx`'s shell (backdrop + slide-up bottom card + header + close `IconButton`),
-but with a static `title`/`body` instead of per-match content.
+Tooltip: new `InfoTooltip` component (see tech design), based on `AttributionTooltip.tsx`'s shell
+(slide-up bottom card + header + close `IconButton`) with a static `title`/`body` instead of
+per-match content. **Presentation revised during review, per direct product feedback**: rendered
+inside RN's `Modal` (`transparent`, `animationType="fade"`) rather than as a local sibling `View`
+— `AttributionTooltip.tsx`'s own absolutely-positioned `View` only fills its nearest parent's
+bounds, which for a card nested in a scrollable list is that card's own box, not the full screen;
+wrapping in `Modal` (this app's established overlay primitive elsewhere) makes it genuinely render
+above everything. Also, no backdrop dimming (`AttributionTooltip.tsx`'s `rgba(9, 9, 11, 0.5)`
+scrim is dropped — tap-outside-to-close still works via an invisible full-screen `Pressable`), and
+body text uses `colors.textPrimary` (black) rather than `colors.textSecondary`. These three
+changes are this component's own presentation, not a retroactive change to `AttributionTooltip.tsx`
+itself.
 
 Copy (marked `PLACEHOLDER — pending design review`, same convention `docs/specs/
 explore-composition.md` used for Story 7's caution sentence before it was finalized):
