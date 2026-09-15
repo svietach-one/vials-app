@@ -1,7 +1,7 @@
 {
   "task": "explore-fit-signals",
-  "phase": "design",
-  "status": "DESIGNED",
+  "phase": "qa",
+  "status": "IN_PROGRESS",
   "flags": {
     "backend_layer": false,
     "frontend_layer": true,
@@ -9,7 +9,14 @@
   },
   "artifacts": {
     "spec": "docs/specs/explore-fit-signals.md",
-    "tech_design": "docs/tech-design/explore-fit-signals.md"
+    "tech_design": "docs/tech-design/explore-fit-signals.md",
+    "tests": [
+      "tests/explore-composition/GoalFitCard.test.tsx",
+      "tests/explore-composition/SkinTypeCautionNotice.test.tsx",
+      "tests/explore-composition/ExploreCompositionResultScreen.test.tsx",
+      "tests/explore-composition/WishlistEntryDetailScreen.test.tsx",
+      "tests/explore-composition/fixtures.ts"
+    ]
   },
   "branch": "feature/explore-personalization (branched from origin/dev, checked out locally, not yet pushed)",
   "planner_notes": {
@@ -24,5 +31,26 @@
     ],
     "unblocked_tasks": "All of FE-1 through FE-6 (tech design §3) are now fully specified and unblocked, including GoalFitCard's (FE-2) miss-rendering branch and two-finding layout. Only the literal copy strings remain PLACEHOLDER pending design; no implementation task is blocked by that.",
     "no_production_code_touched": true
+  },
+  "qa_notes": {
+    "summary": "Component/integration test suite written for tech design FE-1..FE-6, before any production code exists (qa-lead-before-engineer, .claude/rules/agent-layer-protocol.md §12). No src/ files created or edited.",
+    "new_files": ["tests/explore-composition/GoalFitCard.test.tsx"],
+    "extended_files": [
+      "tests/explore-composition/SkinTypeCautionNotice.test.tsx",
+      "tests/explore-composition/fixtures.ts",
+      "tests/explore-composition/ExploreCompositionResultScreen.test.tsx",
+      "tests/explore-composition/WishlistEntryDetailScreen.test.tsx"
+    ],
+    "coverage": [
+      "GoalFitCard: empty/no-goal render-nothing case; single-goal match branch (names active+goal, no score/%); single-goal miss branch (Open Question 1, RESOLVED: required render, not a stub); two-simultaneous-goal-findings layout (Open Question 2, RESOLVED: ONE card, one goal-fit-row-{goal} per goal, never dropped).",
+      "SkinTypeCautionNotice: 4 original caution x skinType branches kept as regression (now passing conditionCaution: [] explicitly); azelaic-acid-under-eczema case proving the render gate changed to `caution === null && conditionCaution.length === 0` (not just a new inert prop); KEY REGRESSION test proving the skin-type-unset nudge gate stayed `caution !== null && skinType === null` (Open Question 3, RESOLVED, not widened); same-active precedence (condition-specific wins, generic sentence excludes that key, still names other non-covered keys); explicit no-skinConditions-set unchanged-behavior block.",
+      "Result-screen ordering (both ExploreCompositionResultScreen and WishlistEntryDetailScreen, via CompositionInsightsSection): Functional profile -> Detected actives -> caution -> Goal-fit card -> Comparison matrix -> Routine placement -> disclaimer, asserted via a new collectRenderOrder fixtures helper.",
+      "Goal-fit/condition-caution wired end-to-end through the REAL buildGoalFit/buildConditionCaution pipeline on both screens (not just component-level fixtures), proving profile.primaryGoal/secondaryGoal/skinConditions actually reach the rendered output.",
+      "Guardrails on both screens: conflictEngine.ts (matchPairRule/ConflictEngine) never called; skinConditionModifiers.ts's Product[]-shaped conflict-wrapping half (applyConditionSeverityModifiers/getConditionRiskWarnings) never called; no goalFit/conditionCaution/primaryGoal/skinConditions key ever appears in the WishlistEntry save payload, the Put-on-Shelf explorePrefill navigation payload, or the wishlistStore.updateEntry patch (no new persisted fields, spec §3 Non-Goals)."
+    ],
+    "out_of_scope_per_instruction": "No unit tests written for goalFit.ts/conditionCaution.ts pure logic — that is engineer's co-located *.test.ts responsibility per the tech design's own task split and .claude/rules/testing.md's ownership table.",
+    "parallel_session_note": "DetectedActivesCard.test.tsx, WishlistEntryDetailScreen.test.tsx, ExploreCompositionResultScreen.test.tsx, and a new InfoTooltip.test.tsx already carried uncommitted, unrelated 'explore-actives-order-info' changes (a sibling task from the same 057827d planning commit) when this session resumed mid-task. Not touched or reverted. Verified via git diff before and after every edit that my anchor-based text substitutions/appends did not clobber that other work in either direction.",
+    "verification": "npx tsc --noEmit shows only the expected TS2307 (module not found)/TS2322 (prop not yet accepted) errors for FE-1/FE-2/FE-3/FE-4/FE-5 pieces that don't exist yet — no errors outside files this task touched. npx jest tests/explore-composition/ = 178 passing / 30 failing; every failure traces to this task's new not-yet-implemented behavior or to the pre-existing unrelated explore-actives-order-info work; the 4 original SkinTypeCautionNotice regression tests pass unmodified.",
+    "next_agent": "engineer — implement tech design FE-1 through FE-6, plus co-located goalFit.test.ts/conditionCaution.test.ts and the useCompositionInsights.test.ts extension, until this suite (and the pre-existing explore-composition suite) is green."
   }
 }

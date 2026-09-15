@@ -1,9 +1,14 @@
 /**
  * Component test — DetectedActivesCard (explore-insights-v2 task 03).
  * Position ordering, ordinal formatting, and the below-the-1%-line note.
+ *
+ * Extended by explore-actives-order-info (FE-2): the "info tooltip trigger"
+ * describe block below covers the new info icon + InfoTooltip wiring. See
+ * that block's own header comment for spec/tech-design references — none of
+ * the pre-existing describe blocks above it were changed.
  */
 import React from 'react';
-import { render, screen, within } from '@testing-library/react-native';
+import { render, screen, within, fireEvent } from '@testing-library/react-native';
 
 jest.mock('@expo/vector-icons', () => ({ Feather: () => null }));
 jest.mock('@/components/ui/Icon', () => ({ Icon: () => null }));
@@ -165,5 +170,98 @@ describe('DetectedActivesCard — subtitle and empty state', () => {
       screen.getByText('No known active ingredients detected in this composition.'),
     ).toBeTruthy();
     expect(screen.queryByText(/ingredients in this list/)).toBeNull();
+  });
+});
+
+// ── Info tooltip trigger (explore-actives-order-info) ────────────────────────
+// Spec: docs/specs/explore-actives-order-info.md — Story 1 (all ACs).
+// Tech design: docs/tech-design/explore-actives-order-info.md — FE-1/FE-2.
+// The tooltip's own open/close/backdrop mechanics are covered standalone in
+// InfoTooltip.test.tsx; this block only asserts the trigger wiring on
+// DetectedActivesCard itself: the icon always renders (including the
+// empty-actives state), tapping it opens InfoTooltip with the expected
+// title/body, and closing (either control) returns to the card underneath —
+// without disturbing any of the position/1%-line rendering covered above.
+//
+// `src/components/catalog/DetectedActivesCard.tsx` does not render this icon
+// yet (FE-2 not implemented) — every test below is EXPECTED to fail until it
+// lands, same test-first convention as the rest of this task's suite.
+//
+// Copy asserted here is the CURRENT placeholder wording (spec §5, marked
+// PLACEHOLDER pending design review) — assertions target meaningful
+// substrings only, not full-string/whitespace equality, so a copy-only
+// tweak from design review won't break this suite (per this task's own
+// instructions to qa-lead).
+//
+// IconButton is NOT mocked in this file (real component, as before) — its
+// testID passes through via its own `{...rest}` spread untouched.
+describe('DetectedActivesCard — info tooltip trigger', () => {
+  it('always renders the info icon in the header, even in the empty-actives state', () => {
+    renderCard({ resolvedActiveKeys: [] });
+
+    expect(screen.getByTestId('detected-actives-info-icon')).toBeTruthy();
+  });
+
+  it('renders the info icon alongside populated rows too', () => {
+    renderCard({
+      resolvedActiveKeys: ['niacinamide'],
+      positionByKey: { niacinamide: 6 },
+    });
+
+    expect(screen.getByTestId('detected-actives-info-icon')).toBeTruthy();
+  });
+
+  it('does not render the tooltip until the icon is tapped', () => {
+    renderCard({ resolvedActiveKeys: ['niacinamide'] });
+
+    expect(screen.queryByTestId('info-tooltip')).toBeNull();
+  });
+
+  it('opens the tooltip with the expected title and body when the icon is tapped', () => {
+    renderCard({ resolvedActiveKeys: ['niacinamide'] });
+
+    fireEvent.press(screen.getByTestId('detected-actives-info-icon'));
+
+    const tooltip = screen.getByTestId('info-tooltip');
+    expect(within(tooltip).getByText('What ingredient order means')).toBeTruthy();
+    expect(
+      within(tooltip).getByText(/ordered by concentration, from highest to lowest/i),
+    ).toBeTruthy();
+    expect(within(tooltip).getByText(/reliable down to about the 1% mark/i)).toBeTruthy();
+    expect(
+      within(tooltip).getByText(/isn't a measured percentage for this specific product/i),
+    ).toBeTruthy();
+  });
+
+  it('closes the tooltip and leaves the card underneath when the close control is tapped', () => {
+    renderCard({ resolvedActiveKeys: ['niacinamide'] });
+
+    fireEvent.press(screen.getByTestId('detected-actives-info-icon'));
+    expect(screen.getByTestId('info-tooltip')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('info-tooltip-close'));
+
+    expect(screen.queryByTestId('info-tooltip')).toBeNull();
+    expect(screen.getByTestId('detected-actives')).toBeTruthy();
+  });
+
+  it('closes the tooltip when its backdrop is tapped', () => {
+    renderCard({ resolvedActiveKeys: ['niacinamide'] });
+
+    fireEvent.press(screen.getByTestId('detected-actives-info-icon'));
+    fireEvent.press(screen.getByTestId('info-tooltip-backdrop'));
+
+    expect(screen.queryByTestId('info-tooltip')).toBeNull();
+  });
+
+  it('does not disturb any existing row content while the tooltip is open', () => {
+    renderCard({
+      resolvedActiveKeys: ['niacinamide'],
+      positionByKey: { niacinamide: 6 },
+    });
+
+    fireEvent.press(screen.getByTestId('detected-actives-info-icon'));
+
+    expect(screen.getByText('6th of 42')).toBeTruthy();
   });
 });

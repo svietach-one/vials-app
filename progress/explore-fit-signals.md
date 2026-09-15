@@ -1,4 +1,4 @@
-Status: DESIGNED
+Status: IN_PROGRESS
 Tech Design: docs/tech-design/explore-fit-signals.md
 Code: not yet implemented — target branch `feature/explore-personalization` (branched from
 origin/dev, confirmed checked out locally via `git branch --show-current`, not yet pushed to remote)
@@ -6,7 +6,7 @@ origin/dev, confirmed checked out locally via `git branch --show-current`, not y
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
-- [ ] QA tests (qa-lead)
+- [x] QA tests (qa-lead)
 - [ ] Implementation (engineer)
 - [ ] Architecture review (tech-lead)
 
@@ -69,3 +69,89 @@ Confirmed via `git branch --show-current` that this session is already on
 no matching remote branch yet — not pushed). Noted in the `Code:` line above. Still no production code
 touched — `git status --short` shows only the 4 doc files in `docs/specs/`, `docs/tech-design/`, and
 `progress/` for this task slug.
+
+2026-09-15 — qa-lead: Read the approved spec/tech design and
+`docs/specs/explore-composition.md` / `docs/tech-design/explore-composition.md`
+for style/fixture precedent, then wrote the integration/component test suite
+for this task's scope (tech design FE-1..FE-6) BEFORE any production code
+exists, per `.claude/rules/agent-layer-protocol.md` §12. No `src/` files were
+created or edited.
+
+Files created/extended:
+- `tests/explore-composition/GoalFitCard.test.tsx` (NEW) — no-goal empty case,
+  single-goal match branch (names the active + goal, no score/%), single-goal
+  miss branch (spec §10 Open Question 1, RESOLVED: the miss sentence is a
+  required render, not a stub), and the two-simultaneous-goal-findings layout
+  (Open Question 2, RESOLVED: exactly ONE card, one `testID="goal-fit-row-
+  {goal}"` line per goal, never two cards, never a silently dropped goal).
+- `tests/explore-composition/SkinTypeCautionNotice.test.tsx` (EXTENDED) — kept
+  the 4 original caution x skinType branches verbatim as regression coverage
+  (now passing the new required `conditionCaution: []` prop explicitly), then
+  added: the azelaic-acid-under-eczema case proving the top-level render gate
+  changed from `caution === null` to `caution === null && conditionCaution
+  .length === 0` (this active never trips the generic skin-type trigger —
+  verified directly against `actives.json`: irritancy 2, exfoliating/
+  photosensitizing both false); the KEY REGRESSION test proving the skin-
+  type-unset nudge's gate did NOT widen (`caution !== null && skinType ===
+  null` unchanged, spec §10 Open Question 3 RESOLVED — a condition-only
+  finding with `skinType === null` must NOT fire the nudge); same-active
+  precedence (condition-specific line wins, generic sentence excludes that
+  key but still names any other non-covered triggering key); and an explicit
+  "no skinConditions set" block proving the no-conditions path is unchanged.
+- `tests/explore-composition/fixtures.ts` (EXTENDED) — added
+  `makeGoalFitFinding`/`makeConditionCautionFinding` factories (types don't
+  exist yet — FE-1/FE-3), `makeProfileLike`/`ProfileGoalConditionLike` so both
+  result-screen suites share one typed `mockProfile` shape now that it must
+  carry `primaryGoal`/`secondaryGoal`/`skinConditions` alongside `skinType`,
+  and `collectRenderOrder` (a single depth-first testID+text collector,
+  needed because the result-screen order spans one untagged section —
+  `FunctionalProfileCard` has no wrapper testID, only a "Functional profile"
+  text heading — and several testID-tagged ones).
+- `tests/explore-composition/ExploreCompositionResultScreen.test.tsx`
+  (EXTENDED) — added a `skinConditionModifiers.ts` guardrail spy
+  (`applyConditionSeverityModifiers`/`getConditionRiskWarnings` real-impl
+  spies, alongside the pre-existing `conflictEngine.ts` guardrail), widened
+  `mockProfile`'s type/factory to `ProfileGoalConditionLike` (all 7 existing
+  reassignment sites updated to the spread form, verified via `tsc` that no
+  existing assertion changed), and appended new describe blocks: Story 1
+  goal-fit wired end-to-end through the REAL `buildGoalFit`/pipeline (not
+  just the component-level fixture), Story 2 condition-aware caution wired
+  end-to-end, a Story 3 regression block at screen level, a result-screen
+  ordering test (Functional profile → Detected actives → caution → Goal-fit
+  card → Comparison matrix → Routine placement → disclaimer) via the new
+  `collectRenderOrder` helper, and a guardrails block asserting `conflictEngine`
+  /`applyConditionSeverityModifiers`/`getConditionRiskWarnings` are never
+  called and that neither the `WishlistEntry` save payload nor the "Put on
+  Shelf" `explorePrefill` navigation payload ever carries a `goalFit`/
+  `conditionCaution`/`primaryGoal`/`skinConditions` key (no new persisted
+  fields — spec §3 Non-Goals).
+- `tests/explore-composition/WishlistEntryDetailScreen.test.tsx` (EXTENDED) —
+  the same guardrail mocks, `mockProfile` type widening, and Story 1/2/3/
+  ordering/guardrails blocks as the result screen, proving parity through the
+  shared `CompositionInsightsSection.tsx` (the "identical behavior on both
+  screens" requirement); the persisted-fields guardrail here checks
+  `wishlistStore.updateEntry`'s patch (via the Notes-card blur-commit path)
+  instead of `addEntry`/`explorePrefill`.
+
+Pre-existing, unrelated in-flight work discovered in the same working tree
+during this session (NOT touched, NOT reverted — a live parallel-session
+situation, matching the precedent already logged in this repo's memory):
+`DetectedActivesCard.test.tsx`, `WishlistEntryDetailScreen.test.tsx`,
+`ExploreCompositionResultScreen.test.tsx`, and a new `InfoTooltip.test.tsx`
+already carried uncommitted `explore-actives-order-info` changes (a sibling
+task, also referenced in this branch's `057827d` planning commit) when this
+session resumed after an interruption. Verified via `git diff` line-by-line
+before editing that my own fixtures.ts `Write` call and every
+`ExploreCompositionResultScreen.test.tsx`/`WishlistEntryDetailScreen.test.tsx`
+edit were anchor-based text substitutions/appends against content that
+existed BEFORE that other session's changes and were unaffected by them —
+confirmed no clobbering in either direction by re-diffing after every edit.
+
+Verification: `npx tsc --noEmit` shows only the expected `TS2307`/`TS2322`
+errors for modules/props that don't exist until FE-1/FE-2/FE-3/FE-4/FE-5 land
+(no errors in files this task didn't need to touch). `npx jest
+tests/explore-composition/` — 178 passing / 30 failing; every failure traces
+to either this task's new not-yet-implemented behavior or the pre-existing,
+unrelated `explore-actives-order-info` tooltip work; the 4 original
+`SkinTypeCautionNotice` regression tests pass unmodified, confirming the
+no-conditions-set path is untouched by this task's own changes.

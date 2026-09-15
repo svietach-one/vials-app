@@ -1,7 +1,7 @@
 {
   "task": "explore-actives-order-info",
-  "phase": "planner",
-  "status": "DESIGNED",
+  "phase": "qa-lead",
+  "status": "TESTS_WRITTEN",
   "flags": {
     "backend_layer": false,
     "frontend_layer": true,
@@ -10,7 +10,12 @@
   "artifacts": {
     "spec": "docs/specs/explore-actives-order-info.md",
     "tech_design": "docs/tech-design/explore-actives-order-info.md",
-    "tests": "TBD (qa-lead)"
+    "tests": [
+      "tests/explore-composition/InfoTooltip.test.tsx",
+      "tests/explore-composition/DetectedActivesCard.test.tsx",
+      "tests/explore-composition/ExploreCompositionResultScreen.test.tsx",
+      "tests/explore-composition/WishlistEntryDetailScreen.test.tsx"
+    ]
   },
   "step0_findings": {
     "premise_correction": "The original brief assumed DetectedActivesCard shows no per-ingredient position data. Direct file/git verification found this is false: explore-insights-v2 tasks 01-03 (git 47ad52c/1235824/1fbd528/1694419), already merged to dev, wired real INCI position and a '1% line' heuristic through resolve.ts/onePercentLine.ts into DetectedActivesCard.tsx, which already renders '{ordinal} of {n}' and a below-the-line note per row. Scope was corrected (product-confirmed) from 'explain why no position is shown' to 'explain the position/1%-line data already shown'.",
@@ -18,7 +23,7 @@
     "deferred_scope_confirmed": "docs/tasks/explore_insights/03-actives-card-position-dose.md's own 'Out of scope' section already named 'making the rows tappable / an ingredient detail sheet' as a later batch - this task's single card-level info trigger is deliberately distinct from that deferred per-row idea, not a partial implementation of it."
   },
   "open_items_resolution": {
-    "copy_wording": "NEEDS_CLARIFICATION -> owner: design. Draft copy provided in spec §5, marked PLACEHOLDER per this project's established convention (docs/specs/explore-composition.md Story 7 precedent). Does not block engineer starting FE-1/FE-2/FE-3 (tech design §5)."
+    "copy_wording": "NEEDS_CLARIFICATION -> owner: design. Draft copy provided in spec §5, marked PLACEHOLDER per this project's established convention (docs/specs/explore-composition.md Story 7 precedent). Does not block engineer starting FE-1/FE-2/FE-3 (tech design §5). qa-lead's DetectedActivesCard.test.tsx assertions target meaningful substrings of the placeholder body only (not full-string/whitespace equality), so a copy-only tweak from design review will not break the suite."
   },
   "guardrails_respected": [
     "resolve.ts / ingredientParser.ts / onePercentLine.ts - not touched, no new position/parsing logic",
@@ -27,8 +32,24 @@
     "No existing DetectedActivesCard copy strings reworded",
     "CompositionInsightsSection.tsx / useCompositionInsights.ts / ExploreCompositionResultScreen.tsx / WishlistEntryDetailScreen.tsx - unchanged, feature inherited automatically via the shared component"
   ],
+  "qa_lead_summary": {
+    "new_files": {
+      "tests/explore-composition/InfoTooltip.test.tsx": "Standalone component test for the not-yet-built src/components/ui/InfoTooltip.tsx. Generic fixture title/body (deliberately NOT this task's own copy, to keep the component test content-agnostic). Covers: renders nothing when visible=false; renders testID=info-tooltip root + given title/body when visible=true; renders arbitrary title/body pairs unchanged; onClose fires exactly once on info-tooltip-close press and on info-tooltip-backdrop press; onClose never fires merely from rendering."
+    },
+    "extended_files": {
+      "tests/explore-composition/DetectedActivesCard.test.tsx": "Added an 'info tooltip trigger' describe block (all pre-existing describe blocks/assertions unchanged). Covers: detected-actives-info-icon always renders, including the empty-actives state; tooltip is closed by default; tapping the icon opens InfoTooltip with title 'What ingredient order means' and body substrings matching spec §5's placeholder copy; tapping info-tooltip-close or info-tooltip-backdrop closes it and leaves detected-actives underneath; existing row content (e.g. ordinal position) is undisturbed while the tooltip is open.",
+      "tests/explore-composition/ExploreCompositionResultScreen.test.tsx": "Added a small 'explore-actives-order-info regression' describe block at the end of the file (all ~75 pre-existing tests untouched). Confirms the info icon/tooltip is reachable on this screen. Queries by accessibilityLabel ('What ingredient order means' / 'Close') instead of testID, because this file's own pre-existing IconButton mock strips testID and keeps only accessibilityLabel — the tooltip root itself (testID=info-tooltip) is a real, unmocked element and stays testID-queryable.",
+      "tests/explore-composition/WishlistEntryDetailScreen.test.tsx": "Same regression block, same querying approach, added identically to confirm no screen-specific wiring exists between the two screens (spec Story 1 AC5)."
+    },
+    "verification": {
+      "tsc": "npx tsc --noEmit shows exactly one expected error: Cannot find module '@/components/ui/InfoTooltip' (component not implemented yet). No other new type errors.",
+      "jest": "InfoTooltip.test.tsx + DetectedActivesCard.test.tsx: 18 pre-existing DetectedActivesCard tests pass, 6 new tests fail (element/module not found, expected pre-FE-1/FE-2). ExploreCompositionResultScreen.test.tsx + WishlistEntryDetailScreen.test.tsx: 75 pre-existing tests pass, 4 new regression tests fail (element not found, expected pre-FE-2). No unrelated regressions."
+    },
+    "unit_tests": "None written - tech design confirms no new pure logic (resolve.ts/onePercentLine.ts unchanged), so no engineer-owned unit-test scope was pre-empted."
+  },
   "notes": {
-    "branch": "feature/explore-personalization (from origin/dev) - shared with the concurrent explore-fit-signals task, no file overlap (this task touches only DetectedActivesCard.tsx and the new InfoTooltip.tsx).",
-    "authored_by": "Written directly by the coordinating session after the planner subagent's own approval gate could not be satisfied through agent-to-agent relay (see progress log for context) - content matches the planner's own fully-drafted proposal verbatim."
+    "branch": "feature/explore-personalization (from origin/dev) - shared with the concurrent explore-fit-signals task, no file overlap (this task touches only DetectedActivesCard.tsx and the new InfoTooltip.tsx in src/, plus the 4 test files above).",
+    "authored_by": "Written directly by the coordinating session after the planner subagent's own approval gate could not be satisfied through agent-to-agent relay (see progress log for context) - content matches the planner's own fully-drafted proposal verbatim.",
+    "concurrent_session_observed": "git status at handoff time shows unrelated in-flight modifications to tests/explore-composition/SkinTypeCautionNotice.test.tsx and fixtures.ts, plus a new untracked tests/explore-composition/GoalFitCard.test.tsx - these belong to the concurrent explore-fit-signals task sharing this branch and were left untouched by this task's work."
   }
 }
