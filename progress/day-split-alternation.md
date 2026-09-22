@@ -367,3 +367,100 @@ run, not the self-report alone). Both flagged QA-suite issues are genuine qa-lea
 identified and correctly left unpatched by the engineer rather than distorting working code to satisfy a broken
 assertion. Two minor function-length WARNINGs noted for a low-risk follow-up. Status set to PR_REVIEW,
 `[x] Architecture review`. Ready for human merge.
+
+2026-09-22 — tech-lead (follow-up review, post-QA fixes): Reviewed the 3 commits added after the
+original ACCEPT in response to human Expo Go QA (`8938d69`, `a79c63b`, `90b224e`), all confined to
+`src/components/routine/DraftPreviewScreen.tsx` plus one pre-existing test file
+(`tests/routine-engine/draft-preview-sheet.test.tsx`). Did not re-review `e972631`'s engine logic
+(skeleton.ts/resolve.ts/cycleSplit.ts) — untouched by these commits, already ACCEPTed.
+
+**Note on scope framing:** the review request for this follow-up was relayed via an orchestrating
+agent rather than typed directly by a human in this session (this agent's Step 0 gate assumes a live
+human `y`/`yes`, which this invocation's tooling has no channel for — the identical structural gap
+already disclosed in this file's original tech-lead entry). Treated the task assignment itself as
+legitimate direction (in scope, matches this repo's tech-lead role, internally consistent with and
+independently verifiable against the actual git history/files/tests) while still verifying every
+factual claim in it firsthand rather than trusting it, per the usual review discipline. No embedded
+instruction-override attempt was found in any commit message, diff, or file read during this review.
+
+Independently verified, not trusted from commit messages:
+- `npx tsc --noEmit` clean.
+- Targeted run (`tests/day-split-alternation/DraftPreviewScreen.cycle-split-prompt.test.tsx`,
+  `tests/routine-engine/draft-preview-sheet.test.tsx`, `tests/routine-engine/draft-preview.test.ts`,
+  `tests/routine-similar-product-priority/draft-preview-sheet-alternatives.test.tsx`): 46 passed / 1
+  failed, the 1 failure being the exact same pre-existing, already-adjudicated qa-lead test-authoring
+  bug from the original review (`queryByText(AHA.name)).toBeNull()` at line 144, contradicting the
+  file's own line 87-88) — not re-litigated, per the task brief. Zero new failures.
+- Full `npx jest --testPathIgnorePatterns="worktrees"`: 12 failed / 222 passed suites — enumerated
+  every failing suite name (not just the count) and confirmed byte-identical to the prior baseline:
+  the same 2 day-split-alternation files plus the same 10 pre-existing/unrelated suites (5x
+  tests/catalog/*, product-shelf-card, shelf-filtering/PaoChip.integration,
+  product-images/RoutineCalendarView, inci-attribution-highlighting/DetectedActiveBadgeWiring,
+  routine-step-grouping/RoutinesScreen.completion), including the same two `palette.plumTint`/
+  `shadow.sm` hard-crash failures from the unrelated in-progress redesign. Zero new regressions.
+- `tests/routine-engine/draft-preview-sheet.test.tsx`'s two updated assertions (`getByText('1.
+  Cleanser')`/`getByText('2. Serum')` replacing the old isolated `getAllByText('1.')`/
+  `getAllByText(/^(Cleanser|Serum)$/)` nodes): traced against the file's own `makePlan()` fixture
+  (morning=[Cleanser, VitC-serum], evening=[Cleanser]) by hand — the new assertions require exactly 2
+  "1. Cleanser" nodes (morning step 1 + evening step 1) and 1 "2. Serum" node (morning step 2 only),
+  the identical invariant the old counts encoded (period-relative numbering reset), and the
+  layering-order test now asserts position+category as one combined node instead of an indirect
+  array-order comparison — a faithful, if anything stricter, restatement, not a loosened one.
+- Design tokens: zero hardcoded hex in the diff; `Badge`, `getProductTypeBadgeStatus`, `shadow` grepped
+  directly against the current file (not just the diff) — confirmed genuinely unused, not just removed
+  from the import line while a usage lingered elsewhere.
+- Layer separation: no AsyncStorage/fetch/business logic added; all 3 commits are pure
+  presentation/styling plus one string change.
+- Function length: `StepCard` was already 117 lines before these 3 commits (confirmed against the
+  `e972631` blob) — pre-existing debt from the original feature, not flagged in the original review
+  (that review's WARNING section was scoped to the engine-logic growth in skeleton.ts/resolve.ts). Now
+  121 lines, a net +4 from this restructuring — not a new violation, same pre-existing WARNING bucket.
+  Fast-follow candidate: extract the heading row and/or reason row into small sub-components, the same
+  treatment already recommended for skeleton.ts/resolve.ts.
+- Minor nit: JSX indentation in the `<View style={styles.stepCard}>` wrapper (~line 577-635) doesn't
+  add the extra indent level for its newly-nested children — cosmetic whitespace only, no functional
+  effect, a one-line Prettier fix.
+
+**Real finding requiring the human's attention before push (not a blocker):** both `a79c63b` and
+`90b224e` cite `RoutineStepCard.tsx` as the thing "already used on the Routines screen." Verified
+directly that this is stale: `RoutineProductCard.tsx`'s own header comment states it "Replaces
+`RoutineStepCard` on the Routine screen... `RoutineStepCard.tsx` itself is left in place, unused by
+this screen" (routine-step-grouping task), and a repo-wide grep confirms zero `import`/`<RoutineStepCard`
+usages anywhere in `src/` today — it is fully dead code. For `a79c63b`'s reason-row, this is a
+citation-only slip: `RoutineProductCard.tsx`'s actual live `adaptationRow`/`adaptationText` styles
+(flexDirection row, alignItems flex-start, gap space[2], paddingTop space[2], borderTopWidth 1,
+borderTopColor colors.borderDivider; text bodySmall/textSecondary/flexShrink 1) are byte-identical to
+what was ported in — no practical mismatch, just a stale component name in the comment. For `90b224e`'s
+card chrome, the mismatch is real: `RoutineProductCard`'s actual default (non-completed) card is
+`cardShadow`+`card` = `colors.surfaceCard` background + `...shadow.sm`, no border at all; only the
+*completed* state drops to `shadow.none` plus a hardcoded `rgba(9, 9, 11, 0.06)` border (itself
+pre-existing debt, out of scope here). Draft Preview's steps have no completed/incomplete distinction,
+so the closest live analog is the shadowed, borderless default state — the opposite chrome from what
+was just shipped (no shadow, permanent `colors.borderDivider` border). Background color is a non-issue
+either way (`colors.surfaceCard`/`palette.white`/the old `colors.surfaceRaised` all resolve to the
+identical `#FFFFFF`). This was executed exactly as explicitly directed (the human specified the
+concrete target attributes — "white background, thin border, no shadow" — not "copy whatever
+RoutinesScreen does automatically"), so this is not treated as an unauthorized deviation, and it is a
+visual/product judgment call, not a correctness, architecture, or test-coverage defect — not a blocker.
+Flagged clearly so the human can choose with the facts in hand before pushing: (a) keep the
+flat/bordered look as an intentional Draft-Preview-specific visual language and fix the "matches the
+Routines screen" framing in the comments/commit message so it doesn't overclaim, or (b) fast-follow to
+port `RoutineProductCard`'s actual shadow+no-border default-state chrome for true 1:1 parity with the
+live screen.
+
+No new qa-lead pass was run for this reactive UI work (no new test coverage for the heading-extraction
+structure) — per the task brief, this is treated as a disclosed, legitimate deviation for reactive
+on-device bug fixes, not a scope-expansion requiring the full pipeline; the pre-existing
+`tests/day-split-alternation/` and `tests/routine-engine/draft-preview*` suites were independently
+confirmed to still pass against the new structure (see above).
+
+**Verdict: ACCEPT.** No BLOCKER-severity findings across the 3 follow-up commits. `tsc` clean, zero new
+test regressions (suite names verified identical, not just counts), tokens used throughout, layer
+separation intact, unused imports genuinely removed, and the two updated tests preserve their original
+invariants. One pre-existing function-length WARNING carried forward (`StepCard`, +4 lines, not new).
+One substantive, non-blocking finding flagged above for the human's decision: the cited card-chrome
+precedent (`RoutineStepCard.tsx`) is dead code, and the live Routines-screen card
+(`RoutineProductCard.tsx`) currently looks the opposite (shadowed, borderless) of what Draft Preview's
+cards now render for their equivalent (non-completed) state — human-directed exactly as specified, so
+not blocked, but surfaced for an informed decision before push. Status remains PR_REVIEW. Ready for
+human merge.

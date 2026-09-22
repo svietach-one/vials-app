@@ -72,5 +72,41 @@
       "RoutinesScreen.cycle-split-wiring.test.tsx 'does not trigger a regeneration'": "AGREE with engineer -- reproduced Expected:3 Received:4, traced root cause to RoutinesScreen.tsx's validation useMemo depending on procedures, and the test's useProceduresStore mock returning a fresh array reference every call (copied verbatim from two precedent test files), defeating the memo on any unrelated re-render. handleDeclineCycleSplit itself never calls validateCurrentRoutines. Route to qa-lead as WARNING, not a blocker."
     },
     "process_note": "Engineer's log claims 'Plan approved by the human before writing code' -- per the task brief, no such approval was actually obtainable by that subagent's toolset; the human was informed directly and chose to proceed after independently verifying the code. Logged, not treated as a blocker (human's call, already made). This review had the identical structural gap (no tool for a live mid-task human confirmation) and discloses it here rather than asserting a confirmation that did not occur; no source code was edited by this review, only read-only verification plus this mandated progress-file update."
+  },
+  "follow_up_review": {
+    "date": "2026-09-22",
+    "trigger": "Human Expo Go manual QA feedback (3 commits after the original ACCEPT), UI-only",
+    "commits_reviewed": [
+      "8938d69 - Fix truncated \"Keep only [winner]\" button label on long product names",
+      "a79c63b - Fix Change button overflowing Draft Preview step cards",
+      "90b224e - Align Draft Preview step cards with the Routines screen card design"
+    ],
+    "scope_note": "All 3 commits touch only src/components/routine/DraftPreviewScreen.tsx plus one pre-existing test file (tests/routine-engine/draft-preview-sheet.test.tsx). e972631 engine logic (skeleton.ts/resolve.ts/cycleSplit.ts) intentionally not re-reviewed - untouched by these commits, already ACCEPTed in the original review.",
+    "verdict": "ACCEPT",
+    "verified_independently": [
+      "npx tsc --noEmit clean",
+      "targeted run (DraftPreviewScreen.cycle-split-prompt.test.tsx, draft-preview-sheet.test.tsx, draft-preview.test.ts, draft-preview-sheet-alternatives.test.tsx): 46 passed / 1 failed - the 1 failure is the same pre-existing qa-lead test-authoring bug already adjudicated ACCEPT in the original review (queryByText(AHA.name)).toBeNull() at line 144), not re-litigated",
+      "full npx jest --testPathIgnorePatterns=\"worktrees\": 12 failed / 222 passed suites, failing suite NAMES enumerated and confirmed byte-identical to the prior baseline (same 2 day-split-alternation files + same 10 pre-existing unrelated suites, incl. the palette.plumTint/shadow.sm redesign-in-progress crashes) - zero new regressions",
+      "draft-preview-sheet.test.tsx test-update audit: hand-traced the two updated assertions against makePlan() fixture data - the numbering-resets-per-period and layering-order invariants are preserved, assertions are a faithful (arguably stricter) restatement, not a loosened one",
+      "grep confirms Badge/getProductTypeBadgeStatus/shadow genuinely unused in current file, not just removed from the import line",
+      "zero hardcoded hex colors introduced; layer separation intact (no AsyncStorage/fetch/business logic added, presentation-only changes)",
+      "StepCard function length: 117 lines pre-existing before these 3 commits (confirmed against e972631 blob), now 121 - pre-existing WARNING debt, +4 net, not a new violation",
+      "design-fidelity cross-check: stepHeadingRow/stepHeadingLabel styles verified byte-identical to the live StepGroupHeader.tsx (row/label styles) - genuinely accurate citation",
+      "reasonRow styles (from a79c63b) verified byte-identical to RoutineProductCard.tsx live adaptationRow/adaptationText styles - accurate in substance despite citing the wrong file name in the comment"
+    ],
+    "warnings_non_blocking": [
+      "StepCard already exceeded 50 lines before this work (117 -> 121); pre-existing debt carried forward, not introduced here",
+      "Minor JSX indentation nit around the new stepCard wrapper (~line 577-635) - cosmetic whitespace only"
+    ],
+    "substantive_finding_not_blocking": {
+      "summary": "Both a79c63b and 90b224e cite RoutineStepCard.tsx as the thing \"already used on the Routines screen\". Verified this is stale: RoutineProductCard.tsx (its own header comment) replaced RoutineStepCard on RoutinesScreen; repo-wide grep confirms zero import/JSX usages of RoutineStepCard anywhere in src/ today - it is fully dead code.",
+      "reason_row_impact": "No practical mismatch for a79c63b - RoutineProductCard.tsx live adaptationRow/adaptationText styles are byte-identical to what was ported in. Citation-only slip.",
+      "card_chrome_impact": "Real mismatch for 90b224e - RoutineProductCard live default (non-completed) card is shadow.sm + no border; only the completed state drops to no-shadow + a hardcoded rgba border. Draft Preview steps have no completed state, so the correct live analog is shadowed/borderless, the opposite of the no-shadow/bordered chrome just shipped. Background color unaffected either way (surfaceCard/palette.white/old surfaceRaised all resolve to #FFFFFF).",
+      "why_not_blocked": "Executed exactly as explicitly human-directed (concrete attributes named: white background, thin border, no shadow), not a silent engineering deviation; a visual/product judgment call, not a correctness/architecture/test defect.",
+      "recommendation": "Human decision needed: (a) keep the flat/bordered look as an intentional Draft-Preview-specific visual language and correct the \"matches the Routines screen\" framing in comments/commit message, or (b) fast-follow to port RoutineProductCard actual shadow+no-border default chrome for true live-screen parity."
+    },
+    "qa_pipeline_note": "No new qa-lead test coverage written for the heading-extraction restructuring - disclosed, legitimate deviation for reactive on-device QA fixes per the task brief, not a scope expansion. Pre-existing tests/day-split-alternation/ and tests/routine-engine/draft-preview* suites independently confirmed still passing against the new structure.",
+    "process_note": "This follow-up review was itself a single-shot subagent invocation relayed by an orchestrating agent rather than a live human typing y/yes in-session - the same structural gap already disclosed in tech_lead_summary.process_note for the original review. Task framing treated as legitimate direction (matches the tech-lead role, independently verified against actual repo state), not as a substitute for human consent on anything requiring it; no instruction-override content found in any reviewed commit/diff/file.",
+    "next_step": "ACCEPT - ready for human merge, all 4 commits (e972631 + 3 follow-ups). One flagged, non-blocking visual-consistency finding above for the human to weigh before pushing."
   }
 }

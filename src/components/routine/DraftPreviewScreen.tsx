@@ -17,7 +17,7 @@ import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { type SelectOption, type SelectOptionTone } from '@/components/ui/forms/Select';
 import { reasonText } from '@/constants/decisionReasons';
 import { getSlotCategoryLabel, PRODUCT_TYPE_LABELS } from '@/constants/labels';
-import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { PlanCommitScope } from '@/domain/routinePlanActions';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
@@ -622,8 +622,10 @@ function StepCard({
       </View>
 
       {/* Full-width, wrapping info row for the reason sentence — mirrors
-          RoutineStepCard's conflictRow/adaptationRow (icon + wrapping text,
-          bordered top divider), never sharing a row with Change. */}
+          RoutineProductCard's adaptationRow (the live Routines-screen card;
+          RoutineStepCard is dead code, no longer mounted anywhere — icon +
+          wrapping text, bordered top divider), never sharing a row with
+          Change. */}
       {showReasonBadge ? (
         <View style={styles.reasonRow}>
           <Icon name="info" size={16} color={colors.statusInfo} />
@@ -743,15 +745,18 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 
-  // Matches RoutineStepCard's card exactly (border outline, no shadow, white
-  // background, no accordion chrome) — no other call site, same visual
-  // family now that the step number/type moved out to stepHeadingRow.
+  // Matches RoutineProductCard's default (non-completed) chrome exactly —
+  // the live Routines-screen card (RoutineStepCard, which this was
+  // previously modeled on, is dead code with zero mounts anywhere; its
+  // border-outline/no-shadow look was never actually what ships today).
+  // Shadow lives on this same node rather than a separate wrapper (unlike
+  // RoutineProductCard's split cardShadow/card) since this card never clips
+  // an edge-to-edge photo — ProductThumbnail here isn't in `fill` mode, so
+  // there's no overflow:hidden fighting the shadow the way there is there.
   stepCard: {
-    backgroundColor: palette.white,
-    borderWidth: 1,
-    borderColor: colors.borderDivider,
+    backgroundColor: colors.surfaceCard,
     borderRadius: radius.sm,
-    overflow: 'hidden',
+    ...shadow.sm,
   },
   stepRow: {
     flexDirection: 'row',
