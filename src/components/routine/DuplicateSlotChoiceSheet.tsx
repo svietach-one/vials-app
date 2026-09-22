@@ -48,7 +48,13 @@ export function DuplicateSlotChoiceSheet({
         {/* Stop propagation so tapping the sheet doesn't close the modal */}
         <View style={styles.sheet} onStartShouldSetResponder={() => true}>
           <Text style={styles.title}>{`You already have a ${slotLabel} in this routine`}</Text>
+          {/* Explicit before/after labels — the button itself stays one
+              short verb (see below); every "what changes to what" detail
+              lives here instead of getting crammed into the button text,
+              which truncated on a realistic product name. */}
+          <Text style={styles.fieldLabel}>Currently in your routine</Text>
           <Text style={styles.body}>{existingProduct.name}</Text>
+          <Text style={styles.fieldLabel}>Replacing with</Text>
           <Text style={styles.body}>{incomingProduct.name}</Text>
 
           <View style={styles.actions}>
@@ -59,7 +65,7 @@ export function DuplicateSlotChoiceSheet({
               fullWidth
               accessibilityLabel={`Replace ${existingProduct.name}`}
             >
-              {`Replace ${existingProduct.name}`}
+              Replace
             </Button>
             <Button
               variant="secondary"
@@ -105,6 +111,10 @@ const styles = StyleSheet.create({
   body: {
     ...typography.body,
     color: colors.textSecondary,
+  },
+  fieldLabel: {
+    ...typography.caption,
+    color: colors.textTertiary,
   },
   actions: {
     gap: space[3],
