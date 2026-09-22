@@ -33,6 +33,12 @@ interface SettingsState extends AppSettings {
    * Routines screen, keyed by the row's own stable id.
    */
   setRoutineNoticeCollapsed: (key: string, entry: NoticeCollapseEntry) => void;
+  /**
+   * Dismisses one ConflictWarningInline row, keyed the same way as
+   * `setRoutineNoticeCollapsed`, tagged with the routine-content hash in
+   * effect right now — the row reappears once that hash no longer matches.
+   */
+  setRoutineNoticeDismissed: (key: string, routineHash: string) => void;
   /** Records acceptance of the onboarding medical disclaimer (slide 3). */
   acceptMedicalDisclaimer: (version: number) => void;
   /**
@@ -71,6 +77,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   routineAccordion: null,
   rehabNoticeCollapsed: {},
   routineNoticeCollapsed: {},
+  routineNoticeDismissedAt: {},
   medicalDisclaimerAcceptedAt: null,
   medicalDisclaimerVersion: 0,
   contributionConsentStatus: 'unset',
@@ -88,6 +95,7 @@ function pickSettings(s: SettingsState): AppSettings {
     routineAccordion: s.routineAccordion,
     rehabNoticeCollapsed: s.rehabNoticeCollapsed,
     routineNoticeCollapsed: s.routineNoticeCollapsed,
+    routineNoticeDismissedAt: s.routineNoticeDismissedAt,
     medicalDisclaimerAcceptedAt: s.medicalDisclaimerAcceptedAt,
     medicalDisclaimerVersion: s.medicalDisclaimerVersion,
     contributionConsentStatus: s.contributionConsentStatus,
@@ -158,6 +166,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const next = { ...get().routineNoticeCollapsed, [key]: entry };
     set({ routineNoticeCollapsed: next });
     void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), routineNoticeCollapsed: next }));
+  },
+
+  setRoutineNoticeDismissed: (key, routineHash) => {
+    const next = { ...get().routineNoticeDismissedAt, [key]: routineHash };
+    set({ routineNoticeDismissedAt: next });
+    void saveJson(
+      STORAGE_KEYS.settings,
+      pickSettings({ ...get(), routineNoticeDismissedAt: next }),
+    );
   },
 
   acceptMedicalDisclaimer: (version) => {

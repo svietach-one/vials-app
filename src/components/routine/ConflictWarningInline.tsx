@@ -13,6 +13,7 @@ import {
 } from '@/utils/activeIngredientDensity';
 import { ConflictEngine, type ConflictStepInput } from '@/utils/conflictEngine';
 import { resolveNoticeCollapsed, toNoticeCollapseEntry } from '@/utils/noticeCollapse';
+import { isNoticeDismissed, routineContentHash } from '@/utils/noticeDismissal';
 import {
   applyConditionSeverityModifiers,
   getConditionRiskWarnings,
@@ -70,6 +71,8 @@ export interface ConflictWarningInlineProps {
 interface RowCollapseProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
+  /** Dismisses the row until the routine's content actually changes. */
+  onDismiss: () => void;
 }
 
 /**
@@ -113,6 +116,7 @@ function ConflictRow({
   suggestion,
   collapsed,
   onToggleCollapse,
+  onDismiss,
 }: { conflict: ModifiedConflict; suggestion: string } & RowCollapseProps) {
   const { rule } = conflict.result;
   const title = 'Ingredient conflict';
@@ -123,6 +127,8 @@ function ConflictRow({
       title={title}
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
+      onDismiss={onDismiss}
+      dismissAccessibilityLabel={`Dismiss ${title.toLowerCase()} notice`}
       collapseAccessibilityLabel={`${title}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
     >
       {`${CONFLICT_SEVERITY_PREFIX[rule.severity]}${rule.explanation}\n\n${suggestion}${
@@ -138,6 +144,7 @@ function AdvisoryRow({
   advisory,
   collapsed,
   onToggleCollapse,
+  onDismiss,
 }: { advisory: ConditionAdvisory } & RowCollapseProps) {
   const title = `Sensitivity note · ${advisory.conditionLabels.join(' + ')}`;
   return (
@@ -147,6 +154,8 @@ function AdvisoryRow({
       title={title}
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
+      onDismiss={onDismiss}
+      dismissAccessibilityLabel={`Dismiss ${title.toLowerCase()}`}
       collapseAccessibilityLabel={`${title}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
     >
       {`${advisory.message}\n\nIn your routine: ${advisory.productNames.join(', ')}.`}
@@ -158,6 +167,7 @@ function DensityRow({
   finding,
   collapsed,
   onToggleCollapse,
+  onDismiss,
 }: { finding: DensityFinding } & RowCollapseProps) {
   const isWarning = finding.tier === 'warning';
   const title = isWarning ? 'Ingredient overlap' : 'Routine insight';
@@ -174,6 +184,8 @@ function DensityRow({
       title={title}
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
+      onDismiss={onDismiss}
+      dismissAccessibilityLabel={`Dismiss ${title.toLowerCase()} notice`}
       collapseAccessibilityLabel={`${title}, ${collapsed ? 'collapsed, tap to expand' : 'expanded, tap to collapse'}`}
     >
       {`${finding.message}\n\n${finding.period === 'morning' ? 'Morning' : 'Evening'}: ${finding.productNames.join(', ')}.`}
@@ -213,11 +225,20 @@ export function ConflictWarningInline({
   // screen until every one of them is resolved.
   const persistedCollapse = useSettingsStore((s) => s.routineNoticeCollapsed);
   const setRoutineNoticeCollapsed = useSettingsStore((s) => s.setRoutineNoticeCollapsed);
-  const collapseProps = (key: string): RowCollapseProps => {
+  // Dismissal is a separate, routine-content-scoped decision (not day-scoped
+  // like collapse): closing a row hides it only until the routine actually
+  // changes, so a stale dismissal never survives a genuinely new situation.
+  // The step cards' own reason text still explains things once it's gone.
+  const dismissedAt = useSettingsStore((s) => s.routineNoticeDismissedAt);
+  const setRoutineNoticeDismissed = useSettingsStore((s) => s.setRoutineNoticeDismissed);
+  const currentRoutineHash = routineContentHash(morningSteps, eveningSteps);
+  const isDismissed = (key: string) => isNoticeDismissed(dismissedAt[key], currentRoutineHash);
+  const noticeProps = (key: string): RowCollapseProps => {
     const collapsed = resolveNoticeCollapsed(persistedCollapse[key]);
     return {
       collapsed,
       onToggleCollapse: () => setRoutineNoticeCollapsed(key, toNoticeCollapseEntry(!collapsed)),
+      onDismiss: () => setRoutineNoticeDismissed(key, currentRoutineHash),
     };
   };
 
@@ -283,30 +304,36 @@ export function ConflictWarningInline({
     skinConditions,
   );
 
-  if (conflicts.length === 0 && advisories.length === 0 && density.length === 0) return null;
+  const visibleConflicts = conflicts.filter((c) => !isDismissed(`conflict:${c.result.rule.id}`));
+  const visibleAdvisories = advisories.filter((a) => !isDismissed(`advisory:${a.id}`));
+  const visibleDensity = density.filter((f) => !isDismissed(`density:${f.id}`));
+
+  if (visibleConflicts.length === 0 && visibleAdvisories.length === 0 && visibleDensity.length === 0) {
+    return null;
+  }
 
   return (
     <View style={styles.wrap}>
-      {conflicts.map((c) => (
+      {visibleConflicts.map((c) => (
         <ConflictRow
           key={c.result.rule.id}
           conflict={c}
           suggestion={suggestionFor(c)}
-          {...collapseProps(`conflict:${c.result.rule.id}`)}
+          {...noticeProps(`conflict:${c.result.rule.id}`)}
         />
       ))}
-      {advisories.map((advisory) => (
+      {visibleAdvisories.map((advisory) => (
         <AdvisoryRow
           key={advisory.id}
           advisory={advisory}
-          {...collapseProps(`advisory:${advisory.id}`)}
+          {...noticeProps(`advisory:${advisory.id}`)}
         />
       ))}
-      {density.map((finding) => (
+      {visibleDensity.map((finding) => (
         <DensityRow
           key={finding.id}
           finding={finding}
-          {...collapseProps(`density:${finding.id}`)}
+          {...noticeProps(`density:${finding.id}`)}
         />
       ))}
     </View>

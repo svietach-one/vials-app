@@ -718,6 +718,18 @@ export interface AppSettings {
    * are not guaranteed unique across the two features.
    */
   routineNoticeCollapsed: Record<string, NoticeCollapseEntry>;
+  /**
+   * Per-row dismissal for ConflictWarningInline's rows on the Routines
+   * screen, keyed the same way as `routineNoticeCollapsed`. Unlike collapse
+   * (day-scoped), dismissal is scoped to the routine's own content: the
+   * value is the routine-content hash in effect when the user tapped the
+   * close (X), and the row stays hidden only while the current hash still
+   * matches — any real edit to the routine (add/remove/reschedule a step)
+   * changes the hash and the row reappears, so a dismissal never survives a
+   * routine that has actually moved on. The step cards' own reason text
+   * (`decisionReasons`) still explains the situation once this is gone.
+   */
+  routineNoticeDismissedAt: Record<string, string>;
 }
 
 /**
