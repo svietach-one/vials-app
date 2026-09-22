@@ -8,7 +8,6 @@ import { Icon } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/ui/core/AppHeader';
-import { Badge } from '@/components/ui/feedback/Badge';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
@@ -17,8 +16,8 @@ import { ReplaceStepSheet, type ReplaceStepTarget } from '@/components/routine/R
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { type SelectOption, type SelectOptionTone } from '@/components/ui/forms/Select';
 import { reasonText } from '@/constants/decisionReasons';
-import { getProductTypeBadgeStatus, getSlotCategoryLabel, PRODUCT_TYPE_LABELS } from '@/constants/labels';
-import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
+import { getSlotCategoryLabel, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { PlanCommitScope } from '@/domain/routinePlanActions';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
@@ -560,21 +559,22 @@ function StepCard({
   };
 
   return (
-    <View style={styles.stepCard}>
-      {/* Step number + slot category, flush with the card's left edge, above
-          the photo — frequency marker pinned to the right of the same line. */}
-      <View style={styles.titleLine}>
-        <View style={styles.titleLineLeft}>
-          <Text style={styles.stepNumber}>{position}.</Text>
-          <Badge status={getProductTypeBadgeStatus(step.productType)} type="Light">
-            {typeLabel}
-          </Badge>
-        </View>
+    <>
+      {/* Step heading sits directly on the screen background — no container,
+          no border, no shadow, matching StepGroupHeader on the Routines
+          screen (routine-step-grouping SCREENS.md §3): the step's slot is a
+          stage in the process ("1. Cleanser"), plain bold text, not a
+          colored badge. The card below carries all of the chrome. */}
+      <View style={styles.stepHeadingRow}>
+        <Text style={styles.stepHeadingLabel}>
+          {position}. {typeLabel}
+        </Text>
         <Text style={styles.frequency} numberOfLines={1}>
           {formatScheduleDays(step.scheduledDays)}
         </Text>
       </View>
 
+      <View style={styles.stepCard}>
       <View style={styles.stepRow}>
         {product ? <ProductThumbnail product={product} size={76} /> : null}
 
@@ -632,7 +632,8 @@ function StepCard({
           </Text>
         </View>
       ) : null}
-    </View>
+      </View>
+    </>
   );
 }
 
@@ -742,10 +743,15 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 
+  // Matches RoutineStepCard's card exactly (border outline, no shadow, white
+  // background, no accordion chrome) — no other call site, same visual
+  // family now that the step number/type moved out to stepHeadingRow.
   stepCard: {
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.md,
-    ...shadow.sm,
+    backgroundColor: palette.white,
+    borderWidth: 1,
+    borderColor: colors.borderDivider,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
   },
   stepRow: {
     flexDirection: 'row',
@@ -755,6 +761,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: space[3],
     paddingHorizontal: space[3],
+    paddingTop: space[3],
     paddingBottom: space[3],
   },
   identity: {
@@ -762,24 +769,19 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: space[1],
   },
-  // "1.  Cleanser" (left, flush above the photo) + frequency marker (right),
-  // e.g. "2.  Cream                              Every day".
-  titleLine: {
+  // "1. Cleanser" (left) + frequency marker (right), e.g.
+  // "2. Cream                              Every day" — sits directly on
+  // the screen background above the card, matching StepGroupHeader on the
+  // Routines screen: the slot is a stage in the process, plain bold text,
+  // not a badge. No container/border/shadow here; the card below carries it.
+  stepHeadingRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: space[3],
-    paddingHorizontal: space[3],
-    paddingTop: space[3],
-    paddingBottom: space[3],
+    paddingHorizontal: space[1],
   },
-  titleLineLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
-    flexShrink: 1,
-  },
-  stepNumber: {
+  stepHeadingLabel: {
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: colors.textPrimary,
