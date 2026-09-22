@@ -438,7 +438,7 @@ function CycleSplitPromptCard({
             onPress={onDecline}
             accessibilityLabel={`Keep only ${winnerName}`}
           >
-            {`Keep only ${winnerName}`}
+            Keep just this one
           </Button>
         </View>
       </View>
