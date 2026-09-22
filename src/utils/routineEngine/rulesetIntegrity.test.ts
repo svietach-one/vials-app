@@ -6,6 +6,7 @@
  */
 
 import activesRuleset from '@/constants/rulesets/actives.json';
+import { PROPOSED_V12_PAIR_RULES } from '@/constants/rulesets/proposedPairRules';
 
 type PairRuleSide = string | string[];
 
@@ -19,6 +20,7 @@ interface PairRule {
   exceptions?: { whenPotencyAtMost?: Record<string, string>; downgradeTo?: string }[];
   explanation: string;
   suggestion: string;
+  resolutionScope?: string;
 }
 
 const CLASSES = activesRuleset.classes as Record<
@@ -61,6 +63,8 @@ const VALID_RESOLUTIONS = [
   'keep_with_note',
 ];
 const VALID_POTENCIES = ['low', 'medium', 'high', 'rx'];
+/** conflict-resolution-scope task (FE-1) — display-layer warning scope. */
+const VALID_RESOLUTION_SCOPES = ['slot', 'day'];
 
 function sideKeys(side: PairRuleSide): string[] {
   return Array.isArray(side) ? side : [side];
@@ -125,6 +129,18 @@ describe('actives.json ruleset integrity', () => {
       for (const resolution of rule.resolutions) {
         expect(VALID_RESOLUTIONS).toContain(resolution);
       }
+    }
+  });
+
+  it('declares an explicit resolutionScope on every pair rule (conflict-resolution-scope FE-7)', () => {
+    // Required, not optional/implicit-default (tech design Assumption 3) — a
+    // rule missing the field fails here, not a silent ?? 'day' fallback.
+    for (const rule of PAIR_RULES) {
+      expect({ id: rule.id, resolutionScope: rule.resolutionScope }).toEqual({
+        id: rule.id,
+        resolutionScope: expect.stringMatching(/^(slot|day)$/),
+      });
+      expect(VALID_RESOLUTION_SCOPES).toContain(rule.resolutionScope);
     }
   });
 
@@ -222,6 +238,30 @@ describe('actives.json ruleset integrity', () => {
     expect(sideKeys(vitc?.a ?? '')).toContain('vitamin_c_pure');
     expect(sideKeys(vitc?.b ?? [])).toEqual(expect.arrayContaining(['aha', 'bha']));
     expect(vitc?.exceptions?.[0]?.whenPotencyAtMost?.b).toBe('low');
+  });
+});
+
+describe('proposedPairRules.ts — resolutionScope completeness (conflict-resolution-scope FE-7)', () => {
+  // Same completeness check as the live pairRules above, extended to the
+  // still-gated draft rows (tech design FE-7 — "a co-located equivalent
+  // covering proposedPairRules.ts"). An entry missing the field, or carrying
+  // an unrecognised value, fails here regardless of
+  // PROPOSED_V12_PAIR_RULES_ENABLED.
+  const PROPOSED = PROPOSED_V12_PAIR_RULES as unknown as PairRule[];
+
+  it('gives every proposed pair rule a unique id', () => {
+    const ids = PROPOSED.map((r) => r.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('declares an explicit resolutionScope on every proposed pair rule', () => {
+    for (const rule of PROPOSED) {
+      expect({ id: rule.id, resolutionScope: rule.resolutionScope }).toEqual({
+        id: rule.id,
+        resolutionScope: expect.stringMatching(/^(slot|day)$/),
+      });
+      expect(VALID_RESOLUTION_SCOPES).toContain(rule.resolutionScope);
+    }
   });
 });
 

@@ -1,0 +1,113 @@
+{
+  "task": "conflict-resolution-scope",
+  "phase": "engineering",
+  "status": "IN_PROGRESS",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/conflict-resolution-scope.md",
+    "tech_design": "docs/tech-design/conflict-resolution-scope.md",
+    "qa_tests": [
+      "tests/conflict-resolution-scope/fixtures.ts",
+      "tests/conflict-resolution-scope/ConflictWarningInline.resolution-scope.test.tsx",
+      "tests/conflict-resolution-scope/pair-rules-day-scope-regression.test.ts"
+    ]
+  },
+  "unblocked_scope": {
+    "summary": "FE-1 through FE-7: new ResolutionScope type/field, engine branch, both call-site signature updates, scope-aware suggestion copy, and regression + integrity tests. Every pairRules entry (live + proposed) ships resolutionScope: 'day' — reproduces today's exact display behavior, zero regression. Ready for qa-lead now.",
+    "key_findings_from_planning": [
+      "Source research (docs/tasks/routine_updates 2.0/CONFLICT_RESOLUTION_SCOPE.md) cites PRD_Spec.md §5.2 / USER_STORIES.md US-09, which are stale pre-ruleset-migration text (parseInciTags, 4-tag matrix) — already flagged stale by vials-conflict-matrix-expansion on 2026-08-04. Not re-fixed here; noted so nobody re-anchors on those sections.",
+      "Source research's Phase 12.1 note ('the routine step already carries RoutineStep.period') is factually wrong — RoutineStep has no period field; period comes from the containing Routine.timeOfDay. Engine task is a real signature change, not copy-only.",
+      "PairRule already had a scope field ('same_period'|'same_day'|'anywhere') before this task, but it is functionally inert beyond an anywhere-vs-not binary — resolve.ts's findPairViolations treats same_period/same_day identically. The real, already-live AM/PM-splittability signal in the scheduler is whether a rule's resolutions array contains 'separate_periods'. This task's new resolutionScope field deliberately does not touch either of those (Option A, confirmed) — see tech design Assumption 2."
+    ]
+  },
+  "still_blocked": {
+    "scope": "Which pairs reclassify resolutionScope 'day' -> 'slot' (source research §4), and the reactive-skin condition-interaction question (§7). Bounded decision list below — confirm or correct each row, not an open audit.",
+    "reviewer_scope_note": "Unlike vials-conflict-matrix-expansion's FE-4, this sign-off only changes DISPLAY behavior (whether the Routines-screen warning renders). routineEngine/resolve.ts (auto-scheduling: freeze/split/relocate) is untouched by this task — a 'slot' approval here does not change what the app automatically does to a user's routine, only what warning it shows. If you're used to matrix-expansion's blast-radius warning, this task's stakes are narrower by design (tech design §5).",
+    "overlap_note": "Some of the same tag-pairs below are ALSO subject to vials-conflict-matrix-expansion's still-open FE-4 (pair existence/severity) and/or proposedPairRules.ts's gate (PROPOSED_V12_PAIR_RULES_ENABLED = false). That is a DIFFERENT question (does the pair exist, at what severity) from this task's question (if it exists, is it slot or day). A pair may need both sign-offs. Per product decision this planning pass, the two decision lists stay separate documents, not merged — flagging the overlap here only for sequencing awareness.",
+    "bounded_decision_list": [
+      {
+        "pair": "vitamin_c_pure/vitamin_c_derivative + retinoid",
+        "source_research_classification": "slot",
+        "shipped_reality": "no live or proposed rule exists yet — pair existence itself is still open under vials-conflict-matrix-expansion FE-4",
+        "ask": "Not actionable until the pair exists. If/when matrix-expansion's FE-4 defines it, default it to resolutionScope 'day' like every other new pair, then revisit this row."
+      },
+      {
+        "pair": "vitamin_c_pure + aha/bha (rule_vitc_pure_acids)",
+        "source_research_classification": "slot",
+        "shipped_reality": "live rule; resolutions already includes 'separate_periods' (scheduler already treats it as period-splittable)",
+        "ask": "confirm resolutionScope: 'slot', or correct"
+      },
+      {
+        "pair": "benzoyl_peroxide + retinoid (rule_benzoyl_retinol)",
+        "source_research_classification": "slot",
+        "shipped_reality": "live rule; resolutions already includes 'separate_periods'",
+        "ask": "confirm resolutionScope: 'slot', or correct"
+      },
+      {
+        "pair": "vitamin_c_derivative + benzoyl_peroxide (rule_vitc_derivative_bpo)",
+        "source_research_classification": "slot (research's 'BPO+VIT_C' row doesn't distinguish pure vs derivative)",
+        "shipped_reality": "live rule; resolutions already includes 'separate_periods'",
+        "ask": "confirm resolutionScope: 'slot' for this (derivative) pair, or correct. The pure-form pair (vitamin_c_pure + benzoyl_peroxide) doesn't exist yet — tracked separately under matrix-expansion FE-4."
+      },
+      {
+        "pair": "retinoid + aha (rule_retinol_aha) vs. retinoid + bha (rule_retinol_bha)",
+        "source_research_classification": "day (research's 'RETI+ACID' row is generic, does not split AHA vs BHA)",
+        "shipped_reality": "INCONSISTENT between the two shipped rules — rule_retinol_aha's resolutions has NO 'separate_periods' (already day-like); rule_retinol_bha's resolutions HAS 'separate_periods' (already slot-like)",
+        "ask": "PRIORITY REVIEW — does retinoid+AHA warrant a different resolutionScope than retinoid+BHA, or should both be 'day' per the research's generic call? Note: if both land on 'day', rule_retinol_bha's already-shipped scheduler behavior (relocates across periods via 'separate_periods') will keep working as before — this task deliberately does not touch resolve.ts (tech design Assumption 2) — so the scheduler and the new day-scoped display warning would intentionally disagree for this one pair unless a future task reconciles them. Flagging so the reviewer isn't surprised by that gap, not asking you to fix it here."
+      },
+      {
+        "pair": "copper_peptides + aha/bha/pha (rule_copper_peptides_acids)",
+        "source_research_classification": "slot (tentative — lower confidence per source research §4)",
+        "shipped_reality": "live rule; resolutions already includes 'separate_periods'",
+        "ask": "confirm tentative slot classification, or correct to 'day' if you prefer caution (research explicitly allows this)"
+      },
+      {
+        "pair": "vitamin_c_pure + copper_peptides (rule_vitc_pure_copper_peptides)",
+        "source_research_classification": "slot (tentative — lower confidence per source research §4)",
+        "shipped_reality": "live rule; resolutions already includes 'separate_periods'",
+        "ask": "confirm tentative slot classification, or correct to 'day'"
+      },
+      {
+        "pair": "benzoyl_peroxide + aha/bha/pha (proposed_bpo_acids)",
+        "source_research_classification": "day",
+        "shipped_reality": "draft rule in proposedPairRules.ts (gated off); resolutions already includes 'separate_periods'; the draft's own explanation text reads 'irritation is additive when layered in the same period' — phrasing that leans slot-like, in tension with the research's 'day' call",
+        "ask": "PRIORITY REVIEW — confirm 'day' per source research despite the draft copy's same-period framing, or correct to 'slot' and have the copy re-checked for consistency. This pair's existence/severity is separately still-gated behind PROPOSED_V12_PAIR_RULES_ENABLED."
+      },
+      {
+        "pair": "azelaic_acid + aha/bha/pha (proposed_azelaic_acids)",
+        "source_research_classification": "day",
+        "shipped_reality": "draft rule in proposedPairRules.ts (gated off); resolutions already includes 'separate_periods'; explanation text ('raises the combined irritation load') has no period qualifier, reads more consistent with day framing than the BPO+acids row above",
+        "ask": "confirm 'day' per source research, or correct. Existence/severity separately still-gated behind PROPOSED_V12_PAIR_RULES_ENABLED."
+      },
+      {
+        "pair": "benzoyl_peroxide + copper_peptides (proposed_bpo_copper_peptides)",
+        "source_research_classification": "not covered by source research §4 at all — no default to fall back on",
+        "shipped_reality": "draft rule in proposedPairRules.ts (gated off); resolutions already includes 'separate_periods'",
+        "ask": "fresh classification needed, slot or day — no research recommendation exists for this row. Existence/severity itself is separately flagged PRIORITY REVIEW under matrix-expansion FE-4 ('copper_peptides + benzoyl_peroxide', lowest-confidence pair)."
+      },
+      {
+        "pair": "benzoyl_peroxide + vitamin_c_pure (proposed_bpo_vitamin_c_pure)",
+        "source_research_classification": "slot (if the research's generic 'BPO+VIT_C' row is meant to cover the pure form too — not stated explicitly)",
+        "shipped_reality": "draft rule in proposedPairRules.ts (gated off); resolutions already includes 'separate_periods'",
+        "ask": "confirm the generic BPO+VIT_C 'slot' call extends to this (pure-form) pair, or correct. Existence/severity itself is separately still-open under matrix-expansion FE-4."
+      }
+    ]
+  },
+  "next_step": "DESIGNED: FE-1 through FE-7 (type/field, engine branch, call-site updates, scope-aware copy, regression + integrity tests) are unblocked and ready for qa-lead — every pair ships resolutionScope: 'day', zero behavior change. The bounded_decision_list above (which pairs actually flip to 'slot', plus the §7 condition-interaction question) stays BLOCKED pending product/clinical sign-off and is explicitly out of qa-lead/engineer's scope for this pass.",
+  "qa_handoff": {
+    "summary": "3 integration test files written for FE-1-FE-7 only (mechanical field/engine/call-site/copy scope), covering spec Stories 1-4. No test asserts any real pair as 'slot'; the fixture PairRule used for Story 1/3 slot-branch coverage (niacinamide+peptide_signal) is injected via jest.mock, never touches the real ruleset. A full RoutinesScreen.tsx render test for FE-4's second detectConflicts call site was proposed and, on human confirmation, intentionally skipped (pure signature update, no new branching logic there; the resolutionScope branch itself lives entirely in FE-3 and is already exercised end-to-end via ConflictWarningInline).",
+    "pre_implementation_run": "npx tsc --noEmit clean. npx jest tests/conflict-resolution-scope: 14/21 red as expected (Story 1 AC1 split-clears-warning, both Story 3 actionable-copy tests, all 11 Story 4 resolutionScope data pins); 7/21 already green today (same-period slot warning, day-scoped split-still-warns regression, absent-side-no-warning, day-scoped copy-unchanged regression, both ships-exactly-N-pairs id-set checks). Neighboring tests/conflict-matrix-expansion + tests/routine-step-grouping suites (130 tests) unaffected: 129 passed, 1 pre-existing unrelated failure (RoutinesScreen.editMode.test.tsx timezone-sensitive getSkincareDateString case) confirmed present before this session touched anything, via git status.",
+    "next_step": "Ready for engineer (FE-1-FE-7). still_blocked.bounded_decision_list is unchanged from planner's handoff and remains out of engineer's scope for this pass."
+  },
+  "engineer_handoff": {
+    "summary": "FE-1 through FE-7 implemented exactly per the approved plan. FE-1: ResolutionScope = 'slot'|'day' + required PairRule.resolutionScope (rulesetTypes.ts). FE-2: resolutionScope: 'day' on all 7 live actives.json entries + all 4 PROPOSED_V12_PAIR_RULES entries. FE-3: detectConflicts's new period-awareness is backward-compatible, not a hard replacement — steps: ConflictStepInput[] = RoutineStep & { period?: Period } (period optional, so every pre-existing plain-RoutineStep[] caller keeps compiling/behaving identically); a 'slot' rule only suppresses when both matched steps carry a known, differing period, else falls back to firing (matches 'day' behavior — never a silent false negative for callers that haven't adopted tagging). FE-4: both RoutinesScreen.tsx call sites (the conflictMap builder, and the allSteps prop into ConflictWarningInline) now tag am/pm steps with period before merging; ConflictWarningInline's own default path tags morningSteps/eveningSteps internally. FE-5: resolutionScope/period deliberately kept out of the shared ConflictResult/ConflictRule types in src/types/index.ts (display-only per tech design SS1) -- ConflictWarningInline looks the matched PairRule back up by id from ACTIVES_RULESET.pairRules and computes a suggestion override only for a same-period 'slot' hit, via one generic buildSlotScopeSuggestion(period) template. FE-6/FE-7: new engineer-owned unit tests added to the co-located src/utils/conflictEngine.test.ts (fixture 'slot' PairRule via the same jest.mock pattern qa-lead used, plus an unperiod-tagged-fallback-still-warns case) and src/utils/routineEngine/rulesetIntegrity.test.ts (completeness assertion over both actives.json pairRules and PROPOSED_V12_PAIR_RULES, independent of the feature flag).",
+    "unplanned_deviation": "tests/conflict-matrix-expansion/existing-pairs-regression.test.ts (FE-8, qa-lead-owned, from the vials-conflict-matrix-expansion task) asserts each of the 7 live pairRules toEqual a full object literal. Adding the spec-mandated resolutionScope field to all 7 entries necessarily broke that literal equality even though severity/trigger/copy (the property that test's own docstring says it protects) are provably unchanged -- its own second describe block, which checks id+severity via detectConflicts end-to-end, still passes untouched. Added resolutionScope: 'day' to each of the 7 expected literals plus a dated explanatory comment in the file, rather than leaving it red or reverting FE-2. Logged in progress/conflict-resolution-scope.md per architecture-review.md's deviation-handling rule.",
+    "verification": "npx tsc --noEmit clean. tests/conflict-resolution-scope: 21/21 green (was 14 red/7 green pre-implementation). conflictEngine.test.ts, rulesetIntegrity.test.ts, skinConditionModifiers.test.ts, proposedPairRules.test.ts, tests/conflict-matrix-expansion (6 suites/41 tests): all green. Full npx jest --testPathIgnorePatterns=\"worktrees\": 10 failed suites / 77 failed tests / 2630 passed both before and after this session (git-stash-diffed the exact FAIL suite list) -- byte-for-byte the same 10 pre-existing, unrelated failing suites both before and after; this task fixed exactly the 2 tests/conflict-resolution-scope/* suites and introduced zero new failures.",
+    "not_touched": "src/utils/routineEngine/resolve.ts (Assumption 2). still_blocked.bounded_decision_list -- no real pair given resolutionScope: 'slot', every live/proposed entry ships 'day'. src/types/index.ts -- no new public domain fields.",
+    "next_step": "Ready for tech-lead architecture review. still_blocked.bounded_decision_list and the SS7 condition-interaction question remain BLOCKED, unchanged from the planner's handoff, and out of tech-lead's review scope for this pass (separately gated on product/clinical sign-off)."
+  }
+}

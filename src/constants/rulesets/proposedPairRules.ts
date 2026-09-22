@@ -31,6 +31,7 @@ export const PROPOSED_V12_PAIR_RULES: readonly PairRule[] = [
     explanation:
       'Benzoyl peroxide and exfoliating acids are both drying, and their irritation is additive when layered in the same period.',
     suggestion: 'Consider using them in different periods or on alternating days.',
+    resolutionScope: 'day',
   },
   {
     id: 'proposed_bpo_copper_peptides',
@@ -43,6 +44,7 @@ export const PROPOSED_V12_PAIR_RULES: readonly PairRule[] = [
     explanation:
       'Benzoyl peroxide is a strong oxidiser and is reported to deactivate copper peptide complexes applied alongside it.',
     suggestion: 'Consider moving the peptide product to the opposite period.',
+    resolutionScope: 'day',
   },
   {
     id: 'proposed_bpo_vitamin_c_pure',
@@ -55,6 +57,7 @@ export const PROPOSED_V12_PAIR_RULES: readonly PairRule[] = [
     explanation:
       'Benzoyl peroxide oxidises ascorbic acid, so layering them in one period largely neutralises the vitamin C.',
     suggestion: 'Consider keeping vitamin C to the morning and benzoyl peroxide to the evening.',
+    resolutionScope: 'day',
   },
   {
     id: 'proposed_azelaic_acids',
@@ -67,6 +70,7 @@ export const PROPOSED_V12_PAIR_RULES: readonly PairRule[] = [
     explanation:
       'Azelaic acid stacked with exfoliating acids in one period raises the combined irritation load.',
     suggestion: 'Consider alternating them rather than layering them the same evening.',
+    resolutionScope: 'day',
   },
 ];
 
