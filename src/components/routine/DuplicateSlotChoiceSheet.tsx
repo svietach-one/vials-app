@@ -110,11 +110,11 @@ const styles = StyleSheet.create({
   },
   body: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
   fieldLabel: {
     ...typography.caption,
-    color: colors.textTertiary,
+    color: colors.textPrimary,
   },
   actions: {
     gap: space[3],
