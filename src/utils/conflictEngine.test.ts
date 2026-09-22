@@ -3,10 +3,45 @@
  *
  * Verifies that the conflict detection logic correctly identifies ingredient
  * pair conflicts, seasonal restrictions, phototype cautions, and procedure
- * collision rules using only local rule constants — no mocks needed.
+ * collision rules using only local rule constants — no mocks needed (except
+ * the resolutionScope fixture-rule block below, which needs an extra
+ * `PairRule` no live pair carries yet).
  */
 
-import { ConflictEngine } from '@/utils/conflictEngine';
+// ─── FE-6 fixture: a resolutionScope: 'slot' pair rule, injected alongside
+// the real ruleset (mirrors tests/conflict-resolution-scope's pattern). The
+// literal lives entirely inside the factory, not a separate top-level const
+// referenced from it: @babel/plugin-transform-modules-commonjs hoists every
+// import-derived require() above plain top-level consts, so a `mock`-
+// prefixed const declared mid-file would still be undefined when the factory
+// runs. No real pair (live or proposed) is 'slot' — see
+// progress/conflict-resolution-scope-handoff.json still_blocked.
+const FIXTURE_SLOT_RULE_ID = 'fixture_slot_conflictengine_niacinamide_peptide';
+
+jest.mock('@/constants/rulesets/actives.json', () => {
+  const actual = jest.requireActual('@/constants/rulesets/actives.json');
+  return {
+    ...actual,
+    pairRules: [
+      ...actual.pairRules,
+      {
+        id: 'fixture_slot_conflictengine_niacinamide_peptide',
+        a: 'niacinamide',
+        b: 'peptide_signal',
+        scope: 'same_period',
+        severity: 'caution',
+        reasonCode: 'vitamin_c_copper_conflict',
+        resolutions: ['separate_periods'],
+        explanation:
+          'Fixture-only conflict for conflictEngine.test.ts resolutionScope coverage — not a real pair.',
+        suggestion: 'Fixture suggestion text, not asserted on by these tests.',
+        resolutionScope: 'slot',
+      },
+    ],
+  };
+});
+
+import { ConflictEngine, type ConflictStepInput } from '@/utils/conflictEngine';
 import { getProductActiveKeys } from '@/utils/ingredientParser';
 import type { Product, RoutineStep } from '@/types';
 
@@ -277,6 +312,71 @@ describe('ConflictEngine.detectConflicts', () => {
     // Retinol (from INCI) vs AHA (from INCI) should trigger rule_retinol_aha
     expect(results).toHaveLength(1);
     expect(results[0].rule.id).toBe('rule_retinol_aha');
+  });
+});
+
+// ─── detectConflicts — resolutionScope branching (FE-6) ────────────────────────
+// No live pair is 'slot' yet, so these use the fixture rule injected above.
+// Every one of the 7 real pairs stays 'day' — proven by the tests in the
+// describe block above, which pass plain (unperiod-tagged) steps and still
+// warn, exactly as before this task.
+
+describe('ConflictEngine.detectConflicts — resolutionScope (conflict-resolution-scope FE-6)', () => {
+  function fixtureStep(productId: string, period?: 'am' | 'pm'): ConflictStepInput {
+    return { ...makeStep(productId), ...(period ? { period } : {}) };
+  }
+
+  it('warns for a resolutionScope: "slot" pair when both steps share the same period', () => {
+    const niacinamide = makeProduct({
+      activeIngredients: [{ key: 'niacinamide', displayName: 'Niacinamide' }],
+    });
+    const peptide = makeProduct({
+      activeIngredients: [{ key: 'peptide_signal', displayName: 'Matrixyl' }],
+    });
+    const steps = [
+      fixtureStep(niacinamide.id, 'am'),
+      fixtureStep(peptide.id, 'am'),
+    ];
+
+    const results = ConflictEngine.detectConflicts(steps, [niacinamide, peptide]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].rule.id).toBe(FIXTURE_SLOT_RULE_ID);
+  });
+
+  it('does not warn for a resolutionScope: "slot" pair when the steps are split across AM/PM', () => {
+    const niacinamide = makeProduct({
+      activeIngredients: [{ key: 'niacinamide', displayName: 'Niacinamide' }],
+    });
+    const peptide = makeProduct({
+      activeIngredients: [{ key: 'peptide_signal', displayName: 'Matrixyl' }],
+    });
+    const steps = [
+      fixtureStep(niacinamide.id, 'am'),
+      fixtureStep(peptide.id, 'pm'),
+    ];
+
+    const results = ConflictEngine.detectConflicts(steps, [niacinamide, peptide]);
+
+    expect(results).toHaveLength(0);
+  });
+
+  it('still warns for a resolutionScope: "slot" pair when neither step carries a period (unknown-period fallback)', () => {
+    // Every pre-existing detectConflicts caller passes plain RoutineStep[]
+    // with no period — this proves that path keeps warning rather than
+    // silently going quiet the moment any rule becomes 'slot'-scoped.
+    const niacinamide = makeProduct({
+      activeIngredients: [{ key: 'niacinamide', displayName: 'Niacinamide' }],
+    });
+    const peptide = makeProduct({
+      activeIngredients: [{ key: 'peptide_signal', displayName: 'Matrixyl' }],
+    });
+    const steps = [makeStep(niacinamide.id), makeStep(peptide.id)];
+
+    const results = ConflictEngine.detectConflicts(steps, [niacinamide, peptide]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].rule.id).toBe(FIXTURE_SLOT_RULE_ID);
   });
 });
 

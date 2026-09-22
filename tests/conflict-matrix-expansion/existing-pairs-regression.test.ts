@@ -20,6 +20,21 @@
  * handoff.json's bounded_decision_list flags as needing only "retroactive
  * confirmation, not fresh approval" — this suite is what that confirmation
  * protects going forward, not a re-approval of the values themselves.
+ *
+ * 2026-09-22 update (conflict-resolution-scope task, engineer): every entry
+ * below now also carries a `resolutionScope` field — a new required field
+ * (tech design docs/tech-design/conflict-resolution-scope.md FE-1/FE-2), not
+ * a change to severity, trigger condition, or copy. This snapshot's own
+ * docstring scopes the "byte-identical" guarantee to exactly those three
+ * properties; the field's presence and value are covered by that task's own
+ * regression suite (tests/conflict-resolution-scope/
+ * pair-rules-day-scope-regression.test.ts).
+ *
+ * 2026-09-22 follow-up (same task, product decision): `rule_vitc_pure_acids`
+ * carries `resolutionScope: 'slot'`, not `'day'` like the other 6 — the one
+ * row in that task's bounded_decision_list flipped, per
+ * progress/conflict-resolution-scope.md's log. Everything else about the
+ * rule (severity/trigger/copy) is unchanged.
  */
 import activesRuleset from '@/constants/rulesets/actives.json';
 import { ConflictEngine } from '@/utils/conflictEngine';
@@ -37,6 +52,7 @@ interface PairRuleSnapshot {
   exceptions?: unknown[];
   explanation: string;
   suggestion: string;
+  resolutionScope: string;
 }
 
 const PAIR_RULES = activesRuleset.pairRules as unknown as PairRuleSnapshot[];
@@ -62,6 +78,7 @@ describe('actives.json — pre-existing pairRules stay byte-identical (FE-8)', (
         'Both Retinoids and AHA (Glycolic/Lactic acid) accelerate skin cell turnover. Combining them in the same routine causes severe redness, peeling, and chemical irritation.',
       suggestion:
         'Separate them: use AHA 2 nights a week, and your retinoid on the other nights. Never layer them together.',
+      resolutionScope: 'day',
     });
   });
 
@@ -78,6 +95,7 @@ describe('actives.json — pre-existing pairRules stay byte-identical (FE-8)', (
       explanation:
         'Salicylic Acid (BHA) strips lipids, while retinoids alter deep cell behavior. Layering them compromises the moisture barrier, triggering breakout flare-ups and dermatitis.',
       suggestion: 'Use BHA in your morning cleanser step (wash-off) and your retinoid strictly at night.',
+      resolutionScope: 'day',
     });
   });
 
@@ -93,6 +111,7 @@ describe('actives.json — pre-existing pairRules stay byte-identical (FE-8)', (
       explanation:
         'Benzoyl Peroxide oxidizes retinoids, rendering both compounds completely useless while doubling skin dryness.',
       suggestion: 'Use Benzoyl Peroxide as a spot treatment in the morning, and your retinoid at night.',
+      resolutionScope: 'day',
     });
   });
 
@@ -108,6 +127,7 @@ describe('actives.json — pre-existing pairRules stay byte-identical (FE-8)', (
       explanation:
         'Acids alter the optimal pH required for copper peptides, potentially breaking down the peptide structure and neutralizing its remodeling benefits.',
       suggestion: 'Use copper peptides in the morning and acids at night, or alternate them on different days.',
+      resolutionScope: 'day',
     });
   });
 
@@ -124,6 +144,10 @@ describe('actives.json — pre-existing pairRules stay byte-identical (FE-8)', (
       explanation:
         'Layering multiple low-pH acids dramatically increases the risk of skin irritation and barrier disruption.',
       suggestion: 'Keep pure Vitamin C in the morning and exfoliating acids in the evening.',
+      // 'slot' as of 2026-09-22 (conflict-resolution-scope, product decision) —
+      // see progress/conflict-resolution-scope.md log. severity/trigger/copy
+      // unchanged; only this field's value moved, same as the FE-2 addition.
+      resolutionScope: 'slot',
     });
   });
 
@@ -140,6 +164,7 @@ describe('actives.json — pre-existing pairRules stay byte-identical (FE-8)', (
         'Pure Vitamin C is acidic and oxidises the copper ion in copper peptides, breaking down the peptide complex and neutralising both ingredients.',
       suggestion:
         'Use copper peptides in the morning and pure Vitamin C in the evening, or alternate them on different days.',
+      resolutionScope: 'day',
     });
   });
 
@@ -156,6 +181,7 @@ describe('actives.json — pre-existing pairRules stay byte-identical (FE-8)', (
         'Benzoyl Peroxide is a strong oxidiser and degrades Vitamin C derivatives on contact, leaving both less effective.',
       suggestion:
         'Apply Benzoyl Peroxide in the morning and your Vitamin C derivative at night, or use them on alternate days.',
+      resolutionScope: 'day',
     });
   });
 });

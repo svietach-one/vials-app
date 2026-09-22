@@ -4,7 +4,7 @@ import {
   PROCEDURE_COLLISION_RULES,
 } from '@/constants/conflictRulesDb';
 import { PREGNANCY_SAFETY_ENABLED } from '@/constants/featureFlags';
-import { ACTIVES_RULESET, type PairRule } from '@/constants/rulesets/rulesetTypes';
+import { ACTIVES_RULESET, type PairRule, type Period } from '@/constants/rulesets/rulesetTypes';
 import {
   ActiveIngredientKey,
   ClinicalConflictResult,
@@ -20,6 +20,18 @@ import { getProductActiveKeys } from '@/utils/ingredientParser';
 import { getCurrentSeason } from '@/utils/timeHelpers';
 
 export type { ClinicalConflictResult };
+
+/**
+ * A routine step optionally tagged with the AM/PM period it belongs to
+ * (conflict-resolution-scope task). Display-layer-only concern: `RoutineStep`
+ * itself carries no period field (period is a property of the containing
+ * `Routine.timeOfDay`), so callers that know it attach it here rather than it
+ * being persisted. `period` is optional so every pre-existing caller passing
+ * plain `RoutineStep[]` keeps compiling and behaving exactly as before —
+ * `resolutionScope: 'slot'` treats an unknown period on either side as "warn
+ * regardless" (the same as `'day'`), never as a silent false negative.
+ */
+export type ConflictStepInput = RoutineStep & { period?: Period };
 
 /** A pair-rule side is a single class key or a shared group of them. */
 function sideKeys(side: PairRule['a']): ActiveIngredientKey[] {
@@ -52,6 +64,23 @@ function toConflictRule(
 }
 
 /**
+ * Matches a pair of active classes against the pairRules table and returns
+ * the raw matched rule (not yet projected), or null when compatible. Kept
+ * internal — `matchPairRule` below is the public, ConflictRule-projecting
+ * entry point every other caller keeps using unchanged.
+ */
+function matchRawPairRule(keyA: ActiveIngredientKey, keyB: ActiveIngredientKey): PairRule | null {
+  for (const rule of ACTIVES_RULESET.pairRules) {
+    const a = sideKeys(rule.a);
+    const b = sideKeys(rule.b);
+    if ((a.includes(keyA) && b.includes(keyB)) || (a.includes(keyB) && b.includes(keyA))) {
+      return rule;
+    }
+  }
+  return null;
+}
+
+/**
  * The one place a pair of active classes is matched against the pairRules
  * table. Returns the first rule covering the pair in either direction, or null
  * when they are compatible (an absent pair is a compatible pair). Deterministic:
@@ -61,13 +90,10 @@ export function matchPairRule(
   keyA: ActiveIngredientKey,
   keyB: ActiveIngredientKey,
 ): ConflictRule | null {
-  for (const rule of ACTIVES_RULESET.pairRules) {
-    const a = sideKeys(rule.a);
-    const b = sideKeys(rule.b);
-    if (a.includes(keyA) && b.includes(keyB)) return toConflictRule(rule, keyA, keyB);
-    if (a.includes(keyB) && b.includes(keyA)) return toConflictRule(rule, keyB, keyA);
-  }
-  return null;
+  const rule = matchRawPairRule(keyA, keyB);
+  if (!rule) return null;
+  const a = sideKeys(rule.a);
+  return a.includes(keyA) ? toConflictRule(rule, keyA, keyB) : toConflictRule(rule, keyB, keyA);
 }
 
 function findIngredientConflict(
@@ -84,11 +110,53 @@ function findIngredientConflict(
 }
 
 /**
+ * Whether a matched rule should actually fire for this pair of steps, given
+ * their (optional) periods. `'day'` fires unconditionally — today's behavior
+ * for every pair. `'slot'` fires only when both periods are known and equal;
+ * an unknown period on either side falls back to firing (see
+ * {@link ConflictStepInput} doc comment — never a silent false negative for
+ * callers that haven't adopted period tagging).
+ */
+function resolutionScopeAllows(
+  rule: PairRule,
+  periodA: Period | undefined,
+  periodB: Period | undefined,
+): boolean {
+  if (rule.resolutionScope !== 'slot') return true;
+  if (periodA == null || periodB == null) return true;
+  return periodA === periodB;
+}
+
+/**
+ * Same pairwise search as `findIngredientConflict`, but resolutionScope-aware:
+ * a matched rule is skipped (search continues over the remaining key pairs)
+ * when its scope requires the same period and the two steps' periods differ.
+ * Used only by `detectConflicts`, the one caller with per-step period info.
+ */
+function findIngredientConflictForSteps(
+  keysA: ActiveIngredientKey[],
+  keysB: ActiveIngredientKey[],
+  periodA: Period | undefined,
+  periodB: Period | undefined,
+): ConflictRule | null {
+  for (const keyA of keysA) {
+    for (const keyB of keysB) {
+      const rule = matchRawPairRule(keyA, keyB);
+      if (!rule) continue;
+      if (!resolutionScopeAllows(rule, periodA, periodB)) continue;
+      const a = sideKeys(rule.a);
+      return a.includes(keyA) ? toConflictRule(rule, keyA, keyB) : toConflictRule(rule, keyB, keyA);
+    }
+  }
+  return null;
+}
+
+/**
  * Local safety engine for ingredient and clinical procedure conflicts.
  */
 export class ConflictEngine {
   /** Detect ingredient conflicts across routine steps. */
-  static detectConflicts(steps: RoutineStep[], products: Product[]): ConflictResult[] {
+  static detectConflicts(steps: ConflictStepInput[], products: Product[]): ConflictResult[] {
     const visibleSteps = steps.filter((step) => !step.hidden && step.productId);
     const results: ConflictResult[] = [];
 
@@ -101,9 +169,11 @@ export class ConflictEngine {
 
         if (!productA || !productB) continue;
 
-        const rule = findIngredientConflict(
+        const rule = findIngredientConflictForSteps(
           getProductActiveKeys(productA),
           getProductActiveKeys(productB),
+          stepA.period,
+          stepB.period,
         );
 
         if (rule) {

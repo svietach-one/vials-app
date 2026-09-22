@@ -120,11 +120,11 @@ export function RoutineProductCard({
   }
 
   // Edit-mode Pause/Schedule icons, the "Completed" badge, and the
-  // active-ingredient lightning badge all live on the brand-name row now
-  // (relocated from rightCluster) — one slot, same priority order the old
-  // rightCluster used (edit icons > completed > active ingredient). Only
-  // AllergenBadge stays behind in rightCluster, with its original
-  // visibility rule unchanged (hidden in edit mode or once completed).
+  // active-ingredient lightning badge all live on the brand-name row
+  // (relocated from a since-removed rightCluster) — one slot, same priority
+  // order the old rightCluster used (edit icons > completed > active
+  // ingredient). AllergenBadge joins this same row too (see trailingIcons
+  // below), not a separate cluster, so both badges align vertically.
   const headerRowIcons = editMode ? (
     <View style={styles.editIconsRow}>
       <IconButton
@@ -159,15 +159,28 @@ export function RoutineProductCard({
       <Icon name="zap" size={16} color={palette.zinc600} />
     </View>
   ) : null;
+  // AllergenBadge now shares the same brand-name row as the lightning badge
+  // (relocated out of rightCluster, which centered it on the full card
+  // height and left it visibly lower than the lightning badge above —
+  // review finding 2026-09-22). Same visibility rule as before: hidden in
+  // edit mode or once completed, independent of whether an active-ingredient
+  // badge also shows.
+  const allergenBadge = !editMode && !completed ? <AllergenBadge matches={allergenMatches} /> : null;
+  const trailingIcons =
+    headerRowIcons || allergenBadge ? (
+      <View style={styles.headerRowIconsCluster}>
+        {headerRowIcons}
+        {allergenBadge}
+      </View>
+    ) : null;
+
   // When product.brand is absent, the row still renders for the icon slot
   // alone (justify-content: space-between collapses to flex-start for a
   // single child) rather than moving the slot down onto productName's own
   // line — keeps productName's line reserved for the name only, and avoids
   // the icon's vertical position jumping between products depending on
   // whether they have a brand.
-  const showHeaderRow = !!product.brand || !!headerRowIcons;
-
-  const rightCluster = !editMode && !completed ? <AllergenBadge matches={allergenMatches} /> : null;
+  const showHeaderRow = !!product.brand || !!trailingIcons;
 
   return (
     // Shadow lives on this outer, non-clipping wrapper — the Pressable below
@@ -197,7 +210,7 @@ export function RoutineProductCard({
                     {product.brand}
                   </Text>
                 ) : null}
-                {headerRowIcons}
+                {trailingIcons}
               </View>
             ) : null}
             <Text style={[styles.productName, completed && styles.textDimmed]} numberOfLines={1}>
@@ -218,8 +231,6 @@ export function RoutineProductCard({
               </View>
             ) : null}
           </View>
-
-          {rightCluster ? <View style={styles.rightCluster}>{rightCluster}</View> : null}
         </View>
 
         {hasBelowContent ? (
@@ -304,6 +315,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 2,
     paddingVertical: space[3],
+    // Was previously supplied by rightCluster's own paddingRight, back when
+    // AllergenBadge lived there as the column's only trailing sibling.
+    paddingRight: space[3],
   },
   // Holds brand name plus (when present) the active-ingredient lightning
   // badge or, in edit mode, the Pause/Schedule icons — all on one line,
@@ -341,13 +355,14 @@ const styles = StyleSheet.create({
   reapplyText: {
     fontStyle: 'italic',
   },
-  rightCluster: {
-    flexShrink: 0,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    minWidth: space[2],
-    paddingVertical: space[3],
-    paddingRight: space[3],
+  // Groups the lightning (active-ingredient) badge and AllergenBadge on the
+  // brand-name row so both sit at the same vertical position — previously
+  // AllergenBadge lived in a separate rightCluster centered on the full card
+  // height, which left it visibly lower than the lightning badge above.
+  headerRowIconsCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
   },
   editIconsRow: {
     flexDirection: 'row',

@@ -6,6 +6,7 @@ import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { getPrimaryActiveKey } from '@/components/routine/RoutineProductCard';
 import { getSlotCategoryLabelPlural } from '@/constants/labels';
 import { colors, space } from '@/constants/tokens';
+import { useSettingsStore } from '@/store/settingsStore';
 import { findSlotDuplicateGroups } from '@/utils/routineEngine/duplicateSlot';
 import { getSlotIndex } from '@/utils/routineEngine/slotting';
 import type { Product, Routine, RoutineStep } from '@/types';
@@ -64,20 +65,29 @@ export function groupHasActiveIngredientOverlap(group: RoutineStep[], products: 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function DuplicateSlotWarningInline({ routines, products, onPressGroup }: DuplicateSlotWarningInlineProps) {
+  const dismissedBanners = useSettingsStore((s) => s.dismissedBanners);
+  const dismissBanner = useSettingsStore((s) => s.dismissBanner);
+
   const rows: Row[] = routines.flatMap((routine) =>
     findSlotDuplicateGroups(routine.steps, products)
       .filter((group) => groupHasActiveIngredientOverlap(group, products))
       .map((group) => {
         const slotIndex = getSlotIndex(group[0].productType);
         const label = getSlotCategoryLabelPlural(group[0].productType);
+        const productIds = group.flatMap((s) => (s.productId ? [s.productId] : []));
         return {
-          key: `${routine.id}-${slotIndex}`,
+          // Includes the exact product set, not just routine+slot, so the
+          // banner reappears if the overlapping products ever change —
+          // dismissing today's "Serum A + Serum B" shouldn't silently hide a
+          // future, different duplicate in the same slot.
+          key: `duplicate_slot_${routine.id}_${slotIndex}_${[...productIds].sort().join(',')}`,
           routineId: routine.id,
           slotIndex,
-          productIds: group.flatMap((s) => (s.productId ? [s.productId] : [])),
+          productIds,
           message: `${group.length} similar products (${label}) in this routine`,
         };
-      }),
+      })
+      .filter((row) => !dismissedBanners.includes(row.key)),
   );
 
   if (rows.length === 0) return null;
@@ -96,6 +106,8 @@ export function DuplicateSlotWarningInline({ routines, products, onPressGroup }:
           <InlineAlert
             tone="info"
             icon={<Icon name="layers" size={16} color={colors.statusInfo} />}
+            onDismiss={() => dismissBanner(row.key)}
+            dismissAccessibilityLabel="Dismiss similar products notice"
           >
             {row.message}
           </InlineAlert>

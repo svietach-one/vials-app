@@ -65,7 +65,7 @@ import { useProfileStore } from '@/store/profileStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
-import { ConflictEngine } from '@/utils/conflictEngine';
+import { ConflictEngine, type ConflictStepInput } from '@/utils/conflictEngine';
 import { getRecoveryConditionCaution } from '@/utils/skinConditionModifiers';
 import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
 import { dateForDow, isScheduledOnDay } from '@/utils/routineSchedule';
@@ -336,7 +336,13 @@ export default function RoutinesScreen({ navigation }: Props) {
 
     const am = (morningRoutine?.steps ?? []).filter(isVisible);
     const pm = (eveningRoutine?.steps ?? []).filter(isVisible);
-    const allSteps = [...am, ...pm];
+    // Tagged with period (conflict-resolution-scope task) so a
+    // `resolutionScope: 'slot'` rule can tell a same-period hit from a split
+    // one; `'day'`-scoped rules (every live pair today) ignore it entirely.
+    const allSteps: ConflictStepInput[] = [
+      ...am.map((step): ConflictStepInput => ({ ...step, period: 'am' })),
+      ...pm.map((step): ConflictStepInput => ({ ...step, period: 'pm' })),
+    ];
 
     const conflicts = ConflictEngine.detectConflicts(allSteps, products);
     const map = new Map<string, string>();
@@ -698,11 +704,17 @@ export default function RoutinesScreen({ navigation }: Props) {
               conflict must fire no matter which tab is open; scoping it to
               the active tab too silently disabled cross-period conflict
               detection entirely (progress/routine-step-grouping.md,
-              code-review round 2026-08-31). */}
+              code-review round 2026-08-31). Tagged with period (conflict-
+              resolution-scope task) so a `resolutionScope: 'slot'` rule can
+              still tell a same-period hit from a split one even though the
+              tab-scoped tagging below is not available here. */}
         <ConflictWarningInline
           morningSteps={selectedPeriod === 'morning' ? amSteps : []}
           eveningSteps={selectedPeriod === 'evening' ? pmSteps : []}
-          allSteps={[...amSteps, ...pmSteps]}
+          allSteps={[
+            ...amSteps.map((step): ConflictStepInput => ({ ...step, period: 'am' })),
+            ...pmSteps.map((step): ConflictStepInput => ({ ...step, period: 'pm' })),
+          ]}
           products={products}
           skinConditions={profile?.skinConditions ?? []}
         />
