@@ -767,7 +767,7 @@
       ],
       "explanation": "Layering multiple low-pH acids dramatically increases the risk of skin irritation and barrier disruption.",
       "suggestion": "Keep pure Vitamin C in the morning and exfoliating acids in the evening.",
-      "resolutionScope": "day"
+      "resolutionScope": "slot"
     },
     {
       "id": "rule_vitc_pure_copper_peptides",

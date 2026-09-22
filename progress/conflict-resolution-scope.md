@@ -279,3 +279,26 @@ No BLOCKERs found. Verdict: ACCEPT — ready for human merge. `still_blocked.bou
 unchanged, pending product/clinical sign-off.
 
 Status set to PR_REVIEW. Architecture review box checked.
+
+2026-09-22 — human (product decision), follow-up on the still-BLOCKED `bounded_decision_list`: researched
+each of the 11 rows against current dermatological sources (web search) plus two user-supplied documents (a
+consumer skincare memo and a real cosmetologist's client routine PDF). Found genuine disagreement between
+sources on several rows (notably `rule_benzoyl_retinol` — the supplied memo cites an additive-dryness
+concern beyond the oxidation mechanism most web sources treat as fully resolved by AM/PM split) and only
+partial/anecdotal support on the two copper-peptide rows. Decision: flip only the one row with unanimous,
+uncontested support across every source checked —
+
+- `rule_vitc_pure_acids` (Vitamin C pure + AHA/BHA): `resolutionScope` `'day'` -> `'slot'`
+  (`src/constants/rulesets/actives.json`). Every other row in `bounded_decision_list` stays `'day'`,
+  explicitly not silently deferred — logged as "insufficient/disputed evidence" rather than approved.
+
+This is a product-level decision to treat converging consumer/practitioner sourcing as sufficient basis for
+this single row, not a formal licensed-practitioner sign-off per `PRD_Spec.md` §6 — flagging for the record
+in case a future clinical review pass wants to re-open it.
+
+Updated `tests/conflict-resolution-scope/pair-rules-day-scope-regression.test.ts` (split the live-pair
+assertion into day-scoped vs slot-scoped id lists) and added Story 5 to
+`tests/conflict-resolution-scope/ConflictWarningInline.resolution-scope.test.tsx` — real-pair (not fixture)
+coverage: split AM/PM clears the warning, same-period still warns with the slot-scope actionable copy
+overriding the rule's stored suggestion. `npx tsc --noEmit` clean; `npx jest tests/conflict-resolution-scope`
+all green.

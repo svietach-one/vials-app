@@ -22,13 +22,19 @@
  * protects going forward, not a re-approval of the values themselves.
  *
  * 2026-09-22 update (conflict-resolution-scope task, engineer): every entry
- * below now also carries `resolutionScope: 'day'` — a new required field
+ * below now also carries a `resolutionScope` field — a new required field
  * (tech design docs/tech-design/conflict-resolution-scope.md FE-1/FE-2), not
  * a change to severity, trigger condition, or copy. This snapshot's own
  * docstring scopes the "byte-identical" guarantee to exactly those three
- * properties; the field addition is intentional and covered by that task's
- * own regression suite (tests/conflict-resolution-scope/
+ * properties; the field's presence and value are covered by that task's own
+ * regression suite (tests/conflict-resolution-scope/
  * pair-rules-day-scope-regression.test.ts).
+ *
+ * 2026-09-22 follow-up (same task, product decision): `rule_vitc_pure_acids`
+ * carries `resolutionScope: 'slot'`, not `'day'` like the other 6 — the one
+ * row in that task's bounded_decision_list flipped, per
+ * progress/conflict-resolution-scope.md's log. Everything else about the
+ * rule (severity/trigger/copy) is unchanged.
  */
 import activesRuleset from '@/constants/rulesets/actives.json';
 import { ConflictEngine } from '@/utils/conflictEngine';
@@ -138,7 +144,10 @@ describe('actives.json — pre-existing pairRules stay byte-identical (FE-8)', (
       explanation:
         'Layering multiple low-pH acids dramatically increases the risk of skin irritation and barrier disruption.',
       suggestion: 'Keep pure Vitamin C in the morning and exfoliating acids in the evening.',
-      resolutionScope: 'day',
+      // 'slot' as of 2026-09-22 (conflict-resolution-scope, product decision) —
+      // see progress/conflict-resolution-scope.md log. severity/trigger/copy
+      // unchanged; only this field's value moved, same as the FE-2 addition.
+      resolutionScope: 'slot',
     });
   });
 

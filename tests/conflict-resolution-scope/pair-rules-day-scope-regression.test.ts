@@ -1,11 +1,14 @@
 /**
  * FE-2 — Story 4 (spec §Story 4 AC1/AC2): every `pairRules` entry that ships
  * today, live or still-gated proposed, must declare an explicit
- * `resolutionScope: 'day'` — the value that reproduces today's exact
- * day-level-binary warning behavior for every pair (tech design §2,
- * Assumption 3). No pair is reclassified to 'slot' in this task; see
+ * `resolutionScope`. Originally every entry shipped 'day' (reproducing
+ * today's exact day-level-binary warning behavior, tech design §2,
+ * Assumption 3). `rule_vitc_pure_acids` (Vitamin C pure + AHA/BHA) was
+ * reclassified 'day' -> 'slot' on 2026-09-22 — the one row in
  * progress/conflict-resolution-scope-handoff.json's
- * still_blocked.bounded_decision_list for the separately-gated sign-off.
+ * still_blocked.bounded_decision_list with unanimous, uncontested research
+ * support (see progress/conflict-resolution-scope.md log). Every other pair
+ * stays 'day' pending stronger sourcing or an actual clinical reviewer.
  *
  * Written BEFORE the engineer's implementation — `resolutionScope` does not
  * exist on any entry yet, so every assertion below is EXPECTED TO FAIL (red)
@@ -31,15 +34,18 @@ interface ResolutionScopeSnapshot {
 
 const LIVE_PAIR_RULES = activesRuleset.pairRules as unknown as ResolutionScopeSnapshot[];
 
-const LIVE_PAIR_IDS = [
+const DAY_SCOPED_LIVE_PAIR_IDS = [
   'rule_retinol_aha',
   'rule_retinol_bha',
   'rule_benzoyl_retinol',
   'rule_copper_peptides_acids',
-  'rule_vitc_pure_acids',
   'rule_vitc_pure_copper_peptides',
   'rule_vitc_derivative_bpo',
 ];
+
+const SLOT_SCOPED_LIVE_PAIR_IDS = ['rule_vitc_pure_acids'];
+
+const LIVE_PAIR_IDS = [...DAY_SCOPED_LIVE_PAIR_IDS, ...SLOT_SCOPED_LIVE_PAIR_IDS];
 
 function liveRuleById(id: string): ResolutionScopeSnapshot {
   const rule = LIVE_PAIR_RULES.find((r) => r.id === id);
@@ -47,9 +53,13 @@ function liveRuleById(id: string): ResolutionScopeSnapshot {
   return rule;
 }
 
-describe('actives.json pairRules — every live pair ships resolutionScope: "day" (Story 4 AC1)', () => {
-  it.each(LIVE_PAIR_IDS)('%s declares resolutionScope: "day"', (id) => {
+describe('actives.json pairRules — resolutionScope per pair (Story 4 AC1)', () => {
+  it.each(DAY_SCOPED_LIVE_PAIR_IDS)('%s declares resolutionScope: "day"', (id) => {
     expect(liveRuleById(id).resolutionScope).toBe('day');
+  });
+
+  it.each(SLOT_SCOPED_LIVE_PAIR_IDS)('%s declares resolutionScope: "slot"', (id) => {
+    expect(liveRuleById(id).resolutionScope).toBe('slot');
   });
 
   it('ships exactly these 7 live pairs — no pair silently added or removed by this task', () => {

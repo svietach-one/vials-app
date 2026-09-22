@@ -39,7 +39,8 @@
         "pair": "vitamin_c_pure + aha/bha (rule_vitc_pure_acids)",
         "source_research_classification": "slot",
         "shipped_reality": "live rule; resolutions already includes 'separate_periods' (scheduler already treats it as period-splittable)",
-        "ask": "confirm resolutionScope: 'slot', or correct"
+        "ask": "confirm resolutionScope: 'slot', or correct",
+        "resolved": "2026-09-22 — RESOLVED to 'slot' by product decision (unanimous support across web research + two user-supplied documents, no disagreement found on this row specifically). Not a formal licensed-practitioner sign-off. See progress/conflict-resolution-scope.md log for full reasoning."
       },
       {
         "pair": "benzoyl_peroxide + retinoid (rule_benzoyl_retinol)",
