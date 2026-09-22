@@ -428,3 +428,132 @@ describe('resolvePeriods — determinism', () => {
     expect(forward.frozen).toEqual(reversed.frozen);
   });
 });
+
+describe('resolvePeriods — cycle-split pairs (day-split-alternation FE-4/FE-8)', () => {
+  it('admits both sides on complementary, non-overlapping days instead of freezing the loser', () => {
+    // Both capped to 2/week (adaptationLimits) — the exact collision hand-traced
+    // in planning: without the cycleSplitPairs branch, both candidates compute
+    // the SAME [Tue, Sat] preferred days independently (applyFrequencyCaps
+    // runs before any violation check), attemptDaySplit's free-day search then
+    // comes up empty, and the loser freezes via freeze_lower_priority.
+    const retinoid = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-06-01' });
+    const aha = makeProduct({ activeTags: ['aha'], addedAt: '2026-01-01' });
+    const context = makeContext();
+    const result = resolvePeriods({
+      products: [retinoid, aha],
+      facts: buildShelfFacts([retinoid, aha], NOW),
+      context,
+      concerns: [],
+      adaptationLimits: new Map([
+        [retinoid.id, { maxDaysPerWeek: 2, reasonCode: 'adaptation_phase_1' }],
+        [aha.id, { maxDaysPerWeek: 2, reasonCode: 'exfoliant_treatment_cap' }],
+      ]),
+      selection: {
+        periodCandidates: { am: new Set(), pm: new Set([retinoid.id, aha.id]) },
+        treatmentCaps: new Map(),
+        cycleSplitPairs: [{ winnerProductId: retinoid.id, rivalProductId: aha.id }],
+      },
+    });
+
+    const winnerDays = stepFor(result, 'pm', retinoid.id)?.scheduledDays ?? [];
+    const rivalDays = stepFor(result, 'pm', aha.id)?.scheduledDays ?? [];
+    expect(winnerDays).toEqual([2, 6]);
+    expect(rivalDays).toEqual([1, 4]);
+    expect(winnerDays.some((d) => rivalDays.includes(d))).toBe(false);
+    expect(result.frozen).toHaveLength(0);
+
+    const splitProductIds = result.decisions
+      .filter((d) => d.action === 'day_split')
+      .map((d) => d.productId);
+    expect(splitProductIds).toEqual(expect.arrayContaining([retinoid.id, aha.id]));
+  });
+
+  it('resolves via the pair regardless of which side the admission loop reaches first', () => {
+    // Rival (aha) newer than the winner (retinoid) → admits first; the branch
+    // must still find its registered partner and split correctly either way.
+    const retinoid = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-01-01' });
+    const aha = makeProduct({ activeTags: ['aha'], addedAt: '2026-06-01' });
+    const context = makeContext();
+    const result = resolvePeriods({
+      products: [retinoid, aha],
+      facts: buildShelfFacts([retinoid, aha], NOW),
+      context,
+      concerns: [],
+      adaptationLimits: new Map([
+        [retinoid.id, { maxDaysPerWeek: 2, reasonCode: 'adaptation_phase_1' }],
+        [aha.id, { maxDaysPerWeek: 2, reasonCode: 'exfoliant_treatment_cap' }],
+      ]),
+      selection: {
+        periodCandidates: { am: new Set(), pm: new Set([retinoid.id, aha.id]) },
+        treatmentCaps: new Map(),
+        cycleSplitPairs: [{ winnerProductId: retinoid.id, rivalProductId: aha.id }],
+      },
+    });
+
+    const winnerDays = stepFor(result, 'pm', retinoid.id)?.scheduledDays ?? [];
+    const rivalDays = stepFor(result, 'pm', aha.id)?.scheduledDays ?? [];
+    expect(winnerDays).toEqual([2, 6]);
+    expect(rivalDays).toEqual([1, 4]);
+    expect(result.frozen).toHaveLength(0);
+  });
+
+  it('freezes the loser as before when no cycleSplitPairs entry is registered (regression)', () => {
+    const retinoid = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-06-01' });
+    const aha = makeProduct({ activeTags: ['aha'], addedAt: '2026-01-01' });
+    const context = makeContext();
+    const result = resolvePeriods({
+      products: [retinoid, aha],
+      facts: buildShelfFacts([retinoid, aha], NOW),
+      context,
+      concerns: [],
+      adaptationLimits: new Map([
+        [retinoid.id, { maxDaysPerWeek: 2, reasonCode: 'adaptation_phase_1' }],
+        [aha.id, { maxDaysPerWeek: 2, reasonCode: 'exfoliant_treatment_cap' }],
+      ]),
+      selection: {
+        periodCandidates: { am: new Set(), pm: new Set([retinoid.id, aha.id]) },
+        treatmentCaps: new Map(),
+      },
+    });
+
+    expect(stepFor(result, 'pm', aha.id)).toBeUndefined();
+    expect(result.frozen.map((f) => f.productId)).toContain(aha.id);
+  });
+
+  it('leaves an unregistered third candidate on the normal ladder, unaffected by and not affecting the pair', () => {
+    // A third exfoliant also conflicts with the retinoid winner but is NOT a
+    // registered cycleSplitPairs partner — findCycleSplitPair must not match
+    // it, so it is resolved entirely by the ordinary ladder machinery, and
+    // the pair's own complementary split stays exactly as before.
+    const retinoid = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-06-01' });
+    const aha = makeProduct({ activeTags: ['aha'], addedAt: '2026-05-01' });
+    const bha = makeProduct({ activeTags: ['bha'], addedAt: '2026-01-01' });
+    const context = makeContext();
+    const result = resolvePeriods({
+      products: [retinoid, aha, bha],
+      facts: buildShelfFacts([retinoid, aha, bha], NOW),
+      context,
+      concerns: [],
+      adaptationLimits: new Map([
+        [retinoid.id, { maxDaysPerWeek: 2, reasonCode: 'adaptation_phase_1' }],
+        [aha.id, { maxDaysPerWeek: 2, reasonCode: 'exfoliant_treatment_cap' }],
+      ]),
+      selection: {
+        periodCandidates: { am: new Set(), pm: new Set([retinoid.id, aha.id, bha.id]) },
+        treatmentCaps: new Map(),
+        cycleSplitPairs: [{ winnerProductId: retinoid.id, rivalProductId: aha.id }],
+      },
+    });
+
+    const winnerDays = stepFor(result, 'pm', retinoid.id)?.scheduledDays ?? [];
+    const rivalDays = stepFor(result, 'pm', aha.id)?.scheduledDays ?? [];
+    expect(winnerDays).toEqual([2, 6]);
+    expect(rivalDays).toEqual([1, 4]);
+    // bha (unregistered) still gets SOME ordinary-ladder outcome — it is
+    // never silently dropped, and never assigned via computeCycleSplitDays
+    // (which only ever produces the winner/rival preference pair above).
+    const bhaAdmitted = stepFor(result, 'pm', bha.id);
+    const bhaFrozen = result.frozen.some((f) => f.productId === bha.id);
+    expect(bhaAdmitted !== undefined || bhaFrozen).toBe(true);
+  });
+});

@@ -194,6 +194,7 @@ export function generatePlan(input: EngineInput): RoutinePlan {
     selection: {
       periodCandidates: skeleton.periodCandidates,
       treatmentCaps: skeleton.treatmentCaps,
+      cycleSplitPairs: skeleton.cycleSplitPairs,
     },
   });
   const mandates = applyMandates(resolved.periods, facts, context);

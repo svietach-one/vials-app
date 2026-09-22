@@ -210,3 +210,74 @@ describe('selectSkeleton — user override (phase-07 §7.3)', () => {
     expect(isCandidate(r, retinoid.id)).toBe(true);
   });
 });
+
+describe('selectSkeleton — cycle-class rivalry (day-split-alternation FE-2/FE-7)', () => {
+  it('tags a cross-cycleClass loser (AHA losing to retinoid) as cycle_class_rival, not cumulative_active_cap', () => {
+    const retinoid = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-01-01' });
+    const aha = makeProduct({ activeTags: ['aha'], addedAt: '2026-02-01' });
+    const r = run([retinoid, aha], 'acne');
+
+    expect(r.periodCandidates.pm.has(retinoid.id)).toBe(true);
+    const reserved = r.reserve.find((x) => x.productId === aha.id);
+    expect(reserved?.reasonCode).toBe('cycle_class_rival');
+    expect(reserved?.rivalOfProductId).toBe(retinoid.id);
+    expect(reserved?.period).toBe('pm');
+    expect(r.cycleSplitPairs).toEqual([]);
+  });
+
+  it('does not reclassify a same-cycleClass loser (second retinoid) — duplicate_function is unchanged', () => {
+    const retinoid = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-01-01' });
+    const secondRetinoid = makeProduct({ activeTags: ['retinoid'], addedAt: '2025-11-01' });
+    const r = run([retinoid, secondRetinoid], 'acne');
+
+    const reserved = r.reserve.find((x) => x.productId === secondRetinoid.id);
+    expect(reserved?.reasonCode).toBe('duplicate_function');
+    expect(reserved?.rivalOfProductId).toBeUndefined();
+  });
+
+  it('tags exactly the single best-ranked rival when two exfoliants lose to the same retinoid', () => {
+    const retinoid = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-01-01' });
+    const aha = makeProduct({ activeTags: ['aha'], addedAt: '2026-02-01' });
+    const bhaSecondary = makeProduct({ activeTags: ['bha'], addedAt: '2025-12-01' });
+    const r = run([retinoid, aha, bhaSecondary], 'acne');
+
+    const reasons = [aha, bhaSecondary].map((p) => reasonFor(r, p.id));
+    expect(reasons.filter((x) => x === 'cycle_class_rival')).toHaveLength(1);
+    expect(reasons.filter((x) => x === 'cumulative_active_cap')).toHaveLength(1);
+  });
+
+  it('is a no-op when the period winner itself carries no cycleClass, even with an eligible rival present', () => {
+    // azelaic_acid is ranked ahead of aha under 'acne' but carries no
+    // cycleClass — the PM winner, so aha (a genuine exfoliant-class strong
+    // carrier) must fall back to the plain cumulative_active_cap reason.
+    const azelaicAcid = makeProduct({ activeTags: ['azelaic_acid'], addedAt: '2026-01-01' });
+    const aha = makeProduct({ activeTags: ['aha'], addedAt: '2026-02-01' });
+    const r = run([azelaicAcid, aha], 'acne');
+
+    expect(r.periodCandidates.pm.has(azelaicAcid.id)).toBe(true);
+    expect(r.reserve.some((x) => x.reasonCode === 'cycle_class_rival')).toBe(false);
+    expect(reasonFor(r, aha.id)).toBe('cumulative_active_cap');
+  });
+
+  it('admits an overridden rival and records the cycleSplitPairs entry with its own treatment cap', () => {
+    const retinoid = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-01-01' });
+    const aha = makeProduct({ activeTags: ['aha'], addedAt: '2026-02-01' });
+    const r = run([retinoid, aha], 'acne', [aha.id]);
+
+    expect(r.reserve.find((x) => x.productId === aha.id)).toBeUndefined();
+    expect(isCandidate(r, aha.id)).toBe(true);
+    expect(r.cycleSplitPairs).toEqual([{ winnerProductId: retinoid.id, rivalProductId: aha.id }]);
+    expect(r.treatmentCaps.get(aha.id)).toEqual(
+      expect.objectContaining({ reasonCode: 'exfoliant_treatment_cap' }),
+    );
+  });
+
+  it('produces an identical selection for identical input (determinism, incl. cycleSplitPairs)', () => {
+    const retinoid = makeProduct({ activeTags: ['retinoid'], addedAt: '2026-01-01' });
+    const aha = makeProduct({ activeTags: ['aha'], addedAt: '2026-02-01' });
+    const a = run([retinoid, aha], 'acne', [aha.id]);
+    const b = run([retinoid, aha], 'acne', [aha.id]);
+    expect(a.cycleSplitPairs).toEqual(b.cycleSplitPairs);
+    expect(a.reserve).toEqual(b.reserve);
+  });
+});

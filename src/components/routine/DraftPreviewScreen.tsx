@@ -14,6 +14,7 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { Tag } from '@/components/ui/core/Tag';
 import { ReplaceStepSheet, type ReplaceStepTarget } from '@/components/routine/ReplaceStepSheet';
+import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { type SelectOption, type SelectOptionTone } from '@/components/ui/forms/Select';
 import { reasonText } from '@/constants/decisionReasons';
 import { getProductTypeBadgeStatus, getSlotCategoryLabel, PRODUCT_TYPE_LABELS } from '@/constants/labels';
@@ -54,6 +55,26 @@ export interface DraftPreviewScreenProps {
    * typechecking.
    */
   onOverride?: (productId: string) => void;
+  /**
+   * day-split-alternation (FE-5): fired when the user taps "Alternate
+   * automatically" on the cycle-class-rival prompt card. The screen never
+   * applies it — RoutinesScreen reuses the phase-07 override mechanism and
+   * regenerates the draft. Optional so older callers keep typechecking.
+   */
+  onAcceptCycleSplit?: (rivalProductId: string) => void;
+  /**
+   * Fired when the user taps "Keep only [winner]" — a purely local,
+   * ephemeral dismissal (tech design Assumption 5); RoutinesScreen never
+   * writes to a store for it.
+   */
+  onDeclineCycleSplit?: (rivalProductId: string) => void;
+  /**
+   * Rival productIds RoutinesScreen has locally dismissed this session — the
+   * prompt card stays hidden for a listed id, but the product's normal
+   * collapsed "In reserve" row (with its own "Add anyway") is unaffected.
+   * Defaults to none.
+   */
+  dismissedCycleSplitRivalIds?: string[];
 }
 
 const SNAP_POINTS = ['100%'];
@@ -81,6 +102,9 @@ export function DraftPreviewScreen({
   onCommit,
   onSwapAlternative,
   onOverride,
+  onAcceptCycleSplit,
+  onDeclineCycleSplit,
+  dismissedCycleSplitRivalIds = [],
 }: DraftPreviewScreenProps) {
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheetModal>(null);
@@ -143,6 +167,16 @@ export function DraftPreviewScreen({
     const entry = plan.decisions.find((d) => d.productId === productId && d.reasonCode);
     return entry?.reasonCode ? reasonText(entry.reasonCode) : null;
   };
+
+  // day-split-alternation (Story 2): at most one cycle_class_rival item is
+  // ever present per plan (tech design Non-Goal: single rival only), so the
+  // card never needs to pick among several. Session-dismissed via a locally
+  // owned RoutinesScreen set (tech design Assumption 5), not a store write.
+  const cycleRivalItem = plan.reserve.find(
+    (item) =>
+      item.reasonCode === 'cycle_class_rival' &&
+      !dismissedCycleSplitRivalIds.includes(item.productId),
+  );
 
   // Every frozen item gets a row — clinical pauses with their expiry date,
   // pair-rule freezes with the human reason text (nothing vanishes silently, §1.8)
@@ -221,6 +255,15 @@ export function DraftPreviewScreen({
           reasonForProduct={reasonForProduct}
           onRequestReplace={setReplaceTarget}
         />
+
+        {cycleRivalItem ? (
+          <CycleSplitPromptCard
+            winnerName={nameOf(cycleRivalItem.rivalOfProductId ?? null)}
+            rivalName={nameOf(cycleRivalItem.productId)}
+            onAccept={() => onAcceptCycleSplit?.(cycleRivalItem.productId)}
+            onDecline={() => onDeclineCycleSplit?.(cycleRivalItem.productId)}
+          />
+        ) : null}
 
         {pausedRows.length > 0 ? (
           <View style={styles.pausedBlock}>
@@ -343,6 +386,64 @@ function reserveIntroText(reserve: RoutinePlan['reserve']): string {
   const action = 'Keep them in reserve, or add any of them to your routine anyway.';
   const forGoals = reserve.some((item) => item.reasonCode === 'not_needed_for_goals');
   return forGoals ? `Your current goals don’t call for these products. ${action}` : action;
+}
+
+// ─── Cycle-class-rival prompt card (day-split-alternation, Story 2) ──────────
+
+/**
+ * Dismissible-advisory-styled (SeasonalNoticeBanner/GoalCoverageBanner
+ * precedent) prompt offering an alternating schedule for two products
+ * structurally competing for one nightly slot. Rendered above the
+ * collapsible "In reserve" section, so both actions are visible without
+ * expanding it (spec §5 / Story 2 AC). `rivalName` is rendered as its own
+ * text node distinct from the surrounding sentence, satisfying "visible text
+ * names both products" without re-rendering `winnerName` as a bare node (it
+ * is already shown by the admitted step card above).
+ */
+function CycleSplitPromptCard({
+  winnerName,
+  rivalName,
+  onAccept,
+  onDecline,
+}: {
+  winnerName: string;
+  rivalName: string;
+  onAccept: () => void;
+  onDecline: () => void;
+}) {
+  return (
+    <InlineAlert
+      tone="warning"
+      icon={<Icon name="refresh-cw" size={16} color={colors.statusWarning} />}
+      title="Can’t go together every night"
+    >
+      <View style={styles.cycleSplitBody}>
+        <Text style={styles.pausedText}>
+          {`${winnerName} and `}
+          <Text style={styles.cycleSplitRivalName}>{rivalName}</Text>
+          {' compete for the same night — alternate them, or keep just one.'}
+        </Text>
+        <View style={styles.cycleSplitActions}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onPress={onAccept}
+            accessibilityLabel="Alternate automatically"
+          >
+            Alternate automatically
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onPress={onDecline}
+            accessibilityLabel={`Keep only ${winnerName}`}
+          >
+            {`Keep only ${winnerName}`}
+          </Button>
+        </View>
+      </View>
+    </InlineAlert>
+  );
 }
 
 // ─── Period block ─────────────────────────────────────────────────────────────
@@ -723,6 +824,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: space[3],
     gap: space[1],
+  },
+  cycleSplitBody: {
+    gap: space[2],
+  },
+  cycleSplitRivalName: {
+    fontFamily: 'DMSans-Medium',
+  },
+  cycleSplitActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[2],
   },
   pausedText: {
     ...typography.bodySmall,

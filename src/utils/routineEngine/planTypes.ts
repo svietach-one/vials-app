@@ -109,6 +109,17 @@ export interface ReserveItem {
   productId: string;
   /** not_needed_for_goals | duplicate_function | cumulative_active_cap | … */
   reasonCode: DecisionReasonCode;
+  /**
+   * day-split-alternation (FE-1): the admitted winner this item lost the
+   * period's treatment slot to. Present only when reasonCode is
+   * 'cycle_class_rival' — the single best-ranked cross-cycleClass loser
+   * (retinoid vs AHA/BHA), distinct from a same-class `duplicate_function`
+   * loser or a generic `cumulative_active_cap` loser.
+   */
+  rivalOfProductId?: string;
+  /** The period the rivalry was detected in ('am' | 'pm'); present only
+   *  alongside `rivalOfProductId`. */
+  period?: Period;
 }
 
 /** One explainable engine decision (research §1.8: invisible ≠ unaccountable). */

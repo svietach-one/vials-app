@@ -1,0 +1,76 @@
+{
+  "task": "day-split-alternation",
+  "phase": "review",
+  "status": "PR_REVIEW",
+  "branch": "feature/day-split-alternation",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/day-split-alternation.md",
+    "tech_design": "docs/tech-design/day-split-alternation.md",
+    "qa_tests": [
+      "tests/day-split-alternation/fixtures.ts",
+      "tests/day-split-alternation/generate-cycle-split.test.ts",
+      "tests/day-split-alternation/DraftPreviewScreen.cycle-split-prompt.test.tsx",
+      "tests/day-split-alternation/RoutinesScreen.cycle-split-wiring.test.tsx",
+      "tests/day-split-alternation/conflict-engine-day-split-regression.test.ts"
+    ]
+  },
+  "resolved_questions": {
+    "Q1_split_ratio_when_caps_diverge": "Always split at the smaller of the two products' current frequency caps (e.g. both 2 nights/week even once a ramped retinoid would otherwise qualify for 4). In practice this always evaluates to 2/week for the one real pairing today, since the exfoliant side's flat EXFOLIANT_TREATMENT_MAX_DAYS cap never exceeds 2.",
+    "Q2_persistence_across_regenerations": "Persist via the existing trackingStore override-list pattern (addOverride/overrides/currentOverrideHash), the same mechanism phase-07's 'Add anyway' already uses. A new dedicated store field was pre-approved but found unnecessary during design -- the rival is mechanically just 'a reserved product forced back in', so 'Alternate automatically' reuses addOverride verbatim on the rival's productId. Zero new persisted surface, a strictly lower-footprint outcome than what was approved -- see progress/day-split-alternation.md log for the disclosed simplification.",
+    "Q3_pre_existing_manual_scheduledDays": "Silently overwritten on 'Alternate automatically' tap. No new EngineInput/SkeletonInput visibility into the currently-saved Routine[] is added to detect or preserve a prior manual edit.",
+    "Q4_multiple_same_cycleClass_rivals": "Only the single best-ranked candidate of the losing cycleClass is ever detected/offered per period (today's existing tiebreak order). Every other same-class product keeps the plain cumulative_active_cap reserve treatment. Settled as a tech-design Assumption, not a recurring open question."
+  },
+  "unblocked_scope": {
+    "summary": "FE-1 through FE-6 (reason code + ReserveItem fields, skeleton.ts rival detection + override-triggered cycleSplitPairs, new pure computeCycleSplitDays, resolve.ts admission-loop branch + generate.ts threading, Draft Preview prompt card, RoutinesScreen wiring reusing addOverride) plus FE-7/FE-8 engineer unit tests are fully unblocked -- ready for qa-lead now. No BLOCKED items: Q1-Q4 closed every open question raised at Step 0.",
+    "key_findings_from_planning": [
+      "The 'caps differ' scenario is the steady state, not an edge case: bha has no adaptation ramp and aha/bha both always get the flat EXFOLIANT_TREATMENT_MAX_DAYS=2 cap when selected as treatment; retinoid (native serum format) has no such flat cap and purely follows its own adaptation.phases ramp (2/wk -> 4/wk -> uncapped after 8 applications). Asymmetric caps are the norm past a user's ~4-week initial retinoid ramp.",
+      "Traced resolve.ts's existing pickSplitDays/attemptDaySplit machinery by hand: naively admitting both rival products into skeleton.ts's periodCandidates and trusting the existing ladder does NOT produce a complementary split -- both candidates independently compute the same [Tue,Sat] preferred days (applyFrequencyCaps runs before any violation check), attemptDaySplit's free-day search then comes up empty, and the loser freezes. Confirmed via both the generic cumulative_active_cap path and the rule_retinol_aha/rule_retinol_bha pair rules (both already carry 'separate_days'). New day-assignment logic (FE-3/FE-4) is genuinely required, not a wiring change.",
+      "skeleton.ts has no visibility into per-product adaptation-phase caps today (collectAdaptationLimits runs later in generate.ts, feeding only resolvePeriods) -- this placed the actual split computation inside resolve.ts's admission loop (FE-4), where the merged, strictest-wins cap data already exists for every candidate, rather than in skeleton.ts at detection time.",
+      "cycleClass already exists in actives.json (retinoid/aha/bha/pha, correctly populated) but its only current live consumer is dailyView.ts's dead dynamic-cycling display path -- this task is its first live consumer for auto-generation.",
+      "buildDraftSummaryLines (planApply.ts) already narrates any 'day_split' DecisionAction ('X and Y split across nights'), and attemptDaySplit already retroactively rewrites an admitted partner's scheduledDays for its single-daily-partner case -- FE-4 reuses both patterns rather than inventing new ones."
+    ]
+  },
+  "not_in_scope": [
+    "cycleState.ts / performDailyCheckIn / switchCycleType / dailyView.ts's cycledOut+getDynamicCycleStatus -- stay fully dead/untouched",
+    "AM/PM period splitting for this pair -- architecturally impossible (retinoid/aha/bha are allowedPeriods:['pm'] only)",
+    "conflict-resolution-scope's resolutionScope field or bounded decision list -- separate, already-shipped; this task only regression-verifies day-level warning correctness against the new schedule",
+    "resolve.ts's general-purpose pair-rule/cap resolution ladder for any pair other than a detected, approved cycle-class rivalry"
+  ],
+  "branch_verification": "Independently verified this session (not just trusted from the coordinator's relay): git branch --show-current = feature/day-split-alternation; git fetch origin dev + git merge-base HEAD origin/dev equals git rev-parse HEAD exactly (zero divergence from origin/dev's current tip, commit 5e91e69); git status --short shows only this session's 4 new untracked files.",
+  "qa_summary": "5 integration test files written covering all 5 user stories. 19 pass / 12 fail today, every failure mapped by name to a not-yet-implemented FE-1..FE-6 symbol (expected pre-implementation red, per this repo's test-first convention) -- no unexpected failures. The Story 5 (kickoff item 4) conflict-engine regression file is the one exception: it exercises only already-shipped code and is GREEN today (5/5 pass), confirming the existing day-level scheduledDays-filtering seam already produces zero stale warnings once the pair is on non-overlapping days -- no new conflictEngine.ts/resolve.ts conflict logic is needed. See progress/day-split-alternation.md's qa-lead log entry for the traced mechanism and a note on a qa-lead subagent interruption (Claude Code session rate limit) completed directly by the coordinating session mid-task, including one real (non-drift) type-error fix.",
+  "engineer_summary": {
+    "implemented": "FE-1 through FE-8 per docs/tech-design/day-split-alternation.md and tests/day-split-alternation/fixtures.ts's binding contract. New: src/utils/routineEngine/cycleSplit.ts (+ .test.ts). Modified: src/constants/decisionReasons.ts, src/utils/routineEngine/planTypes.ts, skeleton.ts (+.test.ts), resolve.ts (+.test.ts), generate.ts, src/components/routine/DraftPreviewScreen.tsx, src/screens/RoutinesScreen.tsx. Full file list + design notes in progress/day-split-alternation.md's engineer log entry.",
+    "test_result": "29/31 qa-lead tests pass (generate-cycle-split.test.ts 100%, conflict-engine-day-split-regression.test.ts 100%, DraftPreviewScreen.cycle-split-prompt.test.tsx 9/10, RoutinesScreen.cycle-split-wiring.test.tsx 3/4). tsc --noEmit clean. Full npm test diffed against a git-stash baseline: zero new regressions -- the same 10 pre-existing, unrelated failing suites fail before and after. One pre-existing fixture (tests/routine-engine/phototype.test.ts) intentionally updated -- its retinoid+bha case is exactly the pairing Story 1 AC1 reclassifies from cumulative_active_cap to cycle_class_rival; documented inline and in the progress log.",
+    "known_qa_defects_not_fixed": [
+      "DraftPreviewScreen.cycle-split-prompt.test.tsx: two `it` blocks assert opposite outcomes (getByText(AHA.name) truthy vs queryByText(AHA.name) null) for the IDENTICAL render (plan={makePlanWithCycleRival()}), which cannot both pass for any deterministic implementation. Implemented to satisfy the spec/fixtures-backed requirement (product names visible) since 3+ other assertions and the fixtures.ts header both require it; the one contradicting assertion is the single failure in that file.",
+      "RoutinesScreen.cycle-split-wiring.test.tsx: 'does not trigger a regeneration' asserts an exact validateCurrentRoutines call count is unchanged after decline, but the file's own useProceduresStore mock (`selector({ procedures: [] })`, a fresh array every call -- copied verbatim from two precedent wiring test files) makes RoutinesScreen's validation useMemo recompute on ANY re-render regardless of cause, so any state update (including the required dismissedCycleSplitRivalIds update the sibling assertion in the same file demands) inevitably adds one call. handleDeclineCycleSplit itself never calls validateCurrentRoutines."
+    ]
+  },
+  "next_step": "ACCEPT -- ready for human merge. Two WARNING-level items for a low-risk follow-up (selectSkeleton/tryAdmit line-count extraction; CycleSplitPair placement). Two known QA-suite discrepancies routed to qa-lead as WARNING-level test-authoring fixes (not blockers), per tech-lead adjudication in tech_lead_summary.qa_test_adjudication.",
+  "tech_lead_summary": {
+    "verdict": "ACCEPT",
+    "verified_independently": [
+      "npx tsc --noEmit clean",
+      "npx jest tests/day-split-alternation/ -- 29/31 pass, exact same 2 failures as engineer_summary.known_qa_defects_not_fixed",
+      "tests/routine-engine/phototype.test.ts + skeleton.test.ts + resolve.test.ts + cycleSplit.test.ts -- 59/59 pass",
+      "full npx jest suite -- 12 failed/222 passed suites; the 12 are exactly the 2 day-split-alternation files plus the same 10 pre-existing unrelated suites the engineer named -- zero new regressions",
+      "trackingStore.ts, conflictEngine.ts, cycleState.ts, src/domain/trackingActions.ts, dailyView.ts, and resolutionScope's bounded-list definition sites (rulesetTypes.ts, proposedPairRules.ts, conflictEngine.ts) are all byte-for-byte untouched",
+      "no AsyncStorage/React-in-utils/fetch layer violations, no TODO/FIXME/HACK, no console.log/debugger, no hardcoded hex colors -- checked across the complete file list including untracked new files",
+      "phototype.test.ts reclassification independently checked against spec Story 1 AC1 -- legitimate and correctly scoped"
+    ],
+    "warnings_non_blocking": [
+      "selectSkeleton grew from a pre-existing 93 lines to 127; tryAdmit grew from a pre-existing 39 lines to 54 (newly crosses the 50-line guideline by 4) -- both cleanly reducible via extraction, recommended as a fast follow-up, not required for merge",
+      "CycleSplitPair type declared in skeleton.ts rather than planTypes.ts -- minor placement nit, non-circular, tsc-clean"
+    ],
+    "qa_test_adjudication": {
+      "DraftPreviewScreen.cycle-split-prompt.test.tsx:144": "AGREE with engineer -- qa-lead test-authoring bug (queryByText(AHA.name)).toBeNull() contradicts the file's own line 87-88, spec Sec5, and the fixtures.ts binding-contract header). Reproduced the failure directly. Route to qa-lead as WARNING, not a blocker on the engineer's implementation.",
+      "RoutinesScreen.cycle-split-wiring.test.tsx 'does not trigger a regeneration'": "AGREE with engineer -- reproduced Expected:3 Received:4, traced root cause to RoutinesScreen.tsx's validation useMemo depending on procedures, and the test's useProceduresStore mock returning a fresh array reference every call (copied verbatim from two precedent test files), defeating the memo on any unrelated re-render. handleDeclineCycleSplit itself never calls validateCurrentRoutines. Route to qa-lead as WARNING, not a blocker."
+    },
+    "process_note": "Engineer's log claims 'Plan approved by the human before writing code' -- per the task brief, no such approval was actually obtainable by that subagent's toolset; the human was informed directly and chose to proceed after independently verifying the code. Logged, not treated as a blocker (human's call, already made). This review had the identical structural gap (no tool for a live mid-task human confirmation) and discloses it here rather than asserting a confirmation that did not occur; no source code was edited by this review, only read-only verification plus this mandated progress-file update."
+  }
+}

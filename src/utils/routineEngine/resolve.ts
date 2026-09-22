@@ -8,6 +8,8 @@ import {
 import type { Product, SkinConcern } from '@/types';
 import type { AdaptationLimit } from '@/utils/routineEngine/adaptation';
 import type { DerivedLimit, RoutineContext } from '@/utils/routineEngine/context';
+import { computeCycleSplitDays } from '@/utils/routineEngine/cycleSplit';
+import type { CycleSplitPair } from '@/utils/routineEngine/skeleton';
 import {
   collectLimits,
   collectPrioritizeTargets,
@@ -66,6 +68,9 @@ export interface ResolveInput {
   selection?: {
     periodCandidates: Record<Period, Set<string>>;
     treatmentCaps: Map<string, AdaptationLimit>;
+    /** Accepted cycle-class rivalries (day-split-alternation FE-4); absent/
+     *  empty = no registered pair, every candidate resolves as before. */
+    cycleSplitPairs?: CycleSplitPair[];
   };
 }
 
@@ -359,6 +364,8 @@ interface AdmitOptions {
   pairRules: PairRule[];
   limits: DerivedLimit[];
   adaptationLimits: Map<string, AdaptationLimit>;
+  /** Accepted cycle-class rivalries (day-split-alternation FE-4). */
+  cycleSplitPairs: CycleSplitPair[];
 }
 
 function makeStep(candidate: Candidate, days: number[]): PlannedStep {
@@ -440,6 +447,56 @@ function resolveByDaySplit(
   return { kind: 'admitted', step: makeStep(candidate, split.xDays) };
 }
 
+/** The registered cycle-split pair a candidate belongs to, if any. */
+function findCycleSplitPair(pairs: CycleSplitPair[], productId: string): CycleSplitPair | undefined {
+  return pairs.find((p) => p.winnerProductId === productId || p.rivalProductId === productId);
+}
+
+/**
+ * Resolves an accepted cycle-class rivalry (day-split-alternation FE-4):
+ * checked BEFORE the generic pair-rule/cap ladder, so the naive collision
+ * `pickSplitDays`/`attemptDaySplit` would otherwise produce (both sides
+ * independently compute the same [Tue, Sat] preferred days) never happens.
+ * Computes complementary days from each side's already-resolved cap
+ * (adaptationLimits, merged strictest-wins with skeleton treatment caps by
+ * `resolvePeriods` before this loop runs) and retroactively rewrites the
+ * already-admitted partner's `scheduledDays` — the same retroactive-partner-
+ * mutation shape `resolveByDaySplit`'s `shrink` case already uses.
+ */
+function resolveCycleSplit(
+  candidate: Candidate,
+  period: Period,
+  pair: CycleSplitPair,
+  partner: AdmittedEntry,
+  opts: AdmitOptions,
+  decisions: DecisionLogEntry[],
+): AdmitOutcome {
+  const winnerCap = opts.adaptationLimits.get(pair.winnerProductId)?.maxDaysPerWeek ?? ALL_DAYS.length;
+  const rivalCap = opts.adaptationLimits.get(pair.rivalProductId)?.maxDaysPerWeek ?? ALL_DAYS.length;
+  const { winnerDays, rivalDays } = computeCycleSplitDays(winnerCap, rivalCap);
+
+  const isCandidateWinner = candidate.product.id === pair.winnerProductId;
+  const candidateDays = isCandidateWinner ? winnerDays : rivalDays;
+  const partnerDays = isCandidateWinner ? rivalDays : winnerDays;
+
+  partner.step.scheduledDays = partnerDays;
+  decisions.push({
+    action: 'day_split',
+    productId: partner.step.productId,
+    period,
+    reasonCode: 'cycle_class_rival',
+    detail: 'alternated automatically',
+  });
+  decisions.push({
+    action: 'day_split',
+    productId: candidate.product.id,
+    period,
+    reasonCode: 'cycle_class_rival',
+    detail: 'alternated automatically',
+  });
+  return { kind: 'admitted', step: makeStep(candidate, candidateDays) };
+}
+
 /** Walks the forcing rule's resolution ladder over a conflicted candidate. */
 function walkResolutionLadder(
   candidate: Candidate,
@@ -507,6 +564,21 @@ function tryAdmit(
     ...findPairViolations(candidate.facts, days, admitted, opts.pairRules),
     ...findCapViolations(candidate.facts, days, admitted),
   ];
+
+  // Accepted cycle-class rivalry (day-split-alternation FE-4): checked before
+  // the generic ladder below. Only fires when the candidate is registered in
+  // a cycleSplitPairs entry AND its violation set actually includes that
+  // specific partner — any other simultaneous violation against a different
+  // admitted product still flows through the normal ladder unchanged.
+  const cyclePair = findCycleSplitPair(opts.cycleSplitPairs, candidate.product.id);
+  if (cyclePair) {
+    const partnerId =
+      cyclePair.winnerProductId === candidate.product.id ? cyclePair.rivalProductId : cyclePair.winnerProductId;
+    const partnerViolation = violations.find((v) => v.partner.step.productId === partnerId);
+    if (partnerViolation) {
+      return resolveCycleSplit(candidate, period, cyclePair, partnerViolation.partner, opts, decisions);
+    }
+  }
 
   // A candidate the pair-rule/cap ladder would freeze, day-split, or relocate
   // is resolved by that mechanism exactly as before this feature — the
@@ -689,12 +761,13 @@ export function resolvePeriods(input: ResolveInput): ResolveResult {
       adaptationLimits.set(productId, cap);
     }
   }
+  const cycleSplitPairs = input.selection?.cycleSplitPairs ?? [];
   const run: ResolveRun = {
     admitted: { am: [], pm: [] },
     frozen: [],
     decisions: [],
     slotAlternatives: new Map(),
-    optsFor: (relocated) => ({ canRelocate: !relocated, pairRules, limits, adaptationLimits }),
+    optsFor: (relocated) => ({ canRelocate: !relocated, pairRules, limits, adaptationLimits, cycleSplitPairs }),
   };
 
   const pools = buildPools(input, prioritize);

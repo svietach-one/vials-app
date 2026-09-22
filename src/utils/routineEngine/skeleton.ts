@@ -1,4 +1,4 @@
-import type { Period } from '@/constants/rulesets/rulesetTypes';
+import { ACTIVES_RULESET, type Period } from '@/constants/rulesets/rulesetTypes';
 import type { ActiveIngredientKey, Product } from '@/types';
 import type { AdaptationLimit } from '@/utils/routineEngine/adaptation';
 import type { RoutineContext } from '@/utils/routineEngine/context';
@@ -43,6 +43,15 @@ export interface SkeletonInput {
   userOverrides?: string[];
 }
 
+/** An accepted cycle-class rivalry (day-split-alternation): the rival's id
+ *  was already in `userOverrides`, so it's admitted alongside the winner
+ *  instead of reserved — `resolve.ts`'s admission loop resolves the pair via
+ *  `computeCycleSplitDays` instead of the generic ladder. */
+export interface CycleSplitPair {
+  winnerProductId: string;
+  rivalProductId: string;
+}
+
 export interface SkeletonSelection {
   /** Product ids allowed into each period's admission pool. */
   periodCandidates: Record<Period, Set<string>>;
@@ -52,6 +61,9 @@ export interface SkeletonSelection {
   /** Frequency caps for selected treatments (reclassified/exfoliant), merged
    *  strictest-wins with adaptation caps by the admission pass. */
   treatmentCaps: Map<string, AdaptationLimit>;
+  /** Accepted cycle-class rivalries (day-split-alternation FE-2), threaded to
+   *  resolve.ts. Empty when no rival has been overridden back in. */
+  cycleSplitPairs: CycleSplitPair[];
 }
 
 /** Draft cap values — consultant review items (tech design Phase 4, Assumption 4). */
@@ -82,6 +94,48 @@ function compareEntries(a: Entry, b: Entry): number {
 
 function classKeys(facts: ProductFacts): ActiveIngredientKey[] {
   return facts.classes.map((c) => c.key);
+}
+
+/** Cycle classes attributed to a product (e.g. 'retinoid', 'exfoliant') —
+ *  same derivation as dailyView.ts's cycleClassesOf, this feature's first
+ *  live consumer for auto-generation. */
+function cycleClassesOf(facts: ProductFacts): Set<string> {
+  const out = new Set<string>();
+  for (const { key } of facts.classes) {
+    const cycleClass = ACTIVES_RULESET.classes[key]?.cycleClass;
+    if (cycleClass) out.add(cycleClass);
+  }
+  return out;
+}
+
+/** Native format first, then the stable addedAt/id tiebreak — the same
+ *  ordering pickTreatment's own `ofClass` ranking uses, so "best-ranked
+ *  rival" reads consistently with "best-ranked same-class candidate". */
+function compareTreatmentCandidates(a: Entry, b: Entry): number {
+  const aNative = TREATMENT_NATIVE_TYPES.includes(a.product.productType) ? 0 : 1;
+  const bNative = TREATMENT_NATIVE_TYPES.includes(b.product.productType) ? 0 : 1;
+  return aNative - bNative || compareEntries(a, b);
+}
+
+/**
+ * The single best-ranked treatment-pool loser whose cycleClass differs from
+ * the period's winner (Story 1 AC1/AC3): only candidates carrying at least
+ * one cycleClass the winner doesn't share are eligible — a candidate with no
+ * cycleClass, or the same cycleClass as the winner (already handled as a
+ * `duplicate_function` sameClassLoser), never qualifies. No-op when the
+ * winner itself carries no cycleClass.
+ */
+function findCycleClassRival(winner: Entry, pool: Entry[], used: Set<string>): Entry | null {
+  const winnerClasses = cycleClassesOf(winner.facts);
+  if (winnerClasses.size === 0) return null;
+  const rivals = pool
+    .filter((e) => !used.has(e.product.id))
+    .filter((e) => {
+      const classes = cycleClassesOf(e.facts);
+      return classes.size > 0 && [...classes].some((c) => !winnerClasses.has(c));
+    })
+    .sort(compareTreatmentCandidates);
+  return rivals[0] ?? null;
 }
 
 /**
@@ -240,6 +294,25 @@ export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
     }
   }
 
+  // Cycle-class rivalry (day-split-alternation, Story 1): the single
+  // best-ranked cross-cycleClass loser per period is tagged distinguishably
+  // instead of falling into the generic cumulative_active_cap reserve below —
+  // default behavior is unchanged (still reserved), just with richer data the
+  // Draft Preview prompt card can act on.
+  for (const period of ['am', 'pm'] as const) {
+    const winner = selectedTreatments[period];
+    if (!winner) continue;
+    const rival = findCycleClassRival(winner, treatmentPool, used);
+    if (!rival) continue;
+    used.add(rival.product.id);
+    reserve.push({
+      productId: rival.product.id,
+      reasonCode: 'cycle_class_rival',
+      rivalOfProductId: winner.product.id,
+      period,
+    });
+  }
+
   // Everything else in the treatment pool loses with a precise reason: a strong
   // carrier was blocked by the one-strong-per-period cap (or, under an empty
   // maintenance ranking, simply not needed — the cap owns strong exclusions
@@ -266,7 +339,9 @@ export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
   // bypasses minimalism, not same-day safety.
   const overrides = new Set(input.userOverrides ?? []);
   const finalReserve: ReserveItem[] = [];
+  const cycleSplitPairs: CycleSplitPair[] = [];
   const factsFor = new Map(entries.map((e) => [e.product.id, e.facts]));
+  const entryFor = new Map(entries.map((e) => [e.product.id, e]));
   for (const item of reserve) {
     const facts = factsFor.get(item.productId);
     if (overrides.has(item.productId) && facts) {
@@ -278,6 +353,19 @@ export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
         productId: item.productId,
         detail: 'user override',
       });
+      // Cycle-class rivalry accepted (day-split-alternation, Story 3): the
+      // rival re-enters like any other override, plus resolve.ts needs to
+      // know the pair AND the rival's own frequency cap (a rival never won
+      // its period's treatment slot, so it never received one via
+      // treatmentCapFor above) to compute a complementary split.
+      if (item.reasonCode === 'cycle_class_rival' && item.rivalOfProductId) {
+        cycleSplitPairs.push({ winnerProductId: item.rivalOfProductId, rivalProductId: item.productId });
+        const rivalEntry = entryFor.get(item.productId);
+        if (rivalEntry) {
+          const cap = treatmentCapFor(rivalEntry);
+          if (cap) treatmentCaps.set(item.productId, cap);
+        }
+      }
       continue;
     }
     finalReserve.push(item);
@@ -289,5 +377,5 @@ export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
   const placeholders = [
     ...neutralMoisturizerPlaceholders(selectedTreatments, structural),
   ];
-  return { periodCandidates, reserve: finalReserve, decisions, placeholders, treatmentCaps };
+  return { periodCandidates, reserve: finalReserve, decisions, placeholders, treatmentCaps, cycleSplitPairs };
 }

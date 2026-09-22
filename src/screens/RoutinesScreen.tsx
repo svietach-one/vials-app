@@ -259,6 +259,23 @@ export default function RoutinesScreen({ navigation }: Props) {
     setDraft(validateCurrentRoutines());
   }, []);
 
+  // day-split-alternation (Story 4): rival productIds locally dismissed via
+  // "Keep only [winner]" this session — ephemeral, no store write, so the
+  // prompt is re-offered on a later session (tech design Assumption 5).
+  const [dismissedCycleSplitRivalIds, setDismissedCycleSplitRivalIds] = useState<string[]>([]);
+
+  // "Alternate automatically" is, mechanically, the exact same "force this
+  // product back in" action handleOverride already performs (tech design
+  // Assumption 1) — skeleton.ts's reaction to an override on a
+  // cycle_class_rival item is the only new engine behavior.
+  const handleAcceptCycleSplit = handleOverride;
+
+  const handleDeclineCycleSplit = useCallback((rivalProductId: string) => {
+    setDismissedCycleSplitRivalIds((prev) =>
+      prev.includes(rivalProductId) ? prev : [...prev, rivalProductId],
+    );
+  }, []);
+
   // Story 3 (routine-similar-product-priority): tapping a duplicate-slot
   // banner row ranks that group (best/recommended first) and opens the
   // resolution sheet with it.
@@ -863,6 +880,9 @@ export default function RoutinesScreen({ navigation }: Props) {
         onCommit={handleCommitDraft}
         onSwapAlternative={handleSwapAlternative}
         onOverride={handleOverride}
+        onAcceptCycleSplit={handleAcceptCycleSplit}
+        onDeclineCycleSplit={handleDeclineCycleSplit}
+        dismissedCycleSplitRivalIds={dismissedCycleSplitRivalIds}
       />
 
       <DuplicateSlotResolutionSheet
