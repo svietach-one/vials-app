@@ -596,16 +596,14 @@ function StepCard({
 
           {/* Row itself is conditional so a changed step with no reason and
               no alternative (nothing to show either side) doesn't leave a
-              bare gap behind. */}
+              bare gap behind. Only short elements live here — the reason
+              text (which can run a full sentence long) gets its own
+              full-width row below instead of competing with Change for
+              horizontal space (that combination used to overflow the card,
+              see reasonRow below). */}
           {showStatusRow ? (
             <View style={styles.statusRow}>
-              {showReasonBadge ? (
-                <Badge status="Cobalt" type="Light">
-                  {reason}
-                </Badge>
-              ) : showNoChangeTag ? (
-                <Tag tone="neutral">No change</Tag>
-              ) : null}
+              {showNoChangeTag ? <Tag tone="neutral">No change</Tag> : null}
 
               {isSwappable ? (
                 <Pressable
@@ -622,6 +620,18 @@ function StepCard({
           ) : null}
         </View>
       </View>
+
+      {/* Full-width, wrapping info row for the reason sentence — mirrors
+          RoutineStepCard's conflictRow/adaptationRow (icon + wrapping text,
+          bordered top divider), never sharing a row with Change. */}
+      {showReasonBadge ? (
+        <View style={styles.reasonRow}>
+          <Icon name="info" size={16} color={colors.statusInfo} />
+          <Text style={styles.reasonRowText} numberOfLines={3}>
+            {reason}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -817,6 +827,23 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     fontFamily: 'DMSans-Medium',
     color: palette.plum,
+  },
+  // Mirrors RoutineStepCard's adaptationRow: full-card-width info strip,
+  // top divider, icon + wrapping text — never squeezed against Change.
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[2],
+    paddingTop: space[2],
+    paddingBottom: space[3],
+    paddingHorizontal: space[3],
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
+  },
+  reasonRowText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flexShrink: 1,
   },
 
   pausedBlock: {
