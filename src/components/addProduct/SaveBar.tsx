@@ -9,10 +9,17 @@ export interface SaveBarProps {
   onPress: () => void;
   /** Pass '' to suppress when an equivalent note already shows in a section. */
   privacyNote?: string;
+  /**
+   * Owned vs Wishlist framing (docs/tasks/ux-explore-vials/01-entry-points.md
+   * §1) — "Put on My Shelf" for the default Add-new outcome, "Add to
+   * Wishlist" when the entry point was Explore new.
+   */
+  label?: string;
 }
 
 const DEFAULT_PRIVACY_NOTE =
   'Only brand, name, category, and ingredients are shared. Dates stay private.';
+const DEFAULT_LABEL = 'Put on My Shelf';
 
 /**
  * Bottom save bar — a normal sibling view below the scroll container, not an
@@ -22,7 +29,12 @@ const DEFAULT_PRIVACY_NOTE =
  * response (inline validation + auto-expanding the first incomplete section).
  * This is the single primary-filled action on the Add Product screen.
  */
-export function SaveBar({ enabled, onPress, privacyNote = DEFAULT_PRIVACY_NOTE }: SaveBarProps) {
+export function SaveBar({
+  enabled,
+  onPress,
+  privacyNote = DEFAULT_PRIVACY_NOTE,
+  label = DEFAULT_LABEL,
+}: SaveBarProps) {
   return (
     <View style={styles.bar}>
       {privacyNote ? <Text style={styles.privacyNote}>{privacyNote}</Text> : null}
@@ -33,7 +45,7 @@ export function SaveBar({ enabled, onPress, privacyNote = DEFAULT_PRIVACY_NOTE }
         onPress={onPress}
         accessibilityState={{ disabled: !enabled }}
       >
-        Save and put on shelf
+        {label}
       </Button>
     </View>
   );

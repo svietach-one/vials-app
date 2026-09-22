@@ -148,9 +148,16 @@ export const space = {
 
   gutterScreen: 20,
   gapCard: 16,
-  gapStack: 12,
-  gapInline: 8,
-  gapSection: 32,
+  // gapInline/gapStack/gapSection: all three halved from 8/12/32 on
+  // routine-step-grouping's polish round 3, per explicit human request after
+  // viewing the running Routine screen. Ratios between them are preserved
+  // (32/12 ≈ 16/6 ≈ 2.67x; 12/8 = 6/4 = 1.5x) so the "header→card" /
+  // "card→card" / "step-group→step-group" rhythm stays legible at every
+  // level — see RoutinesScreen.tsx's groupWrap/groupHeaderWrap/stepRowWrap
+  // comment and IMPLEMENTATION_PLAN.md Phase 4's original 8/12/32 spec.
+  gapStack: 6,
+  gapInline: 4,
+  gapSection: 16,
   hitMin: 44,
 } as const;
 

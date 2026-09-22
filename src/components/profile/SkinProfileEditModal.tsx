@@ -12,6 +12,8 @@ import {
 import { Icon } from '@/components/ui/Icon';
 
 import { FitzpatrickCard } from '@/components/onboarding/PhototypeCard';
+import { PhototypeQuizSheet } from '@/components/onboarding/PhototypeQuizSheet';
+import { SkinTypeQuizSheet } from '@/components/onboarding/SkinTypeQuizSheet';
 import { GoalSelector } from '@/components/profile/GoalSelector';
 import { SkinConcernsSelector } from '@/components/profile/SkinConcernsSelector';
 import { Button } from '@/components/ui/core/Button';
@@ -20,21 +22,26 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { ListRow } from '@/components/ui/core/ListRow';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
-import { colors, space, typography } from '@/constants/tokens';
+import { colors, radius, space, typography } from '@/constants/tokens';
 import {
+  FITZPATRICK_DESCRIPTIONS,
   GENDER_CAPTION,
   GENDER_OPTIONS,
   HORMONE_THERAPY_HINT,
   HORMONE_THERAPY_LABEL,
   PREGNANCY_HINT,
   PREGNANCY_LABEL,
+  SENSITIVE_HINT,
+  SENSITIVE_LABEL,
   SKIN_TYPE_OPTIONS,
 } from '@/constants/labels';
+import { deriveFitzpatrick } from '@/utils/routineEngine/migrations';
 import type {
   FitzpatrickType,
   SkinConcern,
   SkinConditionType,
   SkinGoal,
+  SkinPhototype,
   SkinType,
   UserProfile,
 } from '@/types';
@@ -42,6 +49,11 @@ import type {
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const FITZPATRICK_TYPES: FitzpatrickType[] = [1, 2, 3, 4, 5, 6];
+
+// testID contract (qa-lead binding contract, vials-onboarding-quizzes).
+const NOT_SURE_SKINTYPE_TEST_ID = 'not-sure-skintype-button';
+const NOT_SURE_PHOTOTYPE_TEST_ID = 'not-sure-phototype-button';
+const SOFT_COPY_HINT_TEST_ID = 'quiz-soft-copy-hint';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,6 +83,11 @@ export function SkinProfileEditModal({
   const [concerns, setConcerns] = useState<SkinConcern[]>([]);
   const [skinConditions, setSkinConditions] = useState<SkinConditionType[]>([]);
   const [spfSensitivity, setSpfSensitivity] = useState(false);
+  const [sensitive, setSensitive] = useState(false);
+  const [skinTypeQuizVisible, setSkinTypeQuizVisible] = useState(false);
+  const [phototypeQuizVisible, setPhototypeQuizVisible] = useState(false);
+  const [skinTypeHint, setSkinTypeHint] = useState<string | null>(null);
+  const [phototypeHint, setPhototypeHint] = useState<string | null>(null);
 
   // Pre-fill from current profile on open
   useEffect(() => {
@@ -86,7 +103,43 @@ export function SkinProfileEditModal({
     setConcerns(profile?.concerns ?? []);
     setSkinConditions(profile?.skinConditions ?? []);
     setSpfSensitivity(profile?.spfSensitivity ?? false);
+    setSensitive(profile?.sensitive ?? false);
+    // Reopening always discards any stale, unconfirmed quiz pre-selection —
+    // same re-seed-from-saved-profile guarantee every other field above gets.
+    setSkinTypeHint(null);
+    setPhototypeHint(null);
   }, [visible, profile]);
+
+  function handleSkinTypeChipPress(value: SkinType) {
+    setSkinType(skinType === value ? null : value);
+    setSkinTypeHint(null);
+  }
+
+  function handleFitzpatrickSelect(type: FitzpatrickType) {
+    setFitzpatrick(fitzpatrick === type ? null : type);
+    setPhototypeHint(null);
+  }
+
+  function handleSkinTypeQuizComplete(result: { skinType: SkinType; sensitive: boolean }) {
+    setSkinTypeQuizVisible(false);
+    setSkinType(result.skinType);
+    setSensitive(result.sensitive);
+    const label =
+      SKIN_TYPE_OPTIONS.find((o) => o.value === result.skinType)?.label ?? result.skinType;
+    setSkinTypeHint(`Looks like you're closest to ${label}. Tap Save to confirm.`);
+    setPhototypeHint(null);
+  }
+
+  function handlePhototypeQuizComplete(result: { phototype: SkinPhototype }) {
+    setPhototypeQuizVisible(false);
+    const derived = deriveFitzpatrick(result.phototype);
+    if (derived === null) return;
+    setFitzpatrick(derived);
+    setPhototypeHint(
+      `Looks like you're closest to ${FITZPATRICK_DESCRIPTIONS[derived]}. Tap Save to confirm.`,
+    );
+    setSkinTypeHint(null);
+  }
 
   function handleSave() {
     const parsedAge = parseInt(ageText, 10);
@@ -106,6 +159,7 @@ export function SkinProfileEditModal({
       concerns,
       skinConditions,
       spfSensitivity,
+      sensitive,
     });
   }
 
@@ -149,13 +203,42 @@ export function SkinProfileEditModal({
                   <FilterChip
                     key={value}
                     selected={skinType === value}
-                    onPress={() => setSkinType(skinType === value ? null : value)}
+                    onPress={() => handleSkinTypeChipPress(value)}
                   >
                     {label}
                   </FilterChip>
                 ))}
               </View>
+              <Button
+                variant="ghost"
+                size="md"
+                testID={NOT_SURE_SKINTYPE_TEST_ID}
+                onPress={() => setSkinTypeQuizVisible(true)}
+                style={styles.notSureButton}
+              >
+                Not sure? Help me figure it out
+              </Button>
+              {skinTypeHint ? (
+                <View testID={SOFT_COPY_HINT_TEST_ID} style={styles.hint}>
+                  <Text style={styles.hintText}>{skinTypeHint}</Text>
+                </View>
+              ) : null}
             </View>
+
+            <ListRow
+              title={SENSITIVE_LABEL}
+              titleStyle={styles.fieldLabel}
+              subtitle={SENSITIVE_HINT}
+              divider={false}
+              style={styles.listRowFlush}
+              trailing={
+                <Switch
+                  checked={sensitive}
+                  onValueChange={setSensitive}
+                  accessibilityLabel={SENSITIVE_LABEL}
+                />
+              }
+            />
 
             <View style={styles.divider} />
 
@@ -187,11 +270,25 @@ export function SkinProfileEditModal({
                     key={ft}
                     type={ft}
                     selected={fitzpatrick === ft}
-                    onSelect={() => setFitzpatrick(fitzpatrick === ft ? null : ft)}
+                    onSelect={() => handleFitzpatrickSelect(ft)}
                     style={styles.phototypeCard}
                   />
                 ))}
               </View>
+              <Button
+                variant="ghost"
+                size="md"
+                testID={NOT_SURE_PHOTOTYPE_TEST_ID}
+                onPress={() => setPhototypeQuizVisible(true)}
+                style={styles.notSureButton}
+              >
+                Not sure? Help me figure it out
+              </Button>
+              {phototypeHint ? (
+                <View testID={SOFT_COPY_HINT_TEST_ID} style={styles.hint}>
+                  <Text style={styles.hintText}>{phototypeHint}</Text>
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.divider} />
@@ -303,6 +400,21 @@ export function SkinProfileEditModal({
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
+
+      {skinTypeQuizVisible ? (
+        <SkinTypeQuizSheet
+          visible={skinTypeQuizVisible}
+          onDismiss={() => setSkinTypeQuizVisible(false)}
+          onComplete={handleSkinTypeQuizComplete}
+        />
+      ) : null}
+      {phototypeQuizVisible ? (
+        <PhototypeQuizSheet
+          visible={phototypeQuizVisible}
+          onDismiss={() => setPhototypeQuizVisible(false)}
+          onComplete={handlePhototypeQuizComplete}
+        />
+      ) : null}
     </Modal>
   );
 }
@@ -369,6 +481,25 @@ const styles = StyleSheet.create({
     flex: 1,
     aspectRatio: undefined,
     height: 72,
+  },
+  notSureButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 0,
+  },
+  // Same info-tone tokens InlineAlert's tone="info" uses — not that
+  // component itself (spec §3 Non-Goals): this hint is transient, per-host
+  // local state, not wired to phototypeNeedsConfirmation.
+  hint: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
+    backgroundColor: colors.statusInfoTint,
+    borderColor: colors.statusInfoLine,
+  },
+  hintText: {
+    ...typography.bodySmall,
+    color: colors.statusInfo,
   },
   switchRow: {
     flexDirection: 'row',

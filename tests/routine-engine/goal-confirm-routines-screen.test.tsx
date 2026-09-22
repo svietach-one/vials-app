@@ -165,6 +165,8 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     contributionConsent: { granted: false, timestamp: null },
     hormoneTherapy: false,
     pregnantOrBreastfeeding: false,
+    // vials-onboarding-quizzes FE-1: net-new required field.
+    sensitive: false,
     ...overrides,
   };
 }

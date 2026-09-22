@@ -42,6 +42,7 @@ const DEFAULT_PROFILE: UserProfile = {
   contributionConsent: { granted: false, timestamp: null },
   hormoneTherapy: false,
   pregnantOrBreastfeeding: false,
+  sensitive: false,
 };
 
 /**

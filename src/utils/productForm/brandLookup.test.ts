@@ -2,8 +2,20 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+const mockCreateTursoHttpClient = jest.fn();
+jest.mock('../../services/turso/httpClient', () => ({
+  createTursoHttpClient: () => mockCreateTursoHttpClient(),
+}));
+
+const mockSearchBrands = jest.fn();
+jest.mock('../../services/corpus/ProductRepository', () => ({
+  ProductRepository: jest.fn().mockImplementation(() => ({
+    searchBrands: mockSearchBrands,
+  })),
+}));
+
 import { useProductsStore } from '../../store/productsStore';
-import { filterBrandPrefix, searchBrands } from './brandLookup';
+import { filterBrandPrefix, searchBrands, searchBrandsWithCorpus } from './brandLookup';
 import type { Product } from '../../types';
 
 function makeProduct(brand: string): Product {
@@ -58,5 +70,46 @@ describe('searchBrands', () => {
     useProductsStore.setState({ products: [makeProduct('Bioderma')] });
     const results = await searchBrands('Bioder');
     expect(results[0]).toBe('Bioderma');
+  });
+});
+
+describe('searchBrandsWithCorpus', () => {
+  beforeEach(() => {
+    useProductsStore.setState({ products: [] });
+    mockCreateTursoHttpClient.mockReset();
+    mockSearchBrands.mockReset();
+  });
+
+  it('falls back to the local-only result set when the corpus client is not configured', async () => {
+    mockCreateTursoHttpClient.mockReturnValue(null);
+
+    const results = await searchBrandsWithCorpus('Bioder');
+
+    expect(mockSearchBrands).not.toHaveBeenCalled();
+    expect(results).toContain('Bioderma');
+  });
+
+  it('merges corpus brands after the local (shelf + dictionary) results, deduped case-insensitively', async () => {
+    mockCreateTursoHttpClient.mockReturnValue({});
+    mockSearchBrands.mockResolvedValue(['bioderma', 'BrandFromCorpusOnly']);
+
+    const results = await searchBrandsWithCorpus('Bioder');
+
+    // 'bioderma' from the corpus is a case-insensitive duplicate of the
+    // dictionary's 'Bioderma' — the local spelling wins, not re-added.
+    expect(results.filter((b) => b.toLowerCase() === 'bioderma')).toHaveLength(1);
+    expect(results).toContain('BrandFromCorpusOnly');
+  });
+
+  it('caps the merged result list at 8 entries', async () => {
+    useProductsStore.setState({
+      products: [makeProduct('Cera1'), makeProduct('Cera2'), makeProduct('Cera3')],
+    });
+    mockCreateTursoHttpClient.mockReturnValue({});
+    mockSearchBrands.mockResolvedValue(['Cera4', 'Cera5', 'Cera6', 'Cera7', 'Cera8', 'Cera9']);
+
+    const results = await searchBrandsWithCorpus('Cera');
+
+    expect(results.length).toBeLessThanOrEqual(8);
   });
 });

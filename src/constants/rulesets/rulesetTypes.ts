@@ -192,6 +192,17 @@ export interface PairRuleException {
   downgradeTo?: ConflictSeverity | ResolutionStrategy;
 }
 
+/**
+ * Display-layer conflict-warning scope (conflict-resolution-scope task).
+ * Read ONLY by `ConflictEngine.detectConflicts` — deliberately separate from
+ * `PairRule.scope` (scheduler-facing, `resolve.ts`) and from `resolutions`'s
+ * `'separate_periods'` entry (also scheduler-facing). `'slot'` warns only
+ * when both conflicting steps share the same AM/PM period on the same day;
+ * `'day'` warns whenever both are scheduled the same day, in any period —
+ * today's unconditional behavior for every existing pair.
+ */
+export type ResolutionScope = 'slot' | 'day';
+
 export interface PairRule {
   id: string;
   /** A single class key or an array (shared cap across several classes). */
@@ -209,6 +220,8 @@ export interface PairRule {
   exceptions?: PairRuleException[];
   explanation: string;
   suggestion: string;
+  /** Required (not optional/implicit) — see {@link ResolutionScope}. */
+  resolutionScope: ResolutionScope;
 }
 
 /**

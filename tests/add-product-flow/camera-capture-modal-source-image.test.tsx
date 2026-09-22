@@ -145,6 +145,7 @@ describe('CameraCaptureModal — sourceImageUri (existing-photo OCR)', () => {
     expect(onCapture).toHaveBeenCalledWith({
       mode: 'label',
       rawText: 'BIODERMA\nAtoderm Ultra',
+      sourceUri: 'file:///cover.jpg',
     });
   });
 

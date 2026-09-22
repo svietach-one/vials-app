@@ -1,30 +1,12 @@
-import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { Icon } from '@/components/ui/Icon';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import React from 'react';
+import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { AddProductOptionsList } from '@/components/addProduct/AddProductOptionsList';
 import { Button } from '@/components/ui/core/Button';
-import { Card } from '@/components/ui/core/Card';
-import { Input } from '@/components/ui/forms/Input';
-import { colors, radius, space, typography } from '@/constants/tokens';
-import { useProductRepository } from '@/hooks/useCorpusRepositories';
-import type { CorpusProduct } from '@/services/corpus/types';
-import { useProductsStore } from '@/store/productsStore';
+import { colors, space, typography } from '@/constants/tokens';
+import type { AddProductFlowParamList, OnboardingStackParamList } from '@/navigation/AppNavigator';
 import { useProfileStore } from '@/store/profileStore';
-import type { Product } from '@/types';
-import { generateId } from '@/utils/generateId';
-import { resolveProductType } from '@/utils/productType';
-import type { OnboardingStackParamList } from '@/navigation/AppNavigator';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,56 +14,16 @@ type Props = NativeStackScreenProps<OnboardingStackParamList, 'FirstProduct'>;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function FirstProductScreen({ navigation: _navigation }: Props) {
-  const addProduct = useProductsStore((s) => s.addProduct);
+/**
+ * Onboarding's own first-product step — a thin wrapper around the shared
+ * `AddProductOptionsList` (tech design FE-8), giving onboarding the exact
+ * same Scan/Search/Manual entry points as "My Shelf"'s `AddProductHubScreen`.
+ * Header copy and the "Skip for now" footer action are unchanged from the
+ * previous bespoke implementation; there is no back button (nothing to go
+ * back to).
+ */
+export default function FirstProductScreen({ navigation }: Props) {
   const updateProfile = useProfileStore((s) => s.updateProfile);
-
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<CorpusProduct[]>([]);
-  const [searching, setSearching] = useState(false);
-  const productRepository = useProductRepository();
-
-  async function handleSearch(text: string) {
-    setQuery(text);
-    if (text.trim().length < 3 || !productRepository) {
-      setResults([]);
-      return;
-    }
-    setSearching(true);
-    try {
-      const products = await productRepository.search(text);
-      setResults(products);
-    } catch (e) {
-      // Corpus unreachable — onboarding stays usable via manual entry.
-      if (__DEV__) console.warn('[FirstProduct] corpus search failed', e);
-      setResults([]);
-    } finally {
-      setSearching(false);
-    }
-  }
-
-  async function handleSelect(item: CorpusProduct) {
-    const activeTags = productRepository ? await productRepository.getActiveKeys(item.uid) : [];
-    const product: Product = {
-      id: generateId(),
-      name: item.name,
-      brand: item.brand || null,
-      productType: resolveProductType(item.type),
-      imageUrl: item.imageUrl,
-      activeIngredients: [],
-      activeTags,
-      fullIngredientText: item.inciRaw || null,
-      usageTime: 'both',
-      openBeautyFactsId: item.source === 'obf_import' ? item.uid : null,
-      addedAt: new Date().toISOString(),
-      notes: null,
-      openedDate: null,
-      paoMonths: null,
-      source: item.source === 'obf_import' ? 'obf_import' : 'user_local',
-    };
-    addProduct(product);
-    completeOnboarding();
-  }
 
   function completeOnboarding() {
     updateProfile({ onboardingCompleted: true });
@@ -98,92 +40,23 @@ export default function FirstProductScreen({ navigation: _navigation }: Props) {
         <View style={styles.header}>
           <Text style={styles.eyebrow}>Step 2 of 2</Text>
           <Text style={styles.title}>Add your first{'\n'}product.</Text>
-          <Text style={styles.subtitle}>
-            Search by name or brand to pull in ingredients automatically.
-          </Text>
         </View>
 
-        {/* Search input */}
-        <View style={styles.searchWrap}>
-          <Input
-            label="Product name or brand"
-            value={query}
-            onChangeText={handleSearch}
-            placeholder="e.g. The Ordinary Niacinamide"
-            icon={<Icon name="search" size={16} color={colors.textTertiary} />}
-            autoCorrect={false}
-            autoCapitalize="none"
-            returnKeyType="search"
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          <AddProductOptionsList
+            navigation={navigation as unknown as NativeStackNavigationProp<AddProductFlowParamList>}
+            entryContext="onboarding"
           />
-        </View>
-
-        {/* Results / states */}
-        <View style={styles.resultsArea}>
-          {searching ? (
-            <ActivityIndicator
-              size="small"
-              color={colors.textSecondary}
-              style={styles.spinner}
-            />
-          ) : results.length > 0 ? (
-            <FlatList
-              data={results}
-              keyExtractor={(item) => item.uid}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-              ListFooterComponent={
-                results.some((r) => r.source === 'obf_import') ? (
-                  <Text style={styles.attribution}>
-                    Product data from Open Beauty Facts (ODbL)
-                  </Text>
-                ) : null
-              }
-              renderItem={({ item }) => (
-                <Pressable onPress={() => handleSelect(item)}>
-                  {({ pressed }) => (
-                    <Card
-                      variant="flat"
-                      padding="sm"
-                      style={[styles.resultCard, pressed && styles.resultCardPressed]}
-                    >
-                      <Text style={styles.resultName} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      {item.nameLacin ? (
-                        <Text style={styles.resultNameLacin} numberOfLines={1}>
-                          {item.nameLacin}
-                        </Text>
-                      ) : null}
-                      {item.brand ? (
-                        <Text style={styles.resultBrand} numberOfLines={1}>
-                          {item.brand}
-                        </Text>
-                      ) : null}
-                    </Card>
-                  )}
-                </Pressable>
-              )}
-            />
-          ) : query.length >= 3 && !searching ? (
-            <View style={styles.emptyState}>
-              <Icon name="inbox" size={32} color={colors.textTertiary} />
-              <Text style={styles.emptyText}>No results found.</Text>
-              <Text style={styles.emptySubtext}>
-                You can add products manually from the Catalog tab.
-              </Text>
-            </View>
-          ) : null}
-        </View>
+        </ScrollView>
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Button
-            variant="secondary"
-            size="lg"
-            fullWidth
-            onPress={completeOnboarding}
-          >
+          <Button variant="secondary" size="lg" fullWidth onPress={completeOnboarding}>
             Skip for now
           </Button>
         </View>
@@ -206,59 +79,11 @@ const styles = StyleSheet.create({
   },
   eyebrow: { ...typography.label, color: colors.textSecondary },
   title: { ...typography.h1, color: colors.textPrimary },
-  subtitle: { ...typography.body, color: colors.textPrimary },
 
-  searchWrap: {
+  content: {
     paddingHorizontal: space.gutterScreen,
-    marginBottom: space[4],
-  },
-
-  resultsArea: {
-    flex: 1,
-    paddingHorizontal: space.gutterScreen,
-  },
-  spinner: {
-    marginTop: space[6],
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.borderDivider,
-    marginHorizontal: space[1],
-  },
-  resultCard: {
-    borderRadius: radius.sm,
-    gap: 2,
-  },
-  attribution: {
-    ...typography.caption,
-    color: colors.textTertiary,
-    textAlign: 'center',
-    marginTop: space[3],
-  },
-  resultCardPressed: {
-    backgroundColor: colors.surfaceSunken,
-  },
-  resultName: {
-    fontFamily: 'DMSans-Medium',
-    fontSize: typography.body.fontSize,
-    color: colors.textPrimary,
-  },
-  resultBrand: { ...typography.bodySmall, color: colors.textSecondary },
-  resultNameLacin: { ...typography.caption, color: colors.textTertiary },
-
-  emptyState: {
-    marginTop: space[10],
-    alignItems: 'center',
-    gap: space[2],
-  },
-  emptyText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  emptySubtext: {
-    ...typography.bodySmall,
-    color: colors.textTertiary,
-    textAlign: 'center',
+    paddingBottom: space[8],
+    gap: space[3],
   },
 
   footer: {

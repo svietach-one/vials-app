@@ -112,17 +112,17 @@ describe('SaveBar always-tappable contract', () => {
     const onPress = jest.fn();
     render(<SaveBar {...makeSaveBarProps({ enabled: false, onPress })} />);
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
 
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
   it('renders the same primary label whether enabled or not', () => {
     const { rerender } = render(<SaveBar {...makeSaveBarProps({ enabled: true })} />);
-    expect(screen.getByText('Save and put on shelf')).toBeTruthy();
+    expect(screen.getByText('Put on My Shelf')).toBeTruthy();
 
     rerender(<SaveBar {...makeSaveBarProps({ enabled: false })} />);
-    expect(screen.getByText('Save and put on shelf')).toBeTruthy();
+    expect(screen.getByText('Put on My Shelf')).toBeTruthy();
   });
 
   it('shows the default privacy note and suppresses it when passed an empty string', () => {

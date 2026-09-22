@@ -1,34 +1,13 @@
 import { ACTIVES_RULESET, type Period } from '@/constants/rulesets/rulesetTypes';
+import { LAYERING_ORDER } from '@/constants/rulesets/productFacts';
 import type { ProductType } from '@/types';
 import type { PlannedStep } from '@/utils/routineEngine/planTypes';
 import type { ProductFacts } from '@/utils/routineEngine/productFacts';
 
-/**
- * Pipeline step 4 (slotting) + step 7 (ordering) — the static layering
- * template per period (research §3 step 4). Products sharing an index share a
- * slot ("serum/gel", "lotion/cream/moisturizer") and compete during
- * resolution; ordering ties break on admission score, then addedAt, then id.
- */
-export const LAYERING_ORDER: Record<ProductType, number> = {
-  makeup_remover: 0,
-  cleanser: 1,
-  peeling: 2,
-  toner: 3,
-  essence: 4,
-  ampoule: 5,
-  serum: 6,
-  gel: 6,
-  other: 7, // slots after serums per research
-  spot_treatment: 8,
-  eye_cream: 9,
-  mask: 10,
-  lotion: 11,
-  cream: 11,
-  moisturizer: 11,
-  oil: 12,
-  balm: 12,
-  spf: 13, // AM only, always last
-};
+// LAYERING_ORDER relocated to src/constants/rulesets/productFacts.ts (tech-design
+// product-profile-m1.md FE-2) — re-exported here so existing consumers of
+// `@/utils/routineEngine/slotting` keep working unchanged.
+export { LAYERING_ORDER };
 
 export function getSlotIndex(productType: ProductType): number {
   return LAYERING_ORDER[productType];

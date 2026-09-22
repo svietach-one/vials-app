@@ -17,6 +17,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ContributionConsentModal, type ContributionConsentModalVariant } from '@/components/product/ContributionConsentModal';
 import { ContributionToggle } from '@/components/product/ContributionToggle';
+import { GrowDatabasePromptModal } from '@/components/product/GrowDatabasePromptModal';
 import { OcrScannerSheet } from '@/components/product/OcrScannerSheet';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { AppHeader } from '@/components/ui/core/AppHeader';
@@ -25,6 +26,7 @@ import { Card } from '@/components/ui/core/Card';
 import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
+import { BrandAutocompleteInput } from '@/components/addProduct/BrandAutocompleteInput';
 import { Input } from '@/components/ui/forms/Input';
 import { Switch } from '@/components/ui/forms/Switch';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
@@ -41,6 +43,7 @@ import {
 } from '@/services/productImage';
 import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 import { generateId } from '@/utils/generateId';
+import { searchBrandsWithCorpus } from '@/utils/productForm/brandLookup';
 import { resolveProductType } from '@/utils/productType';
 import type {
   ActiveIngredient,
@@ -49,16 +52,18 @@ import type {
   ProductSource,
   ProductType,
 } from '@/types';
-import type { CatalogStackParamList } from '@/navigation/AppNavigator';
+import type { AddProductFlowParamList, CatalogStackParamList } from '@/navigation/AppNavigator';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import { canShareContributionPhoto } from '@/utils/contributionConsent';
+import { useWishlistStore } from '@/store/wishlistStore';
+import { canShareContributionPhoto, setContributionConsent, shouldShowGrowDatabasePrompt } from '@/utils/contributionConsent';
 import { contributedProductsCount, decideManualSave } from '@/utils/contributionConsentFlow';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Props = NativeStackScreenProps<CatalogStackParamList, 'ManualProductForm'>;
+type Props = NativeStackScreenProps<AddProductFlowParamList, 'ManualProductForm'>;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -437,13 +442,26 @@ function ShareStatus({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ManualProductFormScreen({ route, navigation }: Props) {
-  const { prefillCorpusProduct, editingProductId } = route.params;
+  const {
+    prefillCorpusProduct,
+    editingProductId,
+    initialStatus,
+    ocrPrefill,
+    capturedPhotoUri,
+    explorePrefill,
+    entryContext,
+  } = route.params;
 
   const products = useProductsStore((st) => st.products);
   const addProduct = useProductsStore((st) => st.addProduct);
   const updateProduct = useProductsStore((st) => st.updateProduct);
   const profile = useProfileStore((s) => s.profile);
+  const updateProfile = useProfileStore((s) => s.updateProfile);
   const productRepository = useProductRepository();
+  // Explore Composition flow (docs/specs/explore-composition.md Story 5) —
+  // only used to remove a promoted WishlistEntry, and only after a
+  // successful save (see handleSave's explorePrefill branch below).
+  const removeWishlistEntry = useWishlistStore((s) => s.removeEntry);
 
   // Product-contribution consent (docs/specs/contribution-consent-flow/) —
   // only applies to genuinely manual, new saves (no corpus/OBF prefill, not
@@ -518,6 +536,12 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
   // waiting for the modal to close before continuing to the scheduler sheet
   // (reminder — that save already resolved, see handleConsentContinue).
   const [pendingConsentProduct, setPendingConsentProduct] = useState<Product | null>(null);
+  // "Help grow the Vials database" prompt (tech design FE-9, spec Story 3) —
+  // the just-saved product waiting on this SEPARATE, global, once-per-install
+  // decision. Deliberately not merged with `pendingConsentProduct`/
+  // `ContributionConsentModal` above (tech design Assumption 3): the two
+  // gate different settings and can appear back-to-back, never together.
+  const [growDatabasePendingProduct, setGrowDatabasePendingProduct] = useState<Product | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -570,7 +594,46 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       } else if (p.inciRaw) {
         setSelectedIngredients(keysToIngredients(parseActiveIngredientsFromInci(p.inciRaw)));
       }
+    } else if (ocrPrefill) {
+      // CaptureFlowScreen's no-match path — carries forward whatever it
+      // recognized rather than sending the user back to a blank form
+      // (docs/tasks/ux-explore-vials/07-capture-flow.md §4a).
+      if (ocrPrefill.brand) setBrand(ocrPrefill.brand);
+      if (ocrPrefill.name) setName(ocrPrefill.name);
+      if (ocrPrefill.fullIngredientText) {
+        setFullIngredientText(ocrPrefill.fullIngredientText);
+        setSelectedIngredients(
+          keysToIngredients(parseActiveIngredientsFromInci(ocrPrefill.fullIngredientText)),
+        );
+        setOcrScanned(true);
+      }
+    } else if (explorePrefill) {
+      // Explore Composition flow (docs/specs/explore-composition.md Story
+      // 4/5, tech design FE-6) — brand/name are pre-filled when the entry
+      // already has them (e.g. promoted via "Move to Shelf", spec Story 5
+      // AC1), otherwise left empty for the user to fill in; the
+      // already-resolved activeKeys are used as-is (never a re-parse of the
+      // text), and the ingredients photo captured in that flow is
+      // deliberately never written to localImageUri (tech design
+      // Assumption 6) — only a front/jar photo satisfies that slot.
+      if (explorePrefill.brand) setBrand(explorePrefill.brand);
+      if (explorePrefill.name) setName(explorePrefill.name);
+      setFullIngredientText(explorePrefill.rawIngredientsText);
+      setSelectedIngredients(keysToIngredients(explorePrefill.activeKeys));
+      if (explorePrefill.category) setProductType(explorePrefill.category);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // CaptureFlowScreen's Shot 1 photo — kept as the cover photo regardless of
+  // whether it led to a corpus match, a no-match ocrPrefill, or nothing
+  // (docs/tasks/ux-explore-vials/07-capture-flow.md). Never touches an
+  // existing edit's photo.
+  useEffect(() => {
+    if (isEditMode || !capturedPhotoUri) return;
+    void storeExistingPhotoAsProductPhoto(productId, capturedPhotoUri).then((result) => {
+      if (result) setLocalImageUri(result.localImageUri);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -658,6 +721,10 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       source: editingProduct?.source ?? prefillSource ?? 'user_local',
       // Set once at save time, never mutated afterward on edits.
       contributionOptIn: editingProduct?.contributionOptIn ?? contributionOptIn,
+      // Edits preserve the existing status; new records take the entry
+      // point's intent ("Explore new" -> wishlist), undefined (-> owned)
+      // for a plain "Add new" save.
+      status: editingProduct?.status ?? initialStatus,
     };
   }
 
@@ -731,6 +798,66 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
    * already saved (per the "no retroactive share" scope decision) — they
    * only govern the global status/toggle for future saves.
    */
+  // Lands the user back on My Shelf with the usual "Saved" toast, or — during
+  // onboarding — completes onboarding instead (tech design FE-9, spec Story
+  // 4 AC3). `AddProductFlowParamList` deliberately has no `Catalog` route
+  // (it's shared with OnboardingStack, which has no such screen), so the
+  // catalog-only branch below is typed against the wider `CatalogStackParamList`
+  // navigation this screen also has whenever `entryContext` isn't 'onboarding'.
+  function exitAfterSave(product: Product) {
+    if (entryContext === 'onboarding') {
+      updateProfile({ onboardingCompleted: true });
+      return;
+    }
+    (navigation as unknown as NativeStackNavigationProp<CatalogStackParamList>).navigate(
+      'Catalog',
+      {
+        toast: {
+          savedAt: Date.now(),
+          contributionOptIn: product.contributionOptIn === true,
+          contributedCount: contributedProductsCount(useProductsStore.getState().products),
+        },
+      },
+    );
+  }
+
+  // Genuinely manual, new (non-edit, non-corpus, non-Explore-Composition)
+  // saves are the only ones the "Help grow the Vials database" prompt can
+  // gate (spec Story 3 AC4) — the exit above always runs for everything else.
+  function finishSave(product: Product) {
+    const isGenuinelyManual = !isEditMode && !prefillSource && !explorePrefill;
+    if (isGenuinelyManual && shouldShowGrowDatabasePrompt(profile?.contributionConsent)) {
+      setGrowDatabasePendingProduct(product);
+      return;
+    }
+    exitAfterSave(product);
+  }
+
+  function handleGrowDatabaseAgree() {
+    updateProfile({ contributionConsent: setContributionConsent(true) });
+    const product = growDatabasePendingProduct;
+    setGrowDatabasePendingProduct(null);
+    if (product) exitAfterSave(product);
+  }
+
+  function handleGrowDatabaseNotNow() {
+    updateProfile({ contributionConsent: setContributionConsent(false) });
+    const product = growDatabasePendingProduct;
+    setGrowDatabasePendingProduct(null);
+    if (product) exitAfterSave(product);
+  }
+
+  // A Wishlist save has no routine to place it in — it isn't physically
+  // owned yet (docs/tasks/ux-explore-vials/00-user-journey.md §5), so it
+  // skips the scheduler prompt entirely rather than offering an empty one.
+  function maybeOpenScheduler(product: Product) {
+    if (product.status === 'wishlist') {
+      finishSave(product);
+      return;
+    }
+    setSchedulerProduct(product);
+  }
+
   function handleConsentContinue(shareThisProduct: boolean) {
     const wasFirstTime = consentModalVariant === 'first-time';
     setConsentModalVariant(null);
@@ -744,9 +871,9 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       if (shareThisProduct) {
         void shareProduct({ ...pendingConsentProduct, contributionOptIn: true });
       }
-      setSchedulerProduct({ ...pendingConsentProduct, contributionOptIn: shareThisProduct });
+      maybeOpenScheduler({ ...pendingConsentProduct, contributionOptIn: shareThisProduct });
     } else {
-      setSchedulerProduct(pendingConsentProduct);
+      maybeOpenScheduler(pendingConsentProduct);
     }
     setPendingConsentProduct(null);
   }
@@ -759,7 +886,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       setShareToggleOn(false);
     }
     if (pendingConsentProduct) {
-      setSchedulerProduct(pendingConsentProduct);
+      maybeOpenScheduler(pendingConsentProduct);
       setPendingConsentProduct(null);
     }
   }
@@ -801,7 +928,24 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       const product = buildProduct();
       addProduct(product);
       void shareProduct(product);
-      setSchedulerProduct(product);
+      maybeOpenScheduler(product);
+      return;
+    }
+
+    // Explore Composition flow (docs/specs/explore-composition.md Story 4/5,
+    // tech design FE-6) — same unconditional-share pattern as a corpus
+    // prefill above (this is also not a genuinely-manual entry): no
+    // contribution-consent gating. The promoted WishlistEntry, if any, is
+    // removed only AFTER addProduct succeeds — never before, never instead
+    // of creating the product (Story 5 AC3).
+    if (explorePrefill) {
+      const product = buildProduct();
+      addProduct(product);
+      if (explorePrefill.wishlistEntryId) {
+        removeWishlistEntry(explorePrefill.wishlistEntryId);
+      }
+      void shareProduct(product);
+      maybeOpenScheduler(product);
       return;
     }
 
@@ -836,7 +980,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
       return;
     }
 
-    setSchedulerProduct(product);
+    maybeOpenScheduler(product);
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -924,12 +1068,19 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
                 returnKeyType="next"
               />
 
-              <Input
-                label="Brand"
+              {/* Corpus-backed brand autocomplete (2026-08-27, real-device
+                  finding) — this screen has no Explore Composition guardrail
+                  (it's the shared manual-entry completion form for both the
+                  ordinary "Add new" wizard and Explore Composition's own
+                  "Put on Shelf"/"Move to Shelf" step, already uses
+                  useProductRepository/corpus access elsewhere), so it opts
+                  into the full-corpus search variant unlike the
+                  Save-to-Wishlist modal's local-only one. */}
+              <BrandAutocompleteInput
                 value={brand}
-                onChangeText={setBrand}
-                placeholder="e.g. La Roche-Posay"
-                returnKeyType="next"
+                onSelectSuggestion={setBrand}
+                onCommitTyped={setBrand}
+                searchFn={searchBrandsWithCorpus}
               />
 
               <View style={s.fieldGroup}>
@@ -1022,7 +1173,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         </ScrollView>
 
         <View style={s.footer}>
-          {!isEditMode && !prefillSource && contributionConsentStatus !== 'disabled' && contributionConsentStatus !== 'unset' ? (
+          {!isEditMode && !prefillSource && !explorePrefill && contributionConsentStatus !== 'disabled' && contributionConsentStatus !== 'unset' ? (
             <ContributionToggle checked={shareToggleOn} onValueChange={setShareToggleOn} />
           ) : null}
           <ShareStatus
@@ -1031,7 +1182,11 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
             onRetry={handleRetryShare}
           />
           <Button fullWidth size="lg" onPress={handleSave} disabled={!name.trim()}>
-            {isEditMode ? 'Save Changes' : 'Add to Catalog'}
+            {isEditMode
+              ? 'Save Changes'
+              : initialStatus === 'wishlist'
+                ? 'Add to Wishlist'
+                : 'Put on My Shelf'}
           </Button>
         </View>
       </SafeAreaView>
@@ -1049,6 +1204,12 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         onNotNow={handleConsentNotNow}
       />
 
+      <GrowDatabasePromptModal
+        visible={growDatabasePendingProduct !== null}
+        onAgree={handleGrowDatabaseAgree}
+        onNotNow={handleGrowDatabaseNotNow}
+      />
+
       <RoutineSchedulerSheet
         visible={schedulerProduct !== null}
         productId={schedulerProduct?.id ?? ''}
@@ -1058,13 +1219,7 @@ export default function ManualProductFormScreen({ route, navigation }: Props) {
         onClose={() => {
           const savedProduct = schedulerProduct;
           setSchedulerProduct(null);
-          navigation.navigate('Catalog', {
-            toast: {
-              savedAt: Date.now(),
-              contributionOptIn: savedProduct?.contributionOptIn === true,
-              contributedCount: contributedProductsCount(useProductsStore.getState().products),
-            },
-          });
+          if (savedProduct) finishSave(savedProduct);
         }}
       />
     </KeyboardAvoidingView>

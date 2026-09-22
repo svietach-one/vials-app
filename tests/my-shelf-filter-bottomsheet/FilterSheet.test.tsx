@@ -15,7 +15,7 @@
  *
  * Note: the sheet's Benefits section and the live product-count in the Apply
  * button were removed — the sheet now only filters by Product Type and the
- * Apply button always reads the static "Apply Filters".
+ * Apply button always reads the static "Apply".
  *
  * Mock strategy: only the native/heavy boundary is mocked (@gorhom/bottom-sheet,
  * react-native-safe-area-context, @expo/vector-icons) per .claude/rules/testing.md.
@@ -218,7 +218,7 @@ describe('FE13-FS-9: Apply Filters commits the current draft and closes the shee
     const onApply = jest.fn();
     render(<FilterSheet {...makeFilterSheetProps({ initialState: makeFilterState(), onApply })} />);
     fireEvent.press(screen.getByLabelText('Filter by Serum'));
-    fireEvent.press(screen.getByText('Apply Filters'));
+    fireEvent.press(screen.getByText('Apply'));
 
     expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ selectedCategory: 'serum' }));
   });
@@ -226,7 +226,7 @@ describe('FE13-FS-9: Apply Filters commits the current draft and closes the shee
   it('should call onClose after Apply is pressed', () => {
     const onClose = jest.fn();
     render(<FilterSheet {...makeFilterSheetProps({ initialState: makeFilterState(), onClose })} />);
-    fireEvent.press(screen.getByText('Apply Filters'));
+    fireEvent.press(screen.getByText('Apply'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

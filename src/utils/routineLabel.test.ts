@@ -1,4 +1,4 @@
-import { formatRoutineLabel, deriveProductSchedule } from '@/utils/routineLabel';
+import { formatRoutineLabel, deriveProductSchedule, derivePeriodSchedules } from '@/utils/routineLabel';
 import type { Routine } from '@/types';
 
 // ─── formatRoutineLabel ───────────────────────────────────────────────────────
@@ -116,6 +116,52 @@ describe('deriveProductSchedule', () => {
   it('should return empty scheduledDays when routines list is empty', () => {
     const result = deriveProductSchedule([], 'product-1');
     expect(result).toEqual({ morning: false, evening: false, scheduledDays: [] });
+  });
+});
+
+// ─── derivePeriodSchedules ────────────────────────────────────────────────────
+
+describe('derivePeriodSchedules', () => {
+  it('should return not-included/empty for both periods when the product is in no routine', () => {
+    const routines = makeRoutines([], []);
+    const result = derivePeriodSchedules(routines, 'product-1');
+    expect(result).toEqual({
+      morning: { included: false, scheduledDays: [] },
+      evening: { included: false, scheduledDays: [] },
+    });
+  });
+
+  it('should return each period\'s own scheduledDays independently, never merging one into the other', () => {
+    const routines = makeRoutines(
+      [{ productId: 'product-1', scheduledDays: [1, 2] }],
+      [{ productId: 'product-1', scheduledDays: [6, 0] }],
+    );
+    const result = derivePeriodSchedules(routines, 'product-1');
+    expect(result).toEqual({
+      morning: { included: true, scheduledDays: [1, 2] },
+      evening: { included: true, scheduledDays: [6, 0] },
+    });
+  });
+
+  it('should report the absent period as not-included with empty scheduledDays, not the other period\'s days', () => {
+    const routines = makeRoutines([{ productId: 'product-1', scheduledDays: [3, 4] }], []);
+    const result = derivePeriodSchedules(routines, 'product-1');
+    expect(result).toEqual({
+      morning: { included: true, scheduledDays: [3, 4] },
+      evening: { included: false, scheduledDays: [] },
+    });
+  });
+
+  it('should not match a different product in either routine', () => {
+    const routines = makeRoutines(
+      [{ productId: 'other-product', scheduledDays: [1] }],
+      [{ productId: 'other-product', scheduledDays: [2] }],
+    );
+    const result = derivePeriodSchedules(routines, 'product-1');
+    expect(result).toEqual({
+      morning: { included: false, scheduledDays: [] },
+      evening: { included: false, scheduledDays: [] },
+    });
   });
 });
 

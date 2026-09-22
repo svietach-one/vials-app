@@ -1,0 +1,54 @@
+{
+  "task": "product-profile-m1",
+  "phase": "review",
+  "status": "PR_REVIEW",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/2026-08-05-product-profile-m1.md",
+    "tech_design": "docs/tech-design/product-profile-m1.md",
+    "source_design": "docs/tasks/product_profile/00-overview.md..06-open-questions.md",
+    "implementation": [
+      "src/types/index.ts",
+      "src/constants/rulesets/productFacts.ts",
+      "src/utils/routineEngine/slotting.ts",
+      "src/utils/routineEngine/productFacts.ts",
+      "src/utils/productProfile/resolve.ts (fixed 2026-08-06: DEFAULT_TAG_POTENCY defaulting, both entry points via shared applyTagPotencyDefaults helper)",
+      "src/utils/productProfile/resolve.test.ts (+5 tests)",
+      "src/utils/productProfile/join.ts",
+      "src/utils/productProfile/join.test.ts",
+      "src/utils/productProfile/capabilities.ts",
+      "src/utils/productProfile/capabilities.test.ts",
+      "src/utils/productProfile/irritation.ts",
+      "src/utils/productProfile/irritation.test.ts",
+      "src/utils/productProfile/routinePosition.ts",
+      "src/utils/productProfile/routinePosition.test.ts",
+      "src/utils/productProfile/index.ts",
+      "src/utils/productProfile/index.test.ts (+1 regression test)",
+      "src/constants/labels.ts",
+      "src/components/product/ProductInsightsPanel.tsx",
+      "src/screens/ProductDetailScreen.tsx",
+      "src/constants/rulesets/productFacts.ts (added DEFAULT_TAG_POTENCY, 2026-08-06 fix)",
+      "src/utils/routineEngine/productFacts.ts (imports DEFAULT_TAG_POTENCY instead of declaring it, 2026-08-06 fix)"
+    ]
+  },
+  "review": {
+    "verdict": "APPROVED",
+    "blockers": [],
+    "fixed_blockers": [
+      "resolve.ts's resolveFromProduct did not apply DEFAULT_TAG_POTENCY's conservative fallback for wizard-confirmed activeTags with no INCI evidence -- fixed 2026-08-06 by relocating DEFAULT_TAG_POTENCY into constants/rulesets/productFacts.ts (shared by both routineEngine/productFacts.ts and productProfile/resolve.ts) and applying it in resolveFromProduct when a tag-only class has a potency-declaring matcher and no INCI-evidenced potency. Verified via a new end-to-end regression test (index.test.ts) plus 3 new resolve.test.ts unit tests; tsc clean; no regressions in the full suite (same 10 pre-existing unrelated failures, +4 new passing tests).",
+      "resolveFromActiveKeys (entry point B, the corpus path) had the identical gap -- fixed 2026-08-06 same day, at human request, by extracting the shared applyTagPotencyDefaults(keys, potencyByKey) helper out of resolveFromProduct and calling it from both entry points. Updated the corpus-path doc comment and 1 pre-existing test that asserted potencyByKey:{} (no longer true for a potency-differentiated key like niacinamide, even though its irritation score is unaffected since niacinamide has no irritancyByPotency table); added 2 new tests. tsc clean; full suite unchanged (same 10 pre-existing failures, +2 new passing tests). Both known potency-evidence gaps in this task are now closed."
+    ],
+    "warnings": [
+      "ProductInsightsPanel's main render function is ~70 lines, over the 50-line guideline (non-blocking, recommend extracting subcomponents in a future pass)"
+    ],
+    "judgment_calls": [
+      "eligiblePeriods uses intersection of allowedPeriods (as implemented), not the union wording literally stated in docs/tasks/product_profile/02-profile-builder.md §10 -- ruled the source doc's wording is the error (contradicts its own 'most restrictive wins' framing and would produce a false-safe claim); recommend a non-blocking doc correction there"
+    ],
+    "open_followups": []
+  },
+  "notes": "Milestone 1 of the Product Intelligence roadmap (docs/tasks/product_profile/05-roadmap.md). App is frontend-only (React Native/Expo, local-only storage) so backend_layer is false; all work is scope=frontend per the tech design's convention. FE-1..FE-8 implemented per progress/product-profile-m1.md's 2026-08-05 (engineer) log entry. Tech-lead review performed 2026-08-06 directly in the orchestrating session (the dedicated tech-lead subagent correctly refused a relayed human confirmation at its Step 0 gate and could not be resumed through the harness's relay path; human explicitly chose direct review over leaving it blocked) and initially APPROVED. A follow-up diff review, run at explicit human request later the same day, found one confirmed correctness/safety defect the architecture pass had not traced (potency-default divergence in resolveFromProduct), fixed the same day, which surfaced an identical sibling gap in resolveFromActiveKeys, also fixed the same day per human request -- see review.fixed_blockers for both. tsc clean; full suite's pre-existing 10 failing suites/81 failing tests unchanged throughout both fixes (verified independently via git stash -u re-run and direct full-suite runs before/after each fix). Status: APPROVED, PR_REVIEW, ready for human merge. No open follow-ups remaining."
+}

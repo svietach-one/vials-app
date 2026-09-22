@@ -1,0 +1,101 @@
+{
+  "task": "vials-onboarding-quizzes",
+  "phase": "tech-lead",
+  "status": "PR_REVIEW",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/vials-onboarding-quizzes.md",
+    "tech_design": "docs/tech-design/vials-onboarding-quizzes.md",
+    "tests": [
+      "tests/vials-onboarding-quizzes/fixtures.ts",
+      "tests/vials-onboarding-quizzes/profileStore.sensitive-migration.test.ts",
+      "tests/vials-onboarding-quizzes/SkinTypeStep.test.tsx",
+      "tests/vials-onboarding-quizzes/PhototypeStep.test.tsx",
+      "tests/vials-onboarding-quizzes/SkinProfileEditModal.test.tsx",
+      "tests/vials-onboarding-quizzes/SkinProfileSetupScreen.sensitive-wiring.test.tsx"
+    ],
+    "code": [
+      "src/types/index.ts",
+      "src/utils/routineEngine/migrations.ts",
+      "src/utils/routineEngine/migrations.test.ts",
+      "src/store/profileStore.ts",
+      "src/constants/labels.ts",
+      "src/screens/onboarding/steps/SkinTypeStep.tsx",
+      "src/screens/onboarding/steps/PhototypeStep.tsx",
+      "src/screens/onboarding/SkinProfileSetupScreen.tsx",
+      "src/components/profile/SkinProfileEditModal.tsx",
+      "tests/contribution-consent/fixtures.ts",
+      "tests/onboarding-5-step-redesign/fixtures.ts",
+      "tests/routine-engine/fixtures.ts",
+      "tests/routine-engine/cycling-and-adaptation.test.ts",
+      "tests/routine-engine/goal-confirm-routines-screen.test.tsx"
+    ]
+  },
+  "depends_on": {
+    "task": "vials-bottomsheet-consolidation",
+    "status": "ACCEPTED",
+    "commit": "5f8c779",
+    "merged_via": "PR #44",
+    "provides": [
+      "src/components/ui/core/BottomSheet.tsx",
+      "src/components/onboarding/QuizSheet.tsx",
+      "src/components/onboarding/PhototypeQuizSheet.tsx",
+      "src/components/onboarding/SkinTypeQuizSheet.tsx",
+      "src/utils/onboardingQuiz/quizScoring.ts"
+    ]
+  },
+  "stale_brief_claims_verified_and_corrected": {
+    "skinType_and_phototype_already_existed": "confirmed true, and bigger than the brief knew - a parallel numeric UserProfile.fitzpatrick field (schema v2) with its own sync machinery also already exists, undocumented by the brief. Only UserProfile.sensitive was genuinely net-new.",
+    "phototype_card_count": "confirmed 6 individual FitzpatrickCards in BOTH SkinProfileSetupScreen's PhototypeStep.tsx and SkinProfileEditModal.tsx, not '3 grouped phototype cards' - the grouped 3-card PhototypeCard component still exists in source but is unused dead code",
+    "shared_progress_dots_component": "confirmed none exists (MarketingSlidesScreen's dots are inline-only) - but moot, QuizSheet.tsx already ships its own independent dots implementation",
+    "SkinProfileEditor_identity": "confirmed this is not a standalone component - it is ProfileScreen.tsx's (Tab 4) Skin Profile card + Edit button, which opens SkinProfileEditModal.tsx (the actual file with the real chip/card selectors)",
+    "onboarding_step_count": "found additional staleness beyond what was flagged: SkinProfileSetupScreen.tsx is a live 6-step flow (TOTAL_STEPS=6, CityStep added later), not the 5-step flow docs/tech-design/onboarding-5-step-redesign.md and SCREENS.md/PRD_Spec.md still describe"
+  },
+  "quiz_scoring_audit": {
+    "outcome": "no defects found, zero code changes to quizScoring.ts/PhototypeQuizSheet.tsx/SkinTypeQuizSheet.tsx",
+    "phototype_a4_vs_a1_tiebreak": "confirmed correct - exhaustive property test in quizScoring.test.ts shows A4 alone can never move the result more than one bucket, strictly exceeding the brief's minimum bar",
+    "skintype_dehydration_guard": "confirmed correct - dry is reachable only when B1=tight_flaky AND B2/B3 report zero shine, matching the brief's own worked example",
+    "b4_sensitive_threshold": "previously-implemented-but-undocumented judgment call now written down as binding: often_reacts and sometimes_reacts both map to sensitive=true, only almost_never_reacts maps to false"
+  },
+  "qa_lead_binding_contract": {
+    "not_sure_button_testids": "not-sure-skintype-button / not-sure-phototype-button, reused identically across all 4 host locations - required to disambiguate the two identical-copy buttons that coexist in SkinProfileEditModal",
+    "sensitive_switch": "reuses Switch's existing accessibilityLabel prop set to the net-new SENSITIVE_LABEL export from @/constants/labels (FE-4), same pattern as AboutYouStep's HORMONE_THERAPY_LABEL - exact copy stays open, only the export name is bound",
+    "soft_copy_hint": "testID=quiz-soft-copy-hint, content asserted via within(...).getByText(regex) substring match against SKIN_TYPE_OPTIONS labels / FITZPATRICK_DESCRIPTIONS entries (no jest-native toHaveTextContent in this repo) - exact provisional sentence never pinned",
+    "deterministic_quiz_answers": "fixtures.ts precomputes exact answer-label sequences (against quizScoring.ts's documented weight bands, not re-tested here) that deterministically yield each phototype bucket and each skinType+sensitive combination, so host-wiring tests assert precise pre-selected values"
+  },
+  "qa_verification": {
+    "tsc_baseline_without_suite": "0 errors (git-stashed the new suite and re-ran)",
+    "tsc_with_suite": "23 errors, all inside tests/vials-onboarding-quizzes/ and all expected pre-implementation gaps (UserProfile.sensitive missing, SENSITIVE_LABEL/FITZPATRICK_DESCRIPTIONS not exported yet, initialSensitive excess prop on SkinTypeStepProps) - none are typos in the test code",
+    "jest_baseline_without_suite": "10 failed / 165 passed suites, 81 failed / 1942 passed tests (pre-existing, unrelated stale palette/shadow token failures in tests/catalog/*, not touched by this task)",
+    "jest_with_suite": "15 failed / 165 passed suites (+5, all mine), 119 failed / 1944 passed tests (+38 expected reds, +2 legitimately-passing migrateProfile idempotency assertions that hold both before and after FE-2) - zero regression in any previously-passing suite"
+  },
+  "engineer_verification": {
+    "qa_lead_suite": "npx jest tests/vials-onboarding-quizzes/ - 5 suites / 40 tests, all green",
+    "tsc_full_project": "npx tsc --noEmit - 0 errors",
+    "jest_full_project": "npx jest --testPathIgnorePatterns=worktrees - 170 passed / 10 failed suites (180 total, +5 vs qa-lead's 165-passed baseline), 1984 passed / 81 failed / 2 todo tests (2067 total, +42 vs qa-lead's 1942-passed baseline: qa-lead's 40 + 2 sensitive-backfill cases added to migrations.test.ts). The 10 failed suites are the same pre-existing palette.goldenTint/shadow.sm token-drift baseline qa-lead measured (byte-identical error strings in product-detail.test.tsx/catalog-screen.test.tsx/add-product-hub.test.tsx/weekly-plan-view-hidden-filter.test.tsx) - zero regressions in any previously-passing suite or test",
+    "deviations_from_tech_design": [
+      "Fixture-parity fix across 6 pre-existing test files (5 pre-approved + tests/onboarding-5-step-redesign/fixtures.ts's own local SkinTypeStepProps interface, found only via the full-project tsc gate) - mechanical, required because UserProfile.sensitive is a required field, same treatment hormoneTherapy/pregnantOrBreastfeeding got",
+      "Quiz sheets (SkinTypeQuizSheet/PhototypeQuizSheet) mounted conditionally on their host's quizVisible flag instead of always-mounted-with-a-visible-toggle, to avoid useSafeAreaInsets throwing in SkinProfileSetupScreen.sensitive-wiring.test.tsx (the one qa-lead file that doesn't mock react-native-safe-area-context and never opens the quiz) - behaviorally equivalent, verified against every affected suite"
+    ]
+  },
+  "tech_lead_review": {
+    "verdict": "ACCEPT",
+    "process_note": "The dedicated tech-lead subagent was spawned but never advanced past its own Step 0 gate - per .claude/agents/tech-lead.md's instruction-source boundary, it refuses any SendMessage-relayed confirmation as untrustworthy 'coordinator relay', even one quoting the human's verbatim AskUserQuestion answer. This tool architecture has no direct human-to-subagent channel, so the gate could not be satisfied. With the human's explicit go-ahead, the orchestrating session performed the review directly against .claude/rules/architecture-review.md's checklist instead of through the subagent persona.",
+    "design_fidelity": "git diff dev...HEAD --stat matches tech design FE-1..FE-8 file list plus 6 test-fixture files exactly; both engineer-logged deviations independently re-derived and confirmed genuine",
+    "layer_separation": "zero real AsyncStorage/fetch violations outside services layer; no new profileStore methods; all onComplete handlers confirmed to only set local component state, never call updateProfile directly",
+    "duplication": "no hardcoded hex colors in changed files; SENSITIVE_LABEL/FITZPATRICK_DESCRIPTIONS single-sourced in labels.ts",
+    "type_safety": "npx tsc --noEmit - 0 errors, run independently",
+    "quality_signals": "zero TODO/FIXME/HACK, zero console.log/debugger in changed src files",
+    "tests_independent_run": "npx jest tests/vials-onboarding-quizzes/ - 5/5 suites, 40/40 tests; npx jest --testPathIgnorePatterns=worktrees - 170 passed/10 failed suites (same-by-name palette.goldenTint/shadow.sm baseline as vials-bottomsheet-consolidation's own tech-lead entry, zero overlap with this task's files)",
+    "binding_contract_check": "SENSITIVE_LABEL/FITZPATRICK_DESCRIPTIONS confirmed as named exports; testIDs not-sure-skintype-button/not-sure-phototype-button/quiz-soft-copy-hint present verbatim; initialSensitive prop name unchanged"
+  },
+  "open_questions": [
+    "Exact soft-copy wording ('Looks like you're closest to...') and new SENSITIVE_LABEL/SENSITIVE_HINT copy are provisional, need a content pass before ship (non-blocking for engineer/qa-lead) -> owner: human/product (Sviatlana)",
+    "Brief's own flagged clinical-review items (no-racial-label sensitivity read on Quiz A tone options; A1/A3 discriminators validated on Indian-population data only, not separately validated for African/East-Asian skin) carried forward unresolved, recommended for docs/PRD_Spec.md section 6's clinical-review list -> owner: human/product, clinical reviewer",
+    "Manual 'Sensitive skin' toggle (spec Story 4) is this task's own judgment call, not explicitly requested by the source brief - added for parity with hormoneTherapy/pregnantOrBreastfeeding/spfSensitivity's existing manual-control pattern -> CONFIRMED by human requester 2026-08-21: keep the manual toggle, Story 4 ships as designed."
+  ]
+}

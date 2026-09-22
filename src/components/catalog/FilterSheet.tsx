@@ -8,8 +8,11 @@ import {
 } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/core/Button';
 import { FilterChip } from '@/components/ui/core/FilterChip';
+import { IconButton } from '@/components/ui/core/IconButton';
+import { Input } from '@/components/ui/forms/Input';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import { PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { CATALOG_FILTER_DEFAULT } from '@/types';
@@ -97,10 +100,29 @@ export function FilterSheet({ visible, initialState, onApply, onClose }: FilterS
       handleIndicatorStyle={styles.handleIndicator}
       backdropComponent={renderBackdrop}
     >
+      <View style={styles.header}>
+        <IconButton
+          icon={<Icon name="x" size={18} color={colors.textSecondary} />}
+          label="Close"
+          variant="ghost"
+          size="sm"
+          onPress={onClose}
+        />
+      </View>
+
       <BottomSheetScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <Input
+          icon={<Icon name="search" size={15} color={colors.textTertiary} />}
+          value={draftState.searchQuery}
+          onChangeText={(t) => setDraftState((s) => ({ ...s, searchQuery: t }))}
+          placeholder="Search by name, brand or ingredient…"
+          clearButtonMode="while-editing"
+          returnKeyType="search"
+        />
+
         <Text style={styles.sectionLabel}>Product Type</Text>
         <View style={styles.chipWrap}>
           {CATEGORIES.map((cat) => (
@@ -121,7 +143,7 @@ export function FilterSheet({ visible, initialState, onApply, onClose }: FilterS
           Clear All
         </Button>
         <Button size="lg" onPress={handleApply} style={styles.footerBtn}>
-          Apply Filters
+          Apply
         </Button>
       </View>
     </BottomSheetModal>
@@ -140,6 +162,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.borderStrong,
     width: 36,
     height: 4,
+  },
+  header: {
+    alignItems: 'flex-end',
+    paddingHorizontal: space[4],
+    paddingTop: space[2],
   },
   scrollContent: {
     paddingHorizontal: space[4],

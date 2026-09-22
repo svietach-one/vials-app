@@ -125,6 +125,10 @@ jest.mock('@/components/routine/AttributionTooltip', () => {
 jest.mock('@/utils/routineLabel', () => ({
   formatScheduleDays: jest.fn(() => 'Mon • Wed • Sat'),
   deriveProductSchedule: jest.fn(() => null),
+  derivePeriodSchedules: jest.fn(() => ({
+    morning: { included: false, scheduledDays: [] },
+    evening: { included: false, scheduledDays: [] },
+  })),
   formatRoutineLabel: jest.fn(() => null),
 }));
 

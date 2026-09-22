@@ -52,14 +52,42 @@ export function findSameSlotStep(
 }
 
 /**
+ * routine-step-grouping SCREENS.md §6.5: within one same-slot group, two
+ * products are distinguishable by intent — and the warning must NOT fire —
+ * when they differ by `zones` or by `timing`. Only same-zone, same-timing,
+ * both-`inline` pairs are the case the machinery was built for. An empty
+ * `products` list (or a step whose product isn't in it) falls back to the
+ * shared default fingerprint (`['face']`, `'inline'`), reproducing the
+ * pre-Phase-6 behaviour exactly for that step. `products` on the caller-facing
+ * {@link findSlotDuplicateGroups} is a required parameter (no silent `= []`
+ * default) precisely so a future caller cannot accidentally fall back to this
+ * pre-Phase-6 behaviour by forgetting to pass it — callers that genuinely
+ * have no product list must pass `[]` explicitly.
+ */
+function fingerprint(step: RoutineStep, products: Product[]): string {
+  const product = step.productId ? products.find((p) => p.id === step.productId) : undefined;
+  const zones = product?.zones && product.zones.length > 0 ? product.zones : (['face'] as const);
+  const timing = product?.timing ?? 'inline';
+  // Sorted so ['face', 'neck'] and ['neck', 'face'] (order depends only on
+  // which zone the ProductDetailScreen toggle was tapped in first — see
+  // handleToggleZone, which always appends to the array end) produce the
+  // SAME fingerprint instead of being wrongly treated as distinct, non-
+  // duplicate zone sets.
+  return `${[...zones].sort().join(',')}|${timing}`;
+}
+
+/**
  * Story 3 grouping: every set of 2+ non-hidden, product-bearing steps in
- * `steps` sharing a layering slot (the exempt `other` slot never groups).
- * Scoped to ONE routine's steps — duplicate groups never merge across
- * routines/periods (a single moisturizer in AM plus a single moisturizer in
- * PM is not a duplicate). Same hidden/null-productId skip pattern as
+ * `steps` sharing a layering slot (the exempt `other` slot never groups),
+ * further sub-grouped by (zones, timing) fingerprint (routine-step-grouping
+ * Phase 6, see {@link fingerprint}) — a slot pair that differs by zones or
+ * timing is intentionally distinct and must not be flagged. Scoped to ONE
+ * routine's steps — duplicate groups never merge across routines/periods (a
+ * single moisturizer in AM plus a single moisturizer in PM is not a
+ * duplicate). Same hidden/null-productId skip pattern as
  * `dailyView.ts`/`validate.ts`. Ranking is a separate concern (rankSlotGroup).
  */
-export function findSlotDuplicateGroups(steps: RoutineStep[]): RoutineStep[][] {
+export function findSlotDuplicateGroups(steps: RoutineStep[], products: Product[]): RoutineStep[][] {
   const bySlot = new Map<number, RoutineStep[]>();
 
   for (const step of steps) {
@@ -71,7 +99,20 @@ export function findSlotDuplicateGroups(steps: RoutineStep[]): RoutineStep[][] {
     bySlot.set(slotIndex, group);
   }
 
-  return [...bySlot.values()].filter((group) => group.length >= 2);
+  const groups: RoutineStep[][] = [];
+  for (const slotGroup of bySlot.values()) {
+    const byFingerprint = new Map<string, RoutineStep[]>();
+    for (const step of slotGroup) {
+      const key = fingerprint(step, products);
+      const sub = byFingerprint.get(key) ?? [];
+      sub.push(step);
+      byFingerprint.set(key, sub);
+    }
+    for (const sub of byFingerprint.values()) {
+      if (sub.length >= 2) groups.push(sub);
+    }
+  }
+  return groups;
 }
 
 /**

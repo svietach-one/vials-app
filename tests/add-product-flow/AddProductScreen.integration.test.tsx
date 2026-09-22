@@ -61,6 +61,19 @@ jest.mock('@/services/contributions', () => ({
   submitContribution: jest.fn(),
 }));
 
+// The "Help grow the Vials database" prompt (docs/tech-design/
+// onboarding-simplification.md FE-9) only gates the exit navigation this
+// suite exercises when `contributionConsent.timestamp` is null; a
+// pre-answered profile keeps this suite's original "always navigates
+// immediately" contract intact and out of scope of that separate feature.
+jest.mock('@/store/profileStore', () => ({
+  useProfileStore: (selector: (s: { profile: unknown; updateProfile: jest.Mock }) => unknown) =>
+    selector({
+      profile: { contributionConsent: { granted: true, timestamp: '2026-01-01T00:00:00.000Z' } },
+      updateProfile: jest.fn(),
+    }),
+}));
+
 const mockAddProduct: jest.Mock = jest.requireMock('@/store/productsStore').__state.addProduct;
 const mockSubmitContribution: jest.Mock = jest.requireMock(
   '@/services/contributions',
@@ -127,7 +140,7 @@ describe('save validation UX', () => {
     // Move away from Section 1 first so the auto-expand is observable.
     fireEvent.press(screen.getByLabelText('Section 3: Ingredients'));
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
 
     expect(screen.getByText('Add a brand, name, and category to continue.')).toBeTruthy();
     expect(screen.getByLabelText('Brand')).toBeTruthy();
@@ -144,7 +157,7 @@ describe('save validation UX', () => {
     fireEvent.changeText(screen.getByLabelText('Product name'), 'Foaming Cleanser');
     fireEvent.press(screen.getByLabelText('Cleanser'));
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
 
     expect(screen.getByText('Pick a period-after-opening (PAO) to continue.')).toBeTruthy();
     expect(mockAddProduct).not.toHaveBeenCalled();
@@ -159,7 +172,7 @@ describe('local-first save', () => {
     renderScreen();
     fillRequiredFields();
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
 
     expect(mockAddProduct).toHaveBeenCalledTimes(1);
     const saved = mockAddProduct.mock.calls[0][0];
@@ -187,7 +200,7 @@ describe('local-first save', () => {
     renderScreen();
     fillRequiredFields();
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
 
     const saved = mockAddProduct.mock.calls[0][0];
     expect(saved.activeTags).toEqual([]);
@@ -202,7 +215,7 @@ describe('local-first save', () => {
     renderScreen();
     fillRequiredFields();
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
     await act(async () => Promise.resolve());
 
     // Local save and navigation are unaffected…
@@ -220,7 +233,7 @@ describe('local-first save', () => {
     renderScreen();
     fillRequiredFields();
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
     await act(async () => Promise.resolve());
 
     // Nothing the user did failed, and this screen has already closed — the
@@ -233,7 +246,7 @@ describe('local-first save', () => {
     renderScreen();
     fillRequiredFields();
 
-    fireEvent.press(screen.getByText('Save and put on shelf'));
+    fireEvent.press(screen.getByText('Put on My Shelf'));
     await act(async () => Promise.resolve());
 
     const [payload, blob] = mockSubmitContribution.mock.calls[0];

@@ -1,5 +1,13 @@
 import type { BadgeStatus } from '@/components/ui/feedback/Badge';
-import type { ActiveIngredientKey, FunctionalBenefit, ProductType, SkinGoal, SkinType } from '@/types';
+import type {
+  ActiveIngredientKey,
+  CapabilityKey,
+  FitzpatrickType,
+  FunctionalBenefit,
+  ProductType,
+  SkinGoal,
+  SkinType,
+} from '@/types';
 
 export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
   cleanser: 'Cleanser',
@@ -48,6 +56,32 @@ export const SLOT_CATEGORY_LABELS: Record<ProductType, string> = {
   oil: 'oil',
   balm: 'oil',
   spf: 'SPF',
+};
+
+/**
+ * Human-readable routine phase label per `LAYERING_ORDER` numeric value
+ * (`src/constants/rulesets/productFacts.ts`, 0–13) — Explore Composition
+ * Story 8 (2026-08-26 decision batch, FE-12). A new map, not a rename/reuse
+ * of `SLOT_CATEGORY_LABELS` above: that map is a lowercase product-category
+ * noun already used in duplicate-slot-warning copy elsewhere; this one is
+ * Title-Case, gerund/phase-style copy keyed by the numeric layering order,
+ * for a different call site (`RoutinePlacementCard.tsx`).
+ */
+export const ROUTINE_PHASE_LABELS: Record<number, string> = {
+  0: 'Makeup Removal',
+  1: 'Cleansing',
+  2: 'Exfoliation',
+  3: 'Toning',
+  4: 'Essence',
+  5: 'Ampoule / Booster',
+  6: 'Treatment',
+  7: 'Other',
+  8: 'Spot Treatment',
+  9: 'Eye Care',
+  10: 'Mask',
+  11: 'Moisturizing',
+  12: 'Sealing / Oil',
+  13: 'Sun Protection',
 };
 
 /** Singular human-readable slot/category name, e.g. "moisturizer", "SPF". */
@@ -154,6 +188,31 @@ export const HORMONE_THERAPY_HINT =
 export const PREGNANCY_LABEL = 'Pregnant or breastfeeding';
 export const PREGNANCY_HINT = "We'll flag retinoids and other restricted actives.";
 
+/**
+ * `UserProfile.sensitive` copy (vials-onboarding-quizzes FE-4) — mirrors the
+ * `HORMONE_THERAPY_LABEL`/`_HINT` pair. Provisional wording (spec §10 Open
+ * Questions) — needs a content pass before ship.
+ */
+export const SENSITIVE_LABEL = 'Sensitive skin';
+export const SENSITIVE_HINT = 'Stings, reddens, or reacts easily to new products or actives.';
+
+/**
+ * Brief visible caption per Fitzpatrick type, shown under each onboarding
+ * card and reused by the post-quiz soft-copy hint (spec §5) — supplementary
+ * to `FitzpatrickCard`'s own full accessibilityLabel. Hoisted here from
+ * `PhototypeStep.tsx` (vials-onboarding-quizzes FE-4) so onboarding and Tab 4
+ * (`SkinProfileEditModal`) build identical text without duplicating/drifting
+ * this 6-entry map.
+ */
+export const FITZPATRICK_DESCRIPTIONS: Record<FitzpatrickType, string> = {
+  1: 'Always burns, never tans',
+  2: 'Usually burns, tans minimally',
+  3: 'Sometimes burns, tans gradually',
+  4: 'Rarely burns, tans easily',
+  5: 'Very rarely burns',
+  6: 'Never burns',
+};
+
 /** Care-goal display names (V2.1 Step 0 goal selector + confirmation banner). */
 export const GOAL_LABELS: Record<SkinGoal, string> = {
   acne: 'Clear acne',
@@ -172,6 +231,25 @@ export const FUNCTIONAL_BENEFIT_LABELS: Record<FunctionalBenefit, string> = {
   anti_acne: 'Anti-Acne',
   barrier_repair: 'Barrier Repair',
   brightening: 'Brightening',
+};
+
+/**
+ * Display labels for `CapabilityKey` (Product Profile —
+ * docs/tasks/product_profile/01-product-profile.md §5). A distinct key space
+ * from `FunctionalBenefit` above — do not merge; Product Profile's
+ * capability model is a separate taxonomy (03-capabilities.md).
+ */
+export const CAPABILITY_LABELS: Record<CapabilityKey, string> = {
+  hydration: 'Hydration',
+  barrierRepair: 'Barrier Repair',
+  brightening: 'Brightening',
+  pigmentation: 'Pigmentation',
+  acneControl: 'Acne Control',
+  sebumRegulation: 'Sebum Regulation',
+  antioxidantProtection: 'Antioxidant Protection',
+  soothing: 'Soothing',
+  exfoliation: 'Exfoliation',
+  antiAging: 'Anti-Aging',
 };
 
 /**

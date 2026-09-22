@@ -54,6 +54,25 @@ export const BARCODE_SCANNER_ENABLED = true;
 export const BARCODE_HUB_ENTRY_ENABLED = false;
 
 /**
+ * "Scan Product" entry — the photograph-the-front-label path into CaptureFlow
+ * (OCR-driven product identification). Rendered from the single shared
+ * `AddProductOptionsList` component, so this one flag gates the entry point
+ * on both the Add Product hub (My Shelf) and the onboarding FirstProductScreen
+ * at once.
+ *
+ * **OFF.** Per product request (2026-09-15): the capture/OCR flow is still
+ * rough (see the OCR capture-quality follow-up work) and not ready to offer
+ * users as a first-class entry point yet. Search Database and Manual Entry
+ * remain the two available ways to add a product while this is off.
+ *
+ * This is a pure UI gate — nothing is deleted. CaptureFlowScreen stays
+ * registered in the navigator (same pattern as BARCODE_HUB_ENTRY_ENABLED
+ * below), so flipping this back to true is a one-line change once the
+ * capture flow is ready for users.
+ */
+export const SCAN_PRODUCT_ENABLED = false;
+
+/**
  * The four "proposed" v1.2 collision rows from PRD §5.2 that are NOT in
  * production: `benzoyl_peroxide` + acids, `benzoyl_peroxide` + copper
  * peptides, `azelaic_acid` + acids, and pure-vitamin-C + benzoyl peroxide.
@@ -102,3 +121,20 @@ export const PREGNANCY_SAFETY_ENABLED = true;
  * revisit before re-enabling. Export All Data itself is unaffected.
  */
 export const LOCAL_STORAGE_NOTICE_ENABLED = false;
+
+/**
+ * Explore Composition flow (docs/specs/explore-composition.md) — the
+ * ingredient-only capture -> result -> Wishlist/Shelf path, and its
+ * `WishlistEntry` rendering inside the Catalog "Wishlist · N" tab.
+ *
+ * **ON** (2026-08-27, product decision after real-device testing across all
+ * four slices). Of spec §10's two open questions, the entry-card subtitle
+ * copy is resolved (no longer a placeholder); how `WishlistEntry` rows
+ * should visually relate to the pre-existing wishlist-status products tab
+ * (tech design Assumption 5) is still genuinely open, but accepted as a
+ * non-blocking cosmetic follow-up rather than a reason to keep the whole
+ * flow off — the shipped default (a distinct, separately-labeled section
+ * within the same tab) stands until product/design revisit it. Flip off
+ * only if a real problem surfaces with that default, not by default.
+ */
+export const EXPLORE_COMPOSITION_ENABLED = true;

@@ -98,27 +98,27 @@ describe('findSlotDuplicateGroups', () => {
   it('groups 2+ steps sharing a slot', () => {
     const a = makeStep({ productType: 'moisturizer', productId: 'a' });
     const b = makeStep({ productType: 'cream', productId: 'b' });
-    const groups = findSlotDuplicateGroups([a, b]);
+    const groups = findSlotDuplicateGroups([a, b], []);
     expect(groups).toEqual([[a, b]]);
   });
 
   it('does not group a single occupant of a slot', () => {
     const a = makeStep({ productType: 'moisturizer', productId: 'a' });
     const b = makeStep({ productType: 'serum', productId: 'b' });
-    expect(findSlotDuplicateGroups([a, b])).toEqual([]);
+    expect(findSlotDuplicateGroups([a, b], [])).toEqual([]);
   });
 
   it('skips hidden and productId-null steps', () => {
     const a = makeStep({ productType: 'moisturizer', productId: 'a' });
     const hidden = makeStep({ productType: 'moisturizer', productId: 'b', hidden: true });
     const empty = makeStep({ productType: 'moisturizer', productId: null });
-    expect(findSlotDuplicateGroups([a, hidden, empty])).toEqual([]);
+    expect(findSlotDuplicateGroups([a, hidden, empty], [])).toEqual([]);
   });
 
   it('exempts the "other" slot from grouping', () => {
     const a = makeStep({ productType: 'other', productId: 'a' });
     const b = makeStep({ productType: 'other', productId: 'b' });
-    expect(findSlotDuplicateGroups([a, b])).toEqual([]);
+    expect(findSlotDuplicateGroups([a, b], [])).toEqual([]);
   });
 
   it('returns one group per distinct slot when multiple slots each have duplicates', () => {
@@ -126,9 +126,83 @@ describe('findSlotDuplicateGroups', () => {
     const b = makeStep({ productType: 'lotion', productId: 'b' });
     const c = makeStep({ productType: 'spf', productId: 'c' });
     const d = makeStep({ productType: 'spf', productId: 'd' });
-    const groups = findSlotDuplicateGroups([a, b, c, d]);
+    const groups = findSlotDuplicateGroups([a, b, c, d], []);
     expect(groups).toHaveLength(2);
     expect(groups).toEqual(expect.arrayContaining([[a, b], [c, d]]));
+  });
+
+  // routine-step-grouping Phase 6 (SCREENS.md §6.5): suppression by zones/timing.
+  describe('with products (zones/timing suppression)', () => {
+    it('suppresses a same-slot pair that differs by zones', () => {
+      const a = makeStep({ productType: 'cream', productId: 'face' });
+      const b = makeStep({ productType: 'cream', productId: 'neck' });
+      const products = [
+        makeProduct({ id: 'face', productType: 'cream' }),
+        makeProduct({ id: 'neck', productType: 'cream', zones: ['neck'] }),
+      ];
+      expect(findSlotDuplicateGroups([a, b], products)).toEqual([]);
+    });
+
+    it('suppresses a same-slot pair that differs by timing', () => {
+      const a = makeStep({ productType: 'spf', productId: 'cream' });
+      const b = makeStep({ productType: 'spf', productId: 'stick' });
+      const products = [
+        makeProduct({ id: 'cream', productType: 'spf' }),
+        makeProduct({ id: 'stick', productType: 'spf', timing: 'reapply', reapplyAfterHours: 2 }),
+      ];
+      expect(findSlotDuplicateGroups([a, b], products)).toEqual([]);
+    });
+
+    it('still groups two inline, same-zone products sharing a slot', () => {
+      const a = makeStep({ productType: 'serum', productId: 'one' });
+      const b = makeStep({ productType: 'serum', productId: 'two' });
+      const products = [
+        makeProduct({ id: 'one', productType: 'serum' }),
+        makeProduct({ id: 'two', productType: 'serum' }),
+      ];
+      expect(findSlotDuplicateGroups([a, b], products)).toEqual([[a, b]]);
+    });
+
+    it('treats zones: ["face"] the same as an absent zones field (both default)', () => {
+      const a = makeStep({ productType: 'cream', productId: 'one' });
+      const b = makeStep({ productType: 'cream', productId: 'two' });
+      const products = [
+        makeProduct({ id: 'one', productType: 'cream' }),
+        makeProduct({ id: 'two', productType: 'cream', zones: ['face'] }),
+      ];
+      expect(findSlotDuplicateGroups([a, b], products)).toEqual([[a, b]]);
+    });
+
+    it('falls back to the default fingerprint (still groups) when an empty products list is passed — pre-Phase-6 behaviour preserved', () => {
+      const a = makeStep({ productType: 'cream', productId: 'a' });
+      const b = makeStep({ productType: 'cream', productId: 'b' });
+      expect(findSlotDuplicateGroups([a, b], [])).toEqual([[a, b]]);
+    });
+
+    it('groups two products with the same zone set listed in a different order (fingerprint sorts zones)', () => {
+      // ProductDetailScreen's zone toggle always appends to the array end
+      // (handleToggleZone), so two products the user tagged "face then neck"
+      // vs "neck then face" must still fingerprint identically.
+      const a = makeStep({ productType: 'cream', productId: 'a' });
+      const b = makeStep({ productType: 'cream', productId: 'b' });
+      const products = [
+        makeProduct({ id: 'a', productType: 'cream', zones: ['face', 'neck'] }),
+        makeProduct({ id: 'b', productType: 'cream', zones: ['neck', 'face'] }),
+      ];
+      expect(findSlotDuplicateGroups([a, b], products)).toEqual([[a, b]]);
+    });
+
+    it('a three-way group where one member differs by zone splits into a suppressed singleton and a shown pair', () => {
+      const a = makeStep({ productType: 'cream', productId: 'a' });
+      const b = makeStep({ productType: 'cream', productId: 'b' });
+      const zoned = makeStep({ productType: 'cream', productId: 'zoned' });
+      const products = [
+        makeProduct({ id: 'a', productType: 'cream' }),
+        makeProduct({ id: 'b', productType: 'cream' }),
+        makeProduct({ id: 'zoned', productType: 'cream', zones: ['neck'] }),
+      ];
+      expect(findSlotDuplicateGroups([a, b, zoned], products)).toEqual([[a, b]]);
+    });
   });
 });
 

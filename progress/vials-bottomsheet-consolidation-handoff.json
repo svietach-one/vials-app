@@ -1,0 +1,49 @@
+{
+  "task": "vials-bottomsheet-consolidation",
+  "phase": "implementation",
+  "status": "PR_REVIEW",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/vials-bottomsheet-consolidation.md",
+    "tech_design": "docs/tech-design/vials-bottomsheet-consolidation.md",
+    "tests": "tests/vials-bottomsheet-consolidation/",
+    "code": [
+      "src/components/ui/core/BottomSheet.tsx",
+      "src/utils/onboardingQuiz/quizScoring.ts",
+      "src/utils/onboardingQuiz/quizScoring.test.ts",
+      "src/components/onboarding/QuizSheet.tsx",
+      "src/components/onboarding/PhototypeQuizSheet.tsx",
+      "src/components/onboarding/SkinTypeQuizSheet.tsx"
+    ]
+  },
+  "engineer_verification": {
+    "tsc": "clean (npx tsc --noEmit, zero errors)",
+    "task_tests": "7 suites / 56 tests green (tests/vials-bottomsheet-consolidation/ + src/utils/onboardingQuiz/)",
+    "full_suite_sanity": "10 pre-existing failing suites, unrelated to this task's files (catalog/product-shelf-card/routines-weekly-plan-view/shelf-filtering/product-images/inci-attribution) — unchanged from qa-lead's documented baseline",
+    "lint_signals": "no console.log/debugger/TODO/FIXME/HACK in any file added or modified"
+  },
+  "audit_findings": {
+    "gorhom_bottom_sheet_already_installed": "^5.2.14 in package.json, already used by FilterSheet.tsx / AddToRoutineSheet.tsx / DraftPreviewScreen.tsx and proven in Expo Go — brief's dependency-approval/install step does not apply",
+    "core_bottomsheet_already_exists": "src/components/ui/core/BottomSheet.tsx already exists (plain RN Modal, one consumer: RoutineSchedulerSheet.tsx) — extended in place per tech design Assumption 1, not recreated at the brief's literal src/components/ui/BottomSheet.tsx path",
+    "disambiguation_sheet_does_not_exist": "zero matches anywhere in src/ — only ever planned in docs/database/db-setup-guide.md Sprint 4, never built. No migration performed; see open_questions.",
+    "actual_shipped_disambiguation_equivalent": "CaptureFlowScreen.tsx's inline MatchResultsStep — a full-screen step, not a modal/sheet, not in the brief's Touches list, not modified by this task",
+    "audit_table_results": {
+      "DeleteProductModal": "confirmed centered Modal (alignItems:'center'), not a bottom sheet",
+      "AddProcedureModal": "confirmed native presentationStyle=\"pageSheet\" full-screen form; safety warnings are inline InlineAlert banners, not a nested dismissible layer",
+      "LocalDataWarningModal": "not found anywhere in the codebase under any name",
+      "ImportRestoreConfirmation_US19": "not found anywhere in the codebase under any name"
+    },
+    "dts_stub_convention": "retired — only the earliest (Jun 19) scaffold batch has .d.ts/.jsx/.prompt.md siblings; every DS component shipped since, including the existing BottomSheet.tsx, ships .tsx-only",
+    "onboarding_quizzes_conflict": "docs/tasks/vials-onboarding-quizzes-task.md claims full ownership of the quiz build and lists this task only as an infra prerequisite, while this task's own brief lists building the quiz sheets as its own deliverable #3 — resolved by scoping this task to an unwired QuizSheet shell + two unwired concrete quiz components only",
+    "onboarding_quizzes_stale_assumptions": "that sibling doc assumes skinType is new (it already exists on UserProfile), assumes 3 grouped phototype cards (PhototypeStep.tsx actually uses 6 individual FitzpatrickCards), and assumes a shared progress-dots component (none exists — MarketingSlidesScreen's dots are inline-only)"
+  },
+  "open_questions": [
+    "DisambiguationSheet target: drop the deliverable, build it fresh as new UI, or fold CaptureFlowScreen's MatchResultsStep into BottomSheet? -> owner: human requester (product)",
+    "Ownership split with docs/tasks/vials-onboarding-quizzes-task.md over who builds/wires the quiz sheets -> owner: human requester (product)",
+    "LocalDataWarningModal / Import-Restore confirmation (US-19) not found anywhere in the codebase -- informational only, non-blocking, no action needed now"
+  ]
+}

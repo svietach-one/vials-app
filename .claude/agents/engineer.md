@@ -1,7 +1,11 @@
 ---
 name: engineer
 description: >
- 
+  Senior full-stack engineer. Implements the tasks defined in
+  docs/tech-design/{TASK-SLUG}.md, strictly fulfilling the acceptance
+  criteria and making the qa-lead's tests pass. Runs after qa-lead in the
+  AI-SDLC pipeline; requires human approval of its implementation plan
+  before writing any code.
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
 effort: high

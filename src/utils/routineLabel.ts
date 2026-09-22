@@ -9,6 +9,17 @@ export interface ProductSchedule {
   scheduledDays: number[];
 }
 
+export interface PeriodScheduleEntry {
+  included: boolean;
+  /** 0=Sun … 6=Sat. Empty array means every day. */
+  scheduledDays: number[];
+}
+
+export interface PeriodSchedules {
+  morning: PeriodScheduleEntry;
+  evening: PeriodScheduleEntry;
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Display order: Mo Tu We Th Fr Sa Su */
@@ -48,6 +59,40 @@ export function deriveProductSchedule(
     morning: morningStep !== undefined,
     evening: eveningStep !== undefined,
     scheduledDays,
+  };
+}
+
+/**
+ * Derives each period's OWN scheduledDays independently — morning and evening
+ * steps for the same product are scheduled separately (RoutineStep carries
+ * its own scheduledDays per period; see progress/routine-step-grouping.md
+ * "Decisions taken during specification"). Unlike `deriveProductSchedule`,
+ * this never merges the two periods into one preferred value, so a UI built
+ * on it cannot silently overwrite one period's schedule with the other's.
+ *
+ * A period with no matching step returns `{ included: false, scheduledDays: [] }`
+ * — callers should treat `[]` there as "no explicit choice yet", not as an
+ * existing "every day" schedule copied from the other period.
+ */
+export function derivePeriodSchedules(
+  routines: Routine[],
+  productId: string,
+): PeriodSchedules {
+  const morningRoutine = routines.find((r) => r.timeOfDay === 'morning');
+  const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
+
+  const morningStep = morningRoutine?.steps.find((s) => s.productId === productId);
+  const eveningStep = eveningRoutine?.steps.find((s) => s.productId === productId);
+
+  return {
+    morning: {
+      included: morningStep !== undefined,
+      scheduledDays: morningStep?.scheduledDays ?? [],
+    },
+    evening: {
+      included: eveningStep !== undefined,
+      scheduledDays: eveningStep?.scheduledDays ?? [],
+    },
   };
 }
 

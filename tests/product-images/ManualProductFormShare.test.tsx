@@ -78,7 +78,7 @@ function renderScreen() {
 async function saveWithName(name = 'Night Serum') {
   // The Input's `label` renders as plain Text, so target the field itself.
   fireEvent.changeText(screen.getByPlaceholderText(/Daily Moisturiser/), name);
-  fireEvent.press(screen.getByText('Add to Catalog'));
+  fireEvent.press(screen.getByText('Put on My Shelf'));
   await act(async () => Promise.resolve());
 }
 

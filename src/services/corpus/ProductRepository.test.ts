@@ -89,3 +89,49 @@ describe('ProductRepository.search', () => {
     await expect(repo.search('cera')).rejects.toThrow('turso unreachable');
   });
 });
+
+describe('ProductRepository.searchBrands', () => {
+  it('returns [] without querying the db when the trimmed prefix is empty', async () => {
+    const { db, getAllAsync } = makeFakeDb();
+    const repo = new ProductRepository(db);
+
+    const result = await repo.searchBrands('   ');
+
+    expect(result).toEqual([]);
+    expect(getAllAsync).not.toHaveBeenCalled();
+  });
+
+  it('queries DISTINCT brand with a prefix LIKE pattern, not a substring match', async () => {
+    const { db, getAllAsync } = makeFakeDb([{ brand: 'CeraVe' }, { brand: 'Cetaphil' }]);
+    const repo = new ProductRepository(db);
+
+    const result = await repo.searchBrands('Cer');
+
+    expect(result).toEqual(['CeraVe', 'Cetaphil']);
+    const [sql, params] = getAllAsync.mock.calls[0];
+    expect(sql).toContain('SELECT DISTINCT brand FROM products');
+    expect(sql).toContain('brand LIKE ?');
+    expect(params).toContain('Cer%');
+  });
+
+  it('escapes LIKE metacharacters in the prefix', async () => {
+    const { db, getAllAsync } = makeFakeDb();
+    const repo = new ProductRepository(db);
+
+    await repo.searchBrands('2%');
+
+    const [sql, params] = getAllAsync.mock.calls[0];
+    expect(sql).toContain("ESCAPE '\\'");
+    expect(params).toContain('2\\%%');
+  });
+
+  it('falls back to an empty list (never throws) when the underlying query fails', async () => {
+    const db = {
+      getAllAsync: jest.fn().mockRejectedValue(new Error('turso unreachable')),
+      getFirstAsync: jest.fn(),
+    } as unknown as CorpusQueryExecutor;
+    const repo = new ProductRepository(db);
+
+    await expect(repo.searchBrands('cera')).resolves.toEqual([]);
+  });
+});

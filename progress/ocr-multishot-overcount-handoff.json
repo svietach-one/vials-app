@@ -1,0 +1,91 @@
+{
+  "task": "ocr-multishot-overcount",
+  "phase": "tech-lead",
+  "status": "PR_REVIEW",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/ocr-multishot-overcount.md",
+    "tech_design": "docs/tech-design/ocr-multishot-overcount.md"
+  },
+  "parent_feature": {
+    "task": "explore-composition",
+    "spec": "docs/specs/explore-composition.md",
+    "tech_design": "docs/tech-design/explore-composition.md",
+    "note": "This is a bug-fix task on top of the already-shipped Explore Composition feature, not a new feature slice."
+  },
+  "root_cause_source": {
+    "investigated_by": "coordinating session, prior to planner phase, from real user-reported evidence (a screenshot of the actual bug plus close inspection of the two real source photos involved)",
+    "reference_doc": "docs/investigations/ocr-incomplete-ingredient-capture.md (\u00a74, \u00a76c-6e)",
+    "note": "Root cause was NOT re-investigated by planner - used as ground truth per explicit task instructions."
+  },
+  "planner_summary": {
+    "user_report": "Serum with a true list of ~47 comma-separated INCI ingredients reported by the app as '2 photos combined - 124 ingredients recognized' (~2.5x too high), after two near-full-duplicate shots of almost the entire same list.",
+    "bug_a": "mergeIngredientCaptures.ts only detects a classic panorama-style seam overlap (shot 2 continues where shot 1's frame ended); a near-duplicate re-shoot whose head lines up with the MIDDLE of shot 1's list finds overlapLength=0 and falls back to near-full concatenation of two near-identical lists - the dominant cause of the reported doubling. IN SCOPE (Task 1 / FE-1, must-fix).",
+    "bug_b": "ExploreCompositionCaptureScreen.tsx's finalizeCapturedText deliberately skips extractIngredientSection() trimming for any 2+-shot capture (pre-existing, intentional, documented gap, ocr-incomplete-ingredient-capture.md section 6d - two prior safe-trim attempts were tried and reverted due to silent-data-loss risk). OUT OF SCOPE for this task - see spec Non-Goals + tech design Assumption 2. Forward-pointer logged in progress/ocr-multishot-overcount.md for a future task once more real multi-shot samples exist.",
+    "secondary_defect": "tokenizeIngredientsText naively comma-splits, fragmenting an INCI name with a real internal comma (e.g. '1,2-Hexanediol', OCR'd 'L,2-HEXANEDIOL') into two fake tokens - confirmed in the same real OCR sample, affects single-shot captures too. Scoped as OPTIONAL/STRETCH Task 2 / FE-2, engineer's call whether to bundle with Task 1 or defer.",
+    "explicit_non_goal": "No new capture-time UI heuristic/prompt (e.g. duplicate-shot detection dialog) - docs/investigations/ocr-incomplete-ingredient-capture.md section 6a already shipped and fully reverted an equivalent heuristic the same day after it fired on nearly every real capture.",
+    "fix_mechanism": "A second, global fuzzy-dedup pass in mergeIngredientCaptures.ts, applied after the existing (unchanged) positional seam-overlap detection, reusing the module's own existing tokensMatch helper. Checked against the full accumulating merged list (firstTokens plus already-accepted post-seam second-shot tokens), not just firstTokens alone - tech design Assumption 4. No signature change; no caller changes needed."
+  },
+  "implementation_tasks": {
+    "FE-1": {
+      "label": "Task 1 - must-fix",
+      "files": [
+        "src/utils/productProfile/mergeIngredientCaptures.ts",
+        "src/utils/productProfile/mergeIngredientCaptures.test.ts"
+      ],
+      "note": "mergeIngredientCaptures.test.ts already has 7 cases covering seam-overlap and fully-disjoint concatenation (must keep passing unmodified, proving backward compatibility); needs >=1 new case for the middle-duplicate/no-valid-seam scenario this bug report actually hit."
+    },
+    "FE-2": {
+      "label": "Task 2 - optional/stretch, not required for this task's Definition of Done",
+      "files": [
+        "src/utils/productProfile/resolve.ts",
+        "src/utils/productProfile/resolve.test.ts"
+      ],
+      "note": "Engineer's call whether to bundle with FE-1 or defer to its own follow-up task."
+    }
+  },
+  "no_production_code_written": true,
+  "guardrails_respected": [
+    "mergeIngredientCaptures.ts stays a pure module - no React/react-native/store imports (architecture-review.md section 2) - fix design reuses the module's existing tokensMatch helper only",
+    "No new capture-time UI/heuristic introduced (see explicit_non_goal above)"
+  ],
+  "next_agent": "human",
+  "engineer_summary": {
+    "fe1_status": "implemented",
+    "fe1_change": "mergeIngredientCaptures.ts: kept the positional seam-detection loop as-is; replaced the final blind-concatenation return line with an incremental build that appends each post-seam second-shot token only if it does not tokensMatch any token already in the accumulating merged list (firstTokens plus already-accepted post-seam tokens).",
+    "fe2_status": "deferred, not bundled",
+    "fe2_reasoning": "tokenizeIngredientsText (resolve.ts) is shared by resolveFromProduct, resolveFromRawText, shelfComparison.ts, and ExploreCompositionResultScreen.tsx, not just the merge path - a coalescing fix for internal-comma INCI names would touch behavior across all those call sites and needs its own dedicated tests/review, so it does not meet the 'cheap and low-risk' bar for bundling into this focused bug-fix PR. Remains tracked as a known secondary defect per spec section 10 / tech design assumption 5, owner: future follow-up task.",
+    "files_changed": [
+      "src/utils/productProfile/mergeIngredientCaptures.ts",
+      "src/utils/productProfile/mergeIngredientCaptures.test.ts"
+    ]
+  },
+  "qa_summary": {
+    "baseline": {
+      "tsc": "clean, zero errors",
+      "full_npm_test": "24 suites / 114 tests failing, all pre-existing and unrelated to this task (.claude/worktrees stray sub-worktree module-resolution errors; tests/catalog/* palette/token (plumTint/goldenTint/shadow.sm) regressions) - not investigated or fixed here, out of scope",
+      "tests_explore_composition_suite": "14 suites / 226 tests, all green"
+    },
+    "new_integration_test_authored": false,
+    "reasoning": "tests/explore-composition/ExploreCompositionCaptureScreen.test.tsx exercises the real (unmocked) mergeIngredientCaptures via two shapes only: genuine positional-seam continuation, and fully-disjoint concatenation - both required by spec AC2/AC3 to stay byte-for-byte unchanged by this fix. Neither fixture exercises the near-duplicate/no-valid-seam shape (spec AC1/AC4, the actual ~124-vs-~47 bug) this fix targets, so no existing assertion (including the hardcoded \"N ingredients recognized\" / \"N photos combined\" status-line strings) is at risk of needing an update. Confirmatory re-run is sufficient; the near-duplicate case is covered by the engineer-owned co-located unit test per .claude/rules/testing.md ownership split.",
+    "follow_up_for_engineer": "After FE-1 (and optional FE-2) land: re-run npx jest tests/explore-composition (must stay 14/14 green, unmodified) plus src/utils/productProfile/mergeIngredientCaptures.test.ts (7 existing cases unmodified + new case(s) for the near-duplicate/no-seam shape) before handoff to tech-lead."
+  },
+  "tech_lead_summary": {
+    "verdict": "ACCEPT",
+    "design_fidelity": "Matches tech design section 3 FE-1 exactly: seam-detection loop untouched; final return line replaced with incremental build appending post-seam second-shot tokens only if tokensMatch finds no match in the growing mergedTokens list (checked against the full accumulating list per Assumption 4, not just firstTokens). No signature change, no caller changes.",
+    "layer_separation": "Clean - mergeIngredientCaptures.ts imports only tokenizeIngredientsText from co-located ./resolve; grep confirmed no React/react-native/store imports, no AsyncStorage, no fetch().",
+    "type_safety": "npx tsc --noEmit run personally - zero errors.",
+    "tests_personally_run": {
+      "mergeIngredientCaptures.test.ts": "8/8 passed (7 pre-existing unmodified + 1 new)",
+      "tests/explore-composition": "14 suites / 226 tests, all green - identical to qa-lead's pre-fix baseline, zero regression"
+    },
+    "scope_creep": "None - git diff origin/dev..HEAD --name-only shows exactly 6 files (2 docs, 2 progress, the merge util + its co-located test). finalizeCapturedText, ExploreCompositionCaptureScreen.tsx, OCR pipeline, camera code, and resolve.ts (FE-2) all untouched.",
+    "new_test_case_hand_verified": "Traced tokenizeIngredientsText (plain comma-split/trim) and the seam loop by hand against the fixture: overlapLength genuinely resolves to 0 (no candidate window matches), so the fixture exercises the new global-dedup pass, not the seam path. Result matches both test expectation and actual jest run; pre-fix code would have produced 9 duplicated tokens on this same fixture, confirming this is a real regression guard.",
+    "quality_signals": "No TODO/FIXME/HACK, no console.log/debugger in either changed file. Function is 28 lines, well under the 50-line threshold.",
+    "non_blocking_process_note": "Spec header discloses it was not yet interactively re-confirmed against this exact document by the human (planner adopted the coordinating session's Type B technical assumption directly, per tech-design-template.md's gap-type table, which permits this without escalation). Flagged for human awareness before merge, not a review blocker."
+  }
+}

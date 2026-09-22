@@ -48,6 +48,21 @@ interface SettingsState extends AppSettings {
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
+  // routine-step-grouping PRD_Spec.md §6.2 proposed flipping this default to
+  // `true` (this flag now gates whether Routine cards are tappable for
+  // completion tracking; no rewards/streaks exist). Reverted back to `false`
+  // in the 2026-08-31 code-review round: CLAUDE.md's Key Constraints
+  // explicitly state "Gamification is opt-in — default OFF", and a
+  // feature-level spec document silently "superseding" that top-level,
+  // human-authored constraint is a business-level decision this task's spec
+  // author was not positioned to make unilaterally (tech-design-template.md's
+  // "Type D — Contradiction" gap: should have been routed back rather than
+  // asserted as an assumption). Completion tracking stays fully built and
+  // discoverable — the toggle's own copy in ProfileScreen ("Track what
+  // you've used by tapping products in your routine") already explains what
+  // it does — it is simply off until the user opts in, which also sidesteps
+  // the "existing installs never see the new default" migration gap entirely
+  // (see the same round's log entry for the full tradeoff writeup).
   gamificationEnabled: false,
   hasSeenLocalDataWarning: false,
   dismissedBanners: [],

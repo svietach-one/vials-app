@@ -317,3 +317,71 @@ describe('Story 1 assumption: both AM and PM conflicts resolve one period at a t
     expect(mockReplaceProductStep).not.toHaveBeenCalled();
   });
 });
+
+describe('code-review round 2026-08-31, Priority 2 item 3: per-period scheduling (same bug/fix pattern as RoutineSchedulerSheet)', () => {
+  // Root cause (identical to RoutineSchedulerSheet's earlier bug, see
+  // progress/routine-step-grouping.md bug-fix round 2026-08-28): the sheet
+  // used to hold ONE shared `scheduledDays` value for both periods, so
+  // re-opening an already-scheduled product and saving after editing only
+  // one period's picker silently overwrote the other period's real schedule.
+  it('pre-populates each period with its OWN scheduledDays and saves each back to only its own step', () => {
+    mockFindSameSlotConflict.mockReturnValue(null);
+    mockRoutines = [
+      {
+        id: 'routine-am',
+        name: 'Morning',
+        timeOfDay: 'morning',
+        steps: [{ id: 'step-am', productType: 'moisturizer', productId: INCOMING.id, hidden: false, scheduledDays: [1, 2] }],
+      },
+      {
+        id: 'routine-pm',
+        name: 'Evening',
+        timeOfDay: 'evening',
+        steps: [{ id: 'step-pm', productType: 'moisturizer', productId: INCOMING.id, hidden: false, scheduledDays: [6, 0] }],
+      },
+    ];
+
+    render(<AddToRoutineSheet visible onClose={jest.fn()} activePeriod="morning" />);
+    selectIncomingAndOpenSchedule();
+
+    // Both periods pre-populate with their OWN days, never a merged value.
+    expect(screen.getByText('Morning days')).toBeTruthy();
+    expect(screen.getByText('Evening days')).toBeTruthy();
+    expect(screen.getByLabelText('Mo, selected')).toBeTruthy();
+    expect(screen.getByLabelText('Tu, selected')).toBeTruthy();
+    expect(screen.getByLabelText('Sa, selected')).toBeTruthy();
+    expect(screen.getByLabelText('Su, selected')).toBeTruthy();
+
+    // Edit only the Morning picker (the Morning section renders first, so
+    // the first "We, not selected" match belongs to it).
+    fireEvent.press(screen.getAllByLabelText('We, not selected')[0]!);
+    fireEvent.press(screen.getByText('Add to routine'));
+
+    expect(mockUpsertProductStep).toHaveBeenCalledWith('routine-am', INCOMING.id, INCOMING.productType, [1, 2, 3]);
+    // Evening's own days ([6, 0]) are written back unchanged — never
+    // overwritten by Morning's edited array.
+    expect(mockUpsertProductStep).toHaveBeenCalledWith('routine-pm', INCOMING.id, INCOMING.productType, [6, 0]);
+  });
+
+  it('starts a newly-checked Evening picker at "every day", never copying Morning\'s existing days', () => {
+    mockFindSameSlotConflict.mockReturnValue(null);
+    mockRoutines = [
+      {
+        id: 'routine-am',
+        name: 'Morning',
+        timeOfDay: 'morning',
+        steps: [{ id: 'step-am', productType: 'moisturizer', productId: INCOMING.id, hidden: false, scheduledDays: [1, 2] }],
+      },
+      { id: 'routine-pm', name: 'Evening', timeOfDay: 'evening', steps: [] },
+    ];
+
+    render(<AddToRoutineSheet visible onClose={jest.fn()} activePeriod="morning" />);
+    selectIncomingAndOpenSchedule();
+    checkEveningToo();
+    fireEvent.press(screen.getByText('Add to routine'));
+
+    expect(mockUpsertProductStep).toHaveBeenCalledWith('routine-am', INCOMING.id, INCOMING.productType, [1, 2]);
+    // Every-day ([]) — not Morning's [1, 2].
+    expect(mockUpsertProductStep).toHaveBeenCalledWith('routine-pm', INCOMING.id, INCOMING.productType, []);
+  });
+});
