@@ -31,6 +31,12 @@ export interface InlineAlertProps {
    * `action`. `children` render only while expanded; `summary` (if given)
    * always renders regardless of collapse state — e.g. RehabNoticeCard's
    * "Day X of Y" line.
+   *
+   * When `onDismiss` is ALSO given, the header's X takes the trailing slot
+   * instead (the title row stops being tappable, to keep the X's tap target
+   * unambiguous) and the expand/collapse toggle moves into the body instead,
+   * as a "Read more"/"Show less" text link below the content — e.g.
+   * ConflictWarningInline's rows, which need both a close and an expand.
    */
   collapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -87,8 +93,13 @@ export function InlineAlert({
   const border = toneBorder[tone];
   const textColor = toneText[tone];
   const isCollapsible = !!onToggleCollapse;
+  const hasDismiss = !!onDismiss;
+  // Both affordances at once: X stays in the header, the expand/collapse
+  // toggle moves into the body as a text link (see the prop doc comment).
+  const readMoreInBody = isCollapsible && hasDismiss;
+  const headerTappable = isCollapsible && !hasDismiss;
 
-  const resolvedAction = onDismiss ? (
+  const resolvedAction = hasDismiss ? (
     <Pressable
       onPress={onDismiss}
       hitSlop={12}
@@ -128,7 +139,7 @@ export function InlineAlert({
     <View style={[styles.container, { backgroundColor: bg, borderColor: border }, style]}>
       <View style={styles.body}>
         {hasHeaderRow ? (
-          isCollapsible ? (
+          headerTappable ? (
             <Pressable
               style={styles.titleRow}
               onPress={onToggleCollapse}
@@ -155,6 +166,19 @@ export function InlineAlert({
           ) : (
             children
           )
+        ) : null}
+        {readMoreInBody ? (
+          <Pressable
+            onPress={onToggleCollapse}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: !collapsed }}
+            accessibilityLabel={collapseAccessibilityLabel ?? (collapsed ? 'Read more' : 'Show less')}
+          >
+            <Text style={[styles.readMoreLabel, { color: textColor }]}>
+              {collapsed ? 'Read more' : 'Show less'}
+            </Text>
+          </Pressable>
         ) : null}
       </View>
     </View>
@@ -200,5 +224,9 @@ const styles = StyleSheet.create({
   },
   bodyText: {
     ...typography.bodySmall,
+  },
+  readMoreLabel: {
+    ...typography.bodySmall,
+    fontFamily: 'DMSans-Bold',
   },
 });

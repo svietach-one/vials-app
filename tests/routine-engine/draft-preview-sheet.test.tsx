@@ -171,8 +171,12 @@ describe('screen-improvements: steps are numbered in the order they are applied'
       />,
     );
 
-    const categories = screen.getAllByText(/^(Cleanser|Serum)$/);
-    expect(categories.map((node) => node.props.children)).toEqual(['Cleanser', 'Serum']);
+    // Category now renders as part of the step heading ("1. Cleanser"),
+    // not an isolated badge (screen-improvements: heading moved out of the
+    // card, matching StepGroupHeader on the Routines screen) — the numbering
+    // itself is what proves layering order, so assert heading+number together.
+    expect(screen.getByText('1. Cleanser')).toBeTruthy();
+    expect(screen.getByText('2. Serum')).toBeTruthy();
   });
 
   it('numbers each step by its position within its own period', () => {
@@ -186,9 +190,11 @@ describe('screen-improvements: steps are numbered in the order they are applied'
       />,
     );
 
-    // Morning has two steps (1, 2) and Evening restarts at 1.
-    expect(screen.getAllByText('1.')).toHaveLength(2);
-    expect(screen.getAllByText('2.')).toHaveLength(1);
+    // Morning has two steps (1, 2) and Evening restarts at 1. The heading now
+    // reads "1. Cleanser" as one node (screen-improvements: moved out of the
+    // card into a StepGroupHeader-style heading), so match the full text.
+    expect(screen.getAllByText('1. Cleanser')).toHaveLength(2);
+    expect(screen.getAllByText('2. Serum')).toHaveLength(1);
   });
 });
 

@@ -76,6 +76,11 @@ export type EngineReasonCode =
   | 'rinse_off_active_note'
   | 'exfoliant_treatment_cap'
   | 'reclassified_treatment_cap'
+  // day-split-alternation: a cross-cycleClass rival (retinoid vs AHA/BHA)
+  // structurally competing with the period's admitted winner for one nightly
+  // slot — distinguishable from the generic cumulative_active_cap so Draft
+  // Preview can offer an alternating schedule instead of silently dropping it.
+  | 'cycle_class_rival'
   // goal model (phase-03)
   | 'barrier_repair_excludes_irritants'
   // admission ladder
@@ -159,6 +164,8 @@ export const REASON_TEXT = {
   rinse_off_active_note: 'Heads-up: your cleanser also contains an active (it rinses off, so it’s fine).',
   exfoliant_treatment_cap: 'Exfoliating treatments are limited to two nights a week.',
   reclassified_treatment_cap: 'This leave-on active is treated as a treatment, not a daily step.',
+  cycle_class_rival:
+    'Competes with another strong active for the same night — alternate them or keep just one.',
   // ── goal model ───────────────────────────────────────────────────────────
   barrier_repair_excludes_irritants: 'Repairing your barrier first — strong actives are paused.',
   // ── admission ────────────────────────────────────────────────────────────

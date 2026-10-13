@@ -153,6 +153,8 @@ jest.mock('@/store/settingsStore', () => ({
       setRehabNoticeCollapsed: jest.fn(),
       routineNoticeCollapsed: {},
       setRoutineNoticeCollapsed: jest.fn(),
+      routineNoticeDismissedAt: {},
+      setRoutineNoticeDismissed: jest.fn(),
       gamificationEnabled: true,
       dismissedBanners: [],
       dismissBanner: jest.fn(),

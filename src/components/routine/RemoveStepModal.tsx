@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   },
   body: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
     lineHeight: 22,
   },
   actions: {
