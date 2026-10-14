@@ -36,13 +36,14 @@ export function logProcedure(log: UserProcedureLog): void {
 /**
  * Moves a procedure to history. With a valid reported duration (months) on a
  * pre-defined procedure it also stamps `realDuration` and folds the report
- * into the user's calibration. `null`, a custom procedure or an unknown id
- * only archives ('skipped'); an out-of-range report writes nothing ('invalid').
+ * into the user's calibration. `null` or a custom procedure only archives;
+ * an unknown id or an already-archived log is a no-op ('skipped'); an out-of-range report writes nothing ('invalid').
  */
 export function archiveProcedure(id: string, reportedMonths: number | null): ArchiveResult {
   const { procedures, updateProcedure } = useProceduresStore.getState();
   const proc = procedures.find((p) => p.id === id);
-  if (!proc) return { status: 'skipped' };
+  // Unknown id or already in history: a second report must never recalibrate or restamp.
+  if (!proc || proc.status === 'archived') return { status: 'skipped' };
 
   if (reportedMonths === null || proc.procedureKey === 'custom') {
     updateProcedure(id, { status: 'archived' });
