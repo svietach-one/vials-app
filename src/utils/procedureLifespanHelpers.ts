@@ -1,5 +1,6 @@
 import { CLINICAL_RULES_DB } from '@/types';
 import type { ClinicalTimelineConfig, CosmeticProcedureKey, UserProcedureLog } from '@/types';
+import { scaleTimelineConfig } from '@/utils/metabolismCalibration';
 
 export type ComputedStatus = 'rehab' | 'active' | 'fading' | 'completed' | 'archived';
 
@@ -45,9 +46,16 @@ export function getProcedureDisplayName(proc: UserProcedureLog): string {
  * between datePerformed and estimatedReturnDate (the 0% efficiency baseline).
  * The custom rehab window comes from the log's user-resolved customRehabDays
  * (symptom presets, research §1.5 V2); absent means no downtime.
+ * Pre-defined logs carrying `expectedMonths` get a rescaled total + fade point
+ * (rehab days are never scaled).
  */
 export function getTimelineConfig(proc: UserProcedureLog): ClinicalTimelineConfig {
-  if (proc.procedureKey !== 'custom') return CLINICAL_RULES_DB[proc.procedureKey];
+  if (proc.procedureKey !== 'custom') {
+    const base = CLINICAL_RULES_DB[proc.procedureKey];
+    // expectedMonths is the baseline snapshotted at log time (metabolism
+    // feedback loop); absent means the clinical default applies unchanged.
+    return proc.expectedMonths !== undefined ? scaleTimelineConfig(base, proc.expectedMonths) : base;
+  }
   const performed = new Date(proc.datePerformed).getTime();
   const returns = proc.estimatedReturnDate
     ? new Date(proc.estimatedReturnDate).getTime()

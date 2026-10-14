@@ -1,0 +1,57 @@
+{
+  "task": "metabolism-feedback-loop",
+  "phase": "review",
+  "status": "APPROVED",
+  "branch": "feature/metabolism-feedback-loop",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/metabolism-feedback-loop.md",
+    "tech_design": "docs/tech-design/metabolism-feedback-loop.md"
+  },
+  "baseline_origin_dev": {
+    "tsc": "clean",
+    "suites_failed": 12,
+    "suites_passed": 227,
+    "tests_failed": 79,
+    "tests_passed": 2701
+  },
+  "blocking_questions": [],
+  "next": "tech-lead",
+  "qa_tests": [
+    "tests/metabolism-feedback-loop/fixtures.ts",
+    "tests/metabolism-feedback-loop/procedureActions.test.ts",
+    "tests/metabolism-feedback-loop/ProcedureDurationFeedbackModal.test.tsx",
+    "tests/metabolism-feedback-loop/CalibrationCard.test.tsx",
+    "tests/metabolism-feedback-loop/ClinicScreen.archive.test.tsx",
+    "tests/metabolism-feedback-loop/ProcedureDetailScreen.calibration.test.tsx"
+  ],
+  "testid_contract": {
+    "modal": "duration-feedback-modal",
+    "backdrop": "duration-feedback-backdrop",
+    "input": "duration-input",
+    "error": "duration-error",
+    "confirm": "duration-confirm (accessibilityState.disabled)",
+    "cancel": "duration-cancel",
+    "card": "calibration-card",
+    "defaultValue": "calibration-default",
+    "estimateValue": "calibration-estimate",
+    "reportsTag": "calibration-reports-tag",
+    "emptyAlert": "calibration-empty-alert",
+    "reset": "calibration-reset"
+  },
+  "component_contracts": {
+    "ProcedureDurationFeedbackModal": "{ proc: UserProcedureLog|null; onConfirm(reportedMonths:number|null); onCancel() }; radios /about as expected/i, /different length/i, /skip/i; Skip default",
+    "CalibrationCard": "{ procedureKey; entry?: CalibrationEntry; onReset() }; Reset via Alert.alert('Reset estimate?', msg, [Cancel, Reset])"
+  },
+  "implementation": {
+    "tsc": "clean",
+    "suites_failed": 12,
+    "suites_passed": 233,
+    "tests_failed": 79,
+    "note": "Same 12 pre-existing failing suites as baseline; see progress log for deviations"
+  }
+}

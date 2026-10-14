@@ -170,15 +170,14 @@ This document defines the complete functional requirements and behavior specific
 * **Feedback Loop Calibration:**
   * Tapping `[Still holding]` snoozes the prompt for **14 days**, incrementing a `deferralCount`.
   * After the **3rd consecutive** `[Still holding]` tap (~6 weeks past the expected fade point), the card auto-transitions to an `Overdue` state: it remains visible and stops auto-snoozing, requiring an explicit `[No, it faded]` answer to clear.
-  * Tapping `[No, it faded]` (from either the standard prompt or the `Overdue` state) terminates the timer, archives the entry with a `realDuration` stamp, and recalculates `individualDurationMonths` for that procedure type as a **cumulative moving average**, not a static two-point blend:
+  * The effect-duration question is asked when a pre-defined procedure is moved to history (Clinic → "…" → *Move to history*) via `ProcedureDurationFeedbackModal`: *About as expected* / *A different length* (months, 0.5–60) / *Skip* (default). Custom procedures are never asked and never calibrated. A report archives the entry with a `realDuration` stamp and recalibrates `individualDurationMonths[procedureKey] = { months, samples }` as a **cumulative moving average** in which the current baseline counts as one prior sample:
     ```
-    newAverage = ((currentIndividualDurationMonths * sampleCount) + realDuration) / (sampleCount + 1)
-    sampleCount += 1
-    individualDurationMonths = newAverage
+    newMonths = (months * (samples + 1) + realDuration) / (samples + 2)
+    samples += 1
     ```
-    On the *first* calibration for a procedure type, `currentIndividualDurationMonths` initializes from the clinical default and `sampleCount` starts at `0`, so the first calculation is equivalent to `(default + realDuration) / 2`. On every subsequent calibration, it averages against the user's own accumulated history rather than resetting to the clinical default — otherwise the system can never learn beyond a single data point. *(Example: default 4 months; user reports 3 months three times in a row. Old formula: stuck at 3.5 forever. New formula: 3.5 → 3.33 → 3.25, correctly converging toward 3.)*
-* **Manual Override:** The user must be able to fluidly override or stretch the timeline graph manually at any point via an "Edit Estimated Lifespan" slider on the card. A manual override does **not** affect `individualDurationMonths` — only an actual `[No, it faded]` event recalibrates the baseline, since a manual stretch is a one-off adjustment, not a confirmed real-world data point.
-* **Predictive Adaptation:** Future logs of the same procedure type must automatically initialize using the custom calibrated `individualDurationMonths` baseline instead of generic medical presets.
+    `months` starts at the clinical default and `samples` at `0`, so the first report is `(default + realDuration) / 2`; every later report averages against the user's own accumulated estimate rather than resetting to the clinical default. The estimate is stored rounded to 2 decimals. *(Example: default 4 months; user reports 3 months three times in a row. Result: 3.5 → 3.33 → 3.25, converging toward 3.)* A calibrated estimate can be reset to the clinical default from the procedure's Details screen (`CalibrationCard`).
+* **Manual Override:** *(Not built — the "Edit Estimated Lifespan" slider does not exist.)* If added, a manual override must write the log's own `expectedMonths`, never `individualDurationMonths` — only a reported real duration recalibrates the baseline, since a manual stretch is a one-off adjustment, not a confirmed real-world data point.
+* **Predictive Adaptation:** Future logs of the same procedure type are stamped at creation with the calibrated baseline (`UserProcedureLog.expectedMonths`), which rescales the lifespan and fading point (rehab days are never scaled) instead of the generic medical presets. Existing logs keep their snapshot, so recalibrating never shifts bars already on the timeline.
 
 ---
 

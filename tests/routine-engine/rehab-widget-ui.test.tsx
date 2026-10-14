@@ -89,7 +89,7 @@ describe('Story 10 AC: a long-term-only effect (Botox month 2) never renders the
     expect(buildRehabNotices([botoxMonth2], new Date())).toEqual([]);
 
     // The Clinic timeline card renders it regardless (its home, per Rule B).
-    render(<ProcedureLifespanCard proc={botoxMonth2} onUpdate={jest.fn()} onOpenMenu={jest.fn()} />);
+    render(<ProcedureLifespanCard proc={botoxMonth2} onUpdate={jest.fn()} onReportDuration={jest.fn()} onOpenMenu={jest.fn()} />);
     expect(screen.getByText('Botox / Dysport')).toBeTruthy();
   });
 });

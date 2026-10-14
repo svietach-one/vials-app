@@ -23,6 +23,7 @@ import {
   computeStatus,
   getProcedureDisplayName,
   getProgress,
+  getRepeatDate,
   getTimelineConfig,
 } from '@/utils/procedureLifespanHelpers';
 import type { UserProcedureLog } from '@/types';
@@ -437,5 +438,36 @@ describe('getProcedureDisplayName', () => {
     const proc = makeProc({ procedureKey: 'botox', datePerformed: CUSTOM_PERFORMED });
 
     expect(getProcedureDisplayName(proc)).toBe('Botox / Dysport');
+  });
+});
+
+describe('getTimelineConfig — expectedMonths snapshot', () => {
+  it('should rescale total and fade point while keeping rehab days for a pre-defined log', () => {
+    const proc = makeProc({ procedureKey: 'botox', datePerformed: CUSTOM_PERFORMED, expectedMonths: 5 });
+
+    const config = getTimelineConfig(proc);
+
+    expect(config.rehabDays).toBe(7);
+    expect(config.totalEffectMonths).toBe(5);
+    expect(config.fadeTriggerMonth).toBeCloseTo(5 * (4 / 6), 5);
+  });
+
+  it('should keep the clinical default when expectedMonths is absent', () => {
+    const proc = makeProc({ procedureKey: 'fillers', datePerformed: CUSTOM_PERFORMED });
+
+    expect(getTimelineConfig(proc)).toEqual({ rehabDays: 14, totalEffectMonths: 12, fadeTriggerMonth: 10 });
+  });
+
+  it('should ignore expectedMonths on a custom log', () => {
+    const proc = makeCustomProc({ expectedMonths: 99 });
+
+    expect(getTimelineConfig(proc).totalEffectMonths).toBeCloseTo(CUSTOM_SPAN_DAYS / 30.44, 5);
+  });
+
+  it('should move the repeat date with the snapshot lifespan', () => {
+    const proc = makeProc({ procedureKey: 'botox', datePerformed: '2026-01-01', expectedMonths: 3 });
+    const sixMonth = makeProc({ procedureKey: 'botox', datePerformed: '2026-01-01' });
+
+    expect(getRepeatDate(proc).getTime()).toBeLessThan(getRepeatDate(sixMonth).getTime());
   });
 });
