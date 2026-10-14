@@ -44,6 +44,12 @@ describe('Story 7 AC: phototype 4-6 escalates a caution-level, both-irritant pai
     // one treatment slot — acne ranks retinoid above bha, so bha reserves.
     // (Two strong actives preferring DIFFERENT periods — retinol PM + vitC AM —
     // would both admit; that is the intended second-treatment case.)
+    // day-split-alternation (Story 1 AC1, 2026-09-22): retinoid vs bha is
+    // exactly the cross-cycleClass rivalry this feature detects — bha now
+    // reserves with the more specific `cycle_class_rival` reason (naming the
+    // retinoid winner + period) instead of the generic `cumulative_active_cap`
+    // this test originally asserted. Intentional, documented reclassification
+    // — see docs/specs/day-split-alternation.md Story 1 AC1.
     const retinoid = makeProduct({ activeTags: ['retinoid'] });
     const bha = makeProduct({ activeTags: ['bha'] });
     const plan = generatePlan(
@@ -56,7 +62,9 @@ describe('Story 7 AC: phototype 4-6 escalates a caution-level, both-irritant pai
     const strongScheduled = scheduled.filter((id) => id === retinoid.id || id === bha.id);
     expect(strongScheduled).toEqual([retinoid.id]); // only the top-ranked treatment
     expect(plan.reserve).toEqual(
-      expect.arrayContaining([{ productId: bha.id, reasonCode: 'cumulative_active_cap' }]),
+      expect.arrayContaining([
+        { productId: bha.id, reasonCode: 'cycle_class_rival', rivalOfProductId: retinoid.id, period: 'pm' },
+      ]),
     );
   });
 

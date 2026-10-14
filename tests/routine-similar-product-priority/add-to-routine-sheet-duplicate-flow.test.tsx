@@ -179,7 +179,10 @@ describe('Story 1 AC2: "Replace [existing]" removes the existing step and insert
     selectIncomingAndOpenSchedule();
     fireEvent.press(screen.getByText('Add to routine'));
 
-    fireEvent.press(screen.getByLabelText(`Replace ${EXISTING_AM.name}`));
+    // multi-action-radio-picker (FE-3): "Replace" is a radio option now,
+    // selected (pre-checked by default) then committed via "Confirm".
+    fireEvent.press(screen.getByRole('radio', { name: 'Replace' }));
+    fireEvent.press(screen.getByText('Confirm'));
 
     expect(mockReplaceProductStep).toHaveBeenCalledWith(
       'routine-am',
@@ -203,7 +206,9 @@ describe('Story 1 AC3: "Keep both" preserves the existing step and adds the inco
     selectIncomingAndOpenSchedule();
     fireEvent.press(screen.getByText('Add to routine'));
 
-    fireEvent.press(screen.getByLabelText('Keep both'));
+    // multi-action-radio-picker (FE-3): select "Keep both" then commit via "Confirm".
+    fireEvent.press(screen.getByRole('radio', { name: 'Keep both' }));
+    fireEvent.press(screen.getByText('Confirm'));
 
     expect(mockUpsertProductStep).toHaveBeenCalledWith('routine-am', INCOMING.id, INCOMING.productType, []);
     expect(mockReplaceProductStep).not.toHaveBeenCalled();
@@ -222,7 +227,8 @@ describe('Story 1 AC4: "Cancel" leaves the routine unchanged', () => {
     selectIncomingAndOpenSchedule();
     fireEvent.press(screen.getByText('Add to routine'));
 
-    fireEvent.press(screen.getByLabelText('Cancel'));
+    // multi-action-radio-picker (FE-3): Cancel is a plain footer button now.
+    fireEvent.press(screen.getByText('Cancel'));
 
     expect(mockUpsertProductStep).not.toHaveBeenCalled();
     expect(mockReplaceProductStep).not.toHaveBeenCalled();
@@ -278,13 +284,15 @@ describe('Story 1 assumption: both AM and PM conflicts resolve one period at a t
     expect(screen.getByText(EXISTING_AM.name)).toBeTruthy();
     expect(screen.queryByText(EXISTING_PM.name)).toBeNull();
 
-    fireEvent.press(screen.getByLabelText('Keep both'));
+    fireEvent.press(screen.getByRole('radio', { name: 'Keep both' }));
+    fireEvent.press(screen.getByText('Confirm'));
 
     // Now the PM sheet appears.
     expect(screen.getByText(EXISTING_PM.name)).toBeTruthy();
     expect(mockUpsertProductStep).toHaveBeenCalledWith('routine-am', INCOMING.id, INCOMING.productType, []);
 
-    fireEvent.press(screen.getByLabelText(`Replace ${EXISTING_PM.name}`));
+    fireEvent.press(screen.getByRole('radio', { name: 'Replace' }));
+    fireEvent.press(screen.getByText('Confirm'));
 
     expect(mockReplaceProductStep).toHaveBeenCalledWith(
       'routine-pm',
@@ -310,7 +318,7 @@ describe('Story 1 assumption: both AM and PM conflicts resolve one period at a t
     checkEveningToo();
     fireEvent.press(screen.getByText('Add to routine'));
 
-    fireEvent.press(screen.getByLabelText('Cancel'));
+    fireEvent.press(screen.getByText('Cancel'));
 
     expect(screen.queryByText(EXISTING_PM.name)).toBeNull();
     expect(mockUpsertProductStep).not.toHaveBeenCalled();

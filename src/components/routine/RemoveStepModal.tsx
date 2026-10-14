@@ -1,8 +1,7 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Button } from '@/components/ui/core/Button';
-import { colors, radius, shadow, space, typography } from '@/constants/tokens';
+import { RadioConfirmModal } from '@/components/ui/core/RadioConfirmModal';
+import type { RadioOption } from '@/components/ui/forms/RadioOptionGroup';
 
 // ─── Day names ────────────────────────────────────────────────────────────────
 
@@ -20,8 +19,19 @@ export interface RemoveStepModalProps {
   onCancel: () => void;
 }
 
+type RemoveScope = 'day' | 'all';
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
+/**
+ * multi-action-radio-picker (FE-4): converts the old three-stacked-Button
+ * layout (Remove from {day}/Remove from all days/Cancel, one tap = select-
+ * and-commit) to a `RadioConfirmModal`: a day-scoped/all-days radio pair,
+ * default-selected on the narrower, less-destructive "{day}s only" scope
+ * (no button was previously primary here — tech design Assumption 3), then
+ * a Confirm/Cancel footer. External prop contract unchanged (tech design
+ * §1).
+ */
 export function RemoveStepModal({
   visible,
   productName,
@@ -32,73 +42,28 @@ export function RemoveStepModal({
 }: RemoveStepModalProps) {
   const dayPlural = `${DAY_NAMES[dow]}s`;
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onCancel}
-      statusBarTranslucent
-    >
-      <Pressable
-        style={styles.backdrop}
-        onPress={onCancel}
-        accessibilityRole="button"
-        accessibilityLabel="Cancel"
-      >
-        {/* Stop propagation so tapping the sheet doesn't close the modal */}
-        <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-          <Text style={styles.title}>Remove {productName}?</Text>
-          <Text style={styles.body}>
-            Remove it just from {dayPlural}, or from every day it's scheduled in this routine.
-          </Text>
+  const options: RadioOption<RemoveScope>[] = [
+    { value: 'day', label: `${dayPlural} only` },
+    { value: 'all', label: 'All days' },
+  ];
 
-          <View style={styles.actions}>
-            <Button variant="secondary" size="lg" onPress={onRemoveDay} fullWidth>
-              Remove from {dayPlural}
-            </Button>
-            <Button variant="destructive" size="lg" onPress={onRemoveAll} fullWidth>
-              Remove from all days
-            </Button>
-            <Button variant="ghost" size="lg" onPress={onCancel} fullWidth>
-              Cancel
-            </Button>
-          </View>
-        </View>
-      </Pressable>
-    </Modal>
+  const handleConfirm = (scope: RemoveScope) => {
+    if (scope === 'day') {
+      onRemoveDay();
+    } else {
+      onRemoveAll();
+    }
+  };
+
+  return (
+    <RadioConfirmModal
+      visible={visible}
+      title={`Remove ${productName}?`}
+      body={`Remove it just from ${dayPlural}, or from every day it's scheduled in this routine.`}
+      options={options}
+      defaultValue="day"
+      onConfirm={handleConfirm}
+      onCancel={onCancel}
+    />
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(9,9,11,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: space[5],
-  },
-  sheet: {
-    width: '100%',
-    backgroundColor: colors.bgBase,
-    borderRadius: radius.xl,
-    padding: space[6],
-    gap: space[4],
-    ...shadow.lg,
-  },
-  title: {
-    ...typography.h3,
-    color: colors.textPrimary,
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
-  actions: {
-    gap: space[3],
-    marginTop: space[1],
-  },
-});

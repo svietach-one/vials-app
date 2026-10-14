@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   },
   body: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
   list: {
     gap: space[3],

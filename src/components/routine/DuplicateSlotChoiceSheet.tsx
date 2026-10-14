@@ -1,15 +1,19 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
-import { Button } from '@/components/ui/core/Button';
-import { colors, radius, shadow, space, typography } from '@/constants/tokens';
+import { RadioConfirmModal } from '@/components/ui/core/RadioConfirmModal';
+import type { RadioOption } from '@/components/ui/forms/RadioOptionGroup';
+import { colors, typography } from '@/constants/tokens';
 import type { Product } from '@/types';
 
 /**
  * Story 1 (routine-similar-product-priority): manual-add duplicate-slot
- * choice sheet. Modeled on RemoveStepModal's plain-Modal + backdrop Pressable
- * pattern (a 3-button confirm doesn't need @gorhom/bottom-sheet). Fires
- * before any store write — zero silent data loss (spec §9 success metric).
+ * choice sheet. multi-action-radio-picker (FE-3) converts the old
+ * three-stacked-Button layout (one tap = select-and-commit) to a
+ * `RadioConfirmModal`: a Replace/Keep both radio pair, pre-selected on
+ * "Replace" (the previous primary action), then a Confirm/Cancel footer.
+ * Fires before any store write — zero silent data loss (spec §9 success
+ * metric). External prop contract unchanged (tech design §1).
  */
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -25,6 +29,13 @@ export interface DuplicateSlotChoiceSheetProps {
   onCancel: () => void;
 }
 
+type DuplicateSlotScope = 'replace' | 'keep_both';
+
+const OPTIONS: RadioOption<DuplicateSlotScope>[] = [
+  { value: 'replace', label: 'Replace' },
+  { value: 'keep_both', label: 'Keep both' },
+];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function DuplicateSlotChoiceSheet({
@@ -36,78 +47,43 @@ export function DuplicateSlotChoiceSheet({
   onKeepBoth,
   onCancel,
 }: DuplicateSlotChoiceSheetProps) {
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onCancel}
-      statusBarTranslucent
-    >
-      <Pressable style={styles.backdrop} onPress={onCancel}>
-        {/* Stop propagation so tapping the sheet doesn't close the modal */}
-        <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-          <Text style={styles.title}>{`You already have a ${slotLabel} in this routine`}</Text>
-          <Text style={styles.body}>{existingProduct.name}</Text>
-          <Text style={styles.body}>{incomingProduct.name}</Text>
+  const handleConfirm = (scope: DuplicateSlotScope) => {
+    if (scope === 'replace') {
+      onReplace();
+    } else {
+      onKeepBoth();
+    }
+  };
 
-          <View style={styles.actions}>
-            <Button
-              variant="primary"
-              size="lg"
-              onPress={onReplace}
-              fullWidth
-              accessibilityLabel={`Replace ${existingProduct.name}`}
-            >
-              {`Replace ${existingProduct.name}`}
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onPress={onKeepBoth}
-              fullWidth
-              accessibilityLabel="Keep both"
-            >
-              Keep both
-            </Button>
-            <Button variant="ghost" size="lg" onPress={onCancel} fullWidth accessibilityLabel="Cancel">
-              Cancel
-            </Button>
-          </View>
-        </View>
-      </Pressable>
-    </Modal>
+  return (
+    <RadioConfirmModal
+      visible={visible}
+      title={`You already have a ${slotLabel} in this routine`}
+      body={
+        <>
+          <Text style={styles.fieldLabel}>Currently in your routine</Text>
+          <Text style={styles.body}>{existingProduct.name}</Text>
+          <Text style={styles.fieldLabel}>Replacing with</Text>
+          <Text style={styles.body}>{incomingProduct.name}</Text>
+        </>
+      }
+      options={OPTIONS}
+      defaultValue="replace"
+      onConfirm={handleConfirm}
+      onCancel={onCancel}
+    />
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(9,9,11,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: space[5],
-  },
-  sheet: {
-    width: '100%',
-    backgroundColor: colors.bgBase,
-    borderRadius: radius.xl,
-    padding: space[6],
-    gap: space[3],
-    ...shadow.lg,
-  },
-  title: {
-    ...typography.h3,
-    color: colors.textPrimary,
-  },
   body: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
-  actions: {
-    gap: space[3],
-    marginTop: space[2],
+  fieldLabel: {
+    ...typography.caption,
+    color: colors.textPrimary,
   },
 });

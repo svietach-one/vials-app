@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,8 +11,10 @@ import {
 import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { AllergenBadge } from '@/components/ui/AllergenBadge';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
+import { ProductFitInsights } from '@/components/product/ProductFitInsights';
 import { ProductInsightsPanel } from '@/components/product/ProductInsightsPanel';
 import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
 import { RemoveRoutineActionSheet } from '@/components/routine/RemoveRoutineActionSheet';
@@ -23,7 +24,6 @@ import { Button } from '@/components/ui/core/Button';
 import { FilterChip } from '@/components/ui/core/FilterChip';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
-import { Tag } from '@/components/ui/core/Tag';
 import { Badge } from '@/components/ui/feedback/Badge';
 import { Input } from '@/components/ui/forms/Input';
 import { Textarea } from '@/components/ui/forms/Textarea';
@@ -35,7 +35,7 @@ import type { CatalogStackParamList } from '@/navigation/AppNavigator';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { getProductAllergenMatches } from '@/utils/allergenDetector';
-import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
+import { getMatchesForKey } from '@/utils/attributionLookup';
 import {
   derivePeriodSchedules,
   deriveProductSchedule,
@@ -365,105 +365,76 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           ) : null}
         </View>
 
-        {/* ── Active Ingredients ────────────────────────────────────────── */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardIconCircle}>
-              <Icon name="droplet" size={18} color={palette.plum} />
-            </View>
-            <Text style={styles.cardTitle}>Active Ingredients</Text>
-          </View>
-
-          {activeTags.length > 0 ? (
-            <View style={styles.tagWrap}>
-              {activeTags.map((key) => {
-                const matches = getMatchesForKey(product.fullIngredientText, key);
-                const showAliasIcon = hasAliasOverride(matches);
-                return (
-                  <Pressable
-                    key={key}
-                    testID={`active-badge-${key}`}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${ACTIVE_INGREDIENT_LABELS[key] ?? key} detected, tap for details`}
-                    onPress={() => setAttributionKey(key)}
-                    style={styles.attributionBadgeWrap}
-                  >
-                    <Tag tone="info">{ACTIVE_INGREDIENT_LABELS[key] ?? key}</Tag>
-                    {showAliasIcon ? (
-                      <View
-                        testID={`active-badge-alias-icon-${key}`}
-                        accessibilityLabel="Detected via regional ingredient name"
-                        style={styles.aliasIconWrap}
-                      >
-                        <Icon name="globe" size={11} color={colors.textSecondary} />
-                      </View>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : (
-            <Tag tone="neutral">None confirmed</Tag>
-          )}
-
-          {/* Vitamin C auto-migration infobox (research §2.1 — Story 9): the
-              legacy tag was conservatively mapped to pure vitamin C; one tap
-              reclassifies it as a derivative and clears the marker. */}
-          {product.vitaminCAutoMigrated === true &&
-          activeTags.includes('vitamin_c_pure') ? (
-            <InlineAlert
-              tone="info"
-              icon={<Icon name="info" size={14} color={colors.statusInfo} />}
-              title="Treated as pure vitamin C"
-            >
-              <Text style={styles.infoboxText}>
-                We migrated this product&apos;s vitamin C tag to the pure
-                (L-ascorbic acid) form — the safe default for conflict checks.{' '}
-                <Text
-                  style={styles.infoboxLink}
-                  accessibilityRole="button"
-                  accessibilityLabel="Mark as a vitamin C derivative"
-                  onPress={() => {
-                    updateProduct(product.id, {
-                      activeTags: activeTags.map((key) =>
-                        key === 'vitamin_c_pure' ? 'vitamin_c_derivative' : key,
-                      ),
-                      vitaminCAutoMigrated: false,
-                    });
-                  }}
-                >
-                  This is a derivative
-                </Text>
+        {/* Vitamin C auto-migration infobox (research §2.1 — Story 9): the
+            legacy tag was conservatively mapped to pure vitamin C; one tap
+            reclassifies it as a derivative and clears the marker. */}
+        {product.vitaminCAutoMigrated === true &&
+        activeTags.includes('vitamin_c_pure') ? (
+          <InlineAlert
+            tone="info"
+            icon={<Icon name="info" size={14} color={colors.statusInfo} />}
+            title="Treated as pure vitamin C"
+          >
+            <Text style={styles.infoboxText}>
+              We migrated this product&apos;s vitamin C tag to the pure
+              (L-ascorbic acid) form — the safe default for conflict checks.{' '}
+              <Text
+                style={styles.infoboxLink}
+                accessibilityRole="button"
+                accessibilityLabel="Mark as a vitamin C derivative"
+                onPress={() => {
+                  updateProduct(product.id, {
+                    activeTags: activeTags.map((key) =>
+                      key === 'vitamin_c_pure' ? 'vitamin_c_derivative' : key,
+                    ),
+                    vitaminCAutoMigrated: false,
+                  });
+                }}
+              >
+                This is a derivative
               </Text>
-            </InlineAlert>
-          ) : null}
-        </View>
+            </Text>
+          </InlineAlert>
+        ) : null}
 
         {/* ── Product Insights (product-profile-m1) ───────────────────── */}
         <ProductInsightsPanel profile={productProfile} />
 
-        {/* ── Allergens ─────────────────────────────────────────────────── */}
-        {allergenMatches.length > 0 ? (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIconCircle}>
-                <Icon name="info" size={18} color={palette.plum} />
-              </View>
-              <Text style={styles.cardTitle}>Allergens</Text>
-            </View>
-            <View style={styles.allergenList}>
-              {allergenMatches.map((match) => (
-                <View key={match.canonical} style={styles.allergenRow}>
-                  <Text style={styles.allergenName}>{match.canonical}</Text>
-                  <Text style={styles.allergenCopy}>{ALLERGEN_NEUTRAL_COPY}</Text>
-                  {match.restricted ? (
-                    <Text style={styles.allergenRestrictedNote}>{ALLERGEN_RESTRICTED_NOTE}</Text>
-                  ) : null}
+        {/* ── Explore-derived fit insights (INCI position, caution, goal fit) ── */}
+        <ProductFitInsights
+          product={product}
+          onSetSkinType={() => navigation.navigate('Profile' as never)}
+          onActivePress={setAttributionKey}
+          afterActives={
+            allergenMatches.length > 0 ? (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardIconCircle}>
+                    <Icon name="info" size={18} color={palette.plum} />
+                  </View>
+                  <Text style={styles.cardTitle}>Allergens</Text>
                 </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
+                <View style={styles.allergenList}>
+                  {allergenMatches.map((match) => (
+                    <View key={match.canonical} style={styles.allergenRow}>
+                      <Text style={styles.allergenName}>{match.canonical}</Text>
+                      <Text style={styles.allergenCopy}>{ALLERGEN_NEUTRAL_COPY}</Text>
+                      {match.restricted ? (
+                        <Text style={styles.allergenRestrictedNote}>{ALLERGEN_RESTRICTED_NOTE}</Text>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.badgeLegend}>
+                  <AllergenBadge matches={allergenMatches} />
+                  <Text style={styles.badgeLegendText}>
+                    This badge on shelf cards marks a product with an EU fragrance allergen.
+                  </Text>
+                </View>
+              </View>
+            ) : null
+          }
+        />
 
         {/* ── Full Formula ─────────────────────────────────────────────── */}
         <View style={styles.card}>
@@ -507,12 +478,12 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           variant={routineLabel !== null ? 'secondary' : 'primary'}
           onPress={() => setSchedulerVisible(true)}
         >
-          {routineLabel !== null ? routineLabel : 'Add to Routine'}
+          {routineLabel !== null ? 'Edit Schedule' : 'Add to Routine'}
         </Button>
         {routineLabel !== null ? (
           <Button
             variant="destructive"
-            size="sm"
+            size="lg"
             fullWidth
             onPress={() => setRemoveSheetVisible(true)}
             accessibilityLabel="Remove from routine"
@@ -679,15 +650,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space[2],
   },
-  attributionBadgeWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[1],
-  },
-  aliasIconWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   infoboxText: {
     ...typography.bodySmall,
     color: colors.textSecondary,
@@ -696,6 +658,16 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans-Medium',
     color: colors.textLink,
     textDecorationLine: 'underline',
+  },
+  badgeLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+  },
+  badgeLegendText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flex: 1,
   },
   allergenList: {
     gap: space[3],

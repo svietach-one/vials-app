@@ -17,15 +17,24 @@
  * values, to render them) fail to resolve until FE-6..FE-10 ship. That
  * failure is expected and normal for this qa-first pipeline stage.
  *
- * ── DuplicateSlotChoiceSheet (Story 1, FE-6) ──────────────────────────────
- *   props: { visible, slotLabel, existingProduct, incomingProduct, onReplace, onKeepBoth, onCancel }
+ * ── DuplicateSlotChoiceSheet (Story 1, FE-6; converted by multi-action-radio-
+ *    picker FE-3 — see tests/routine-similar-product-priority/
+ *    duplicate-slot-choice-sheet.test.tsx and docs/tech-design/
+ *    multi-action-radio-picker.md for the binding contract that superseded
+ *    the button-stack description originally here) ─────────────────────────
+ *   props (UNCHANGED by the FE-3 conversion):
+ *     { visible, slotLabel, existingProduct, incomingProduct, onReplace, onKeepBoth, onCancel }
  *   - Title text exactly: `You already have a ${slotLabel} in this routine`
  *   - existingProduct.name and incomingProduct.name both rendered as visible text
- *   - accessibilityRole="button" actions:
- *       accessibilityLabel={`Replace ${existingProduct.name}`}  (primary -> onReplace)
- *       accessibilityLabel="Keep both"                          (secondary -> onKeepBoth)
- *       accessibilityLabel="Cancel"                             (tertiary -> onCancel)
- *   - Backdrop press / onRequestClose also invokes onCancel (RemoveStepModal pattern).
+ *   - Internally renders a RadioConfirmModal: two radio options, "Replace"
+ *     (value 'replace', pre-selected -> onReplace) and "Keep both" (value
+ *     'keep_both' -> onKeepBoth), queried via
+ *     `getByRole('radio', { name: 'Replace' | 'Keep both' })`; then a fixed
+ *     Confirm/Cancel footer (literal text, queried via getByText). Cancel ->
+ *     onCancel; neither onReplace nor onKeepBoth fires from Cancel or from a
+ *     bare radio tap (only Confirm dispatches to the picked option's
+ *     callback). Backdrop press / onRequestClose also invokes onCancel
+ *     (RemoveStepModal pattern, preserved by RadioConfirmModal).
  *
  * ── AddToRoutineSheet wiring (Story 1, FE-7) ──────────────────────────────
  *   - handleSave() calls routinesStore.findSameSlotConflict(routineId, productType,

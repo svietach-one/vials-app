@@ -8,15 +8,16 @@ import { Icon } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/ui/core/AppHeader';
-import { Badge } from '@/components/ui/feedback/Badge';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { Tag } from '@/components/ui/core/Tag';
 import { ReplaceStepSheet, type ReplaceStepTarget } from '@/components/routine/ReplaceStepSheet';
+import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
+import { RadioOptionGroup, type RadioOption } from '@/components/ui/forms/RadioOptionGroup';
 import { type SelectOption, type SelectOptionTone } from '@/components/ui/forms/Select';
 import { reasonText } from '@/constants/decisionReasons';
-import { getProductTypeBadgeStatus, getSlotCategoryLabel, PRODUCT_TYPE_LABELS } from '@/constants/labels';
+import { getSlotCategoryLabel, PRODUCT_TYPE_LABELS } from '@/constants/labels';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { PlanCommitScope } from '@/domain/routinePlanActions';
 import { useProductsStore } from '@/store/productsStore';
@@ -54,10 +55,38 @@ export interface DraftPreviewScreenProps {
    * typechecking.
    */
   onOverride?: (productId: string) => void;
+  /**
+   * day-split-alternation (FE-5): fired when the user taps "Alternate
+   * automatically" on the cycle-class-rival prompt card. The screen never
+   * applies it — RoutinesScreen reuses the phase-07 override mechanism and
+   * regenerates the draft. Optional so older callers keep typechecking.
+   */
+  onAcceptCycleSplit?: (rivalProductId: string) => void;
+  /**
+   * Fired when the user taps "Keep only [winner]" — a purely local,
+   * ephemeral dismissal (tech design Assumption 5); RoutinesScreen never
+   * writes to a store for it.
+   */
+  onDeclineCycleSplit?: (rivalProductId: string) => void;
+  /**
+   * Rival productIds RoutinesScreen has locally dismissed this session — the
+   * prompt card stays hidden for a listed id, but the product's normal
+   * collapsed "In reserve" row (with its own "Add anyway") is unaffected.
+   * Defaults to none.
+   */
+  dismissedCycleSplitRivalIds?: string[];
 }
 
 const SNAP_POINTS = ['100%'];
 const HIDE_HANDLE = () => null;
+
+// multi-action-radio-picker (FE-5): replaces the old 4-stacked-Button
+// commit-scope footer with this radio pair + a local Confirm/Cancel pair.
+const COMMIT_SCOPE_OPTIONS: RadioOption<PlanCommitScope>[] = [
+  { value: 'both', label: 'Morning & Evening' },
+  { value: 'am', label: 'Morning Only' },
+  { value: 'pm', label: 'Evening Only' },
+];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -81,12 +110,16 @@ export function DraftPreviewScreen({
   onCommit,
   onSwapAlternative,
   onOverride,
+  onAcceptCycleSplit,
+  onDeclineCycleSplit,
+  dismissedCycleSplitRivalIds = [],
 }: DraftPreviewScreenProps) {
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheetModal>(null);
   const wasPresented = useRef(false);
   const [reserveExpanded, setReserveExpanded] = useState(false);
   const [replaceTarget, setReplaceTarget] = useState<ReplaceStepTarget | null>(null);
+  const [commitScope, setCommitScope] = useState<PlanCommitScope>('both');
 
   const products = useProductsStore((s) => s.products);
   const routines = useRoutinesStore((s) => s.routines);
@@ -105,6 +138,13 @@ export function DraftPreviewScreen({
   // A closed screen must never leave a stale replacement sheet queued.
   useEffect(() => {
     if (!visible) setReplaceTarget(null);
+  }, [visible]);
+
+  // A reopened draft starts back at the default scope — a stale in-progress
+  // pick from a previous visit must not survive a close/reopen round trip
+  // (same reset convention as RadioConfirmModal's internal selection).
+  useEffect(() => {
+    if (!visible) setCommitScope('both');
   }, [visible]);
 
   if (!plan) return null;
@@ -143,6 +183,16 @@ export function DraftPreviewScreen({
     const entry = plan.decisions.find((d) => d.productId === productId && d.reasonCode);
     return entry?.reasonCode ? reasonText(entry.reasonCode) : null;
   };
+
+  // day-split-alternation (Story 2): at most one cycle_class_rival item is
+  // ever present per plan (tech design Non-Goal: single rival only), so the
+  // card never needs to pick among several. Session-dismissed via a locally
+  // owned RoutinesScreen set (tech design Assumption 5), not a store write.
+  const cycleRivalItem = plan.reserve.find(
+    (item) =>
+      item.reasonCode === 'cycle_class_rival' &&
+      !dismissedCycleSplitRivalIds.includes(item.productId),
+  );
 
   // Every frozen item gets a row — clinical pauses with their expiry date,
   // pair-rule freezes with the human reason text (nothing vanishes silently, §1.8)
@@ -222,6 +272,15 @@ export function DraftPreviewScreen({
           onRequestReplace={setReplaceTarget}
         />
 
+        {cycleRivalItem ? (
+          <CycleSplitPromptCard
+            winnerName={nameOf(cycleRivalItem.rivalOfProductId ?? null)}
+            rivalName={nameOf(cycleRivalItem.productId)}
+            onAccept={() => onAcceptCycleSplit?.(cycleRivalItem.productId)}
+            onDecline={() => onDeclineCycleSplit?.(cycleRivalItem.productId)}
+          />
+        ) : null}
+
         {pausedRows.length > 0 ? (
           <View style={styles.pausedBlock}>
             {pausedRows.map((row) => (
@@ -283,42 +342,21 @@ export function DraftPreviewScreen({
         ) : null}
 
         <View style={styles.actions}>
-          <Button
-            variant="primary"
-            size="md"
-            fullWidth
-            onPress={() => onCommit('both')}
-            accessibilityLabel="Save for Morning & Evening"
-          >
-            Save for Morning & Evening
-          </Button>
-          <Button
-            variant="secondary"
-            size="md"
-            fullWidth
-            onPress={() => onCommit('am')}
-            accessibilityLabel="Save for Morning Only"
-          >
-            Save for Morning Only
-          </Button>
-          <Button
-            variant="secondary"
-            size="md"
-            fullWidth
-            onPress={() => onCommit('pm')}
-            accessibilityLabel="Save for Evening Only"
-          >
-            Save for Evening Only
-          </Button>
-          <Button
-            variant="ghost"
-            size="md"
-            fullWidth
-            onPress={onClose}
-            accessibilityLabel="Cancel and discard draft"
-          >
-            Cancel / Discard Draft
-          </Button>
+          <Text style={styles.actionsLabel}>Save for</Text>
+          <RadioOptionGroup options={COMMIT_SCOPE_OPTIONS} value={commitScope} onChange={setCommitScope} />
+          <View style={styles.actionsRow}>
+            <Button variant="secondary" size="md" onPress={onClose} style={styles.actionBtn}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onPress={() => onCommit(commitScope)}
+              style={styles.actionBtn}
+            >
+              Confirm
+            </Button>
+          </View>
         </View>
       </BottomSheetScrollView>
 
@@ -343,6 +381,64 @@ function reserveIntroText(reserve: RoutinePlan['reserve']): string {
   const action = 'Keep them in reserve, or add any of them to your routine anyway.';
   const forGoals = reserve.some((item) => item.reasonCode === 'not_needed_for_goals');
   return forGoals ? `Your current goals don’t call for these products. ${action}` : action;
+}
+
+// ─── Cycle-class-rival prompt card (day-split-alternation, Story 2) ──────────
+
+/**
+ * Dismissible-advisory-styled (SeasonalNoticeBanner/GoalCoverageBanner
+ * precedent) prompt offering an alternating schedule for two products
+ * structurally competing for one nightly slot. Rendered above the
+ * collapsible "In reserve" section, so both actions are visible without
+ * expanding it (spec §5 / Story 2 AC). `rivalName` is rendered as its own
+ * text node distinct from the surrounding sentence, satisfying "visible text
+ * names both products" without re-rendering `winnerName` as a bare node (it
+ * is already shown by the admitted step card above).
+ */
+function CycleSplitPromptCard({
+  winnerName,
+  rivalName,
+  onAccept,
+  onDecline,
+}: {
+  winnerName: string;
+  rivalName: string;
+  onAccept: () => void;
+  onDecline: () => void;
+}) {
+  return (
+    <InlineAlert
+      tone="warning"
+      icon={<Icon name="refresh-cw" size={16} color={colors.statusWarning} />}
+      title="Can’t go together every night"
+    >
+      <View style={styles.cycleSplitBody}>
+        <Text style={styles.pausedText}>
+          {`${winnerName} and `}
+          <Text style={styles.cycleSplitRivalName}>{rivalName}</Text>
+          {' compete for the same night — alternate them, or keep just one.'}
+        </Text>
+        <View style={styles.cycleSplitActions}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onPress={onAccept}
+            accessibilityLabel="Alternate automatically"
+          >
+            Alternate automatically
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onPress={onDecline}
+            accessibilityLabel={`Keep only ${winnerName}`}
+          >
+            Keep just this one
+          </Button>
+        </View>
+      </View>
+    </InlineAlert>
+  );
 }
 
 // ─── Period block ─────────────────────────────────────────────────────────────
@@ -459,21 +555,22 @@ function StepCard({
   };
 
   return (
-    <View style={styles.stepCard}>
-      {/* Step number + slot category, flush with the card's left edge, above
-          the photo — frequency marker pinned to the right of the same line. */}
-      <View style={styles.titleLine}>
-        <View style={styles.titleLineLeft}>
-          <Text style={styles.stepNumber}>{position}.</Text>
-          <Badge status={getProductTypeBadgeStatus(step.productType)} type="Light">
-            {typeLabel}
-          </Badge>
-        </View>
+    <>
+      {/* Step heading sits directly on the screen background — no container,
+          no border, no shadow, matching StepGroupHeader on the Routines
+          screen (routine-step-grouping SCREENS.md §3): the step's slot is a
+          stage in the process ("1. Cleanser"), plain bold text, not a
+          colored badge. The card below carries all of the chrome. */}
+      <View style={styles.stepHeadingRow}>
+        <Text style={styles.stepHeadingLabel}>
+          {position}. {typeLabel}
+        </Text>
         <Text style={styles.frequency} numberOfLines={1}>
           {formatScheduleDays(step.scheduledDays)}
         </Text>
       </View>
 
+      <View style={styles.stepCard}>
       <View style={styles.stepRow}>
         {product ? <ProductThumbnail product={product} size={76} /> : null}
 
@@ -495,16 +592,14 @@ function StepCard({
 
           {/* Row itself is conditional so a changed step with no reason and
               no alternative (nothing to show either side) doesn't leave a
-              bare gap behind. */}
+              bare gap behind. Only short elements live here — the reason
+              text (which can run a full sentence long) gets its own
+              full-width row below instead of competing with Change for
+              horizontal space (that combination used to overflow the card,
+              see reasonRow below). */}
           {showStatusRow ? (
             <View style={styles.statusRow}>
-              {showReasonBadge ? (
-                <Badge status="Cobalt" type="Light">
-                  {reason}
-                </Badge>
-              ) : showNoChangeTag ? (
-                <Tag tone="neutral">No change</Tag>
-              ) : null}
+              {showNoChangeTag ? <Tag tone="neutral">No change</Tag> : null}
 
               {isSwappable ? (
                 <Pressable
@@ -521,7 +616,22 @@ function StepCard({
           ) : null}
         </View>
       </View>
-    </View>
+
+      {/* Full-width, wrapping info row for the reason sentence — mirrors
+          RoutineProductCard's adaptationRow (the live Routines-screen card;
+          RoutineStepCard is dead code, no longer mounted anywhere — icon +
+          wrapping text, bordered top divider), never sharing a row with
+          Change. */}
+      {showReasonBadge ? (
+        <View style={styles.reasonRow}>
+          <Icon name="info" size={16} color={colors.statusInfo} />
+          <Text style={styles.reasonRowText} numberOfLines={3}>
+            {reason}
+          </Text>
+        </View>
+      ) : null}
+      </View>
+    </>
   );
 }
 
@@ -631,9 +741,17 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 
+  // Matches RoutineProductCard's default (non-completed) chrome exactly —
+  // the live Routines-screen card (RoutineStepCard, which this was
+  // previously modeled on, is dead code with zero mounts anywhere; its
+  // border-outline/no-shadow look was never actually what ships today).
+  // Shadow lives on this same node rather than a separate wrapper (unlike
+  // RoutineProductCard's split cardShadow/card) since this card never clips
+  // an edge-to-edge photo — ProductThumbnail here isn't in `fill` mode, so
+  // there's no overflow:hidden fighting the shadow the way there is there.
   stepCard: {
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.md,
+    backgroundColor: colors.surfaceCard,
+    borderRadius: radius.sm,
     ...shadow.sm,
   },
   stepRow: {
@@ -644,6 +762,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: space[3],
     paddingHorizontal: space[3],
+    paddingTop: space[3],
     paddingBottom: space[3],
   },
   identity: {
@@ -651,24 +770,19 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: space[1],
   },
-  // "1.  Cleanser" (left, flush above the photo) + frequency marker (right),
-  // e.g. "2.  Cream                              Every day".
-  titleLine: {
+  // "1. Cleanser" (left) + frequency marker (right), e.g.
+  // "2. Cream                              Every day" — sits directly on
+  // the screen background above the card, matching StepGroupHeader on the
+  // Routines screen: the slot is a stage in the process, plain bold text,
+  // not a badge. No container/border/shadow here; the card below carries it.
+  stepHeadingRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: space[3],
-    paddingHorizontal: space[3],
-    paddingTop: space[3],
-    paddingBottom: space[3],
+    paddingHorizontal: space[1],
   },
-  titleLineLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
-    flexShrink: 1,
-  },
-  stepNumber: {
+  stepHeadingLabel: {
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: colors.textPrimary,
@@ -717,12 +831,40 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans-Medium',
     color: palette.plum,
   },
+  // Mirrors RoutineStepCard's adaptationRow: full-card-width info strip,
+  // top divider, icon + wrapping text — never squeezed against Change.
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[2],
+    paddingTop: space[2],
+    paddingBottom: space[3],
+    paddingHorizontal: space[3],
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDivider,
+  },
+  reasonRowText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
 
   pausedBlock: {
     backgroundColor: colors.surfaceSunken,
     borderRadius: radius.md,
     padding: space[3],
     gap: space[1],
+  },
+  cycleSplitBody: {
+    gap: space[2],
+  },
+  cycleSplitRivalName: {
+    fontFamily: 'DMSans-Medium',
+  },
+  cycleSplitActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[2],
   },
   pausedText: {
     ...typography.bodySmall,
@@ -760,7 +902,19 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   actions: {
-    gap: space[2],
+    gap: space[3],
     marginTop: space[2],
+  },
+  actionsLabel: {
+    ...typography.label,
+    color: colors.textPrimary,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: space[3],
+    marginTop: space[1],
+  },
+  actionBtn: {
+    flex: 1,
   },
 });
