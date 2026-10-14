@@ -1,12 +1,21 @@
 Status: IN_PROGRESS
 Tech Design: docs/tech-design/metabolism-feedback-loop.md
-Code: —
+Code:
+- src/types/index.ts (CalibrationEntry, individualDurationMonths shape, UserProcedureLog.expectedMonths)
+- src/utils/metabolismCalibration.ts (+ .test.ts)
+- src/utils/procedureLifespanHelpers.ts (+ .test.ts)
+- src/utils/routineEngine/migrations.ts (+ .test.ts) - schema v8
+- src/domain/procedureActions.ts
+- src/components/clinic/ProcedureDurationFeedbackModal.tsx, CalibrationCard.tsx, ProcedureLifespanCard.tsx
+- src/screens/ClinicScreen.tsx, ProcedureDetailScreen.tsx
+- docs/USER_STORIES.md, docs/SCREENS.md
+- tests touched: tests/routine-engine/rehab-widget-ui.test.tsx, tests/vials-onboarding-quizzes/profileStore.sensitive-migration.test.ts, tests/metabolism-feedback-loop/ProcedureDetailScreen.calibration.test.tsx
 
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
 - [x] QA tests (qa-lead)
-- [ ] Implementation (engineer)
+- [x] Implementation (engineer)
 - [ ] Architecture review (tech-lead)
 
 ## Log
@@ -28,3 +37,25 @@ ships CalibrationEntry/expectedMonths, src/domain/procedureActions.ts and the tw
 in tests/ are the expected "missing contract" ones). Binding contracts not fixed by the tech design were defined
 in fixtures.ts: modal props { proc|null, onConfirm(number|null), onCancel }, CalibrationCard props
 { procedureKey, entry?, onReset }, and the TID testID set. Spec stories 1-4 covered; unit tests (src/utils) left to engineer.
+
+2026-10-14 - engineer: FE-1..FE-10 implemented; human approved the plan and the legacy-number migration (`samples: 1`).
+Gates: `npx tsc --noEmit` clean; all 5 QA suites + new unit tests green; full jest (ignoring worktrees) = 12 failed /
+233 passed suites, 79 failed tests - the same 12 pre-existing suites as the origin/dev baseline, nothing new.
+CLINIC_FADING_PROMPT_ENABLED untouched (OFF).
+Deviations / decisions (all intentional):
+- tests/metabolism-feedback-loop/ProcedureDetailScreen.calibration.test.tsx: QA test called the Alert 'Reset' callback
+  outside act(), so the store-driven re-render (React 19, concurrent root) is never flushed before the sync assertion; no
+  implementation can satisfy that. Wrapped that single call in `act()`. Contract unchanged.
+- Schema v8 bump invalidated two version asserts: migrations.test.ts `toBe(7)` -> 8 (planned in FE-4) and
+  tests/vials-onboarding-quizzes/profileStore.sensitive-migration.test.ts `toBe(7)` -> `toBeGreaterThanOrEqual(7)`.
+- FE-9: `onReportDuration` is a REQUIRED prop on ProcedureLifespanCard, so tests/routine-engine/rehab-widget-ui.test.tsx
+  passes `jest.fn()`. The flag-OFF prompt now calls it (no direct realDuration stamp) and uses parseReportedMonthsText
+  (decimal-pad, 0.5-60) instead of parseInt.
+- Added `parseReportedMonthsText` to metabolismCalibration.ts (not in the design's list) so the modal/prompt parse logic stays
+  in a pure, unit-tested util instead of the component.
+- ProcedureDurationFeedbackModal does NOT wrap RadioConfirmModal: that chrome has no slot for the month Input, no Confirm
+  disabled state and no testIDs, all required by the QA contract. It reuses RadioOptionGroup + the same backdrop/sheet styles.
+- migrateProfile was already > 50 lines (pre-existing); the v8 coercion is a separate exported `migrateIndividualDurations`.
+- ClinicScreen opens the feedback modal synchronously from ProcedureActionSheet.onClose (required by the QA test, which
+  asserts the modal right after the sheet callbacks). RISK for tech-lead/device QA: on iOS, presenting one RN Modal while
+  the sheet Modal is dismissing can fail to show; if seen, defer via the sheet's Modal onDismiss (iOS) in a follow-up.

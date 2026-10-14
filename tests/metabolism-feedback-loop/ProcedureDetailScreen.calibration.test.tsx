@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { Alert } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { makeCustomProcedureLog, makeProcedureLog, makeProfile, TID, textOf, toRegExp } from './fixtures';
 
@@ -87,7 +87,10 @@ describe('Reset to default', () => {
 
     fireEvent.press(screen.getByTestId(TID.reset));
     const buttons = alertSpy.mock.calls[0][2] as { text: string; onPress?: () => void }[];
-    buttons.find((b) => b.text === 'Reset')?.onPress?.();
+    // The alert callback fires outside RNTL's event wrapper, so flush the store-driven re-render in act.
+    act(() => {
+      buttons.find((b) => b.text === 'Reset')?.onPress?.();
+    });
 
     expect(useProfileStore.getState().profile?.individualDurationMonths).toEqual({});
     expect(useProceduresStore.getState().procedures.find((p) => p.id === 'old')).toEqual(archived);

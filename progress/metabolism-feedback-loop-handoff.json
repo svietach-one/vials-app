@@ -1,6 +1,6 @@
 {
   "task": "metabolism-feedback-loop",
-  "phase": "implementation",
+  "phase": "review",
   "status": "APPROVED",
   "branch": "feature/metabolism-feedback-loop",
   "flags": {
@@ -20,7 +20,7 @@
     "tests_passed": 2701
   },
   "blocking_questions": [],
-  "next": "engineer",
+  "next": "tech-lead",
   "qa_tests": [
     "tests/metabolism-feedback-loop/fixtures.ts",
     "tests/metabolism-feedback-loop/procedureActions.test.ts",
@@ -46,5 +46,12 @@
   "component_contracts": {
     "ProcedureDurationFeedbackModal": "{ proc: UserProcedureLog|null; onConfirm(reportedMonths:number|null); onCancel() }; radios /about as expected/i, /different length/i, /skip/i; Skip default",
     "CalibrationCard": "{ procedureKey; entry?: CalibrationEntry; onReset() }; Reset via Alert.alert('Reset estimate?', msg, [Cancel, Reset])"
+  },
+  "implementation": {
+    "tsc": "clean",
+    "suites_failed": 12,
+    "suites_passed": 233,
+    "tests_failed": 79,
+    "note": "Same 12 pre-existing failing suites as baseline; see progress log for deviations"
   }
 }

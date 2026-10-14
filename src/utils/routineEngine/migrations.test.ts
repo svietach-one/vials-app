@@ -55,8 +55,8 @@ function makeRoutine(steps: Routine['steps']): Routine {
 // ─── Schema version ───────────────────────────────────────────────────────────
 
 describe('CURRENT_SCHEMA_VERSION', () => {
-  it('is 7 after adding sensitive (vials-onboarding-quizzes)', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(7);
+  it('is 8 after calibrating individualDurationMonths (metabolism-feedback-loop)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(8);
   });
 });
 
@@ -586,5 +586,48 @@ describe('migrateProductActiveKeys — peptide re-attribution (phase-08 §8.3)',
     );
     const twice = migrateProductActiveKeys(once);
     expect(twice).toBe(once); // same reference — nothing left to migrate
+  });
+});
+
+// ─── v8: individualDurationMonths calibration entries ─────────────────────────
+
+describe('migrateProfile — calibration entries (v8)', () => {
+  const legacy = (value: unknown) =>
+    makeLegacyProfile({ individualDurationMonths: value as UserProfile['individualDurationMonths'] });
+
+  it('coerces a legacy bare number into one real sample', () => {
+    // Arrange
+    const profile = legacy({ botox: 5 });
+    // Act
+    const result = migrateProfile(profile);
+    // Assert
+    expect(result.individualDurationMonths).toEqual({ botox: { months: 5, samples: 1 } });
+  });
+
+  it('keeps current entries and coerces only the legacy ones in a mixed map', () => {
+    const result = migrateProfile(legacy({ botox: 5, fillers: { months: 10, samples: 3 } }));
+
+    expect(result.individualDurationMonths).toEqual({
+      botox: { months: 5, samples: 1 },
+      fillers: { months: 10, samples: 3 },
+    });
+  });
+
+  it('drops unusable legacy numbers', () => {
+    const result = migrateProfile(legacy({ botox: 0, fillers: Number.NaN }));
+
+    expect(result.individualDurationMonths).toEqual({});
+  });
+
+  it('returns the same reference when entries are already current', () => {
+    const profile = migrateProfile(legacy({ botox: { months: 5, samples: 2 } }));
+
+    expect(migrateProfile(profile)).toBe(profile);
+  });
+
+  it('is idempotent over a migrated profile', () => {
+    const once = migrateProfile(legacy({ botox: 5 }));
+
+    expect(migrateProfile(once)).toBe(once);
   });
 });

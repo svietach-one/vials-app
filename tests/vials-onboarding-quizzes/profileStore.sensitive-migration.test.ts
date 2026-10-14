@@ -56,8 +56,8 @@ beforeEach(() => {
 });
 
 describe('Story 1 AC1: CURRENT_SCHEMA_VERSION reports the bumped v6->v7 version', () => {
-  it('is 7, not 6', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(7);
+  it('is at least 7 (v8 added calibration entries, metabolism-feedback-loop)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBeGreaterThanOrEqual(7);
   });
 });
 

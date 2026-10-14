@@ -126,8 +126,22 @@ export interface UserProcedureLog {
   deferralCount: number;
   /** User-reported actual duration in months, set when they confirm fading. */
   realDuration?: number;
+  /**
+   * Snapshot of the expected effect duration (months) taken when the log was
+   * created from a calibrated baseline (metabolism-feedback-loop). Absent =
+   * use the clinical default. Never set for custom procedures.
+   */
+  expectedMonths?: number;
   /** Free-text note the user attached to this procedure (Clinic → Details). */
   note?: string;
+}
+
+/** Running average of reported effect durations for one procedure. */
+export interface CalibrationEntry {
+  /** Current estimate in months. */
+  months: number;
+  /** Number of real reports averaged in (the clinical default counts as one prior sample). */
+  samples: number;
 }
 
 export interface ClinicalTimelineConfig {
@@ -260,8 +274,11 @@ export interface UserProfile {
    */
   sensitive: boolean;
   onboardingCompleted: boolean;
-  /** Per-procedure duration overrides set when the user confirms actual fading. */
-  individualDurationMonths: Partial<Record<CosmeticProcedureKey, number>>;
+  /**
+   * Personal effect-duration estimate per procedure, learned from the user's
+   * reports when they move a procedure to history (schema v8).
+   */
+  individualDurationMonths: Partial<Record<CosmeticProcedureKey, CalibrationEntry>>;
   /**
    * Whether the user has agreed to include their product photo in community
    * contributions (GDPR Art. 7(4) consent), and when that choice was last

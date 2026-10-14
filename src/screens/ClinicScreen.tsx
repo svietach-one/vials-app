@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   FlatList,
   SafeAreaView,
@@ -10,6 +10,7 @@ import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AddProcedureModal } from '@/components/clinic/AddProcedureModal';
+import { ProcedureDurationFeedbackModal } from '@/components/clinic/ProcedureDurationFeedbackModal';
 import { ProcedureActionSheet } from '@/components/clinic/ProcedureActionSheet';
 import { ProcedureLifespanCard } from '@/components/clinic/ProcedureLifespanCard';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
@@ -17,10 +18,13 @@ import { AppHeader } from '@/components/ui/core/AppHeader';
 import { EmptyState } from '@/components/ui/core/EmptyState';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { PillToggle } from '@/components/ui/core/PillToggle';
+import { Toast } from '@/components/ui/feedback/Toast';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
+import { archiveProcedure, logProcedure } from '@/domain/procedureActions';
 import type { ClinicStackParamList } from '@/navigation/AppNavigator';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProfileStore } from '@/store/profileStore';
+import { formatMonths } from '@/utils/metabolismCalibration';
 import { getProcedureDisplayName } from '@/utils/procedureLifespanHelpers';
 import type { UserProcedureLog } from '@/types';
 
@@ -92,9 +96,63 @@ function makeFakeProduct(t: DeleteTarget) {
   return { id: t.id, name: t.name } as Parameters<typeof DeleteProductModal>[0]['product'] & object;
 }
 
+interface EstimateToast {
+  title: string;
+  subtitle: string;
+}
+
+/**
+ * "Move to history" flow. Pre-defined procedures first ask how long the effect
+ * lasted (calibration); custom ones archive straight away. The question opens
+ * from the action sheet's close so two Modals never transition at once.
+ */
+function useArchiveFlow() {
+  const [feedbackTarget, setFeedbackTarget] = useState<UserProcedureLog | null>(null);
+  const [toast, setToast] = useState<EstimateToast | null>(null);
+  const pendingRef = useRef<UserProcedureLog | null>(null);
+
+  function archive(proc: UserProcedureLog, months: number | null) {
+    const result = archiveProcedure(proc.id, months);
+    if (result.status === 'calibrated' && result.from !== undefined && result.to !== undefined) {
+      setToast({
+        title: 'Estimate updated',
+        subtitle: `${getProcedureDisplayName(proc)}: ${formatMonths(result.from)} \u2192 ${formatMonths(result.to)} months`,
+      });
+    }
+  }
+
+  function requestMoveToHistory(proc: UserProcedureLog) {
+    if (proc.procedureKey === 'custom') archive(proc, null);
+    else pendingRef.current = proc;
+  }
+
+  function openPendingFeedback() {
+    if (!pendingRef.current) return;
+    setFeedbackTarget(pendingRef.current);
+    pendingRef.current = null;
+  }
+
+  function confirmFeedback(months: number | null) {
+    if (feedbackTarget) archive(feedbackTarget, months);
+    setFeedbackTarget(null);
+  }
+
+  const hideToast = useCallback(() => setToast(null), []);
+
+  return {
+    feedbackTarget,
+    toast,
+    archive,
+    requestMoveToHistory,
+    openPendingFeedback,
+    confirmFeedback,
+    cancelFeedback: () => setFeedbackTarget(null),
+    hideToast,
+  };
+}
+
 export default function ClinicScreen({ navigation }: Props) {
   const procedures = useProceduresStore((s) => s.procedures);
-  const addProcedure = useProceduresStore((s) => s.addProcedure);
   const updateProcedure = useProceduresStore((s) => s.updateProcedure);
   const removeProcedure = useProceduresStore((s) => s.removeProcedure);
   const profile = useProfileStore((s) => s.profile);
@@ -103,6 +161,7 @@ export default function ClinicScreen({ navigation }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [menuTarget, setMenuTarget] = useState<UserProcedureLog | null>(null);
   const [tab, setTab] = useState<ClinicTab>('active');
+  const flow = useArchiveFlow();
 
   // Most recent first, then split by tab (Active = ongoing, History = archived)
   const sorted = [...procedures].sort(
@@ -118,6 +177,7 @@ export default function ClinicScreen({ navigation }: Props) {
         proc={item}
         onUpdate={(patch) => updateProcedure(item.id, patch)}
         onOpenMenu={() => setMenuTarget(item)}
+        onReportDuration={(months) => flow.archive(item, months)}
         skinConditions={profile?.skinConditions ?? []}
       />
     );
@@ -172,7 +232,7 @@ export default function ClinicScreen({ navigation }: Props) {
         procedures={procedures}
         onClose={() => setModalVisible(false)}
         onSave={(log) => {
-          addProcedure(log);
+          logProcedure(log);
           setModalVisible(false);
         }}
       />
@@ -180,9 +240,18 @@ export default function ClinicScreen({ navigation }: Props) {
       <ProcedureActionSheet
         proc={menuTarget}
         onDetails={(p) => navigation.navigate('ProcedureDetail', { procedureId: p.id })}
-        onMoveToHistory={(p) => updateProcedure(p.id, { status: 'archived' })}
+        onMoveToHistory={flow.requestMoveToHistory}
         onDelete={(p) => setDeleteTarget({ id: p.id, name: getProcedureDisplayName(p) })}
-        onClose={() => setMenuTarget(null)}
+        onClose={() => {
+          setMenuTarget(null);
+          flow.openPendingFeedback();
+        }}
+      />
+
+      <ProcedureDurationFeedbackModal
+        proc={flow.feedbackTarget}
+        onConfirm={flow.confirmFeedback}
+        onCancel={flow.cancelFeedback}
       />
 
       <DeleteProductModal
@@ -194,6 +263,13 @@ export default function ClinicScreen({ navigation }: Props) {
           }
         }}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <Toast
+        visible={flow.toast !== null}
+        title={flow.toast?.title ?? ''}
+        subtitle={flow.toast?.subtitle}
+        onHide={flow.hideToast}
       />
     </SafeAreaView>
   );

@@ -13,6 +13,7 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { CLINIC_FADING_PROMPT_ENABLED } from '@/constants/featureFlags';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { CosmeticProcedureKey, SkinConditionType, UserProcedureLog } from '@/types';
+import { parseReportedMonthsText } from '@/utils/metabolismCalibration';
 import {
   getRecoveryConditionCaution,
   isAggressiveProcedure,
@@ -36,6 +37,12 @@ export type { ComputedStatus } from '@/utils/procedureLifespanHelpers';
 export interface ProcedureLifespanCardProps {
   proc: UserProcedureLog;
   onUpdate: (patch: Partial<UserProcedureLog>) => void;
+  /**
+   * Archives the procedure with a user-reported effect duration (months) via
+   * the domain `archiveProcedure`, so a duration is never stamped without
+   * feeding the calibration. Only used by the (flag-OFF) fading prompt.
+   */
+  onReportDuration: (reportedMonths: number) => void;
   /** Opens the "…" action sheet (Details / Move to history / Delete). */
   onOpenMenu: () => void;
   /**
@@ -115,10 +122,12 @@ function FadingInteractivePrompt({
   proc,
   procName,
   onUpdate,
+  onReportDuration,
 }: {
   proc: UserProcedureLog;
   procName: string;
   onUpdate: (patch: Partial<UserProcedureLog>) => void;
+  onReportDuration: (reportedMonths: number) => void;
 }) {
   const [showDuration, setShowDuration] = useState(false);
   const [durationText, setDurationText] = useState('');
@@ -134,8 +143,8 @@ function FadingInteractivePrompt({
   }
 
   if (showDuration) {
-    const months = parseInt(durationText, 10);
-    const valid = Number.isFinite(months) && months > 0;
+    const parsed = parseReportedMonthsText(durationText);
+    const valid = parsed.ok;
     return (
       <View style={fadingStyles.container}>
         <Text style={fadingStyles.question}>How many months did it last?</Text>
@@ -143,7 +152,7 @@ function FadingInteractivePrompt({
           <Input
             value={durationText}
             onChangeText={setDurationText}
-            keyboardType="number-pad"
+            keyboardType="decimal-pad"
             placeholder="e.g. 5"
             suffix="months"
             containerStyle={fadingStyles.durationInput}
@@ -154,7 +163,7 @@ function FadingInteractivePrompt({
             size="sm"
             disabled={!valid}
             onPress={() => {
-              if (valid) onUpdate({ status: 'archived', realDuration: months });
+              if (parsed.ok) onReportDuration(parsed.months);
             }}
           >
             Confirm
@@ -313,6 +322,7 @@ const barStyles = StyleSheet.create({
 export function ProcedureLifespanCard({
   proc,
   onUpdate,
+  onReportDuration,
   onOpenMenu,
   skinConditions = [],
 }: ProcedureLifespanCardProps) {
@@ -368,7 +378,12 @@ export function ProcedureLifespanCard({
 
       {/* Fading prompt — feature-flagged off pending the feedback-flow decision */}
       {status === 'fading' && CLINIC_FADING_PROMPT_ENABLED ? (
-        <FadingInteractivePrompt proc={proc} procName={procName} onUpdate={onUpdate} />
+        <FadingInteractivePrompt
+          proc={proc}
+          procName={procName}
+          onUpdate={onUpdate}
+          onReportDuration={onReportDuration}
+        />
       ) : null}
 
       {/* Repeat-around footer — the estimated date the effect fully lapses */}

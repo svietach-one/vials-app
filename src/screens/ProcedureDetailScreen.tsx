@@ -11,14 +11,17 @@ import {
 import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { CalibrationCard } from '@/components/clinic/CalibrationCard';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { Input } from '@/components/ui/forms/Input';
 import { Textarea } from '@/components/ui/forms/Textarea';
 import { colors, space, typography } from '@/constants/tokens';
+import { resetCalibration } from '@/domain/procedureActions';
 import type { ClinicStackParamList } from '@/navigation/AppNavigator';
 import { useProceduresStore } from '@/store/proceduresStore';
+import { useProfileStore } from '@/store/profileStore';
 import { formatIsoToDateInput, parseDateInput } from '@/utils/dateInput';
 import { getProcedureDisplayName } from '@/utils/procedureLifespanHelpers';
 
@@ -30,6 +33,7 @@ export default function ProcedureDetailScreen({ route, navigation }: Props) {
   const { procedureId } = route.params;
   const procedures = useProceduresStore((s) => s.procedures);
   const updateProcedure = useProceduresStore((s) => s.updateProcedure);
+  const individualDurations = useProfileStore((s) => s.profile?.individualDurationMonths);
 
   const proc = procedures.find((p) => p.id === procedureId) ?? null;
 
@@ -77,6 +81,9 @@ export default function ProcedureDetailScreen({ route, navigation }: Props) {
     );
   }
 
+  // Custom procedures have no stable category key, so they are never calibrated.
+  const calibrationKey = proc.procedureKey === 'custom' ? null : proc.procedureKey;
+
   return (
     <SafeAreaView style={styles.safe}>
       <AppHeader title="Details" leftAction={backButton} />
@@ -107,6 +114,14 @@ export default function ProcedureDetailScreen({ route, navigation }: Props) {
             placeholder="Add a comment about this procedure…"
             minHeight={120}
           />
+
+          {calibrationKey ? (
+            <CalibrationCard
+              procedureKey={calibrationKey}
+              entry={individualDurations?.[calibrationKey]}
+              onReset={() => resetCalibration(calibrationKey)}
+            />
+          ) : null}
         </ScrollView>
 
         <View style={styles.footer}>

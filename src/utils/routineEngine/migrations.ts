@@ -1,5 +1,7 @@
 import type {
   ActiveIngredientKey,
+  CalibrationEntry,
+  CosmeticProcedureKey,
   FitzpatrickType,
   Product,
   Routine,
@@ -21,7 +23,7 @@ import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingr
  */
 
 /** Current persisted schema version. Bumped whenever a migration is added. */
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 /** Version assumed for installs that predate the schemaVersion key. */
 export const BASELINE_SCHEMA_VERSION = 1;
@@ -83,6 +85,28 @@ export function deriveGoalFromConcerns(concerns: SkinConcern[]): SkinGoal {
   return 'maintenance';
 }
 
+type LegacyDurationValue = CalibrationEntry | number;
+
+/**
+ * v8: `individualDurationMonths` values changed from a bare number to a
+ * `{ months, samples }` entry. A legacy number becomes one real sample; entries
+ * that are unusable (non-finite, <= 0) are dropped. Same reference when every
+ * entry is already current (or the field is absent).
+ */
+export function migrateIndividualDurations(
+  durations: UserProfile['individualDurationMonths'] | undefined,
+): UserProfile['individualDurationMonths'] | undefined {
+  if (!durations) return durations;
+  const entries = Object.entries(durations) as [CosmeticProcedureKey, LegacyDurationValue][];
+  if (entries.every(([, v]) => typeof v !== 'number')) return durations;
+  const next: UserProfile['individualDurationMonths'] = {};
+  for (const [key, value] of entries) {
+    if (typeof value !== 'number') next[key] = value;
+    else if (Number.isFinite(value) && value > 0) next[key] = { months: value, samples: 1 };
+  }
+  return next;
+}
+
 export function migrateProfile(profile: UserProfile): UserProfile {
   const fitzpatrick = deriveFitzpatrick(profile.phototype);
   const cityPresent = profile.city !== undefined;
@@ -101,8 +125,12 @@ export function migrateProfile(profile: UserProfile): UserProfile {
   const pregnantOrBreastfeedingPresent = profile.pregnantOrBreastfeeding !== undefined;
   // Pre-v7 profiles lack the onboarding-quizzes sensitivity flag.
   const sensitivePresent = profile.sensitive !== undefined;
+  // Pre-v8 profiles store bare numbers in individualDurationMonths.
+  const durations = migrateIndividualDurations(profile.individualDurationMonths);
+  const durationsCurrent = durations === profile.individualDurationMonths;
 
   if (
+    durationsCurrent &&
     cityPresent &&
     fitzpatrickCurrent &&
     goalsPresent &&
@@ -151,6 +179,7 @@ export function migrateProfile(profile: UserProfile): UserProfile {
     // Opt-in, never inferred — backfill to false rather than prompting an
     // existing install to answer it (same treatment as the two fields above).
     sensitive: sensitivePresent ? profile.sensitive : false,
+    ...(durationsCurrent ? {} : { individualDurationMonths: durations }),
   };
 }
 
