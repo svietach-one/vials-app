@@ -53,6 +53,19 @@ describe('archiveProcedure - skip', () => {
   });
 });
 
+describe('archiveProcedure - already archived', () => {
+  it('does not recalibrate or restamp a log that is already in history', () => {
+    const archived = makeProcedureLog({ status: 'archived', realDuration: 3 });
+    seed([archived], { botox: { months: 5, samples: 2 } });
+
+    const result = archiveProcedure('proc-botox-1', 9);
+
+    expect(result.status).toBe('skipped');
+    expect(proc('proc-botox-1')?.realDuration).toBe(3);
+    expect(calib()).toEqual({ botox: { months: 5, samples: 2 } });
+  });
+});
+
 describe('archiveProcedure - valid report', () => {
   it('averages against the clinical default on the first report and archives with realDuration', () => {
     seed([makeProcedureLog()]);

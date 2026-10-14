@@ -17,7 +17,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 
 import { generatePlan } from '@/utils/routineEngine/generate';
 import { validateRoutines } from '@/utils/routineEngine/validate';
-import { applyRoutinePlan } from '@/domain/routinePlanActions';
+import { applyRoutinePlan, resetAllRoutines } from '@/domain/routinePlanActions';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import type { RoutinePlan } from '@/utils/routineEngine/generate';
@@ -291,5 +291,38 @@ describe('Story: user override survives regeneration and invalidates on shelf/go
 
     seedProfile('aging');
     expect(activeOverrides()).toEqual([]);
+  });
+});
+
+describe('resetAllRoutines: wipes every saved step so the routine can be rebuilt from scratch', () => {
+  it('empties both routines, including hidden and pinned steps, and keeps the routines themselves', () => {
+    const product = makeProduct({ id: 'p-reset', productType: 'cleanser' });
+    const hidden = { ...makeRoutineStep(product), hidden: true };
+    const pinned = { ...makeRoutineStep(product), userPinned: true };
+    useRoutinesStore.setState({
+      routines: [
+        { id: 'r-am', name: 'Morning', timeOfDay: 'morning', steps: [makeRoutineStep(product), hidden] },
+        { id: 'r-pm', name: 'Evening', timeOfDay: 'evening', steps: [pinned] },
+      ],
+      hydrated: true,
+    });
+
+    resetAllRoutines();
+
+    const { routines } = useRoutinesStore.getState();
+    expect(routines.map((r) => r.id)).toEqual(['r-am', 'r-pm']);
+    expect(routines.every((r) => r.steps.length === 0)).toBe(true);
+  });
+
+  it('is a no-op when every routine is already empty', () => {
+    useRoutinesStore.setState({
+      routines: [{ id: 'r-am', name: 'Morning', timeOfDay: 'morning', steps: [] }],
+      hydrated: true,
+    });
+    const before = useRoutinesStore.getState().routines;
+
+    resetAllRoutines();
+
+    expect(useRoutinesStore.getState().routines).toBe(before);
   });
 });

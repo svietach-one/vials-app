@@ -39,7 +39,7 @@ Caller (3 sites) --title/body (unchanged)--> RadioOptionGroup --selected--> loca
                                 onCancel/onClose          per-option callback(selected)
 ```
 
-No store, API, data-model, or navigation changes. Every converted component keeps its existing
+No store, API, data-model, or navigation changes (amended 2026-10-14: `DraftPreviewScreen` gained an optional `onResetAll` prop, `RoutinesScreen` wires it to the new `resetAllRoutines()` domain action, behind a confirmation Alert). Every converted component keeps its existing
 external prop contract — `AddToRoutineSheet.tsx` (the real render site of
 `DuplicateSlotChoiceSheet`) and `RoutinesScreen.tsx` (render site of `RemoveStepModal`) need no
 changes at all; only the JSX between "question shown" and "callback fired" changes inside the
@@ -80,7 +80,7 @@ nearest equivalent is the two new components' prop shapes:
   `{value:'all', label:'All days'}`; `defaultValue: 'day'` (no button was previously primary here —
   defaults to the narrower, less-destructive scope per tech design Assumption 3). External props
   unchanged. Files: `src/components/routine/RemoveStepModal.tsx`.
-- FE-5: Convert `DraftPreviewScreen`'s bottom `styles.actions` block (the 4-button commit-scope
+- FE-5 (amended 2026-10-14, see progress/draft-preview-reset-and-card-layout.md: heading "Select an option", labels "Save for …", optional fourth "Reset all" radio + `onResetAll`): Convert `DraftPreviewScreen`'s bottom `styles.actions` block (the 4-button commit-scope
   footer — not the per-step "Change" affordance, which is untouched) to a short "Save for" label +
   `RadioOptionGroup<PlanCommitScope>` (`both`/`am`/`pm`, labels "Morning & Evening"/"Morning Only"/
   "Evening Only", `defaultValue: 'both'`) + a local Confirm/Cancel `<Button>` pair. Confirm calls

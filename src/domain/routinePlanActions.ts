@@ -21,6 +21,20 @@ import { getSkincareDateString } from '@/utils/timeHelpers';
 export type PlanCommitScope = 'both' | 'am' | 'pm';
 
 /**
+ * Reset-all (Draft Preview "Reset all" option): empties every routine so the
+ * user can rebuild from scratch instead of deleting products one by one.
+ * Pinned and hidden steps go too — this is a full wipe of the saved routines,
+ * not a plan commit. Shelf products, procedures and the adaptation anchors in
+ * the tracking store are untouched.
+ */
+export function resetAllRoutines(): void {
+  const { routines, updateRoutine } = useRoutinesStore.getState();
+  for (const routine of routines) {
+    if (routine.steps.length > 0) updateRoutine(routine.id, { steps: [] });
+  }
+}
+
+/**
  * Deterministic key for override validity (V2.1 phase-07): an override applies
  * only while the shelf composition and goals are unchanged. Sorted product ids
  * make it order-independent; the goals bound the treatment ranking.

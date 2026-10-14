@@ -68,6 +68,7 @@ confirmation step.
   own button text). This is a final decision, not deferred pending further input.
 - No change to any store, persisted data shape, navigation structure, or the public callback
   signatures the three converted components already expose to their callers.
+  *(Exception, 2026-10-14: `DraftPreviewScreen` gained an optional `onResetAll` prop and the "Reset all" option clears persisted routine steps through `resetAllRoutines()` after a final confirmation Alert — see progress/draft-preview-reset-and-card-layout.md.)*
 
 ## 4. User Stories
 
@@ -101,6 +102,15 @@ other option.
 - [ ] Given the user taps Cancel, then `onCancel` fires and no removal callback fires.
 
 ### Story 3: Choosing which periods to save a routine draft to (`DraftPreviewScreen`)
+
+> **Amended 2026-10-14** (progress/draft-preview-reset-and-card-layout.md): the heading is now
+> "Select an option", the three radios read "Save for Morning & Evening / Morning only / Evening
+> only", and a fourth "Reset all" radio is shown when any routine has steps (Confirm turns into the
+> destructive variant and calls `onResetAll` instead of `onCommit`). The acceptance criteria below
+> describe the original three-option behaviour; label text and the option count are superseded.
+> Choosing "Reset all" and pressing Confirm opens a final "Reset all routines?" Alert before
+> `onResetAll` fires.
+
 As a user finishing a generated routine draft, I want to pick "Morning & Evening", "Morning Only",
 or "Evening Only" from a radio list and confirm explicitly, so the three long "Save for…" labels
 stop being stacked as three separate full-width buttons.
@@ -157,7 +167,7 @@ synchronously at render time.
 ## 8. Security & Privacy
 
 - Authentication required: no.
-- Data sensitivity: none — no new data is read, written, or displayed.
+- Data sensitivity: none — no new data is read, written, or displayed. *(2026-10-14: the "Reset all" option deletes saved routine steps after a final confirmation Alert; nothing new is stored.)*
 - Compliance considerations: none.
 
 ## 9. Success Metrics

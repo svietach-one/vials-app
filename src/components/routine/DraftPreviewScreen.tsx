@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   BottomSheetModal,
   BottomSheetScrollView,
@@ -38,6 +38,12 @@ export interface DraftPreviewScreenProps {
   plan: RoutinePlan | null;
   diff: PlanDiffEntry[];
   onCommit: (scope: PlanCommitScope) => void;
+  /**
+   * Fired when the user confirms the "Reset all" option. The screen never
+   * clears anything itself — RoutinesScreen empties the saved routines and
+   * closes the draft. The option only shows when a routine has steps.
+   */
+  onResetAll?: () => void;
   /**
    * Story 2 (routine-similar-product-priority): fired when the user picks a
    * candidate from a step's replacement sheet. `winnerProductId` is always the
@@ -82,11 +88,31 @@ const HIDE_HANDLE = () => null;
 
 // multi-action-radio-picker (FE-5): replaces the old 4-stacked-Button
 // commit-scope footer with this radio pair + a local Confirm/Cancel pair.
-const COMMIT_SCOPE_OPTIONS: RadioOption<PlanCommitScope>[] = [
-  { value: 'both', label: 'Morning & Evening' },
-  { value: 'am', label: 'Morning Only' },
-  { value: 'pm', label: 'Evening Only' },
+type FooterChoice = PlanCommitScope | 'reset';
+
+const COMMIT_SCOPE_OPTIONS: RadioOption<FooterChoice>[] = [
+  { value: 'both', label: 'Save for Morning & Evening' },
+  { value: 'am', label: 'Save for Morning only' },
+  { value: 'pm', label: 'Save for Evening only' },
 ];
+
+const RESET_OPTION: RadioOption<FooterChoice> = {
+  value: 'reset',
+  label: 'Reset all',
+  sublabel: 'Removes every step from both routines so you can start from scratch.',
+};
+
+/** Reset all wipes every saved step with no undo, so it gets one more explicit step. */
+function confirmResetAll(onResetAll: (() => void) | undefined): void {
+  Alert.alert(
+    'Reset all routines?',
+    'This removes every step from your morning and evening routines. It cannot be undone.',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reset all', style: 'destructive', onPress: () => onResetAll?.() },
+    ],
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -108,6 +134,7 @@ export function DraftPreviewScreen({
   plan,
   diff,
   onCommit,
+  onResetAll,
   onSwapAlternative,
   onOverride,
   onAcceptCycleSplit,
@@ -119,10 +146,11 @@ export function DraftPreviewScreen({
   const wasPresented = useRef(false);
   const [reserveExpanded, setReserveExpanded] = useState(false);
   const [replaceTarget, setReplaceTarget] = useState<ReplaceStepTarget | null>(null);
-  const [commitScope, setCommitScope] = useState<PlanCommitScope>('both');
+  const [commitScope, setCommitScope] = useState<FooterChoice>('both');
 
   const products = useProductsStore((s) => s.products);
   const routines = useRoutinesStore((s) => s.routines);
+  const hasSavedSteps = routines.some((r) => r.steps.length > 0);
 
   // Only dismiss after a real present — see AddToRoutineSheet for the
   // modal-stack corruption this guards against.
@@ -342,16 +370,20 @@ export function DraftPreviewScreen({
         ) : null}
 
         <View style={styles.actions}>
-          <Text style={styles.actionsLabel}>Save for</Text>
-          <RadioOptionGroup options={COMMIT_SCOPE_OPTIONS} value={commitScope} onChange={setCommitScope} />
+          <Text style={styles.actionsLabel}>Select an option</Text>
+          <RadioOptionGroup
+            options={hasSavedSteps && onResetAll ? [...COMMIT_SCOPE_OPTIONS, RESET_OPTION] : COMMIT_SCOPE_OPTIONS}
+            value={commitScope}
+            onChange={setCommitScope}
+          />
           <View style={styles.actionsRow}>
             <Button variant="secondary" size="md" onPress={onClose} style={styles.actionBtn}>
               Cancel
             </Button>
             <Button
-              variant="primary"
+              variant={commitScope === 'reset' ? 'destructive' : 'primary'}
               size="md"
-              onPress={() => onCommit(commitScope)}
+              onPress={() => (commitScope === 'reset' ? confirmResetAll(onResetAll) : onCommit(commitScope))}
               style={styles.actionBtn}
             >
               Confirm
@@ -542,7 +574,7 @@ function StepCard({
   // a Change action exists, showing it alongside renders the pill's "nothing
   // to do here" message contradictory, so Change wins.
   const showNoChangeTag = !isChanged && !isSwappable;
-  const showStatusRow = showReasonBadge || showNoChangeTag || isSwappable;
+  const showStatusSlot = showNoChangeTag || isSwappable;
 
   const openReplace = () => {
     if (!entry) return;
@@ -570,66 +602,64 @@ function StepCard({
         </Text>
       </View>
 
-      <View style={styles.stepCard}>
-      <View style={styles.stepRow}>
-        {product ? <ProductThumbnail product={product} size={76} /> : null}
+      {/* Same chrome as RoutineProductCard (the live Routines-screen card):
+          shadow on a non-clipping wrapper, overflow-hidden card inside it so
+          the photo bleeds flush to the left/top/bottom edges; brand on the
+          first line with the status control trailing it, product name below.
+          Here the trailing control is "No change" or "Change >" instead of
+          the active-ingredient / allergen badges. */}
+      <View style={styles.stepCardShadow}>
+        <View style={styles.stepCard}>
+          <View style={styles.mainRow}>
+            {product ? (
+              <View style={styles.thumbnailWrap}>
+                <ProductThumbnail product={product} fill squareBottomLeft={showReasonBadge} />
+              </View>
+            ) : null}
 
-        <View style={styles.identity}>
-          <Text style={isChanged ? styles.nameChanged : styles.name} numberOfLines={2}>
-            {name}
-          </Text>
-          {product?.brand ? (
-            <Text style={styles.brand} numberOfLines={1}>
-              {product.brand}
-            </Text>
-          ) : null}
-
-          {isChanged && oldStep ? (
-            <Text style={styles.oldName} numberOfLines={1}>
-              {nameOf(oldStep.productId)}
-            </Text>
-          ) : null}
-
-          {/* Row itself is conditional so a changed step with no reason and
-              no alternative (nothing to show either side) doesn't leave a
-              bare gap behind. Only short elements live here — the reason
-              text (which can run a full sentence long) gets its own
-              full-width row below instead of competing with Change for
-              horizontal space (that combination used to overflow the card,
-              see reasonRow below). */}
-          {showStatusRow ? (
-            <View style={styles.statusRow}>
-              {showNoChangeTag ? <Tag tone="neutral">No change</Tag> : null}
-
-              {isSwappable ? (
-                <Pressable
-                  style={styles.changeButton}
-                  onPress={openReplace}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Change ${name}`}
-                >
-                  <Text style={styles.changeLabel}>Change</Text>
-                  <Icon name="chevron-right" size={18} color={palette.plum} />
-                </Pressable>
+            <View style={styles.textColumn}>
+              {product?.brand || showStatusSlot ? (
+                <View style={styles.headerRow}>
+                  {product?.brand ? (
+                    <Text style={[styles.brand, styles.brandFlex]} numberOfLines={1}>
+                      {product.brand}
+                    </Text>
+                  ) : null}
+                  {showNoChangeTag ? <Tag tone="neutral">No change</Tag> : null}
+                  {isSwappable ? (
+                    <Pressable
+                      style={styles.changeButton}
+                      hitSlop={8}
+                      onPress={openReplace}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Change ${name}`}
+                    >
+                      <Text style={styles.changeLabel}>Change</Text>
+                      <Icon name="chevron-right" size={18} color={palette.plum} />
+                    </Pressable>
+                  ) : null}
+                </View>
               ) : null}
+
+              <Text style={styles.name} numberOfLines={1}>
+                {name}
+              </Text>
+
+            </View>
+          </View>
+
+          {/* Full-width, wrapping info row for the reason sentence — mirrors
+              RoutineProductCard's adaptationRow (icon + wrapping text,
+              bordered top divider), never sharing a row with Change. */}
+          {showReasonBadge ? (
+            <View style={styles.reasonRow}>
+              <Icon name="info" size={16} color={colors.statusInfo} />
+              <Text style={styles.reasonRowText} numberOfLines={3}>
+                {reason}
+              </Text>
             </View>
           ) : null}
         </View>
-      </View>
-
-      {/* Full-width, wrapping info row for the reason sentence — mirrors
-          RoutineProductCard's adaptationRow (the live Routines-screen card;
-          RoutineStepCard is dead code, no longer mounted anywhere — icon +
-          wrapping text, bordered top divider), never sharing a row with
-          Change. */}
-      {showReasonBadge ? (
-        <View style={styles.reasonRow}>
-          <Icon name="info" size={16} color={colors.statusInfo} />
-          <Text style={styles.reasonRowText} numberOfLines={3}>
-            {reason}
-          </Text>
-        </View>
-      ) : null}
       </View>
     </>
   );
@@ -741,34 +771,42 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 
-  // Matches RoutineProductCard's default (non-completed) chrome exactly —
-  // the live Routines-screen card (RoutineStepCard, which this was
-  // previously modeled on, is dead code with zero mounts anywhere; its
-  // border-outline/no-shadow look was never actually what ships today).
-  // Shadow lives on this same node rather than a separate wrapper (unlike
-  // RoutineProductCard's split cardShadow/card) since this card never clips
-  // an edge-to-edge photo — ProductThumbnail here isn't in `fill` mode, so
-  // there's no overflow:hidden fighting the shadow the way there is there.
+  // Matches RoutineProductCard's default (non-completed) chrome exactly: the
+  // shadow sits on a non-clipping wrapper, the card inside clips the
+  // edge-to-edge photo to the rounded corners (same split RoutineProductCard
+  // and ProductShelfCard use).
+  stepCardShadow: {
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceCard,
+    ...shadow.sm,
+  },
   stepCard: {
     backgroundColor: colors.surfaceCard,
     borderRadius: radius.sm,
-    ...shadow.sm,
+    overflow: 'hidden',
   },
-  stepRow: {
+  // No padding on the row: the photo bleeds flush to the card edges.
+  mainRow: {
     flexDirection: 'row',
-    // Top edge lines up with the name line (identity's first row), not the
-    // whole content block — the photo previously centered against brand/
-    // frequency/reason rows too and drifted below the product name.
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     gap: space[3],
-    paddingHorizontal: space[3],
-    paddingTop: space[3],
-    paddingBottom: space[3],
   },
-  identity: {
+  thumbnailWrap: {
+    flexDirection: 'row',
+  },
+  textColumn: {
     flex: 1,
     minWidth: 0,
-    gap: space[1],
+    gap: 2,
+    paddingVertical: space[3],
+    paddingRight: space[3],
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // flex-end keeps the status trailing even when there is no brand text.
+    justifyContent: 'flex-end',
+    gap: space[2],
   },
   // "1. Cleanser" (left) + frequency marker (right), e.g.
   // "2. Cream                              Every day" — sits directly on
@@ -788,8 +826,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   brand: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
+  },
+  brandFlex: {
+    flex: 1,
   },
   frequency: {
     ...typography.caption,
@@ -801,29 +842,10 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans-Bold',
     color: colors.textPrimary,
   },
-  nameChanged: {
-    ...typography.body,
-    fontFamily: 'DMSans-Bold',
-    color: colors.textPrimary,
-  },
-  oldName: {
-    ...typography.bodySmall,
-    color: colors.textTertiary,
-    textDecorationLine: 'line-through',
-  },
-  // Status pill (left) + Change action (right), same row.
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: space[1],
-  },
   changeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    // Pushes to the row's right edge whether or not a status pill precedes it.
-    marginLeft: 'auto',
     gap: 2,
-    paddingVertical: space[1],
     paddingLeft: space[2],
   },
   changeLabel: {
@@ -837,9 +859,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: space[2],
+    margin: space[3],
+    marginTop: 0,
     paddingTop: space[2],
-    paddingBottom: space[3],
-    paddingHorizontal: space[3],
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
   },

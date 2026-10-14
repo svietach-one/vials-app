@@ -1,7 +1,7 @@
 ---
 project: Vials
 platform: Mobile (React Native / Expo SDK 52)
-stack: Zustand + MMKV Storage + React Navigation v7
+stack: Zustand + AsyncStorage + React Navigation v7
 design_system: Tech-Clinical / Neo-Minimalist (Airbnb Vibe)
 visual_theme: Monochrome with Apothecary Glass & Wine Accents (No Pink)
 version: 1.1 (gap-fix revision)
@@ -36,7 +36,7 @@ version: 1.1 (gap-fix revision)
 
 * **The Core Value Intersection:** Daily skincare and medical cosmetic tracking combined into an inseparable local engine.
 * **The Trust Anchor:** Personal data — skin profile, routines, procedure history — stays on-device by default. Product metadata (brand, name, INCI) contributed via manual entry is sent to the Vials product database only when the user has opted in via the contribution-consent flow (see `docs/specs/contribution-consent-flow/`), anonymized and never linked to a user profile.
-* **Connectivity Architecture (The Hybrid Engine):** The application operates on a hybrid data model. The user's personal shelf (`catalogStore`), routine schedules/checklists (`routineStore`), and the ingredient conflict verification engine (`conflictEngine.ts`) run strictly offline-first and local-only (Zustand + MMKV).
+* **Connectivity Architecture (The Hybrid Engine):** The application operates on a hybrid data model. The user's personal shelf (`catalogStore`), routine schedules/checklists (`routineStore`), and the ingredient conflict verification engine (`conflictEngine.ts`) run strictly offline-first and local-only (Zustand + AsyncStorage).
 Global search and barcode scanning read the on-device Vials product corpus (a Turso/libSQL embedded replica, see §4.3) and work fully offline once the device has synced at least once — no network needed at read time. Only the corpus's own background pull needs connectivity, and it silently no-ops without one. Label text recognition (OCR) remains unbuilt; when a lookup finds no match, the UI falls back to manual input. Crowdsourced product suggestions are built (`submitContribution`) but gated behind the contribution-consent flow — see §4.3.
 
 ---
@@ -126,18 +126,18 @@ The viewport system eliminates layout clutter by routing all configurations into
 ### 4.5. Tab 4: Profile & Settings Screen
 * **`SkinProfileEditor`:** Input form sheets updating age, gender metrics, skin issues, and hosting the 3 unlabeled phototype card selectors.
 * **`GamificationToggle`:** System preference switcher to enable or disable checklist completion rewards and daily streaks (Default: OFF).
-* **`ExportBackupUtility`:** A functional utility that parses the local `MMKV` database, formats all data blocks into a single stringified `.json` layout, and triggers the native system share-sheet for manual backups.
-* **`ImportRestoreUtility` (new):** Counterpart to export. Accepts a previously exported `.json` file via the system document picker, validates its schema/version against the current `MMKV` schema, and presents two restore modes before writing: **Replace** (wipes current local store, loads the file as-is) and **Merge** (adds catalog/routine/clinic records from the file without deleting existing ones, skipping exact duplicates by ID). A pre-write summary screen ("This will add 12 products, 3 procedures...") confirms scope before the user commits — restore is irreversible without a separate backup.
+* **`ExportBackupUtility`:** A functional utility that reads the local AsyncStorage data, formats all data blocks into a single stringified `.json` layout, and triggers the native system share-sheet for manual backups.
+* **`ImportRestoreUtility` (new):** Counterpart to export. Accepts a previously exported `.json` file via the system document picker, validates its schema/version against the current storage schema (`schemaVersion`), and presents two restore modes before writing: **Replace** (wipes current local store, loads the file as-is) and **Merge** (adds catalog/routine/clinic records from the file without deleting existing ones, skipping exact duplicates by ID). A pre-write summary screen ("This will add 12 products, 3 procedures...") confirms scope before the user commits — restore is irreversible without a separate backup.
 * **`LocalDataWarningModal`:** High-visibility text warning anchored permanently in settings: *"Data is saved locally on this device. Deleting the app will erase your logs unless you've exported a backup."*
 
 ---
 
 ## 5. Local Core Engines & Rule-Based Matrices
 
-### 5.1. Data Architecture (MMKV + Zustand)
+### 5.1. Data Architecture (AsyncStorage + Zustand)
 All states run fully offline on the device hardware layer.
 * **State Management:** Zustand slice-stores (`useCatalogStore`, `useRoutineStore`, `useClinicStore`).
-* **Persistence Layer:** Fully backed by `react-native-mmkv` for ultra-fast, synchronous data serialization.
+* **Persistence Layer:** Backed by `@react-native-async-storage/async-storage` through `src/services/storage.ts`, hydrated once at start-up so reads are synchronous afterwards. Chosen over `react-native-mmkv` deliberately so the app runs in Expo Go without a native build (decision recorded in the roadmap's doc-drift blocker; reconciled 2026-10-14).
 * **Core entities (minimum fields for store/schema design):**
   * `Product`: `id, brand, name, type, inciTags[], openedDate, paoMonths, source ('api'|'manual')`
   * `RoutineStep`: `id, productId, period ('AM'|'PM'), order, days[] ('mon'..'sun' | 'every'), hidden:boolean`

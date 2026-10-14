@@ -98,6 +98,7 @@ jest.mock('@/constants/tokens', () => ({
 }));
 
 jest.mock('@/constants/labels', () => ({
+  ...jest.requireActual('@/constants/labels'),
   ACTIVE_INGREDIENT_LABELS: {},
   PRODUCT_TYPE_LABELS: { serum: 'Serum', moisturizer: 'Moisturizer' },
 }));

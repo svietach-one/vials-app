@@ -38,6 +38,7 @@ import {
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 jest.mock('@/constants/labels', () => ({
+  ...jest.requireActual('@/constants/labels'),
   PRODUCT_TYPE_LABELS: {
     cleanser: 'Cleanser',
     serum: 'Serum',

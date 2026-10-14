@@ -211,7 +211,7 @@ This document defines the complete functional requirements and behavior specific
 **So that** I'm not permanently dependent on this one app install for my history.
 
 **Acceptance criteria:**
-* `ExportBackupUtility` serializes the full MMKV store (`catalogStore`, `routineStore`, `clinicStore`, `profileStore`) into one stringified JSON file, tagged with a schema version, and triggers the native share-sheet.
+* `ExportBackupUtility` serializes the full local store (`catalogStore`, `routineStore`, `clinicStore`, `profileStore`) into one stringified JSON file, tagged with a schema version, and triggers the native share-sheet.
 * `ImportRestoreUtility` accepts a JSON file via the system document picker and validates its schema version before proceeding; an incompatible or corrupted file produces a clear error and aborts without touching existing data.
 * On a valid file, the user must choose **Replace** (wipes current local store, loads file as-is) or **Merge** (adds records from the file that don't already exist locally, matched by ID; skips exact duplicates).
 * Before committing either mode, a summary screen states the scope of the change (e.g. "This will add 12 products, 3 procedures, and replace your profile settings") and requires explicit confirmation — the action is irreversible without a separate prior backup.

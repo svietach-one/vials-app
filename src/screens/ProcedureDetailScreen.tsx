@@ -15,6 +15,7 @@ import { CalibrationCard } from '@/components/clinic/CalibrationCard';
 import { AppHeader } from '@/components/ui/core/AppHeader';
 import { Button } from '@/components/ui/core/Button';
 import { IconButton } from '@/components/ui/core/IconButton';
+import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
 import { Input } from '@/components/ui/forms/Input';
 import { Textarea } from '@/components/ui/forms/Textarea';
 import { colors, space, typography } from '@/constants/tokens';
@@ -40,6 +41,7 @@ export default function ProcedureDetailScreen({ route, navigation }: Props) {
   const [dateText, setDateText] = useState(proc ? formatIsoToDateInput(proc.datePerformed) : '');
   const [note, setNote] = useState(proc?.note ?? '');
   const [dateError, setDateError] = useState<string | null>(null);
+  const [estimateReset, setEstimateReset] = useState(false);
 
   function handleSave() {
     if (!proc) return;
@@ -119,8 +121,17 @@ export default function ProcedureDetailScreen({ route, navigation }: Props) {
             <CalibrationCard
               procedureKey={calibrationKey}
               entry={individualDurations?.[calibrationKey]}
-              onReset={() => resetCalibration(calibrationKey)}
+              onReset={() => {
+                resetCalibration(calibrationKey);
+                setEstimateReset(true);
+              }}
             />
+          ) : null}
+
+          {estimateReset ? (
+            <View testID="estimate-reset-notice">
+              <InlineAlert tone="safe">Estimate reset to the clinical default.</InlineAlert>
+            </View>
           ) : null}
         </ScrollView>
 

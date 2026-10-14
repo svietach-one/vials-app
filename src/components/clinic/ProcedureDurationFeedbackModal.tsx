@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/core/Button';
 import { Input } from '@/components/ui/forms/Input';
@@ -129,6 +129,7 @@ export function ProcedureDurationFeedbackModal({
       statusBarTranslucent
       testID="duration-feedback-modal"
     >
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Pressable style={styles.backdrop} onPress={onCancel} testID="duration-feedback-backdrop">
         {/* Stop propagation so tapping the sheet doesn't close the modal */}
         <View style={styles.sheet} onStartShouldSetResponder={() => true}>
@@ -157,6 +158,7 @@ export function ProcedureDurationFeedbackModal({
           </View>
         </View>
       </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -164,6 +166,9 @@ export function ProcedureDurationFeedbackModal({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(9,9,11,0.45)',

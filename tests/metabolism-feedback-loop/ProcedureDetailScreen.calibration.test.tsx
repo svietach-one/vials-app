@@ -95,6 +95,7 @@ describe('Reset to default', () => {
     expect(useProfileStore.getState().profile?.individualDurationMonths).toEqual({});
     expect(useProceduresStore.getState().procedures.find((p) => p.id === 'old')).toEqual(archived);
     expect(screen.getByTestId(TID.emptyAlert)).toBeTruthy();
+    expect(screen.getByTestId('estimate-reset-notice')).toBeTruthy();
   });
 
   it('keeps the calibration when the alert is cancelled', () => {
@@ -108,5 +109,6 @@ describe('Reset to default', () => {
     expect(useProfileStore.getState().profile?.individualDurationMonths).toEqual({
       botox: { months: 5, samples: 2 },
     });
+    expect(screen.queryByTestId('estimate-reset-notice')).toBeNull();
   });
 });
