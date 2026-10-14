@@ -3,6 +3,7 @@ import type { CosmeticProcedureKey } from '@/types';
 import {
   applyCalibrationSample,
   formatMonths,
+  formatMonthsCompact,
   getBaselineMonths,
   parseReportedMonthsText,
   scaleTimelineConfig,
@@ -143,5 +144,18 @@ describe('formatMonths', () => {
 
   it('rounds to one decimal', () => {
     expect(formatMonths(3.33)).toBe('3.3');
+  });
+});
+
+describe('formatMonthsCompact', () => {
+  it.each([
+    [4, '4'],
+    [12, '12'],
+    [5 * (4 / 6), '3.3'],
+    [2.2199999999999998, '2.2'],
+    [4.04, '4'],
+    [4.37, '4.4'],
+  ])('formats %p as %p', (value, expected) => {
+    expect(formatMonthsCompact(value)).toBe(expected);
   });
 });

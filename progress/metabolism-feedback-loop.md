@@ -59,3 +59,11 @@ Deviations / decisions (all intentional):
 - ClinicScreen opens the feedback modal synchronously from ProcedureActionSheet.onClose (required by the QA test, which
   asserts the modal right after the sheet callbacks). RISK for tech-lead/device QA: on iOS, presenting one RN Modal while
   the sheet Modal is dismissing can fail to show; if seen, defer via the sheet's Modal onDismiss (iOS) in a follow-up.
+
+2026-10-14 - engineer: tech-lead F-1 (MAJOR) fixed with human approval. ProcedureLifespanCard time labels printed raw floats
+once calibration made lifespans fractional (e.g. "Month 1 of 3.3333333333333335"). Added pure `formatMonthsCompact`
+(one decimal, integers unchanged) to src/utils/metabolismCalibration.ts (+ unit tests) and applied it to the active
+("of N"), completed ("Full N-month cycle") and history ("Lasted ~N months") labels. Regression suite:
+tests/metabolism-feedback-loop/ProcedureLifespanCard.labels.test.tsx (fake system time; 5 -> "3.3", default stays "4").
+Doc drift: docs/specs/metabolism-feedback-loop.md section 6 legacy migration now says `samples: 1` (matches the code and
+the approval). No other tech-lead findings addressed in this pass.

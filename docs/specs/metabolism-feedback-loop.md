@@ -170,7 +170,7 @@ Copy is English-only, sentence case.
 
 - `UserProfile.individualDurationMonths`: `Partial<Record<CosmeticProcedureKey, CalibrationEntry>>`,
   `CalibrationEntry = { months: number; samples: number }` (type change; the field was never written).
-  Schema v7 → v8; migration coerces any legacy bare number to `{ months: n, samples: 0 }`.
+  Schema v7 → v8; migration coerces any legacy bare number to `{ months: n, samples: 1 }` (human-approved: a legacy number is one real report).
 - `UserProcedureLog.expectedMonths?: number` — snapshot of the effect window at creation (absent =
   clinical default, so existing logs need no migration). A future manual lifespan edit would write this
   field, never the profile — that is how "overrides never recalibrate" holds.

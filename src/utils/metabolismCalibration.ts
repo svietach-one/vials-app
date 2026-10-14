@@ -83,3 +83,12 @@ export function scaleTimelineConfig(
 export function formatMonths(n: number): string {
   return n.toFixed(1);
 }
+
+/**
+ * Month count for prose labels: at most one decimal, integers unchanged
+ * (4 -> "4", 3.3333 -> "3.3", 4.04 -> "4"). Calibration makes lifespans
+ * fractional, so raw interpolation would print "3.333333333333333".
+ */
+export function formatMonthsCompact(n: number): string {
+  return String(Number(n.toFixed(1)));
+}

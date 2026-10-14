@@ -13,7 +13,7 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { CLINIC_FADING_PROMPT_ENABLED } from '@/constants/featureFlags';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { CosmeticProcedureKey, SkinConditionType, UserProcedureLog } from '@/types';
-import { parseReportedMonthsText } from '@/utils/metabolismCalibration';
+import { formatMonthsCompact, parseReportedMonthsText } from '@/utils/metabolismCalibration';
 import {
   getRecoveryConditionCaution,
   isAggressiveProcedure,
@@ -96,17 +96,17 @@ function getTimeLabel(proc: UserProcedureLog, status: ComputedStatus, now: Date)
         return `Est. return ${formatDate(proc.estimatedReturnDate)} · ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`;
       }
       const monthsLeft = Math.ceil(config.fadeTriggerMonth - elapsedMonths);
-      return `Month ${Math.floor(elapsedMonths) + 1} of ${config.fadeTriggerMonth} · fading check in ~${monthsLeft} month${monthsLeft !== 1 ? 's' : ''}`;
+      return `Month ${Math.floor(elapsedMonths) + 1} of ${formatMonthsCompact(config.fadeTriggerMonth)} · fading check in ~${monthsLeft} month${monthsLeft !== 1 ? 's' : ''}`;
     }
     case 'fading':
       return `Month ${Math.floor(elapsedMonths) + 1} — check if the effect is still visible`;
     case 'completed':
       return isCustomProcedure(proc)
         ? `Estimated return date reached (${formatDate(proc.estimatedReturnDate)})`
-        : `Full ${config.totalEffectMonths}-month cycle complete`;
+        : `Full ${formatMonthsCompact(config.totalEffectMonths)}-month cycle complete`;
     case 'archived':
       return proc.realDuration
-        ? `Lasted ~${proc.realDuration} months (your record)`
+        ? `Lasted ~${formatMonthsCompact(proc.realDuration)} months (your record)`
         : 'Archived';
   }
 }
