@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   BottomSheetModal,
   BottomSheetScrollView,
@@ -101,6 +101,18 @@ const RESET_OPTION: RadioOption<FooterChoice> = {
   label: 'Reset all',
   sublabel: 'Removes every step from both routines so you can start from scratch.',
 };
+
+/** Reset all wipes every saved step with no undo, so it gets one more explicit step. */
+function confirmResetAll(onResetAll: (() => void) | undefined): void {
+  Alert.alert(
+    'Reset all routines?',
+    'This removes every step from your morning and evening routines. It cannot be undone.',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reset all', style: 'destructive', onPress: () => onResetAll?.() },
+    ],
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -371,7 +383,7 @@ export function DraftPreviewScreen({
             <Button
               variant={commitScope === 'reset' ? 'destructive' : 'primary'}
               size="md"
-              onPress={() => (commitScope === 'reset' ? onResetAll?.() : onCommit(commitScope))}
+              onPress={() => (commitScope === 'reset' ? confirmResetAll(onResetAll) : onCommit(commitScope))}
               style={styles.actionBtn}
             >
               Confirm

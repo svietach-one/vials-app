@@ -23,6 +23,7 @@
  * Assumption 5 of multi-action-radio-picker).
  */
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import type { Product, Routine } from '@/types';
 import type { RoutinePlan } from '@/utils/routineEngine/generate';
@@ -537,15 +538,38 @@ describe('Reset all option in the commit footer', () => {
     expect(screen.queryByRole('radio', { name: 'Reset all' })).toBeNull();
   });
 
-  it('calls onResetAll, not onCommit, when Reset all is selected and confirmed', () => {
+  it('asks for a final confirmation and only then calls onResetAll (never onCommit)', () => {
     mockRoutines = SAVED_ROUTINE;
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { onCommit, onResetAll } = renderFooter();
 
     fireEvent.press(screen.getByRole('radio', { name: 'Reset all' }));
     fireEvent.press(screen.getByText('Confirm'));
 
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(onResetAll).not.toHaveBeenCalled();
+
+    const buttons = alertSpy.mock.calls[0][2] as { text: string; onPress?: () => void }[];
+    buttons.find((x) => x.text === 'Reset all')?.onPress?.();
+
     expect(onResetAll).toHaveBeenCalledTimes(1);
     expect(onCommit).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+
+  it('does nothing when the reset alert is cancelled', () => {
+    mockRoutines = SAVED_ROUTINE;
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const { onCommit, onResetAll } = renderFooter();
+
+    fireEvent.press(screen.getByRole('radio', { name: 'Reset all' }));
+    fireEvent.press(screen.getByText('Confirm'));
+    const buttons = alertSpy.mock.calls[0][2] as { text: string; onPress?: () => void }[];
+    buttons.find((x) => x.text === 'Cancel')?.onPress?.();
+
+    expect(onResetAll).not.toHaveBeenCalled();
+    expect(onCommit).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
   });
 
   it('still commits the default scope when Reset all is not chosen', () => {
