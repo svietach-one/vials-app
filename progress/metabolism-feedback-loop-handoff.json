@@ -1,0 +1,14 @@
+{
+  "task": "metabolism-feedback-loop",
+  "phase": "qa",
+  "status": "APPROVED",
+  "branch": "feature/metabolism-feedback-loop",
+  "flags": { "backend_layer": false, "frontend_layer": true, "infra_changes": false },
+  "artifacts": {
+    "spec": "docs/specs/metabolism-feedback-loop.md",
+    "tech_design": "docs/tech-design/metabolism-feedback-loop.md"
+  },
+  "baseline_origin_dev": { "tsc": "clean", "suites_failed": 12, "suites_passed": 227, "tests_failed": 79, "tests_passed": 2701 },
+  "blocking_questions": [],
+  "next": "qa-lead"
+}
