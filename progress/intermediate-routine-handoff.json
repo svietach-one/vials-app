@@ -1,0 +1,47 @@
+{
+  "task": "intermediate-routine",
+  "phase": "design",
+  "status": "DESIGNED",
+  "flags": {
+    "backend_layer": false,
+    "frontend_layer": true,
+    "infra_changes": false
+  },
+  "artifacts": {
+    "spec": "docs/specs/intermediate-routine.md",
+    "tech_design": "docs/tech-design/intermediate-routine.md"
+  },
+  "prerequisites": [
+    "fix/precleanse-gap-card merged into dev; branch intermediate-routine from origin/dev afterwards (shared files carry that branch's uncommitted work)"
+  ],
+  "decisions_from_product_owner": {
+    "no_release_no_users": "No migration or back-compat; default routine style is Balanced for everyone (one constant).",
+    "not_silent": "Steps the style calls for (toner, eye cream) raise gap cards when the shelf cannot fill them; shelf products not in the routine are listed with a reason on the Routines screen.",
+    "filter_vs_selection": "Technical decision, recorded as an assumption: the style changes slot selection before admission."
+  },
+  "unblocked_scope": {
+    "summary": "All of FE-1..FE-11 and DOC-1 in the tech design. Phase A (style, toner, eye cream, gap cards), Phase B (enzyme exfoliant) and Phase C (left-out list, style control) can be built in that order; each phase is independently shippable.",
+    "phases": [
+      "A: FE-1..FE-5",
+      "B: FE-6..FE-8",
+      "C: FE-9..FE-11, DOC-1"
+    ]
+  },
+  "needs_clarification_non_blocking": {
+    "Q1": "NEEDS_CLARIFICATION -> owner: product owner. Selectable third 'Complete' style now? Default: no.",
+    "Q2": "NEEDS_CLARIFICATION -> owner: product owner. Gap card for a missing enzyme exfoliant? Default: no (exfoliation is skin-state dependent).",
+    "Q3": "NEEDS_CLARIFICATION -> owner: clinical consultant. Review of draft values: enzyme matchers, 3 days a week, 12-ingredient window, barrier-repair deferral, AM preference.",
+    "Q4": "NEEDS_CLARIFICATION -> owner: design. Style names and PLACEHOLDER copy in spec section 5."
+  },
+  "key_findings_from_planning": [
+    "The reserve bucket is rendered in the Draft Preview (collapsed, with per-row 'Add anyway') but never on the saved Routines screen.",
+    "Live gap cards come from validateCurrentRoutines().proposedPlan.placeholders (a fresh hypothetical plan), so Balanced gap cards need no UI and an engine change reaches the live screen without a save.",
+    "Essential equals today's engine over 600 seeded shelves except one relabelled reserve reason (outside_routine_depth).",
+    "Unguarded, 'Add anyway' on an enzyme product schedules it AM and PM every day; the override block must re-enter the preferred period only and apply the cap.",
+    "Latent test gap at today's engine: scheduled-and-frozen disjointness is asserted per product but is legal per period (seeds 157 and 362 of a 1000-seed sweep); assert per hard gate before widening seeds or parametrizing."
+  ],
+  "notes_for_qa_lead": [
+    "Reference shelves R9, S3, E4 and their expected results are in spec section 4.",
+    "Parametrize the explainability, determinism-and-safety and generate suites over both styles; pin depth essential in the tier-contract tests."
+  ]
+}
