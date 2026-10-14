@@ -6,11 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconButton } from '@/components/ui/core/IconButton';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { Tag } from '@/components/ui/core/Tag';
-import {
-  selectToneColor,
-  type SelectOption,
-  type SelectOptionTone,
-} from '@/components/ui/forms/Select';
+import type { SelectOption } from '@/components/ui/forms/Select';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { Product } from '@/types';
 
@@ -123,6 +119,7 @@ export function ReplaceStepSheet({ target, onClose, productOf, onSelect }: Repla
                         option={option}
                         product={productOf(option.value)}
                         isCurrent={option.value === target.currentProductId}
+                        isRecommended
                         selected={option.value === target.currentProductId}
                         onPress={() => onSelect(option.value)}
                       />
@@ -170,12 +167,15 @@ function OptionRow({
   option,
   product,
   isCurrent,
+  isRecommended = false,
   selected,
   onPress,
 }: {
   option: SelectOption;
   product: Product | undefined;
   isCurrent: boolean;
+  /** The engine's own pick for this slot (the "Recommended for you" section). */
+  isRecommended?: boolean;
   selected: boolean;
   onPress: () => void;
 }) {
@@ -191,32 +191,36 @@ function OptionRow({
       accessibilityState={{ checked: selected }}
       accessibilityLabel={option.reason ? `${option.title} — ${option.reason}` : option.title}
     >
-      {product ? <ProductThumbnail product={product} size={76} /> : null}
+      <View style={styles.mainRow}>
+        {product ? (
+          <View style={styles.thumbnailWrap}>
+            <ProductThumbnail product={product} fill />
+          </View>
+        ) : null}
 
-      <View style={styles.optionText}>
-        <Text style={styles.optionTitle} numberOfLines={2}>
-          {option.title}
-        </Text>
-        {product?.brand ? (
-          <Text style={styles.optionBrand} numberOfLines={1}>
-            {product.brand}
+        <View style={styles.optionText}>
+          <View style={styles.headerRow}>
+            {product?.brand ? (
+              <Text style={[styles.optionBrand, styles.optionBrandFlex]} numberOfLines={1}>
+                {product.brand}
+              </Text>
+            ) : null}
+            {isCurrent ? (
+              <Tag tone="neutral">Current</Tag>
+            ) : isRecommended ? (
+              <Tag tone="safe">Recommended</Tag>
+            ) : (
+              <Tag tone="info">Reserve</Tag>
+            )}
+          </View>
+          <Text style={styles.optionTitle} numberOfLines={1}>
+            {option.title}
           </Text>
-        ) : null}
-        {isCurrent ? (
-          <Tag tone="neutral" style={styles.currentTag}>
-            Current
-          </Tag>
-        ) : option.reason ? (
-          <Text style={[styles.optionReason, { color: toneColorOf(option.tone) }]} numberOfLines={1}>
-            {option.reason}
-          </Text>
-        ) : null}
+        </View>
       </View>
     </Pressable>
   );
 }
-
-const toneColorOf = (tone: SelectOptionTone | undefined) => selectToneColor[tone ?? 'neutral'];
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -274,20 +278,30 @@ const styles = StyleSheet.create({
   sectionList: {
     gap: space[3],
   },
-  // Matches DraftPreviewScreen's StepCard chrome (flex-start-aligned row,
-  // same photo size and padding/gap scale), but uses a plain border instead
-  // of shadow.sm — inside this sheet's Modal the shadow reads as too faint
-  // to separate stacked cards, so the border is the row's only definition.
+  // Same layout as DraftPreviewScreen's step card (edge-to-edge photo, brand
+  // line with the status badge trailing it, name below) but with a plain
+  // border instead of a shadow — inside this sheet's Modal the shadow reads
+  // as too faint to separate stacked cards.
   optionRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: space[3],
-    paddingHorizontal: space[3],
-    paddingVertical: space[3],
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.borderDivider,
     backgroundColor: colors.surfaceCard,
+    overflow: 'hidden',
+  },
+  mainRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: space[3],
+  },
+  thumbnailWrap: {
+    flexDirection: 'row',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[2],
   },
   optionRowSelected: {
     borderColor: palette.plum,
@@ -299,7 +313,9 @@ const styles = StyleSheet.create({
   optionText: {
     flex: 1,
     minWidth: 0,
-    gap: space[1],
+    gap: 2,
+    paddingVertical: space[3],
+    paddingRight: space[3],
   },
   optionTitle: {
     ...typography.body,
@@ -307,15 +323,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   optionBrand: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
   },
-  optionReason: {
-    ...typography.caption,
-    fontSize: 12,
-  },
-  currentTag: {
-    alignSelf: 'flex-start',
-    marginTop: space[1],
+  optionBrandFlex: {
+    flex: 1,
   },
 });

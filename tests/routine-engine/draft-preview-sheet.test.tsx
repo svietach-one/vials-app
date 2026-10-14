@@ -263,7 +263,7 @@ describe('screen-improvements: each step reflects whether it changed from the sa
     expect(screen.getByText('No change')).toBeTruthy();
   });
 
-  it('shows the old product struck through above the new one when the slot changed', () => {
+  it('shows only the new product (no struck-through old name) when the slot changed', () => {
     mockRoutines = [
       {
         id: 'routine-am',
@@ -289,7 +289,7 @@ describe('screen-improvements: each step reflects whether it changed from the sa
       />,
     );
 
-    expect(screen.getByText('Retinol Night Cream')).toBeTruthy();
+    expect(screen.queryByText('Retinol Night Cream')).toBeNull();
     expect(screen.getByText('Vitamin C Serum')).toBeTruthy();
     expect(screen.queryByText('No change')).toBeNull();
   });

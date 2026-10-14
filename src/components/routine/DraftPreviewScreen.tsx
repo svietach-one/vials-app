@@ -632,11 +632,6 @@ function StepCard({
                 {name}
               </Text>
 
-              {isChanged && oldStep ? (
-                <Text style={styles.oldName} numberOfLines={1}>
-                  {nameOf(oldStep.productId)}
-                </Text>
-              ) : null}
             </View>
           </View>
 
@@ -832,11 +827,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontFamily: 'DMSans-Bold',
     color: colors.textPrimary,
-  },
-  oldName: {
-    ...typography.bodySmall,
-    color: colors.textTertiary,
-    textDecorationLine: 'line-through',
   },
   changeButton: {
     flexDirection: 'row',

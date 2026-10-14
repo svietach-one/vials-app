@@ -81,6 +81,26 @@ describe('Story 2 AC2: a same-slot candidate opens from the step\'s "Change"', (
     expect(screen.getByLabelText(`${CREAM_B.name} — from reserve`)).toBeTruthy();
   });
 
+  it('badges the candidates in the sheet as Current, Recommended or Reserve', () => {
+    render(
+      <DraftPreviewScreen
+        visible
+        onClose={jest.fn()}
+        plan={makePlanWithAlternative()}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+        onSwapAlternative={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText(`Change ${CREAM_A.name}`));
+
+    // CREAM_A is both the slot's current product and the engine's pick: Current wins.
+    expect(screen.getByText('Current')).toBeTruthy();
+    expect(screen.getByText('Reserve')).toBeTruthy();
+    expect(screen.queryByText('Recommended')).toBeNull();
+  });
+
   it('never removes the alternative from the shelf or the plan — it stays a suggestion, not a mutation', () => {
     const plan = makePlanWithAlternative();
     render(
