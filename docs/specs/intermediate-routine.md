@@ -232,13 +232,18 @@ The app is local-only with no telemetry, so success is verified on fixtures:
 
 ## 10. Open Questions
 
-All are non-blocking: a planner default is implemented and the answer changes a constant or copy.
-- [ ] Q1. Do you also want a selectable third "Complete" style now? Default: no (§3). → owner: product owner
-- [ ] Q2. Should a missing enzyme exfoliant raise a gap card? Default: no, because exfoliation is skin-state
-  dependent and a card would need suppression rules. NEEDS_CLARIFICATION → owner: product owner
-- [ ] Q3. Clinical review of the draft values: enzyme matchers, 3 days a week, the first-12-ingredients
-  window, barrier-repair deferral, AM preference. → owner: clinical consultant
-- [ ] Q4. Approve the style names and all PLACEHOLDER copy in §5. → owner: design
+- [x] Q1. A third "Complete" style — **NO** (product owner, 2026-10-14). Two styles ship: Essential and
+  Balanced. Follows from Q2: without an exfoliant prompt there is no meaningful third tier to select.
+- [x] Q2. A gap card for a missing enzyme exfoliant — **NO** (product owner, 2026-10-14). The planner
+  default stands: exfoliation is skin-state dependent (barrier-repair goal, post-procedure freeze,
+  phototype and season caps) and a prompt would need suppression rules nobody has written. An enzyme
+  product the user DOES own is still scheduled; only the purchase prompt is withheld.
+- [x] Q3. Clinical review of the draft values (enzyme matchers, 3 days a week, the first-12-ingredients
+  window, barrier-repair deferral, AM preference) — **DEFERRED to after the MVP, before the global
+  release** (product owner, 2026-10-14). The values ship as drafted for the MVP. → owner: clinical
+  consultant, scheduled post-MVP
+- [ ] Q4. Approve the style names ("Essential" / "Balanced") and all PLACEHOLDER copy in §5.
+  → owner: design. Still open.
 
 Resolved 2026-10-14 (product owner, relayed by the coordinating session): no release and no existing
 users, so the default is Balanced for everyone and nothing is migrated; "filter versus slot selection" is a

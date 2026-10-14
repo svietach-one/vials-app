@@ -76,3 +76,12 @@ window, barrier-repair deferral, AM). Q4 approve style names and PLACEHOLDER cop
 
 **Owed by the coordinator:** `.claude/rules/roadmap-sync.md` — new files under `docs/specs/` and
 `docs/tech-design/` require a roadmap sync; the planner has no WebFetch/Artifact tools.
+
+2026-10-14 — product owner answered the open questions:
+- Q1 third "Complete" style: NO. Two styles only.
+- Q2 purchase prompt for a missing exfoliant: NO. An owned enzyme product is
+  still scheduled; only the prompt is withheld.
+- Q3 clinical review of enzyme values: DEFERRED to after the MVP, before the
+  global release. Values ship as drafted.
+- Q4 style names + copy: still open, owner design.
+Spec stays DRAFT pending Q4 and the owner's read-through.
