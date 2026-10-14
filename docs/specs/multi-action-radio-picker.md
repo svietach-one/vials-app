@@ -101,6 +101,12 @@ other option.
 - [ ] Given the user taps Cancel, then `onCancel` fires and no removal callback fires.
 
 ### Story 3: Choosing which periods to save a routine draft to (`DraftPreviewScreen`)
+
+> **Amended 2026-10-14** (progress/draft-preview-reset-and-card-layout.md): the heading is now
+> "Select an option", the three radios read "Save for Morning & Evening / Morning only / Evening
+> only", and a fourth "Reset all" radio is shown when any routine has steps (Confirm turns into the
+> destructive variant and calls `onResetAll` instead of `onCommit`). The acceptance criteria below
+> describe the original three-option behaviour; label text and the option count are superseded.
 As a user finishing a generated routine draft, I want to pick "Morning & Evening", "Morning Only",
 or "Evening Only" from a radio list and confirm explicitly, so the three long "Save for…" labels
 stop being stacked as three separate full-width buttons.

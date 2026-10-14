@@ -617,6 +617,7 @@ function StepCard({
                   {isSwappable ? (
                     <Pressable
                       style={styles.changeButton}
+                      hitSlop={8}
                       onPress={openReplace}
                       accessibilityRole="button"
                       accessibilityLabel={`Change ${name}`}
@@ -791,7 +792,8 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    // flex-end keeps the status trailing even when there is no brand text.
+    justifyContent: 'flex-end',
     gap: space[2],
   },
   // "1. Cleanser" (left) + frequency marker (right), e.g.

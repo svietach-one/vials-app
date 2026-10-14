@@ -13,7 +13,9 @@
  * multi-action-radio-picker (FE-5) converts the bottom commit-scope footer
  * from four stacked Save-for-X/Cancel Buttons (one tap = select-and-commit)
  * to a RadioOptionGroup<PlanCommitScope> ("Morning & Evening" pre-selected,
- * "Morning Only", "Evening Only") plus a local Confirm/Cancel Button pair.
+ * "Morning Only", "Evening Only"; since 2026-10-14 labelled "Save for …" under the
+ * heading "Select an option", plus a conditional "Reset all") and a local
+ * Confirm/Cancel Button pair.
  * `onCommit`'s signature is unchanged. The blocks below that used to query
  * `getByLabelText('Save for Morning & Evening')` etc. as single-tap-commits
  * are rewritten against the new select-then-Confirm contract — the old
@@ -558,7 +560,7 @@ describe('Reset all option in the commit footer', () => {
 });
 
 describe('Step card layout mirrors the Routines-screen card', () => {
-  it('shows the brand line and product name, with No change as the trailing status for an unchanged step', () => {
+  it('shows the product name with No change as the status for an unchanged step', () => {
     mockRoutines = [
       {
         id: 'routine-am',
@@ -585,7 +587,6 @@ describe('Step card layout mirrors the Routines-screen card', () => {
     );
 
     expect(screen.getByText(CLEANSER.name)).toBeTruthy();
-    if (CLEANSER.brand) expect(screen.getByText(CLEANSER.brand)).toBeTruthy();
     expect(screen.getByText('No change')).toBeTruthy();
     expect(screen.queryByText('Change')).toBeNull();
   });

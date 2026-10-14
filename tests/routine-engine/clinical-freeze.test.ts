@@ -28,8 +28,8 @@ const PEEL_DAY0 = '2026-07-04';
 // LAST frozen calendar day is elapsed=13 (2026-07-17) and the FIRST free day
 // is elapsed=14 (2026-07-18) — matching the peel's own `until` date
 // (2026-07-18) used in the other tests in this file. qa-lead note: the spec's
-// Story 4 AC4 prose ("frozen on D+14 (rehab end), visible on D+15") reads as
-// one day later than this — likely a day-counting-convention wording gap
+// Story 4 AC4 prose was originally worded "frozen on D+14, visible on D+15"
+// (one day later than this; corrected to D+13/D+14 on 2026-10-14) — likely a day-counting-convention wording gap
 // between the spec (1-indexed "day 14 of 14") and the engine's 0-indexed
 // elapsed-days math, not a behavioural bug (see handoff notes).
 const LAST_FROZEN_DAY = new Date('2026-07-17T12:00:00Z');

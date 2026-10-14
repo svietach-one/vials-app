@@ -80,7 +80,7 @@ nearest equivalent is the two new components' prop shapes:
   `{value:'all', label:'All days'}`; `defaultValue: 'day'` (no button was previously primary here —
   defaults to the narrower, less-destructive scope per tech design Assumption 3). External props
   unchanged. Files: `src/components/routine/RemoveStepModal.tsx`.
-- FE-5: Convert `DraftPreviewScreen`'s bottom `styles.actions` block (the 4-button commit-scope
+- FE-5 (amended 2026-10-14, see progress/draft-preview-reset-and-card-layout.md: heading "Select an option", labels "Save for …", optional fourth "Reset all" radio + `onResetAll`): Convert `DraftPreviewScreen`'s bottom `styles.actions` block (the 4-button commit-scope
   footer — not the per-step "Change" affordance, which is untouched) to a short "Save for" label +
   `RadioOptionGroup<PlanCommitScope>` (`both`/`am`/`pm`, labels "Morning & Evening"/"Morning Only"/
   "Evening Only", `defaultValue: 'both'`) + a local Confirm/Cancel `<Button>` pair. Confirm calls

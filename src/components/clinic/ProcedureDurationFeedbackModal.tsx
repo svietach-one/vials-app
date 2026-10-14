@@ -129,7 +129,7 @@ export function ProcedureDurationFeedbackModal({
       statusBarTranslucent
       testID="duration-feedback-modal"
     >
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Pressable style={styles.backdrop} onPress={onCancel} testID="duration-feedback-backdrop">
         {/* Stop propagation so tapping the sheet doesn't close the modal */}
         <View style={styles.sheet} onStartShouldSetResponder={() => true}>
