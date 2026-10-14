@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
+import { ProductFitInsights } from '@/components/product/ProductFitInsights';
 import { ProductInsightsPanel } from '@/components/product/ProductInsightsPanel';
 import { AttributionTooltip } from '@/components/routine/AttributionTooltip';
 import { RemoveRoutineActionSheet } from '@/components/routine/RemoveRoutineActionSheet';
@@ -441,6 +442,12 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
 
         {/* ── Product Insights (product-profile-m1) ───────────────────── */}
         <ProductInsightsPanel profile={productProfile} />
+
+        {/* ── Explore-derived fit insights (INCI position, caution, goal fit) ── */}
+        <ProductFitInsights
+          product={product}
+          onSetSkinType={() => navigation.navigate('Profile' as never)}
+        />
 
         {/* ── Allergens ─────────────────────────────────────────────────── */}
         {allergenMatches.length > 0 ? (
