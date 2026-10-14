@@ -85,3 +85,94 @@ describe('detectCategory', () => {
     expect(detectCategory('KREM NAWILŻAJĄCY')).toBe('moisturizer');
   });
 });
+
+import type { Product } from '../../types';
+import { normalizeProductType, reclassifyGelCream } from './categoryDetector';
+
+/** Annotated with the real domain type so field drift fails tsc, not just the run. */
+function makeProduct(overrides: Partial<Product> = {}): Product {
+  return {
+    id: 'p1',
+    name: 'Product',
+    brand: null,
+    productType: 'gel',
+    imageUrl: null,
+    activeIngredients: [],
+    fullIngredientText: null,
+    usageTime: 'both',
+    openBeautyFactsId: null,
+    addedAt: '2026-01-01',
+    notes: null,
+    openedDate: null,
+    paoMonths: null,
+    source: 'user_local',
+    ...overrides,
+  };
+}
+
+describe('reclassifyGelCream — a gel-textured moisturiser reaches the cream slot', () => {
+  const gel = (name: string): Product => makeProduct({ name, productType: 'gel' });
+
+  it.each([
+    'Water Bank Blue Hyaluronic Gel Cream',
+    'Hydro Boost Cream-Gel',
+    'Crème-gel hydratante',
+    'Nawilżający krem-żel',
+  ])('reclassifies %s to moisturizer', (name) => {
+    expect(reclassifyGelCream(gel(name)).productType).toBe('moisturizer');
+  });
+
+  it('leaves a bare gel alone — a gel serum and a gel moisturiser are not the same product', () => {
+    const serumish = gel('Hydrating Gel');
+    expect(reclassifyGelCream(serumish)).toBe(serumish); // same reference, no copy
+  });
+
+  it('never touches a product that is not typed gel', () => {
+    const cream = makeProduct({ name: 'Gel Cream', productType: 'cream' });
+    expect(reclassifyGelCream(cream)).toBe(cream);
+  });
+
+  it('normalizeProductType applies both guards', () => {
+    expect(normalizeProductType(gel('Aqua Gel Cream')).productType).toBe('moisturizer');
+    const micellar = makeProduct({ name: 'Micellar Water', productType: 'cleanser' });
+    expect(normalizeProductType(micellar).productType).toBe('makeup_remover');
+  });
+});
+
+/**
+ * `balm` fills the moisturiser slot since 2026-10-14. The bundled corpus holds
+ * 53 balm-typed products, of which only ~6 are face balms: 38 are hair balms
+ * and 3 are cleansing balms (tech-lead re-review 2026-10-14, W3). Names below
+ * are taken from that corpus.
+ */
+describe('only face balms reach the moisturiser slot', () => {
+  const balm = (name: string) => makeProduct({ name, productType: 'balm' });
+
+  it.each(['Lip Balm', 'Nourishing Lip Treatment Balm', 'Baume à lèvres'])(
+    'keeps lip product %s out of the routine',
+    (name) => {
+      expect(normalizeProductType(balm(name)).productType).toBe('other');
+    },
+  );
+
+  it.each([
+    'Бальзам для волос Belita',
+    'Repairing Hair Balm',
+    'Baume cheveux',
+    'Balsam do włosów',
+    'Бальзам для кожи головы',
+  ])('keeps hair/scalp product %s out of the routine', (name) => {
+    expect(normalizeProductType(balm(name)).productType).toBe('other');
+  });
+
+  it.each(['Pyunkang Yul Cleansing Balm', 'Mizon Cleansing Balm'])(
+    'routes %s to the pre-cleanse slot, not the moisturiser slot',
+    (name) => {
+      expect(normalizeProductType(balm(name)).productType).toBe('makeup_remover');
+    },
+  );
+
+  it('leaves a genuine face balm as a balm so it can still hydrate', () => {
+    expect(normalizeProductType(balm('Missha Rich Repair Balm')).productType).toBe('balm');
+  });
+});

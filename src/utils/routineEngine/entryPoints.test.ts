@@ -113,9 +113,35 @@ describe('generatePlan', () => {
   it('emits an SPF placeholder when a peel mandates SPF the shelf lacks', () => {
     const plain = makeProduct();
     const plan = generatePlan(makeInput([plain], { procedures: [PEEL] }));
-    expect(plan.placeholders).toEqual([
-      expect.objectContaining({ period: 'am', productTypes: ['spf'] }),
-    ]);
+    // Not an exact-array assertion: since 2026-10-14 every unfilled structural
+    // slot reports itself, and this one-product shelf also lacks a cleanser and
+    // a moisturiser. What matters here is that the SPF card is the PEEL
+    // MANDATE's, not the generic `spf_recommended` gap — dedupePlaceholders
+    // must keep the stricter of the two.
+    const spf = plan.placeholders.filter((p) => p.productTypes.includes('spf'));
+    expect(spf).toHaveLength(1);
+    expect(spf[0]).toEqual(
+      expect.objectContaining({ period: 'am', reasonCode: 'peel_spf_mandatory' }),
+    );
+  });
+
+  it('reports every unfilled structural slot, not just the moisturiser', () => {
+    // Field report 2026-10-14: products vanished into reserve with no prompt.
+    const serum = makeProduct({ productType: 'serum' });
+    const plan = generatePlan(makeInput([serum]));
+
+    const gaps = plan.placeholders.map((p) => `${p.period}:${p.reasonCode}`);
+    expect(gaps).toEqual(
+      expect.arrayContaining([
+        'am:cleanser_recommended',
+        'am:moisturizer_recommended',
+        'am:spf_recommended',
+        'pm:cleanser_recommended',
+        'pm:moisturizer_recommended',
+      ]),
+    );
+    // A makeup remover is optional — never nag for one.
+    expect(gaps.join()).not.toContain('makeup_remover');
   });
 
   it('caps a freshly added retinoid at 2 nights/week via adaptation (virtual count)', () => {

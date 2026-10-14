@@ -108,10 +108,14 @@ describe('selectSkeleton — cumulative active exposure (phase-04 §4.2, report 
     const reserved = [ahaToner, ahaCream].map((p) => reasonFor(r, p.id));
     expect(reserved).toEqual(['duplicate_function', 'duplicate_function']);
     // The acid cream was reclassified as a treatment, so no moisturizer remains
-    // → neutral-moisturizer placeholder recommended.
-    expect(r.placeholders).toEqual([
-      expect.objectContaining({ period: 'pm', productTypes: ['moisturizer'], reasonCode: 'moisturizer_recommended' }),
-    ]);
+    // → neutral-moisturizer placeholder recommended. Containment, not equality:
+    // since 2026-10-14 every unfilled structural slot reports itself, and this
+    // shelf also has no cleanser or SPF.
+    expect(r.placeholders).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ period: 'pm', productTypes: ['moisturizer'], reasonCode: 'moisturizer_recommended' }),
+      ]),
+    );
     // The selected acid inherits the exfoliant treatment cap.
     expect(r.treatmentCaps.get(ahaSerum.id)).toEqual(
       expect.objectContaining({ reasonCode: 'exfoliant_treatment_cap' }),
@@ -157,9 +161,11 @@ describe('selectSkeleton — cumulative active exposure (phase-04 §4.2, report 
     expect(r.treatmentCaps.get(retinoidCream.id)).toEqual(
       expect.objectContaining({ reasonCode: 'reclassified_treatment_cap' }),
     );
-    expect(r.placeholders).toEqual([
-      expect.objectContaining({ period: 'pm', reasonCode: 'moisturizer_recommended' }),
-    ]);
+    expect(r.placeholders).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ period: 'pm', reasonCode: 'moisturizer_recommended' }),
+      ]),
+    );
   });
 });
 

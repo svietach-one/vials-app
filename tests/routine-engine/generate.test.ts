@@ -211,3 +211,87 @@ describe('phase-04 acceptance: skeleton build-up + cumulative exposure end-to-en
     }
   });
 });
+
+/**
+ * Field report 2026-10-14: products the user owns vanished from the routine
+ * with no step, no placeholder and no explanation. A balm was one of them —
+ * the moisturiser slot only accepted moisturizer/cream/lotion.
+ */
+describe('moisturiser slot accepts a balm (2026-10-14)', () => {
+  const shelf = () => [
+    makeProduct({ id: 'foam', name: 'Foam Cleanser', productType: 'cleanser' }),
+    makeProduct({ id: 'balm', name: 'Rich Balm', productType: 'balm' }),
+  ];
+
+  it('schedules a balm as the leave-on hydrator instead of reserving it', () => {
+    const plan = generatePlan(makeEngineInput(shelf(), { now: NOW }));
+
+    expect(plan.periods.evening.map((s) => s.productId)).toContain('balm');
+    expect(plan.reserve.map((r) => r.productId)).not.toContain('balm');
+  });
+
+  it('orders the balm after a cream, where an occlusive belongs', () => {
+    const plan = generatePlan(
+      makeEngineInput(
+        [...shelf(), makeProduct({ id: 'cream', name: 'Day Cream', productType: 'cream' })],
+        { now: NOW },
+      ),
+    );
+
+    const pm = plan.periods.evening.map((s) => s.productId);
+    if (pm.includes('balm') && pm.includes('cream')) {
+      expect(pm.indexOf('cream')).toBeLessThan(pm.indexOf('balm'));
+    }
+  });
+});
+
+/**
+ * Field report 2026-10-14 follow-up: a gel-textured moisturiser typed `gel`
+ * sits at the SERUM layer, so it could never fill the moisturiser slot — it
+ * was reserved with no step. normalizeProductType now routes it by name.
+ */
+describe('a gel-cream fills the moisturiser slot (2026-10-14)', () => {
+  it('schedules a "Gel Cream" instead of reserving it, and clears the moisturiser gap', () => {
+    const products = [
+      makeProduct({ id: 'foam', name: 'Foam Cleanser', productType: 'cleanser' }),
+      makeProduct({ id: 'gelcream', name: 'Aqua Gel Cream', productType: 'gel' }),
+    ];
+    const plan = generatePlan(makeEngineInput(products, { now: NOW }));
+
+    expect(plan.periods.evening.map((s) => s.productId)).toContain('gelcream');
+    expect(plan.reserve.map((r) => r.productId)).not.toContain('gelcream');
+    expect(plan.placeholders.map((p) => p.reasonCode)).not.toContain('moisturizer_recommended');
+  });
+
+  it('still reserves a bare "Hydrating Gel" and keeps asking for a moisturiser', () => {
+    const products = [
+      makeProduct({ id: 'foam', name: 'Foam Cleanser', productType: 'cleanser' }),
+      makeProduct({ id: 'gel', name: 'Hydrating Gel', productType: 'gel' }),
+    ];
+    const plan = generatePlan(makeEngineInput(products, { now: NOW }));
+
+    expect(plan.periods.evening.map((s) => s.productId)).not.toContain('gel');
+    expect(plan.placeholders.map((p) => p.reasonCode)).toContain('moisturizer_recommended');
+  });
+});
+
+/** tech-lead review 2026-10-14, W2: gap-only groups have no persisted step to
+ *  take their position from, so the placeholder array order IS the screen
+ *  order. It must read as a routine, not as the order rules happened to fire. */
+describe('structural gap placeholders read in build order', () => {
+  it('orders an all-gaps morning cleanse → moisturise → protect, not SPF first', () => {
+    const retinoid = makeProduct({ id: 'ret', productType: 'serum', activeTags: ['retinoid'] });
+    const plan = generatePlan(
+      makeEngineInput([retinoid], {
+        now: NOW,
+        profile: { fitzpatrick: null, concerns: [], primaryGoal: 'aging', secondaryGoal: null },
+      }),
+    );
+
+    const am = plan.placeholders.filter((p) => p.period === 'am').map((p) => p.productTypes[0]);
+    expect(am).toEqual(['cleanser', 'moisturizer', 'spf']);
+    // AM gaps all precede PM gaps, so the two tabs never interleave.
+    const periods = plan.placeholders.map((p) => p.period);
+    expect(periods).toEqual([...periods].sort((a, b) => (a === b ? 0 : a === 'am' ? -1 : 1)));
+  });
+});

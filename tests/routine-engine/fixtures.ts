@@ -187,13 +187,24 @@ function pick<T>(rng: () => number, arr: readonly T[]): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
+/**
+ * `makeup_remover`, `balm` and a second `cleanser` weight are deliberate
+ * (tech-lead review 2026-10-14, W4): without a pre_cleanse step and more than
+ * one cleanser on the shelf, the property suites never exercise
+ * `fillPreCleanseGapFromAlternatives`, which is why they missed both of that
+ * review's BLOCKERs. `cleanser` appears twice so multi-cleanser shelves are
+ * drawn often enough to matter.
+ */
 const RANDOM_PRODUCT_TYPES: ProductType[] = [
   'cleanser',
+  'cleanser',
+  'makeup_remover',
   'toner',
   'serum',
   'gel',
   'moisturizer',
   'cream',
+  'balm',
   'eye_cream',
   'oil',
   'spf',

@@ -304,6 +304,36 @@ describe('attachPlaceholderGaps', () => {
   });
 });
 
+describe('attachPlaceholderGaps — pre-cleanse follow-up', () => {
+  it('drops the follow-up gap when a cleanser step is already rendered', () => {
+    const remover = makeProduct({ id: 'remover', productType: 'makeup_remover' });
+    const foam = makeProduct({ id: 'foam', productType: 'cleanser', name: 'BHA Foam' });
+    const groups = groupStepsIntoActions(
+      [
+        makeStep({ productType: 'makeup_remover', productId: 'remover' }),
+        makeStep({ productType: 'cleanser', productId: 'foam' }),
+      ],
+      [remover, foam],
+    );
+    const followup = makePlaceholder({ productTypes: ['cleanser'], reasonCode: 'pre_cleanse_requires_followup' });
+
+    const { groups: withGaps, extraGroups } = attachPlaceholderGaps(groups, [followup]);
+
+    expect(withGaps[0].gaps).toEqual([]);
+    expect(extraGroups).toEqual([]);
+  });
+
+  it('keeps the follow-up gap when only the makeup remover is rendered', () => {
+    const remover = makeProduct({ id: 'remover', productType: 'makeup_remover' });
+    const groups = groupStepsIntoActions([makeStep({ productType: 'makeup_remover', productId: 'remover' })], [remover]);
+    const followup = makePlaceholder({ productTypes: ['cleanser'], reasonCode: 'pre_cleanse_requires_followup' });
+
+    const { groups: withGaps } = attachPlaceholderGaps(groups, [followup]);
+
+    expect(withGaps[0].gaps).toEqual([followup]);
+  });
+});
+
 describe('isGroupAllCompleted', () => {
   it('is true only when every member is completed', () => {
     const cream = makeProduct({ id: 'cream', productType: 'cream' });

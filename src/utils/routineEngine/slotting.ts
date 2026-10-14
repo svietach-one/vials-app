@@ -39,7 +39,14 @@ export function periodsForProduct(productType: ProductType, facts: ProductFacts)
 export const SKELETON_SLOTS = {
   pre_cleanse: ['makeup_remover'],
   cleanser: ['cleanser'],
-  moisturizer: ['moisturizer', 'cream', 'lotion'],
+  // `balm` joins the moisturiser slot (2026-10-14): an occlusive balm is a
+  // legitimate final moisturising step, and leaving it out meant a user whose
+  // only leave-on hydrator was a balm got it silently reserved with no
+  // routine step and no placeholder. Its LAYERING_ORDER index (12) is
+  // unchanged, so it still renders after creams, where an occlusive belongs.
+  // `gel` is deliberately NOT here — it shares the serum layer (index 6), so
+  // admitting it would let a gel serum win the moisturiser slot outright.
+  moisturizer: ['moisturizer', 'cream', 'lotion', 'balm'],
   spf: ['spf'],
 } as const satisfies Record<string, readonly ProductType[]>;
 
