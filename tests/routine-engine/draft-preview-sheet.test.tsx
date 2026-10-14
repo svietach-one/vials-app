@@ -556,3 +556,37 @@ describe('Reset all option in the commit footer', () => {
     expect(onResetAll).not.toHaveBeenCalled();
   });
 });
+
+describe('Step card layout mirrors the Routines-screen card', () => {
+  it('shows the brand line and product name, with No change as the trailing status for an unchanged step', () => {
+    mockRoutines = [
+      {
+        id: 'routine-am',
+        name: 'Morning',
+        timeOfDay: 'morning',
+        steps: [{ id: 's1', productId: CLEANSER.id, productType: 'cleanser', hidden: false, scheduledDays: [] }],
+      },
+    ];
+    render(
+      <DraftPreviewScreen
+        visible
+        onClose={jest.fn()}
+        plan={makePlan({
+          periods: {
+            morning: [
+              { productId: CLEANSER.id, productType: 'cleanser', scheduledDays: [], slotIndex: getSlotIndex('cleanser'), score: 0, addedAt: '2026-01-01' },
+            ],
+            evening: [],
+          },
+        })}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText(CLEANSER.name)).toBeTruthy();
+    if (CLEANSER.brand) expect(screen.getByText(CLEANSER.brand)).toBeTruthy();
+    expect(screen.getByText('No change')).toBeTruthy();
+    expect(screen.queryByText('Change')).toBeNull();
+  });
+});

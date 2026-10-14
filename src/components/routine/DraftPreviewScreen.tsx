@@ -562,7 +562,7 @@ function StepCard({
   // a Change action exists, showing it alongside renders the pill's "nothing
   // to do here" message contradictory, so Change wins.
   const showNoChangeTag = !isChanged && !isSwappable;
-  const showStatusRow = showReasonBadge || showNoChangeTag || isSwappable;
+  const showStatusSlot = showNoChangeTag || isSwappable;
 
   const openReplace = () => {
     if (!entry) return;
@@ -590,66 +590,68 @@ function StepCard({
         </Text>
       </View>
 
-      <View style={styles.stepCard}>
-      <View style={styles.stepRow}>
-        {product ? <ProductThumbnail product={product} size={76} /> : null}
+      {/* Same chrome as RoutineProductCard (the live Routines-screen card):
+          shadow on a non-clipping wrapper, overflow-hidden card inside it so
+          the photo bleeds flush to the left/top/bottom edges; brand on the
+          first line with the status control trailing it, product name below.
+          Here the trailing control is "No change" or "Change >" instead of
+          the active-ingredient / allergen badges. */}
+      <View style={styles.stepCardShadow}>
+        <View style={styles.stepCard}>
+          <View style={styles.mainRow}>
+            {product ? (
+              <View style={styles.thumbnailWrap}>
+                <ProductThumbnail product={product} fill squareBottomLeft={showReasonBadge} />
+              </View>
+            ) : null}
 
-        <View style={styles.identity}>
-          <Text style={isChanged ? styles.nameChanged : styles.name} numberOfLines={2}>
-            {name}
-          </Text>
-          {product?.brand ? (
-            <Text style={styles.brand} numberOfLines={1}>
-              {product.brand}
-            </Text>
-          ) : null}
-
-          {isChanged && oldStep ? (
-            <Text style={styles.oldName} numberOfLines={1}>
-              {nameOf(oldStep.productId)}
-            </Text>
-          ) : null}
-
-          {/* Row itself is conditional so a changed step with no reason and
-              no alternative (nothing to show either side) doesn't leave a
-              bare gap behind. Only short elements live here — the reason
-              text (which can run a full sentence long) gets its own
-              full-width row below instead of competing with Change for
-              horizontal space (that combination used to overflow the card,
-              see reasonRow below). */}
-          {showStatusRow ? (
-            <View style={styles.statusRow}>
-              {showNoChangeTag ? <Tag tone="neutral">No change</Tag> : null}
-
-              {isSwappable ? (
-                <Pressable
-                  style={styles.changeButton}
-                  onPress={openReplace}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Change ${name}`}
-                >
-                  <Text style={styles.changeLabel}>Change</Text>
-                  <Icon name="chevron-right" size={18} color={palette.plum} />
-                </Pressable>
+            <View style={styles.textColumn}>
+              {product?.brand || showStatusSlot ? (
+                <View style={styles.headerRow}>
+                  {product?.brand ? (
+                    <Text style={[styles.brand, styles.brandFlex]} numberOfLines={1}>
+                      {product.brand}
+                    </Text>
+                  ) : null}
+                  {showNoChangeTag ? <Tag tone="neutral">No change</Tag> : null}
+                  {isSwappable ? (
+                    <Pressable
+                      style={styles.changeButton}
+                      onPress={openReplace}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Change ${name}`}
+                    >
+                      <Text style={styles.changeLabel}>Change</Text>
+                      <Icon name="chevron-right" size={18} color={palette.plum} />
+                    </Pressable>
+                  ) : null}
+                </View>
               ) : null}
+
+              <Text style={styles.name} numberOfLines={1}>
+                {name}
+              </Text>
+
+              {isChanged && oldStep ? (
+                <Text style={styles.oldName} numberOfLines={1}>
+                  {nameOf(oldStep.productId)}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          {/* Full-width, wrapping info row for the reason sentence — mirrors
+              RoutineProductCard's adaptationRow (icon + wrapping text,
+              bordered top divider), never sharing a row with Change. */}
+          {showReasonBadge ? (
+            <View style={styles.reasonRow}>
+              <Icon name="info" size={16} color={colors.statusInfo} />
+              <Text style={styles.reasonRowText} numberOfLines={3}>
+                {reason}
+              </Text>
             </View>
           ) : null}
         </View>
-      </View>
-
-      {/* Full-width, wrapping info row for the reason sentence — mirrors
-          RoutineProductCard's adaptationRow (the live Routines-screen card;
-          RoutineStepCard is dead code, no longer mounted anywhere — icon +
-          wrapping text, bordered top divider), never sharing a row with
-          Change. */}
-      {showReasonBadge ? (
-        <View style={styles.reasonRow}>
-          <Icon name="info" size={16} color={colors.statusInfo} />
-          <Text style={styles.reasonRowText} numberOfLines={3}>
-            {reason}
-          </Text>
-        </View>
-      ) : null}
       </View>
     </>
   );
@@ -761,34 +763,41 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 
-  // Matches RoutineProductCard's default (non-completed) chrome exactly —
-  // the live Routines-screen card (RoutineStepCard, which this was
-  // previously modeled on, is dead code with zero mounts anywhere; its
-  // border-outline/no-shadow look was never actually what ships today).
-  // Shadow lives on this same node rather than a separate wrapper (unlike
-  // RoutineProductCard's split cardShadow/card) since this card never clips
-  // an edge-to-edge photo — ProductThumbnail here isn't in `fill` mode, so
-  // there's no overflow:hidden fighting the shadow the way there is there.
+  // Matches RoutineProductCard's default (non-completed) chrome exactly: the
+  // shadow sits on a non-clipping wrapper, the card inside clips the
+  // edge-to-edge photo to the rounded corners (same split RoutineProductCard
+  // and ProductShelfCard use).
+  stepCardShadow: {
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceCard,
+    ...shadow.sm,
+  },
   stepCard: {
     backgroundColor: colors.surfaceCard,
     borderRadius: radius.sm,
-    ...shadow.sm,
+    overflow: 'hidden',
   },
-  stepRow: {
+  // No padding on the row: the photo bleeds flush to the card edges.
+  mainRow: {
     flexDirection: 'row',
-    // Top edge lines up with the name line (identity's first row), not the
-    // whole content block — the photo previously centered against brand/
-    // frequency/reason rows too and drifted below the product name.
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     gap: space[3],
-    paddingHorizontal: space[3],
-    paddingTop: space[3],
-    paddingBottom: space[3],
   },
-  identity: {
+  thumbnailWrap: {
+    flexDirection: 'row',
+  },
+  textColumn: {
     flex: 1,
     minWidth: 0,
-    gap: space[1],
+    gap: 2,
+    paddingVertical: space[3],
+    paddingRight: space[3],
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[2],
   },
   // "1. Cleanser" (left) + frequency marker (right), e.g.
   // "2. Cream                              Every day" — sits directly on
@@ -808,8 +817,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   brand: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.textSecondary,
+  },
+  brandFlex: {
+    flex: 1,
   },
   frequency: {
     ...typography.caption,
@@ -821,29 +833,15 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans-Bold',
     color: colors.textPrimary,
   },
-  nameChanged: {
-    ...typography.body,
-    fontFamily: 'DMSans-Bold',
-    color: colors.textPrimary,
-  },
   oldName: {
     ...typography.bodySmall,
     color: colors.textTertiary,
     textDecorationLine: 'line-through',
   },
-  // Status pill (left) + Change action (right), same row.
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: space[1],
-  },
   changeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    // Pushes to the row's right edge whether or not a status pill precedes it.
-    marginLeft: 'auto',
     gap: 2,
-    paddingVertical: space[1],
     paddingLeft: space[2],
   },
   changeLabel: {
@@ -857,9 +855,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: space[2],
+    margin: space[3],
+    marginTop: 0,
     paddingTop: space[2],
-    paddingBottom: space[3],
-    paddingHorizontal: space[3],
     borderTopWidth: 1,
     borderTopColor: colors.borderDivider,
   },
