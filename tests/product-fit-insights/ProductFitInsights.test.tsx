@@ -146,4 +146,11 @@ describe('ProductFitInsights', () => {
 
     expect(screen.getByText('AFTER_ACTIVES')).toBeTruthy();
   });
+
+  it('explains the lightning badge with a legend inside the actives card', () => {
+    renderInsights();
+
+    expect(screen.getByTestId('actives-badge')).toBeTruthy();
+    expect(screen.getByText(/carry this badge on routine cards/)).toBeTruthy();
+  });
 });

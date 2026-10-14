@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { ActivesBadge } from '@/components/ui/ActivesBadge';
 import { DetectedActivesCard } from '@/components/catalog/DetectedActivesCard';
 import { GoalFitCard } from '@/components/catalog/GoalFitCard';
 import { SkinTypeCautionNotice } from '@/components/catalog/SkinTypeCautionNotice';
@@ -78,6 +79,14 @@ export function ProductFitInsights({ product, onSetSkinType, onActivePress, afte
         onePercentLine={insights.onePercentLine}
         onActivePress={onActivePress}
         aliasKeys={insights.aliasKeys}
+        legend={
+          <View style={styles.legend}>
+            <ActivesBadge />
+            <Text style={styles.legendText}>
+              Products with detected actives carry this badge on routine cards.
+            </Text>
+          </View>
+        }
       />
 
       {afterActives}
@@ -102,6 +111,16 @@ export function ProductFitInsights({ product, onSetSkinType, onActivePress, afte
 }
 
 const styles = StyleSheet.create({
+  legend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+  },
+  legendText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flex: 1,
+  },
   disclaimerText: {
     ...typography.caption,
     color: colors.textSecondary,

@@ -183,3 +183,13 @@ describe('Position — after "Detected actives" and before "Full Ingredient List
     expect(order).toEqual(['Detected actives', 'Allergens', 'Full Ingredient List']);
   });
 });
+
+describe('Badge legend', () => {
+  it('explains the shelf-card "A" badge inside the Allergens card', () => {
+    mockProducts = [makeProduct({ id: 'p-legend', detectedAllergens: [NON_RESTRICTED_MATCH_A] })];
+    renderScreen('p-legend');
+
+    expect(screen.getByTestId('allergen-badge')).toBeTruthy();
+    expect(screen.getByText(/badge on a shelf card means/)).toBeTruthy();
+  });
+});

@@ -11,6 +11,7 @@ import {
 import { Icon } from '@/components/ui/Icon';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { AllergenBadge } from '@/components/ui/AllergenBadge';
 import { DeleteProductModal } from '@/components/product/DeleteProductModal';
 import { ProductActionSheet } from '@/components/product/ProductActionSheet';
 import { ProductFitInsights } from '@/components/product/ProductFitInsights';
@@ -413,6 +414,12 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
                   </View>
                   <Text style={styles.cardTitle}>Allergens</Text>
                 </View>
+                <View style={styles.badgeLegend}>
+                  <AllergenBadge matches={allergenMatches} />
+                  <Text style={styles.badgeLegendText}>
+                    This badge on a shelf card means the product contains an EU-regulated fragrance allergen.
+                  </Text>
+                </View>
                 <View style={styles.allergenList}>
                   {allergenMatches.map((match) => (
                     <View key={match.canonical} style={styles.allergenRow}>
@@ -651,6 +658,16 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans-Medium',
     color: colors.textLink,
     textDecorationLine: 'underline',
+  },
+  badgeLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+  },
+  badgeLegendText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flex: 1,
   },
   allergenList: {
     gap: space[3],

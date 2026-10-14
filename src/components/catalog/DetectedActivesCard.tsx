@@ -41,6 +41,8 @@ interface Props {
   onActivePress?: (key: ActiveIngredientKey) => void;
   /** Keys detected via a regional alias — shown with a globe icon. */
   aliasKeys?: ActiveIngredientKey[];
+  /** Optional legend explaining a badge, rendered under the rows (product page). */
+  legend?: React.ReactNode;
 }
 
 interface ActiveRow {
@@ -115,6 +117,7 @@ export function DetectedActivesCard({
   onePercentLine,
   onActivePress,
   aliasKeys = [],
+  legend,
 }: Props) {
   const totalCount = ingredientTokens.length;
   const rows = buildRows(resolvedActiveKeys, positionByKey, onePercentLine);
@@ -194,6 +197,7 @@ export function DetectedActivesCard({
             No known active ingredients detected in this composition.
           </Text>
         )}
+        {legend}
       </Card>
       <InfoTooltip
         visible={infoVisible}
