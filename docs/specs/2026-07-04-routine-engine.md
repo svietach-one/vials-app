@@ -105,9 +105,13 @@ As a user in rehab, I want frozen actives to return automatically so that I
 never manage the calendar myself.
 
 **Acceptance Criteria:**
-- [ ] Given a deep-peel log dated D, when the daily view is computed on
-      D+14 (rehab end) vs D+15, then exfoliants are frozen on D+14 and
-      visible on D+15 with no store mutation between the two renders.
+- [ ] Given a deep-peel log dated D with a 14-day rehab window, when the
+      daily view is computed on D+13 vs D+14, then exfoliants are frozen on
+      D+13 and visible on D+14 with no store mutation between the two
+      renders. (The window is half-open: [D, D+rehabDays) — the day offset
+      equal to rehabDays is already outside it. Corrected 2026-10-14; the
+      earlier D+14/D+15 wording was off by one day versus the reviewed
+      engine, `resolveActiveProcedureRules` in `routineEngine/context.ts`.)
 - [ ] Given two overlapping procedures freezing the same target, when both
       windows apply, then the freeze lasts until the later end date.
 - [ ] Given a Botox log within 7 days, when the daily view is computed, then
