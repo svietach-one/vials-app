@@ -39,6 +39,12 @@ export interface DraftPreviewScreenProps {
   diff: PlanDiffEntry[];
   onCommit: (scope: PlanCommitScope) => void;
   /**
+   * Fired when the user confirms the "Reset all" option. The screen never
+   * clears anything itself — RoutinesScreen empties the saved routines and
+   * closes the draft. The option only shows when a routine has steps.
+   */
+  onResetAll?: () => void;
+  /**
    * Story 2 (routine-similar-product-priority): fired when the user picks a
    * candidate from a step's replacement sheet. `winnerProductId` is always the
    * recorded slot's stable identity key (never the currently-admitted product
@@ -82,11 +88,19 @@ const HIDE_HANDLE = () => null;
 
 // multi-action-radio-picker (FE-5): replaces the old 4-stacked-Button
 // commit-scope footer with this radio pair + a local Confirm/Cancel pair.
-const COMMIT_SCOPE_OPTIONS: RadioOption<PlanCommitScope>[] = [
-  { value: 'both', label: 'Morning & Evening' },
-  { value: 'am', label: 'Morning Only' },
-  { value: 'pm', label: 'Evening Only' },
+type FooterChoice = PlanCommitScope | 'reset';
+
+const COMMIT_SCOPE_OPTIONS: RadioOption<FooterChoice>[] = [
+  { value: 'both', label: 'Save for Morning & Evening' },
+  { value: 'am', label: 'Save for Morning only' },
+  { value: 'pm', label: 'Save for Evening only' },
 ];
+
+const RESET_OPTION: RadioOption<FooterChoice> = {
+  value: 'reset',
+  label: 'Reset all',
+  sublabel: 'Removes every step from both routines so you can start from scratch.',
+};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -108,6 +122,7 @@ export function DraftPreviewScreen({
   plan,
   diff,
   onCommit,
+  onResetAll,
   onSwapAlternative,
   onOverride,
   onAcceptCycleSplit,
@@ -119,10 +134,11 @@ export function DraftPreviewScreen({
   const wasPresented = useRef(false);
   const [reserveExpanded, setReserveExpanded] = useState(false);
   const [replaceTarget, setReplaceTarget] = useState<ReplaceStepTarget | null>(null);
-  const [commitScope, setCommitScope] = useState<PlanCommitScope>('both');
+  const [commitScope, setCommitScope] = useState<FooterChoice>('both');
 
   const products = useProductsStore((s) => s.products);
   const routines = useRoutinesStore((s) => s.routines);
+  const hasSavedSteps = routines.some((r) => r.steps.length > 0);
 
   // Only dismiss after a real present — see AddToRoutineSheet for the
   // modal-stack corruption this guards against.
@@ -342,16 +358,20 @@ export function DraftPreviewScreen({
         ) : null}
 
         <View style={styles.actions}>
-          <Text style={styles.actionsLabel}>Save for</Text>
-          <RadioOptionGroup options={COMMIT_SCOPE_OPTIONS} value={commitScope} onChange={setCommitScope} />
+          <Text style={styles.actionsLabel}>Select an option</Text>
+          <RadioOptionGroup
+            options={hasSavedSteps && onResetAll ? [...COMMIT_SCOPE_OPTIONS, RESET_OPTION] : COMMIT_SCOPE_OPTIONS}
+            value={commitScope}
+            onChange={setCommitScope}
+          />
           <View style={styles.actionsRow}>
             <Button variant="secondary" size="md" onPress={onClose} style={styles.actionBtn}>
               Cancel
             </Button>
             <Button
-              variant="primary"
+              variant={commitScope === 'reset' ? 'destructive' : 'primary'}
               size="md"
-              onPress={() => onCommit(commitScope)}
+              onPress={() => (commitScope === 'reset' ? onResetAll?.() : onCommit(commitScope))}
               style={styles.actionBtn}
             >
               Confirm

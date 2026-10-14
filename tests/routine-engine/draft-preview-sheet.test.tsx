@@ -138,9 +138,9 @@ describe('Story 2 AC: Draft Preview renders the step list with the commit-scope 
     // Paused row for the frozen (until-bearing) product.
     expect(screen.getByText(/Retinol Night Cream — paused until 2026-07-18/)).toBeTruthy();
 
-    expect(screen.getByRole('radio', { name: 'Morning & Evening' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Morning Only' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Evening Only' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Save for Morning & Evening' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Save for Morning only' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Save for Evening only' })).toBeTruthy();
     expect(screen.getByText('Confirm')).toBeTruthy();
     expect(screen.getByText('Cancel')).toBeTruthy();
   });
@@ -157,12 +157,12 @@ describe('Story 2 AC: Draft Preview renders the step list with the commit-scope 
     );
 
     expect(
-      screen.getByRole('radio', { name: 'Morning & Evening' }).props.accessibilityState.checked,
+      screen.getByRole('radio', { name: 'Save for Morning & Evening' }).props.accessibilityState.checked,
     ).toBe(true);
-    expect(screen.getByRole('radio', { name: 'Morning Only' }).props.accessibilityState.checked).toBe(
+    expect(screen.getByRole('radio', { name: 'Save for Morning only' }).props.accessibilityState.checked).toBe(
       false,
     );
-    expect(screen.getByRole('radio', { name: 'Evening Only' }).props.accessibilityState.checked).toBe(
+    expect(screen.getByRole('radio', { name: 'Save for Evening only' }).props.accessibilityState.checked).toBe(
       false,
     );
   });
@@ -300,13 +300,13 @@ describe('Story 2 / multi-action-radio-picker Story 3: selecting a scope alone n
     const onCommit = jest.fn();
     render(<DraftPreviewScreen visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
 
-    fireEvent.press(screen.getByRole('radio', { name: 'Evening Only' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Save for Evening only' }));
 
-    expect(screen.getByRole('radio', { name: 'Evening Only' }).props.accessibilityState.checked).toBe(
+    expect(screen.getByRole('radio', { name: 'Save for Evening only' }).props.accessibilityState.checked).toBe(
       true,
     );
     expect(
-      screen.getByRole('radio', { name: 'Morning & Evening' }).props.accessibilityState.checked,
+      screen.getByRole('radio', { name: 'Save for Morning & Evening' }).props.accessibilityState.checked,
     ).toBe(false);
     expect(onCommit).not.toHaveBeenCalled();
   });
@@ -323,7 +323,7 @@ describe('Story 2 / multi-action-radio-picker Story 3: Confirm commits the curre
   it('selecting "Morning Only" then confirming commits scope "am"', () => {
     const onCommit = jest.fn();
     render(<DraftPreviewScreen visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
-    fireEvent.press(screen.getByRole('radio', { name: 'Morning Only' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Save for Morning only' }));
     fireEvent.press(screen.getByText('Confirm'));
     expect(onCommit).toHaveBeenCalledWith('am');
   });
@@ -331,7 +331,7 @@ describe('Story 2 / multi-action-radio-picker Story 3: Confirm commits the curre
   it('selecting "Evening Only" then confirming commits scope "pm"', () => {
     const onCommit = jest.fn();
     render(<DraftPreviewScreen visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
-    fireEvent.press(screen.getByRole('radio', { name: 'Evening Only' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Save for Evening only' }));
     fireEvent.press(screen.getByText('Confirm'));
     expect(onCommit).toHaveBeenCalledWith('pm');
   });
@@ -349,7 +349,7 @@ describe('Story 2 / multi-action-radio-picker Story 3: Confirm commits the curre
     const onCommit = jest.fn();
     const onClose = jest.fn();
     render(<DraftPreviewScreen visible onClose={onClose} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
-    fireEvent.press(screen.getByRole('radio', { name: 'Morning Only' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Save for Morning only' }));
     fireEvent.press(screen.getByText('Cancel'));
     expect(onCommit).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
@@ -490,5 +490,69 @@ describe('phase-07: reserve rows show the reason and an override action', () => 
 
     fireEvent.press(screen.getByText('In reserve · 1 product'));
     expect(screen.queryByLabelText('Add Vitamin C Serum anyway')).toBeNull();
+  });
+});
+
+describe('Reset all option in the commit footer', () => {
+  const SAVED_ROUTINE: Routine[] = [
+    {
+      id: 'routine-am',
+      name: 'Morning',
+      timeOfDay: 'morning',
+      steps: [{ id: 's1', productType: 'cleanser', productId: CLEANSER.id, hidden: false, scheduledDays: [] }],
+    },
+  ];
+
+  function renderFooter(props: Partial<React.ComponentProps<typeof DraftPreviewScreen>> = {}) {
+    const onCommit = jest.fn();
+    const onResetAll = jest.fn();
+    render(
+      <DraftPreviewScreen
+        visible
+        onClose={jest.fn()}
+        plan={makePlan()}
+        diff={NO_DIFF}
+        onCommit={onCommit}
+        onResetAll={onResetAll}
+        {...props}
+      />,
+    );
+    return { onCommit, onResetAll };
+  }
+
+  it('titles the footer "Select an option" and offers Reset all when a routine has steps', () => {
+    mockRoutines = SAVED_ROUTINE;
+    renderFooter();
+
+    expect(screen.getByText('Select an option')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Reset all' })).toBeTruthy();
+  });
+
+  it('hides Reset all when no routine has any step', () => {
+    mockRoutines = [];
+    renderFooter();
+
+    expect(screen.queryByRole('radio', { name: 'Reset all' })).toBeNull();
+  });
+
+  it('calls onResetAll, not onCommit, when Reset all is selected and confirmed', () => {
+    mockRoutines = SAVED_ROUTINE;
+    const { onCommit, onResetAll } = renderFooter();
+
+    fireEvent.press(screen.getByRole('radio', { name: 'Reset all' }));
+    fireEvent.press(screen.getByText('Confirm'));
+
+    expect(onResetAll).toHaveBeenCalledTimes(1);
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('still commits the default scope when Reset all is not chosen', () => {
+    mockRoutines = SAVED_ROUTINE;
+    const { onCommit, onResetAll } = renderFooter();
+
+    fireEvent.press(screen.getByText('Confirm'));
+
+    expect(onCommit).toHaveBeenCalledWith('both');
+    expect(onResetAll).not.toHaveBeenCalled();
   });
 });

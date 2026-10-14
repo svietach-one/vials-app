@@ -53,6 +53,7 @@ import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { RootTabParamList } from '@/navigation/AppNavigator';
 import {
   applyRoutinePlan,
+  resetAllRoutines,
   currentOverrideHash,
   validateCurrentRoutines,
   type PlanCommitScope,
@@ -240,6 +241,13 @@ export default function RoutinesScreen({ navigation }: Props) {
     },
     [draft],
   );
+
+  // Reset all: wipes every saved step, then closes the draft. With zero steps
+  // the screen falls through to the Generate card (the empty start state).
+  const handleResetAll = useCallback(() => {
+    resetAllRoutines();
+    setDraft(null);
+  }, []);
 
   // Story 2 (routine-similar-product-priority): one-tap swap over the
   // still-uncommitted draft — a pure array splice, no re-run of eligibility/
@@ -878,6 +886,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         plan={draft?.proposedPlan ?? null}
         diff={draft?.diff ?? []}
         onCommit={handleCommitDraft}
+        onResetAll={handleResetAll}
         onSwapAlternative={handleSwapAlternative}
         onOverride={handleOverride}
         onAcceptCycleSplit={handleAcceptCycleSplit}
