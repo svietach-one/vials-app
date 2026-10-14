@@ -169,17 +169,27 @@ describe('Story 3 AC3 — restricted entries additionally show the banned-in-new
   });
 });
 
-// ── Position — after "Active Ingredients", before "Full Ingredient List" ─────
+// ── Position — after "Detected actives", before "Full Ingredient List" ─────
 
-describe('Position — after "Active Ingredients" and before "Full Ingredient List"', () => {
+describe('Position — after "Detected actives" and before "Full Ingredient List"', () => {
   it('renders the Allergens card title between the two existing card titles', () => {
     mockProducts = [makeProduct({ id: 'p-order', detectedAllergens: [NON_RESTRICTED_MATCH_A] })];
     const { toJSON } = renderScreen('p-order');
 
     const order = collectTextOrder(
       toJSON() as any,
-      new Set(['Active Ingredients', 'Allergens', 'Full Ingredient List']),
+      new Set(['Detected actives', 'Allergens', 'Full Ingredient List']),
     );
-    expect(order).toEqual(['Active Ingredients', 'Allergens', 'Full Ingredient List']);
+    expect(order).toEqual(['Detected actives', 'Allergens', 'Full Ingredient List']);
+  });
+});
+
+describe('Badge legend', () => {
+  it('explains the shelf-card "A" badge inside the Allergens card', () => {
+    mockProducts = [makeProduct({ id: 'p-legend', detectedAllergens: [NON_RESTRICTED_MATCH_A] })];
+    renderScreen('p-legend');
+
+    expect(screen.getByTestId('allergen-badge')).toBeTruthy();
+    expect(screen.getByText(/badge on shelf cards marks/)).toBeTruthy();
   });
 });

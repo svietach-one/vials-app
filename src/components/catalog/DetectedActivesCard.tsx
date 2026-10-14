@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/core/Card';
 import { IconButton } from '@/components/ui/core/IconButton';
@@ -37,6 +37,12 @@ interface Props {
   /** 1-based INCI position per resolved key; a key may be absent. */
   positionByKey: Partial<Record<ActiveIngredientKey, number>>;
   onePercentLine: OnePercentLineResult | null;
+  /** When set, each row becomes a button (product page opens the attribution tooltip). */
+  onActivePress?: (key: ActiveIngredientKey) => void;
+  /** Keys detected via a regional alias — shown with a globe icon. */
+  aliasKeys?: ActiveIngredientKey[];
+  /** Optional legend explaining a badge, rendered under the rows (product page). */
+  legend?: React.ReactNode;
 }
 
 interface ActiveRow {
@@ -109,6 +115,9 @@ export function DetectedActivesCard({
   ingredientTokens,
   positionByKey,
   onePercentLine,
+  onActivePress,
+  aliasKeys = [],
+  legend,
 }: Props) {
   const totalCount = ingredientTokens.length;
   const rows = buildRows(resolvedActiveKeys, positionByKey, onePercentLine);
@@ -142,14 +151,35 @@ export function DetectedActivesCard({
           <View style={styles.rows}>
             {rows.map((row) => (
               <View key={row.key} testID={`active-row-${row.key}`} style={styles.row}>
-                <View style={styles.rowMain}>
-                  <Text style={styles.rowLabel}>{ACTIVE_INGREDIENT_LABELS[row.key] ?? row.key}</Text>
+                <Pressable
+                  testID={onActivePress ? `active-badge-${row.key}` : undefined}
+                  disabled={!onActivePress}
+                  accessibilityRole={onActivePress ? 'button' : undefined}
+                  accessibilityLabel={
+                    onActivePress
+                      ? `${ACTIVE_INGREDIENT_LABELS[row.key] ?? row.key} detected, tap for details`
+                      : undefined
+                  }
+                  onPress={() => onActivePress?.(row.key)}
+                  style={styles.rowMain}
+                >
+                  <View style={styles.rowLabelWrap}>
+                    <Text style={styles.rowLabel}>{ACTIVE_INGREDIENT_LABELS[row.key] ?? row.key}</Text>
+                    {aliasKeys.includes(row.key) ? (
+                      <View
+                        testID={`active-badge-alias-icon-${row.key}`}
+                        accessibilityLabel="Detected via regional ingredient name"
+                      >
+                        <Icon name="globe" size={11} color={colors.textSecondary} />
+                      </View>
+                    ) : null}
+                  </View>
                   {row.position !== undefined ? (
                     <Text style={styles.rowPosition}>
                       {formatOrdinal(row.position)} of {totalCount}
                     </Text>
                   ) : null}
-                </View>
+                </Pressable>
                 {row.belowLine ? (
                   <View style={styles.belowLineNoteWrap}>
                     <Text style={styles.belowLineNoteText}>
@@ -167,6 +197,7 @@ export function DetectedActivesCard({
             No known active ingredients detected in this composition.
           </Text>
         )}
+        {legend}
       </Card>
       <InfoTooltip
         visible={infoVisible}
@@ -234,6 +265,11 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: space[2],
+  },
+  rowLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
   },
   rowLabel: {
     ...typography.body,
