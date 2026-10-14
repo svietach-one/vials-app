@@ -1,13 +1,24 @@
 /**
  * Integration tests — Story 2 UI ACs: Draft Preview (Diff Mode) layout and
- * the four-way commit scope.
+ * the commit-scope choice.
  * Spec: docs/specs/2026-07-04-routine-engine.md §4 Story 2
+ *       docs/specs/multi-action-radio-picker.md §4 Story 3
  *
  * FE-8 shipped DraftPreviewScreen + src/domain/routinePlanActions.ts
  * (progress/routine-engine.md, 2026-07-05 "GENERATION UX" entry). Heavy
  * native modules (@gorhom/bottom-sheet) are mocked at the boundary per
  * .claude/rules/testing.md and the established playbook in
  * tests/routines/routines-screen-hidden-filter.test.tsx.
+ *
+ * multi-action-radio-picker (FE-5) converts the bottom commit-scope footer
+ * from four stacked Save-for-X/Cancel Buttons (one tap = select-and-commit)
+ * to a RadioOptionGroup<PlanCommitScope> ("Morning & Evening" pre-selected,
+ * "Morning Only", "Evening Only") plus a local Confirm/Cancel Button pair.
+ * `onCommit`'s signature is unchanged. The blocks below that used to query
+ * `getByLabelText('Save for Morning & Evening')` etc. as single-tap-commits
+ * are rewritten against the new select-then-Confirm contract — the old
+ * per-action labels are gone, not kept alongside the new ones (tech design
+ * Assumption 5 of multi-action-radio-picker).
  */
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
@@ -108,8 +119,8 @@ beforeEach(() => {
   mockRoutines = [];
 });
 
-describe('Story 2 AC: Draft Preview renders the step list with the four commit actions', () => {
-  it('renders Morning/Evening step groups, the paused row, and all four scope actions', () => {
+describe('Story 2 AC: Draft Preview renders the step list with the commit-scope radio picker', () => {
+  it('renders Morning/Evening step groups, the paused row, the three scope options, and Confirm/Cancel', () => {
     render(
       <DraftPreviewScreen
         visible
@@ -127,10 +138,33 @@ describe('Story 2 AC: Draft Preview renders the step list with the four commit a
     // Paused row for the frozen (until-bearing) product.
     expect(screen.getByText(/Retinol Night Cream — paused until 2026-07-18/)).toBeTruthy();
 
-    expect(screen.getByLabelText('Save for Morning & Evening')).toBeTruthy();
-    expect(screen.getByLabelText('Save for Morning Only')).toBeTruthy();
-    expect(screen.getByLabelText('Save for Evening Only')).toBeTruthy();
-    expect(screen.getByLabelText('Cancel and discard draft')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Morning & Evening' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Morning Only' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Evening Only' })).toBeTruthy();
+    expect(screen.getByText('Confirm')).toBeTruthy();
+    expect(screen.getByText('Cancel')).toBeTruthy();
+  });
+
+  it('pre-selects "Morning & Evening" and leaves the other two scopes unchecked', () => {
+    render(
+      <DraftPreviewScreen
+        visible
+        onClose={jest.fn()}
+        plan={makePlan()}
+        diff={NO_DIFF}
+        onCommit={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole('radio', { name: 'Morning & Evening' }).props.accessibilityState.checked,
+    ).toBe(true);
+    expect(screen.getByRole('radio', { name: 'Morning Only' }).props.accessibilityState.checked).toBe(
+      false,
+    );
+    expect(screen.getByRole('radio', { name: 'Evening Only' }).props.accessibilityState.checked).toBe(
+      false,
+    );
   });
 
   it('caps the summary lines at 3', () => {
@@ -261,33 +295,62 @@ describe('screen-improvements: each step reflects whether it changed from the sa
   });
 });
 
-describe('Story 2 AC: each commit action invokes onCommit with the correct scope', () => {
-  it('"Save for Morning & Evening" commits scope "both"', () => {
+describe('Story 2 / multi-action-radio-picker Story 3: selecting a scope alone never commits', () => {
+  it('only moves which radio option is checked; onCommit has not fired yet', () => {
     const onCommit = jest.fn();
     render(<DraftPreviewScreen visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
-    fireEvent.press(screen.getByLabelText('Save for Morning & Evening'));
+
+    fireEvent.press(screen.getByRole('radio', { name: 'Evening Only' }));
+
+    expect(screen.getByRole('radio', { name: 'Evening Only' }).props.accessibilityState.checked).toBe(
+      true,
+    );
+    expect(
+      screen.getByRole('radio', { name: 'Morning & Evening' }).props.accessibilityState.checked,
+    ).toBe(false);
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+});
+
+describe('Story 2 / multi-action-radio-picker Story 3: Confirm commits the currently selected scope', () => {
+  it('confirming without changing the default selection commits scope "both"', () => {
+    const onCommit = jest.fn();
+    render(<DraftPreviewScreen visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
+    fireEvent.press(screen.getByText('Confirm'));
     expect(onCommit).toHaveBeenCalledWith('both');
   });
 
-  it('"Save for Morning Only" commits scope "am"', () => {
+  it('selecting "Morning Only" then confirming commits scope "am"', () => {
     const onCommit = jest.fn();
     render(<DraftPreviewScreen visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
-    fireEvent.press(screen.getByLabelText('Save for Morning Only'));
+    fireEvent.press(screen.getByRole('radio', { name: 'Morning Only' }));
+    fireEvent.press(screen.getByText('Confirm'));
     expect(onCommit).toHaveBeenCalledWith('am');
   });
 
-  it('"Save for Evening Only" commits scope "pm"', () => {
+  it('selecting "Evening Only" then confirming commits scope "pm"', () => {
     const onCommit = jest.fn();
     render(<DraftPreviewScreen visible onClose={jest.fn()} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
-    fireEvent.press(screen.getByLabelText('Save for Evening Only'));
+    fireEvent.press(screen.getByRole('radio', { name: 'Evening Only' }));
+    fireEvent.press(screen.getByText('Confirm'));
     expect(onCommit).toHaveBeenCalledWith('pm');
   });
 
-  it('"Cancel / Discard Draft" never calls onCommit, only onClose', () => {
+  it('"Cancel" never calls onCommit, only onClose — same behavior as today\'s Cancel / Discard Draft', () => {
     const onCommit = jest.fn();
     const onClose = jest.fn();
     render(<DraftPreviewScreen visible onClose={onClose} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
-    fireEvent.press(screen.getByLabelText('Cancel and discard draft'));
+    fireEvent.press(screen.getByText('Cancel'));
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('"Cancel" after changing the selection still never calls onCommit', () => {
+    const onCommit = jest.fn();
+    const onClose = jest.fn();
+    render(<DraftPreviewScreen visible onClose={onClose} plan={makePlan()} diff={NO_DIFF} onCommit={onCommit} />);
+    fireEvent.press(screen.getByRole('radio', { name: 'Morning Only' }));
+    fireEvent.press(screen.getByText('Cancel'));
     expect(onCommit).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });

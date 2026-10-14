@@ -14,6 +14,7 @@ import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
 import { Tag } from '@/components/ui/core/Tag';
 import { ReplaceStepSheet, type ReplaceStepTarget } from '@/components/routine/ReplaceStepSheet';
 import { InlineAlert } from '@/components/ui/feedback/InlineAlert';
+import { RadioOptionGroup, type RadioOption } from '@/components/ui/forms/RadioOptionGroup';
 import { type SelectOption, type SelectOptionTone } from '@/components/ui/forms/Select';
 import { reasonText } from '@/constants/decisionReasons';
 import { getSlotCategoryLabel, PRODUCT_TYPE_LABELS } from '@/constants/labels';
@@ -79,6 +80,14 @@ export interface DraftPreviewScreenProps {
 const SNAP_POINTS = ['100%'];
 const HIDE_HANDLE = () => null;
 
+// multi-action-radio-picker (FE-5): replaces the old 4-stacked-Button
+// commit-scope footer with this radio pair + a local Confirm/Cancel pair.
+const COMMIT_SCOPE_OPTIONS: RadioOption<PlanCommitScope>[] = [
+  { value: 'both', label: 'Morning & Evening' },
+  { value: 'am', label: 'Morning Only' },
+  { value: 'pm', label: 'Evening Only' },
+];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
@@ -110,6 +119,7 @@ export function DraftPreviewScreen({
   const wasPresented = useRef(false);
   const [reserveExpanded, setReserveExpanded] = useState(false);
   const [replaceTarget, setReplaceTarget] = useState<ReplaceStepTarget | null>(null);
+  const [commitScope, setCommitScope] = useState<PlanCommitScope>('both');
 
   const products = useProductsStore((s) => s.products);
   const routines = useRoutinesStore((s) => s.routines);
@@ -128,6 +138,13 @@ export function DraftPreviewScreen({
   // A closed screen must never leave a stale replacement sheet queued.
   useEffect(() => {
     if (!visible) setReplaceTarget(null);
+  }, [visible]);
+
+  // A reopened draft starts back at the default scope — a stale in-progress
+  // pick from a previous visit must not survive a close/reopen round trip
+  // (same reset convention as RadioConfirmModal's internal selection).
+  useEffect(() => {
+    if (!visible) setCommitScope('both');
   }, [visible]);
 
   if (!plan) return null;
@@ -325,42 +342,21 @@ export function DraftPreviewScreen({
         ) : null}
 
         <View style={styles.actions}>
-          <Button
-            variant="primary"
-            size="md"
-            fullWidth
-            onPress={() => onCommit('both')}
-            accessibilityLabel="Save for Morning & Evening"
-          >
-            Save for Morning & Evening
-          </Button>
-          <Button
-            variant="secondary"
-            size="md"
-            fullWidth
-            onPress={() => onCommit('am')}
-            accessibilityLabel="Save for Morning Only"
-          >
-            Save for Morning Only
-          </Button>
-          <Button
-            variant="secondary"
-            size="md"
-            fullWidth
-            onPress={() => onCommit('pm')}
-            accessibilityLabel="Save for Evening Only"
-          >
-            Save for Evening Only
-          </Button>
-          <Button
-            variant="ghost"
-            size="md"
-            fullWidth
-            onPress={onClose}
-            accessibilityLabel="Cancel and discard draft"
-          >
-            Cancel / Discard Draft
-          </Button>
+          <Text style={styles.actionsLabel}>Save for</Text>
+          <RadioOptionGroup options={COMMIT_SCOPE_OPTIONS} value={commitScope} onChange={setCommitScope} />
+          <View style={styles.actionsRow}>
+            <Button variant="secondary" size="md" onPress={onClose} style={styles.actionBtn}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onPress={() => onCommit(commitScope)}
+              style={styles.actionBtn}
+            >
+              Confirm
+            </Button>
+          </View>
         </View>
       </BottomSheetScrollView>
 
@@ -906,7 +902,19 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   actions: {
-    gap: space[2],
+    gap: space[3],
     marginTop: space[2],
+  },
+  actionsLabel: {
+    ...typography.label,
+    color: colors.textPrimary,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: space[3],
+    marginTop: space[1],
+  },
+  actionBtn: {
+    flex: 1,
   },
 });
