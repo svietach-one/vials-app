@@ -507,12 +507,12 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
           variant={routineLabel !== null ? 'secondary' : 'primary'}
           onPress={() => setSchedulerVisible(true)}
         >
-          {routineLabel !== null ? routineLabel : 'Add to Routine'}
+          {routineLabel !== null ? 'Edit Schedule' : 'Add to Routine'}
         </Button>
         {routineLabel !== null ? (
           <Button
             variant="destructive"
-            size="sm"
+            size="lg"
             fullWidth
             onPress={() => setRemoveSheetVisible(true)}
             accessibilityLabel="Remove from routine"

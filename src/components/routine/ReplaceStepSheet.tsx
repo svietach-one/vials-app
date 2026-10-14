@@ -191,7 +191,7 @@ function OptionRow({
       accessibilityState={{ checked: selected }}
       accessibilityLabel={option.reason ? `${option.title} — ${option.reason}` : option.title}
     >
-      {product ? <ProductThumbnail product={product} size={52} /> : null}
+      {product ? <ProductThumbnail product={product} size={76} /> : null}
 
       <View style={styles.optionText}>
         <Text style={styles.optionTitle} numberOfLines={2}>
@@ -272,18 +272,22 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   sectionList: {
-    gap: space[1],
+    gap: space[3],
   },
+  // Matches DraftPreviewScreen's StepCard chrome (flex-start-aligned row,
+  // same photo size and padding/gap scale), but uses a plain border instead
+  // of shadow.sm — inside this sheet's Modal the shadow reads as too faint
+  // to separate stacked cards, so the border is the row's only definition.
   optionRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: space[3],
-    paddingVertical: space[2],
-    paddingHorizontal: space[2],
-    borderRadius: radius.md,
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.borderDivider,
-    backgroundColor: colors.bgBase,
+    backgroundColor: colors.surfaceCard,
   },
   optionRowSelected: {
     borderColor: palette.plum,
@@ -295,11 +299,11 @@ const styles = StyleSheet.create({
   optionText: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    gap: space[1],
   },
   optionTitle: {
     ...typography.body,
-    fontFamily: 'DMSans-Medium',
+    fontFamily: 'DMSans-Bold',
     color: colors.textPrimary,
   },
   optionBrand: {
