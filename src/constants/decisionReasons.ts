@@ -72,6 +72,12 @@ export type EngineReasonCode =
   | 'duplicate_function'
   | 'cumulative_active_cap'
   | 'moisturizer_recommended'
+  // structural-slot gaps (2026-10-14): a required build-order slot that no
+  // shelf product fills. Emitted unconditionally — the earlier moisturizer
+  // prompt only fired when a treatment had been selected, so a shelf with no
+  // actives lost its moisturiser silently.
+  | 'cleanser_recommended'
+  | 'spf_recommended'
   | 'pre_cleanse_requires_followup'
   | 'rinse_off_active_note'
   | 'exfoliant_treatment_cap'
@@ -159,6 +165,8 @@ export const REASON_TEXT = {
   duplicate_function: 'Another product already covers this role — kept in reserve.',
   cumulative_active_cap: 'One strong active per evening is enough — kept in reserve.',
   moisturizer_recommended: 'Add a plain moisturiser to finish this routine.',
+  cleanser_recommended: 'Add a gentle rinse-off cleanser — every routine starts with one.',
+  spf_recommended: 'Add a daily SPF — it protects everything else you apply.',
   pre_cleanse_requires_followup:
     'Micellar water and cleansing oils/balms don’t rinse clean — add a gentle rinse-off cleanser after this step.',
   rinse_off_active_note: 'Heads-up: your cleanser also contains an active (it rinses off, so it’s fine).',

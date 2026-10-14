@@ -197,3 +197,81 @@ describe('pre_cleanse + note/placeholder reconciliation (review follow-up, 2026-
     expect(plan.placeholders.map((p) => p.reasonCode)).not.toContain('pre_cleanse_requires_followup');
   });
 });
+
+/**
+ * Field report 2026-10-14: "No Cleanser in your shelf" rendered directly below
+ * two cleanser steps. Root cause — the cap ladder day-split the ACID cleanser
+ * that won the cleanse slot, and the user's plain cleanser was a same-slot
+ * loser in `slotAlternatives`, invisible to the coverage check. The engine
+ * now spends the shelf before asking the user to buy anything.
+ */
+describe('pre_cleanse gap is filled from slotAlternatives before any placeholder', () => {
+  function buildSplitCleanserShelf() {
+    const micellar = makeProduct({ name: 'Micellar Water', productType: 'makeup_remover' });
+    const acidCleanser = makeProduct({
+      name: 'BHA Cleanser',
+      productType: 'cleanser',
+      activeTags: ['bha'],
+    });
+    const plainCleanser = makeProduct({ name: 'Gentle Gel Cleanser', productType: 'cleanser' });
+    const retinoid = makeProduct({ name: 'Retinoid Serum', activeTags: ['retinoid'] });
+    return { micellar, acidCleanser, plainCleanser, retinoid };
+  }
+
+  function planFor(shelf: ReturnType<typeof buildSplitCleanserShelf>) {
+    return generatePlan(
+      makeEngineInput([shelf.micellar, shelf.acidCleanser, shelf.plainCleanser, shelf.retinoid], {
+        now: NOW,
+        profile: { fitzpatrick: null, concerns: [], primaryGoal: 'aging', secondaryGoal: null },
+      }),
+    );
+  }
+
+  it('schedules the alternative cleanser on exactly the nights the day-split winner misses', () => {
+    const shelf = buildSplitCleanserShelf();
+    const plan = planFor(shelf);
+
+    const acidStep = plan.periods.evening.find((s) => s.productId === shelf.acidCleanser.id);
+    const plainStep = plan.periods.evening.find((s) => s.productId === shelf.plainCleanser.id);
+
+    // Sanity: the winner really is day-split, else the scenario is vacuous.
+    expect(acidStep?.scheduledDays.length).toBeGreaterThan(0);
+    expect(plainStep).toBeDefined();
+
+    const acidDays = acidStep?.scheduledDays ?? [];
+    const plainDays = plainStep?.scheduledDays ?? [];
+    // Complementary, never double-booked on the same night.
+    expect(plainDays.filter((d) => acidDays.includes(d))).toEqual([]);
+    // Together they cover every night the micellar water runs.
+    expect([...acidDays, ...plainDays].sort()).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it('asks for no cleanser and carries the follow-up note once the shelf covers every night', () => {
+    const plan = planFor(buildSplitCleanserShelf());
+
+    expect(plan.placeholders.map((p) => p.reasonCode)).not.toContain('pre_cleanse_requires_followup');
+    const micellarStep = plan.periods.evening.find(
+      (s) => s.productType === 'makeup_remover',
+    );
+    expect(micellarStep?.stepNote).toBe(STEP_NOTE_TEXT.pre_cleanse_follow_with_cleanser);
+  });
+
+  it('still asks for a cleanser when the shelf has no alternative to promote', () => {
+    const shelf = buildSplitCleanserShelf();
+    const plan = generatePlan(
+      makeEngineInput([shelf.micellar, shelf.acidCleanser, shelf.retinoid], {
+        now: NOW,
+        profile: { fitzpatrick: null, concerns: [], primaryGoal: 'aging', secondaryGoal: null },
+      }),
+    );
+
+    expect(plan.placeholders).toContainEqual(
+      expect.objectContaining({ period: 'pm', reasonCode: 'pre_cleanse_requires_followup' }),
+    );
+  });
+
+  it('is deterministic — promoting an alternative does not change between runs', () => {
+    const shelf = buildSplitCleanserShelf();
+    expect(planFor(shelf)).toEqual(planFor(shelf));
+  });
+});

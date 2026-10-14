@@ -1,4 +1,4 @@
-import { ACTIVES_RULESET, type SeasonMask } from '@/constants/rulesets/rulesetTypes';
+import { ACTIVES_RULESET, type PairRule, type SeasonMask } from '@/constants/rulesets/rulesetTypes';
 import { STEP_NOTE_TEXT } from '@/constants/decisionReasons';
 import type {
   Product,
@@ -7,7 +7,7 @@ import type {
   UserProcedureLog,
   UserProfile,
 } from '@/types';
-import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
+import { normalizeProductType } from '@/utils/productForm/categoryDetector';
 import { collectAdaptationLimits, collectTolerability } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { applyEligibilityGates, isSafetyFreezeGate } from '@/utils/routineEngine/eligibility';
@@ -21,10 +21,17 @@ import type {
   SlotAlternative,
 } from '@/utils/routineEngine/planTypes';
 import { buildShelfFacts } from '@/utils/routineEngine/productFacts';
-import { resolvePeriods } from '@/utils/routineEngine/resolve';
+import {
+  findViolationsAgainst,
+  resolvePeriods,
+  type AdmittedEntry,
+} from '@/utils/routineEngine/resolve';
 import { selectSkeleton } from '@/utils/routineEngine/skeleton';
-import { structuralSlotFor } from '@/utils/routineEngine/slotting';
+import { getSlotIndex, orderSteps, structuralSlotFor } from '@/utils/routineEngine/slotting';
 import { getSkincareDateString } from '@/utils/timeHelpers';
+
+/** 0 = Sunday … 6 = Saturday — the Routine schema's full week. */
+const ALL_WEEK = [0, 1, 2, 3, 4, 5, 6];
 
 /**
  * Generate entry point (research §3, mode "generate"): whole eligible shelf →
@@ -104,6 +111,18 @@ export function scheduleFullyCovers(coverDays: number[], neededDays: number[]): 
   return neededDays.every((d) => coverDays.includes(d));
 }
 
+/** Same as {@link scheduleFullyCovers} but across ALL cleanser steps: two
+ *  alternating cleansers (e.g. a BHA foam on some days, a gentle gel on the
+ *  rest) together follow the pre_cleanse step on every day, even though
+ *  neither does alone. Any cleanser scheduled every day covers outright. */
+export function schedulesFullyCover(coverSchedules: number[][], neededDays: number[]): boolean {
+  if (coverSchedules.length === 0) return false;
+  if (coverSchedules.some((days) => days.length === 0)) return true;
+  const union = new Set(coverSchedules.flat());
+  const needed = neededDays.length === 0 ? [0, 1, 2, 3, 4, 5, 6] : neededDays;
+  return needed.every((d) => union.has(d));
+}
+
 /**
  * Whether the PM cleanse slot genuinely satisfies a scheduled pre_cleanse
  * step, computed ONCE against the FINAL resolved PM period (post-admission,
@@ -124,9 +143,96 @@ function pmCleanseCoverage(
 ): { preCleanseProductId: string; covered: boolean } | null {
   const preCleanse = pmSteps.find((s) => structuralSlotFor(s.productType) === 'pre_cleanse');
   if (!preCleanse) return null;
-  const cleanser = pmSteps.find((s) => structuralSlotFor(s.productType) === 'cleanser');
-  const covered = cleanser ? scheduleFullyCovers(cleanser.scheduledDays, preCleanse.scheduledDays) : false;
+  const cleansers = pmSteps.filter((s) => structuralSlotFor(s.productType) === 'cleanser');
+  const covered = schedulesFullyCover(
+    cleansers.map((c) => c.scheduledDays),
+    preCleanse.scheduledDays,
+  );
   return { preCleanseProductId: preCleanse.productId, covered };
+}
+
+/** Days a pre_cleanse/cleanser step actually runs — `[]` is "every day". */
+function daysOf(step: PlannedStep): number[] {
+  return step.scheduledDays.length === 0 ? [...ALL_WEEK] : step.scheduledDays;
+}
+
+/**
+ * Promotes a same-slot LOSER cleanser onto the evening days the winning
+ * cleanser doesn't run (routine-engine ruling 2026-10-14).
+ *
+ * The cap ladder can day-split an acid cleanser down to two nights while the
+ * user's plain cleanser sits in `slotAlternatives` — owned, eligible, and
+ * beaten only on ranking. Leaving those nights empty made the engine ask for
+ * a cleanser the user already had. Double-cleansing is only coherent if a
+ * rinse-off step exists on EVERY night the pre_cleanse step runs, so the gap
+ * is filled from the shelf rather than reported.
+ *
+ * The promoted step is intersected with its OWN resolved schedule, never
+ * widened past it: an alternative day-split for a safety reason keeps that
+ * limit, and any night still uncovered falls through to the existing
+ * note/placeholder pair unchanged.
+ *
+ * Every candidate night is re-checked against the nights actually admitted,
+ * because a slot loser was only ever tested against the products admitted
+ * BEFORE it (resolve.ts records it the moment it loses). Re-adding its stale
+ * snapshot unchecked could co-schedule an `avoid` pair the plan's own
+ * validator then flags — e.g. a PHA wash promoted onto a night already
+ * holding copper peptides (tech-lead review 2026-10-14, B1). A night that
+ * cannot be cleared is simply left uncovered.
+ */
+function fillPreCleanseGapFromAlternatives(
+  pmSteps: PlannedStep[],
+  slotAlternatives: SlotAlternative[],
+  facts: ReturnType<typeof buildShelfFacts>,
+  pairRules: PairRule[],
+): { steps: PlannedStep[]; promotedIds: Set<string> } {
+  const unchanged = { steps: pmSteps, promotedIds: new Set<string>() };
+  const preCleanse = pmSteps.find((s) => structuralSlotFor(s.productType) === 'pre_cleanse');
+  if (!preCleanse) return unchanged;
+
+  const cleansers = pmSteps.filter((s) => structuralSlotFor(s.productType) === 'cleanser');
+  if (cleansers.some((c) => c.scheduledDays.length === 0)) return unchanged;
+
+  const covered = new Set(cleansers.flatMap(daysOf));
+  const uncovered = daysOf(preCleanse).filter((d) => !covered.has(d));
+  if (uncovered.length === 0) return unchanged;
+
+  const scheduledIds = new Set(pmSteps.map((s) => s.productId));
+  const candidates = slotAlternatives
+    .filter((a) => a.period === 'evening')
+    .flatMap((a) => a.alternatives)
+    .filter((s) => structuralSlotFor(s.productType) === 'cleanser' && !scheduledIds.has(s.productId));
+
+  // Grows as promotions land, so a second promoted cleanser is checked against
+  // the first and not just against the original plan.
+  const admitted: AdmittedEntry[] = pmSteps.flatMap((step) => {
+    const f = facts.get(step.productId);
+    return f ? [{ step, facts: f }] : [];
+  });
+
+  const added: PlannedStep[] = [];
+  const promotedIds = new Set<string>();
+  let remaining = uncovered;
+  for (const candidate of candidates) {
+    if (remaining.length === 0) break;
+    const candidateFacts = facts.get(candidate.productId);
+    if (!candidateFacts) continue;
+    const allowed = new Set(daysOf(candidate));
+    const days = remaining.filter(
+      (d) =>
+        allowed.has(d) &&
+        findViolationsAgainst(candidateFacts, [d], admitted, pairRules).length === 0,
+    );
+    if (days.length === 0) continue;
+    const step = { ...candidate, scheduledDays: days.length === ALL_WEEK.length ? [] : days };
+    added.push(step);
+    promotedIds.add(candidate.productId);
+    admitted.push({ step, facts: candidateFacts });
+    remaining = remaining.filter((d) => !days.includes(d));
+  }
+  if (added.length === 0) return unchanged;
+
+  return { steps: orderSteps([...pmSteps, ...added]), promotedIds };
 }
 
 /** No fallback instruction is ever substituted when uncovered — the placeholder
@@ -141,7 +247,9 @@ function attachPreCleanseNotes(pmSteps: PlannedStep[], coverage: ReturnType<type
 }
 
 /** Fires exactly when the note above would NOT — same coverage predicate,
- *  so the two mechanisms are structurally incapable of both staying silent. */
+ *  so the two mechanisms are structurally incapable of both staying silent.
+ *  Reached only after fillPreCleanseGapFromAlternatives has already spent the
+ *  shelf, so a surviving gap really is a missing product. */
 function preCleanseFollowupPlaceholder(coverage: ReturnType<typeof pmCleanseCoverage>): PlaceholderSlot[] {
   if (!coverage || coverage.covered) return [];
   return [
@@ -155,12 +263,41 @@ function preCleanseFollowupPlaceholder(coverage: ReturnType<typeof pmCleanseCove
   ];
 }
 
+/**
+ * One placeholder per (period, product type). The FIRST occurrence wins, so
+ * callers pass the stricter source (mandates — `nonSkippable`, `avoid`) ahead
+ * of the generic structural gap: a missing SPF under a peel must keep the
+ * mandate's severity, not be softened to a recommendation.
+ */
+function dedupePlaceholders(placeholders: PlaceholderSlot[]): PlaceholderSlot[] {
+  const seen = new Set<string>();
+  const result: PlaceholderSlot[] = [];
+  for (const placeholder of placeholders) {
+    const key = `${placeholder.period}|${[...placeholder.productTypes].sort().join(',')}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(placeholder);
+  }
+  // Precedence decided which placeholder SURVIVES; build order decides how the
+  // survivors read on screen. A gap-only group has no persisted step to take
+  // its position from, so `attachPlaceholderGaps` emits them in array order —
+  // leaving an all-gaps morning numbered "1. Protect, 2. Cleanse, 3.
+  // Moisturize" (tech-lead review 2026-10-14, W2). Sorting by LAYERING_ORDER
+  // keeps SCREENS.md §3.1's "1, 2, 3 reads as the routine" without introducing
+  // the hand-written action-order table stepActions.ts deliberately refuses.
+  return result.sort(
+    (a, b) =>
+      (a.period === b.period ? 0 : a.period === 'am' ? -1 : 1) ||
+      getSlotIndex(a.productTypes[0]) - getSlotIndex(b.productTypes[0]),
+  );
+}
+
 export function generatePlan(input: EngineInput): RoutinePlan {
   const now = input.now ?? new Date();
   // Read-time classification guard: a mistyped micellar/oil/balm cleanser is
   // normalized to makeup_remover before facts/skeleton see it, so DB imports
   // inherit the pre_cleanse slot + follow-up rule. Pure (same ref when no-op).
-  const products = input.products.map(reclassifyMakeupRemover);
+  const products = input.products.map(normalizeProductType);
   const facts = buildShelfFacts(products, now);
   const context = buildRoutineContext({
     procedures: input.procedures,
@@ -213,25 +350,54 @@ export function generatePlan(input: EngineInput): RoutinePlan {
     reasonCode: r.reasonCode,
   }));
 
-  const preCleanseCoverage = pmCleanseCoverage(resolved.periods.pm);
+  const { steps: pmWithFollowup, promotedIds } = fillPreCleanseGapFromAlternatives(
+    resolved.periods.pm,
+    resolved.slotAlternatives,
+    facts,
+    context.effectiveRuleset.pairRules,
+  );
+  const preCleanseCoverage = pmCleanseCoverage(pmWithFollowup);
+
+  // A promoted product is a SCHEDULED step now, so it must stop being offered
+  // as an evening alternative: Draft Preview's "Change" would otherwise splice
+  // its stale every-day snapshot in beside the step it already owns, producing
+  // a duplicate product and a duplicate persisted step id (tech-lead review
+  // 2026-10-14, B2). Entries emptied by the prune are dropped so no dead
+  // "Change" affordance is left behind.
+  const slotAlternatives = resolved.slotAlternatives
+    .map((entry) =>
+      entry.period === 'evening'
+        ? { ...entry, alternatives: entry.alternatives.filter((a) => !promotedIds.has(a.productId)) }
+        : entry,
+    )
+    .filter((entry) => entry.alternatives.length > 0);
 
   return {
     rulesetVersion: ACTIVES_RULESET.version,
     generatedFor: getSkincareDateString(now),
     periods: {
       morning: resolved.periods.am,
-      evening: attachPreCleanseNotes(resolved.periods.pm, preCleanseCoverage),
+      evening: attachPreCleanseNotes(pmWithFollowup, preCleanseCoverage),
     },
     frozen: [...gateFrozen, ...resolved.frozen],
     reserve: skeleton.reserve,
-    // Skeleton placeholders (neutral moisturizer) merge with mandate
-    // placeholders (SPF) and the pre-cleanse follow-up (computed post-admission,
-    // same source as the note above); different periods/types never collide.
-    placeholders: [
-      ...skeleton.placeholders,
+    // Skeleton structural gaps merge with mandate placeholders (SPF) and the
+    // pre-cleanse follow-up (computed post-admission, same source as the note
+    // above). These DO collide now that a structural gap is reported
+    // unconditionally — a shelf with no SPF raises both the generic
+    // `spf_recommended` gap and, under a peel, the `spf_required_photosensitizing`
+    // mandate. dedupePlaceholders keeps the stricter one so the user sees one
+    // card per missing product, not two.
+    // Ordered most-specific-first, because dedupePlaceholders keeps the first
+    // of a colliding pair: a safety mandate outranks everything, the
+    // pre-cleanse follow-up outranks the generic cleanser gap (it explains WHY
+    // one is needed — micellar water doesn't rinse clean), and the structural
+    // gaps are the catch-all.
+    placeholders: dedupePlaceholders([
       ...mandates.placeholders,
       ...preCleanseFollowupPlaceholder(preCleanseCoverage),
-    ],
+      ...skeleton.placeholders,
+    ]),
     // Step-0 goal decisions lead: they explain the ranking every later
     // selection/admit/freeze decision was made against.
     decisions: [
@@ -241,6 +407,6 @@ export function generatePlan(input: EngineInput): RoutinePlan {
       ...resolved.decisions,
       ...mandates.decisions,
     ],
-    slotAlternatives: resolved.slotAlternatives,
+    slotAlternatives,
   };
 }

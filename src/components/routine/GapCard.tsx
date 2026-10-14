@@ -15,16 +15,26 @@ import { colors, palette, radius, space, typography } from '@/constants/tokens';
 export interface GapCardProps {
   /** Human-readable missing thing, e.g. "SPF". */
   label: string;
+  /**
+   * Which routine the gap is in. Supplied, the copy names it ("No Cleanser in
+   * your morning routine") instead of asserting something about the shelf.
+   * A slot can be unfilled for THIS period while the user owns a product that
+   * is limited to the other one (evening-only cleanser, AM-only SPF), where
+   * "in your shelf" was simply false (tech-lead review 2026-10-14, W1).
+   */
+  period?: 'morning' | 'evening';
   onFindInCatalog: () => void;
 }
 
-export function GapCard({ label, onFindInCatalog }: GapCardProps) {
+export function GapCard({ label, period, onFindInCatalog }: GapCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.iconCircle}>
         <Icon name="info" size={16} color={colors.statusInfo} />
       </View>
-      <Text style={styles.text}>No {label} in your shelf</Text>
+      <Text style={styles.text}>
+        {period ? `No ${label} in your ${period} routine` : `No ${label} in your shelf`}
+      </Text>
       <Button variant="ghost" size="sm" accessibilityRole="button" onPress={onFindInCatalog}>
         Find in catalog
       </Button>

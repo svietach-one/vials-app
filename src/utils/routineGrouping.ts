@@ -6,8 +6,9 @@ import {
 } from '@/constants/rulesets/stepTransitions';
 import type { Product, RoutineStep, StepAction, StepTransition } from '@/types';
 import { normalizeActiveKey } from '@/utils/ingredientParser';
-import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
+import { normalizeProductType } from '@/utils/productForm/categoryDetector';
 import type { PlaceholderSlot } from '@/utils/routineEngine/planTypes';
+import { structuralSlotFor } from '@/utils/routineEngine/slotting';
 
 /**
  * Pure grouping + transition logic for the routine-step-grouping render
@@ -40,7 +41,7 @@ export interface StepGroup {
  *
  * Within a group, `reapply` products sort last; everything else keeps its
  * incoming array order. Grouping uses the RECLASSIFIED product type
- * (`reclassifyMakeupRemover`) so a mistyped micellar water groups under
+ * (`normalizeProductType`) so a mistyped micellar water groups under
  * Cleanse the same way its badge already does. An orphaned step
  * (`productId: null`, no matching product) buckets on its own persisted
  * `step.productType`, since there is no product to reclassify.
@@ -51,7 +52,7 @@ export function groupStepsIntoActions(steps: RoutineStep[], products: Product[])
 
   for (const step of steps) {
     const product = step.productId ? products.find((p) => p.id === step.productId) ?? null : null;
-    const bucketType = product ? reclassifyMakeupRemover(product).productType : step.productType;
+    const bucketType = product ? normalizeProductType(product).productType : step.productType;
     const action = STEP_ACTION_FOR_TYPE[bucketType];
 
     if (!buckets.has(action)) {
@@ -125,6 +126,20 @@ export function isGroupAllCompleted(
   return group.members.every(isCompleted);
 }
 
+/** `proposedPlan.placeholders` come from a fresh hypothetical plan, not the saved
+ *  routine. The pre-cleanse follow-up gap ("No Cleanser in your shelf") is
+ *  therefore stale whenever the saved routine already shows a cleanser step —
+ *  the generator may simply not have admitted it, but the user has one. */
+function isFollowupAlreadyPresent(placeholder: PlaceholderSlot, groups: StepGroup[]): boolean {
+  if (placeholder.reasonCode !== 'pre_cleanse_requires_followup') return false;
+  return groups.some((g) =>
+    g.members.some((m) => {
+      const type = m.product ? normalizeProductType(m.product).productType : m.step.productType;
+      return structuralSlotFor(type) === 'cleanser';
+    }),
+  );
+}
+
 /** A rendered group plus any generator `placeholder`s matched onto its action
  *  (US-44 / SCREENS.md §6.1) — rendered as a `GapCard` among its members. */
 export interface RenderGroup extends StepGroup {
@@ -141,8 +156,9 @@ export interface RenderGroup extends StepGroup {
  */
 export function attachPlaceholderGaps(
   groups: StepGroup[],
-  placeholders: PlaceholderSlot[],
+  allPlaceholders: PlaceholderSlot[],
 ): { groups: RenderGroup[]; extraGroups: RenderGroup[] } {
+  const placeholders = allPlaceholders.filter((p) => !isFollowupAlreadyPresent(p, groups));
   const withGaps: RenderGroup[] = groups.map((group) => ({
     ...group,
     gaps: placeholders.filter((p) => STEP_ACTION_FOR_TYPE[p.productTypes[0]] === group.action),

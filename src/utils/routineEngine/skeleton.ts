@@ -1,5 +1,6 @@
+import type { DecisionReasonCode } from '@/constants/decisionReasons';
 import { ACTIVES_RULESET, type Period } from '@/constants/rulesets/rulesetTypes';
-import type { ActiveIngredientKey, Product } from '@/types';
+import type { ActiveIngredientKey, Product, ProductType } from '@/types';
 import type { AdaptationLimit } from '@/utils/routineEngine/adaptation';
 import type { RoutineContext } from '@/utils/routineEngine/context';
 import type {
@@ -13,6 +14,7 @@ import {
   periodsForProduct,
   preferredPeriodFor,
   structuralSlotFor,
+  type SkeletonSlotName,
 } from '@/utils/routineEngine/slotting';
 
 /**
@@ -225,25 +227,50 @@ function classifyEntries(entries: Entry[], ranking: readonly ActiveIngredientKey
   return { structural, treatmentPool, rest };
 }
 
-/** A treatment-selected period lacking a structural moisturizer needs one
- *  recommended (its own moisturizer may have been reclassified as the treatment). */
-function neutralMoisturizerPlaceholders(
-  selected: Record<Period, Entry | null>,
-  structural: Entry[],
-): PlaceholderSlot[] {
+/**
+ * The build-order slots a period is expected to have filled, with the product
+ * type a gap card should ask for and the reason code explaining it.
+ * `pre_cleanse` is absent on purpose — a makeup remover is optional, and
+ * prompting for one would nag every user who doesn't wear makeup.
+ */
+const REQUIRED_SLOTS: Record<
+  Period,
+  readonly { slot: SkeletonSlotName; productType: ProductType; reasonCode: DecisionReasonCode }[]
+> = {
+  am: [
+    { slot: 'cleanser', productType: 'cleanser', reasonCode: 'cleanser_recommended' },
+    { slot: 'moisturizer', productType: 'moisturizer', reasonCode: 'moisturizer_recommended' },
+    { slot: 'spf', productType: 'spf', reasonCode: 'spf_recommended' },
+  ],
+  pm: [
+    { slot: 'cleanser', productType: 'cleanser', reasonCode: 'cleanser_recommended' },
+    { slot: 'moisturizer', productType: 'moisturizer', reasonCode: 'moisturizer_recommended' },
+  ],
+};
+
+/**
+ * One placeholder per REQUIRED slot no shelf product can fill in that period
+ * (2026-10-14). Previously only the moisturiser was reported, and only when a
+ * treatment had been selected — so a shelf with no actives at all, or one
+ * whose only cream carried a strong active (reclassified into the treatment
+ * pool, then reserved as not_needed_for_goals), lost that step with no step,
+ * no reserve row the UI shows and no prompt. A structural gap is a fact about
+ * the shelf, not about whether a treatment happened to win a slot.
+ */
+function structuralGapPlaceholders(structural: Entry[]): PlaceholderSlot[] {
   const placeholders: PlaceholderSlot[] = [];
   for (const period of ['am', 'pm'] as const) {
-    if (!selected[period]) continue;
-    const hasMoisturizer = structural.some(
-      (e) =>
-        structuralSlotFor(e.product.productType) === 'moisturizer' &&
-        periodsForProduct(e.product.productType, e.facts).includes(period),
-    );
-    if (!hasMoisturizer) {
+    for (const required of REQUIRED_SLOTS[period]) {
+      const filled = structural.some(
+        (e) =>
+          structuralSlotFor(e.product.productType) === required.slot &&
+          periodsForProduct(e.product.productType, e.facts).includes(period),
+      );
+      if (filled) continue;
       placeholders.push({
         period,
-        productTypes: ['moisturizer'],
-        reasonCode: 'moisturizer_recommended',
+        productTypes: [required.productType],
+        reasonCode: required.reasonCode,
         nonSkippable: false,
         severity: 'caution',
       });
@@ -374,8 +401,6 @@ export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
     decisions.push({ action: 'reserve', productId: item.productId, reasonCode: item.reasonCode });
   }
 
-  const placeholders = [
-    ...neutralMoisturizerPlaceholders(selectedTreatments, structural),
-  ];
+  const placeholders = structuralGapPlaceholders(structural);
   return { periodCandidates, reserve: finalReserve, decisions, placeholders, treatmentCaps, cycleSplitPairs };
 }

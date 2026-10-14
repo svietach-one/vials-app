@@ -20,7 +20,7 @@ import { ProductPickerCard } from '@/components/routine/ProductPickerCard';
 import { WeeklySchedulePicker } from '@/components/routine/WeeklySchedulePicker';
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
-import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
+import { normalizeProductType } from '@/utils/productForm/categoryDetector';
 import { derivePeriodSchedules } from '@/utils/routineLabel';
 import { getSlotCategoryLabel } from '@/constants/labels';
 import { colors, radius, space, typography } from '@/constants/tokens';
@@ -145,7 +145,7 @@ export function AddToRoutineSheet({
     // downstream write (upsertProductStep, findSameSlotConflict,
     // replaceProductStep) uses the corrected type instead of silently
     // persisting a mislabeled Morning "Cleanser" step.
-    const resolved = reclassifyMakeupRemover(product);
+    const resolved = normalizeProductType(product);
     const pmOnly = resolved.productType === 'makeup_remover';
     const existing = derivePeriodSchedules(
       useRoutinesStore.getState().routines,

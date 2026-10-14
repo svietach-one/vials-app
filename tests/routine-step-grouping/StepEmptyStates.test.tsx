@@ -20,6 +20,11 @@ describe('US-44: gap card — "you never had one"', () => {
     expect(screen.getByText('No SPF in your shelf')).toBeTruthy();
   });
 
+  it('names the period instead of the shelf when the gap belongs to one routine', () => {
+    render(<GapCard {...makeGapCardProps({ label: 'Cleanser', period: 'morning' })} />);
+    expect(screen.getByText('No Cleanser in your morning routine')).toBeTruthy();
+  });
+
   it('has a single action, "Find in catalog", which calls onFindInCatalog', () => {
     const onFindInCatalog = jest.fn();
     render(<GapCard {...makeGapCardProps({ onFindInCatalog })} />);

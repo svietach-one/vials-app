@@ -68,7 +68,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine, type ConflictStepInput } from '@/utils/conflictEngine';
 import { getRecoveryConditionCaution } from '@/utils/skinConditionModifiers';
-import { reclassifyMakeupRemover } from '@/utils/productForm/categoryDetector';
+import { normalizeProductType } from '@/utils/productForm/categoryDetector';
 import { dateForDow, isScheduledOnDay } from '@/utils/routineSchedule';
 import { getSkincareDateString } from '@/utils/timeHelpers';
 import {
@@ -429,8 +429,8 @@ export default function RoutinesScreen({ navigation }: Props) {
   // match reminder.stepId against each step it renders and place the card
   // directly under that specific step's own row.
   const preCleanseReminder = useMemo(
-    () => findPreCleanseReminder(routines, products),
-    [routines, products],
+    () => findPreCleanseReminder(routines, products, selectedDow),
+    [routines, products, selectedDow],
   );
 
   // Each period drags within its own NestableDraggableFlatList — cross-period
@@ -498,11 +498,11 @@ export default function RoutinesScreen({ navigation }: Props) {
             product={product}
             // Older manually-added steps can carry a stale `cleanser`
             // productType for what is actually a micellar water / makeup
-            // remover (reclassifyMakeupRemover only ran at generate-time
+            // remover (normalizeProductType only ran at generate-time
             // historically) — reclassify from the current catalog record so
             // the badge is honest regardless of which routine or when the
             // step was created.
-            displayProductType={reclassifyMakeupRemover(product).productType}
+            displayProductType={normalizeProductType(product).productType}
             completed={completed}
             editMode={editMode}
             tappable={tappable}
@@ -546,6 +546,7 @@ export default function RoutinesScreen({ navigation }: Props) {
       <View key={`gap-${gap.reasonCode}-${index}`} style={styles.stepRowWrap}>
         <GapCard
           label={PRODUCT_TYPE_LABELS[gap.productTypes[0]] ?? gap.productTypes[0]}
+          period={gap.period === 'am' ? 'morning' : 'evening'}
           onFindInCatalog={handleFindInCatalog}
         />
       </View>

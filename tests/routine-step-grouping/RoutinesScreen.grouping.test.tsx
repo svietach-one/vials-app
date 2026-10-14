@@ -443,7 +443,7 @@ describe('US-37/US-39: layering-note transitions', () => {
 // ─── US-44: two distinct empty states ──────────────────────────────────────────
 
 describe('US-44: gap card — a generator placeholder renders instead of being dropped', () => {
-  it('renders "No SPF in your shelf" with a Find in catalog action when the plan has an unfilled SPF mandate', () => {
+  it('names the period in the gap copy with a Find in catalog action when the plan has an unfilled SPF mandate', () => {
     mockProducts = [CLEANSER];
     mockRoutines = [
       makeRoutine({
@@ -472,7 +472,10 @@ describe('US-44: gap card — a generator placeholder renders instead of being d
 
     const { navigate } = renderScreen();
 
-    expect(screen.getByText('No SPF in your shelf')).toBeTruthy();
+    // Period-aware copy (tech-lead review 2026-10-14, W1): a slot can be
+    // unfilled for THIS period while the user owns a product limited to the
+    // other one, so the card no longer asserts anything about the shelf.
+    expect(screen.getByText('No SPF in your morning routine')).toBeTruthy();
     fireEvent.press(screen.getByText('Find in catalog'));
     expect(navigate).toHaveBeenCalled();
   });
