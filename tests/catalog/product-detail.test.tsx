@@ -161,6 +161,8 @@ jest.mock('@/constants/tokens', () => ({
   space: new Proxy({}, { get: () => 8 }),
   typography: new Proxy({}, { get: () => ({}) }),
   radius: new Proxy({}, { get: () => 8 }),
+  palette: new Proxy({}, { get: () => '#000' }),
+  shadow: new Proxy({}, { get: () => ({}) }),
 }));
 
 // ── Subjects under test ────────────────────────────────────────────────────────

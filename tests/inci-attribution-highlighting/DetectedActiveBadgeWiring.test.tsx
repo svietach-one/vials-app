@@ -44,6 +44,7 @@ jest.mock('@expo/vector-icons', () => {
 });
 
 jest.mock('@/constants/labels', () => ({
+  ...jest.requireActual('@/constants/labels'),
   PRODUCT_TYPE_LABELS: { ampoule: 'Ampoule', serum: 'Serum', cleanser: 'Cleanser' },
   ACTIVE_INGREDIENT_LABELS: { bha: 'BHA', niacinamide: 'Niacinamide' },
 }));

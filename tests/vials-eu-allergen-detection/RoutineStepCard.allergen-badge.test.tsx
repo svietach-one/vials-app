@@ -27,6 +27,7 @@ import { collectTestIdOrder, makeProduct, NON_RESTRICTED_MATCH_A, RESTRICTED_MAT
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 jest.mock('@/constants/labels', () => ({
+  ...jest.requireActual('@/constants/labels'),
   PRODUCT_TYPE_LABELS: { lotion: 'Lotion', serum: 'Serum' },
   ACTIVE_INGREDIENT_LABELS: { niacinamide: 'Niacinamide' },
   getProductTypeBadgeStatus: jest.fn(() => 'Default'),

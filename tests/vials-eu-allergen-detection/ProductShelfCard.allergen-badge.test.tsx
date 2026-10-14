@@ -32,6 +32,7 @@ import {
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 jest.mock('@/constants/labels', () => ({
+  ...jest.requireActual('@/constants/labels'),
   PRODUCT_TYPE_LABELS: { lotion: 'Lotion', cleanser: 'Cleanser', serum: 'Serum' },
   ACTIVE_INGREDIENT_LABELS: {},
   getProductTypeBadgeStatus: jest.fn(() => 'Default'),

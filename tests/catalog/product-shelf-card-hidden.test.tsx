@@ -42,6 +42,7 @@ import { makeProduct, makeDefaultShelfCardProps } from '../product-shelf-card/fi
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 jest.mock('@/constants/labels', () => ({
+  ...jest.requireActual('@/constants/labels'),
   PRODUCT_TYPE_LABELS: { cleanser: 'Cleanser', serum: 'Serum' },
   ACTIVE_INGREDIENT_LABELS: {},
 }));
