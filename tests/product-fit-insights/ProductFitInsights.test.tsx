@@ -4,6 +4,7 @@
  * Real pure logic (resolve / caution / goal-fit); only the profile store is mocked.
  */
 import React from 'react';
+import { Text } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { makeProduct, makeProfileLike, type ProfileGoalConditionLike } from '../explore-composition/fixtures';
@@ -17,13 +18,13 @@ import { ProductFitInsights } from '@/components/product/ProductFitInsights';
 
 const RETINOL_TEXT = 'Aqua, Glycerin, Retinol, Tocopherol';
 
-function renderInsights(overrides = {}, onSetSkinType = jest.fn()) {
+function renderInsights(overrides = {}, onSetSkinType = jest.fn(), onActivePress = jest.fn()) {
   const product = makeProduct({
     activeTags: ['retinol'],
     fullIngredientText: RETINOL_TEXT,
     ...overrides,
   });
-  render(<ProductFitInsights product={product} onSetSkinType={onSetSkinType} />);
+  render(<ProductFitInsights product={product} onSetSkinType={onSetSkinType} onActivePress={onActivePress} />);
   return onSetSkinType;
 }
 
@@ -51,6 +52,15 @@ describe('ProductFitInsights', () => {
 
     expect(screen.getByTestId('active-row-retinoid')).toBeTruthy();
     expect(screen.queryByText(/of \d+$/)).toBeNull();
+  });
+
+  it('calls onActivePress with the key when an active row is tapped', () => {
+    const onActivePress = jest.fn();
+    renderInsights({}, jest.fn(), onActivePress);
+
+    fireEvent.press(screen.getByTestId('active-badge-retinoid'));
+
+    expect(onActivePress).toHaveBeenCalledWith('retinoid');
   });
 
   it('nudges to set a skin type when a cautionary active is present and skin type is unset', () => {
@@ -104,5 +114,36 @@ describe('ProductFitInsights', () => {
 
     expect(screen.getByTestId('detected-actives')).toBeTruthy();
     expect(screen.getByTestId('skin-type-nudge')).toBeTruthy();
+  });
+
+  it('renders afterActives directly under the actives card and before the caution', () => {
+    const product = makeProduct({ activeTags: ['retinol'], fullIngredientText: RETINOL_TEXT });
+    const { toJSON } = render(
+      <ProductFitInsights
+        product={product}
+        onSetSkinType={jest.fn()}
+        onActivePress={jest.fn()}
+        afterActives={<Text>AFTER_ACTIVES</Text>}
+      />,
+    );
+
+    const tree = JSON.stringify(toJSON());
+    const idx = (needle: string) => tree.indexOf(needle);
+    expect(idx('detected-actives')).toBeLessThan(idx('AFTER_ACTIVES'));
+    expect(idx('AFTER_ACTIVES')).toBeLessThan(idx('skin-type-nudge'));
+  });
+
+  it('still renders afterActives when the product has no actives', () => {
+    const product = makeProduct({ activeTags: [], fullIngredientText: 'Aqua, Dimethicone' });
+    render(
+      <ProductFitInsights
+        product={product}
+        onSetSkinType={jest.fn()}
+        onActivePress={jest.fn()}
+        afterActives={<Text>AFTER_ACTIVES</Text>}
+      />,
+    );
+
+    expect(screen.getByText('AFTER_ACTIVES')).toBeTruthy();
   });
 });

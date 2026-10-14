@@ -4,9 +4,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import { DetectedActivesCard } from '@/components/catalog/DetectedActivesCard';
 import { GoalFitCard } from '@/components/catalog/GoalFitCard';
 import { SkinTypeCautionNotice } from '@/components/catalog/SkinTypeCautionNotice';
+import { getMatchesForKey, hasAliasOverride } from '@/utils/attributionLookup';
 import { colors, space, typography } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
-import type { Product } from '@/types';
+import type { ActiveIngredientKey, Product } from '@/types';
 import { buildConditionCaution } from '@/utils/productProfile/conditionCaution';
 import { buildGoalFit } from '@/utils/productProfile/goalFit';
 import { joinActiveKeys } from '@/utils/productProfile/join';
@@ -18,6 +19,10 @@ interface Props {
   product: Product;
   /** Navigates to the Profile tab so the user can set a skin type. */
   onSetSkinType: () => void;
+  /** Opens the attribution tooltip for a tapped active. */
+  onActivePress: (key: ActiveIngredientKey) => void;
+  /** Rendered directly under the actives card (the screen passes the Allergens card). */
+  afterActives?: React.ReactNode;
 }
 
 /**
@@ -31,7 +36,7 @@ interface Props {
  * parsed from `fullIngredientText`), so tag-only products still get caution
  * and goal fit; they just have no INCI position.
  */
-export function ProductFitInsights({ product, onSetSkinType }: Props) {
+export function ProductFitInsights({ product, onSetSkinType, onActivePress, afterActives }: Props) {
   const profile = useProfileStore((s) => s.profile);
 
   const insights = useMemo(() => {
@@ -41,6 +46,9 @@ export function ProductFitInsights({ product, onSetSkinType }: Props) {
       resolved,
       tokens,
       onePercentLine: findOnePercentLine(tokens),
+      aliasKeys: resolved.resolvedActiveKeys.filter((key) =>
+        hasAliasOverride(getMatchesForKey(product.fullIngredientText, key)),
+      ),
       skinTypeCaution: buildSkinTypeCaution(joinActiveKeys(resolved.resolvedActiveKeys, resolved.potencyByKey)),
     };
   }, [product]);
@@ -59,7 +67,7 @@ export function ProductFitInsights({ product, onSetSkinType }: Props) {
     [insights.resolved.resolvedActiveKeys, profile?.skinConditions],
   );
 
-  if (insights.resolved.resolvedActiveKeys.length === 0) return null;
+  if (insights.resolved.resolvedActiveKeys.length === 0) return <>{afterActives}</>;
 
   return (
     <>
@@ -68,7 +76,11 @@ export function ProductFitInsights({ product, onSetSkinType }: Props) {
         ingredientTokens={insights.tokens}
         positionByKey={insights.resolved.positionByKey}
         onePercentLine={insights.onePercentLine}
+        onActivePress={onActivePress}
+        aliasKeys={insights.aliasKeys}
       />
+
+      {afterActives}
 
       <SkinTypeCautionNotice
         caution={insights.skinTypeCaution}
