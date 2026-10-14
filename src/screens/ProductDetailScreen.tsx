@@ -414,12 +414,6 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
                   </View>
                   <Text style={styles.cardTitle}>Allergens</Text>
                 </View>
-                <View style={styles.badgeLegend}>
-                  <AllergenBadge matches={allergenMatches} />
-                  <Text style={styles.badgeLegendText}>
-                    This badge on a shelf card means the product contains an EU-regulated fragrance allergen.
-                  </Text>
-                </View>
                 <View style={styles.allergenList}>
                   {allergenMatches.map((match) => (
                     <View key={match.canonical} style={styles.allergenRow}>
@@ -430,6 +424,12 @@ export default function ProductDetailScreen({ route, navigation }: Props) {
                       ) : null}
                     </View>
                   ))}
+                </View>
+                <View style={styles.badgeLegend}>
+                  <AllergenBadge matches={allergenMatches} />
+                  <Text style={styles.badgeLegendText}>
+                    This badge on shelf cards marks a product with an EU fragrance allergen.
+                  </Text>
                 </View>
               </View>
             ) : null

@@ -190,6 +190,6 @@ describe('Badge legend', () => {
     renderScreen('p-legend');
 
     expect(screen.getByTestId('allergen-badge')).toBeTruthy();
-    expect(screen.getByText(/badge on a shelf card means/)).toBeTruthy();
+    expect(screen.getByText(/badge on shelf cards marks/)).toBeTruthy();
   });
 });
