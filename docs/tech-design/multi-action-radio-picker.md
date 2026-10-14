@@ -39,7 +39,7 @@ Caller (3 sites) --title/body (unchanged)--> RadioOptionGroup --selected--> loca
                                 onCancel/onClose          per-option callback(selected)
 ```
 
-No store, API, data-model, or navigation changes. Every converted component keeps its existing
+No store, API, data-model, or navigation changes (amended 2026-10-14: `DraftPreviewScreen` gained an optional `onResetAll` prop, `RoutinesScreen` wires it to the new `resetAllRoutines()` domain action, behind a confirmation Alert). Every converted component keeps its existing
 external prop contract — `AddToRoutineSheet.tsx` (the real render site of
 `DuplicateSlotChoiceSheet`) and `RoutinesScreen.tsx` (render site of `RemoveStepModal`) need no
 changes at all; only the JSX between "question shown" and "callback fired" changes inside the
