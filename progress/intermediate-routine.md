@@ -83,5 +83,7 @@ window, barrier-repair deferral, AM). Q4 approve style names and PLACEHOLDER cop
   still scheduled; only the prompt is withheld.
 - Q3 clinical review of enzyme values: DEFERRED to after the MVP, before the
   global release. Values ship as drafted.
-- Q4 style names + copy: still open, owner design.
-Spec stays DRAFT pending Q4 and the owner's read-through.
+- Q4a style names "Essential" / "Balanced": APPROVED.
+- Q4b remaining PLACEHOLDER screen copy: still open, owner design.
+Spec stays DRAFT pending Q4b and the owner's read-through — she has not yet
+said she read the spec itself, only answered the questions put to her.

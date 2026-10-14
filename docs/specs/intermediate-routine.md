@@ -242,8 +242,8 @@ The app is local-only with no telemetry, so success is verified on fixtures:
   window, barrier-repair deferral, AM preference) — **DEFERRED to after the MVP, before the global
   release** (product owner, 2026-10-14). The values ship as drafted for the MVP. → owner: clinical
   consultant, scheduled post-MVP
-- [ ] Q4. Approve the style names ("Essential" / "Balanced") and all PLACEHOLDER copy in §5.
-  → owner: design. Still open.
+- [x] Q4a. Style names "Essential" / "Balanced" — **APPROVED** (product owner, 2026-10-14).
+- [ ] Q4b. The remaining PLACEHOLDER copy in §5 (card and section wording) — still open. → owner: design
 
 Resolved 2026-10-14 (product owner, relayed by the coordinating session): no release and no existing
 users, so the default is Balanced for everyone and nothing is migrated; "filter versus slot selection" is a
