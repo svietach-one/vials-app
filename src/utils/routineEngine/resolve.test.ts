@@ -557,3 +557,44 @@ describe('resolvePeriods — cycle-split pairs (day-split-alternation FE-4/FE-8)
     expect(bhaAdmitted !== undefined || bhaFrozen).toBe(true);
   });
 });
+
+describe('resolvePeriods — one terminal outcome per product per period (intermediate-routine FE-13)', () => {
+  /**
+   * Shrunk from a failing seeded shelf. A copper-peptide lotion that may run in
+   * both periods collides with a morning-only PHA balm; the pair rule relocates
+   * the lotion AM → PM. It already sits in the PM pool, so it used to be tried
+   * twice in the PM: once as itself and once as the relocated twin. The twin
+   * then lost the same-slot contest to ITSELF and was offered as its own
+   * alternative ("Change" would swap a product for itself).
+   */
+  const repro = () => {
+    const lotion = makeProduct({ id: 'lotion', productType: 'lotion', activeTags: ['copper_peptides'], addedAt: '2026-01-13' });
+    const balmA = makeProduct({ id: 'balm-a', productType: 'balm', activeTags: ['vitamin_c_derivative', 'ceramides'], addedAt: '2026-04-07' });
+    const balmB = makeProduct({ id: 'balm-b', productType: 'balm', activeTags: ['pha', 'cica'], usageTime: 'morning', addedAt: '2026-04-12' });
+    return resolve([lotion, balmA, balmB], { context: makeContext({ fitzpatrick: 6 }) });
+  };
+
+  const idsOf = (steps: { productId: string }[]) => steps.map((s) => s.productId);
+
+  it('never offers a product that is already scheduled in the same period as its own alternative', () => {
+    const result = repro();
+
+    for (const entry of result.slotAlternatives) {
+      const scheduled = idsOf(result.periods[entry.period === 'morning' ? 'am' : 'pm']);
+      for (const alt of entry.alternatives) expect(scheduled).not.toContain(alt.productId);
+    }
+  });
+
+  it('schedules no product twice in a period and lists no alternative twice', () => {
+    const result = repro();
+
+    for (const period of ['am', 'pm'] as const) {
+      const ids = idsOf(result.periods[period]);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+    for (const entry of result.slotAlternatives) {
+      const ids = idsOf(entry.alternatives);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+});
