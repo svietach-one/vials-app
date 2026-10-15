@@ -1,21 +1,23 @@
 /**
- * Routines screen integration: gap cards follow the style, and the
- * "Not in your routine" footer section. Spec Stories 3 and 5, §5.
- * Mock boundary follows tests/routine-engine/routines-screen-paused-rows.test.tsx;
- * the proposed plan comes from the REAL engine (validateRoutines -> generatePlan) so the screen is
- * exercised against what the engine actually emits, not a hand-written plan.
+ * Routines screen integration: gap cards, "Not for me", the "Not in your routine"
+ * footer, and edit-mode gating of Remove/Hide in the list and the calendar.
+ * Spec Stories 2, 4, 5, 6, 7. The proposed plan comes from the REAL engine
+ * (validateRoutines -> generatePlan); only stores, navigation and heavy native
+ * modules sit behind mocks. Mock boundary follows
+ * tests/routine-engine/routines-screen-paused-rows.test.tsx.
  *
- * ASSUMED: RoutinesScreen reads `routineDepth` via useSettingsStore((s) => s.routineDepth)
- * and renders <LeftOutSection> between PausedSteps and the "Add product" button.
- * Written against a DRAFT spec.
+ * ASSUMED: RoutinesScreen renders <LeftOutSection> between PausedSteps and the
+ * "Add product" button, applies visibleGaps(placeholders, dismissedGapCards) before
+ * rendering GapCards, passes onDismiss only for dismissible cards, and passes
+ * allowRemoval={editMode} to RoutineStepActionSheet and editMode to RoutineCalendarView.
  */
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { ROUTINE_DEPTH_COPY } from '@/constants/routineDepth';
+import { CALENDAR_HINT_COPY, GAP_DISMISS_COPY, LEFT_OUT_COPY } from '@/constants/routineScreenCopy';
 import type { Product, Routine } from '@/types';
 import { validateRoutines } from '@/utils/routineEngine/validate';
 import { toPersistedAccordionState } from '@/utils/routineAccordion';
-import { makeDepthInput, makeRoutine, makeRoutineStep, makeS3, S3, shelfProduct } from './fixtures';
+import { makeEngineInput, makeRoutine, makeRoutineStep, makeS3, S3, shelfProduct } from './fixtures';
 
 jest.mock('@react-navigation/native', () => {
   const ReactActual = require('react');
@@ -56,6 +58,10 @@ jest.mock('@/components/routine/RemoveStepModal', () => ({ RemoveStepModal: () =
 jest.mock('@/components/routine/SeasonalNoticeBanner', () => ({ SeasonalNoticeBanner: () => null }));
 jest.mock('@/components/routine/RehabNoticeCard', () => ({ RehabNoticeCard: () => null }));
 
+const mockSheetProps = jest.fn();
+jest.mock('@/components/routine/RoutineStepActionSheet', () => ({
+  RoutineStepActionSheet: (props: unknown) => { mockSheetProps(props); return null; },
+}));
 const mockDraftProps = jest.fn();
 jest.mock('@/components/routine/DraftPreviewScreen', () => ({
   DraftPreviewScreen: (props: unknown) => { mockDraftProps(props); return null; },
@@ -73,11 +79,11 @@ jest.mock('@/components/routine/RoutineStepCard', () => {
 // ─── Boundary state, mutated per test ────────────────────────────────────────
 let mockProducts: Product[] = [];
 let mockRoutines: Routine[] = [];
-let mockDepth: 'essential' | 'balanced' = 'balanced';
+let mockDismissed: string[] = [];
+const mockDismissGapCard = jest.fn();
 let mockAccordion: unknown = null;
 const mockApplyRoutinePlan = jest.fn();
 const mockAddOverride = jest.fn();
-const mockSetRoutineDepth = jest.fn();
 const mockValidateSpy = jest.fn();
 
 jest.mock('@/domain/routinePlanActions', () => ({
@@ -92,8 +98,8 @@ jest.mock('@/store/settingsStore', () => ({
   useSettingsStore: jest.fn((selector: any) =>
     selector({
       routineCycleType: 'fixed',
-      routineDepth: mockDepth,
-      setRoutineDepth: mockSetRoutineDepth,
+      dismissedGapCards: mockDismissed,
+      dismissGapCard: (...a: unknown[]) => mockDismissGapCard(...a),
       gamificationEnabled: false,
       routineAccordion: mockAccordion,
       setRoutineAccordion: jest.fn(),
@@ -139,35 +145,40 @@ beforeEach(() => {
   mockDraftProps.mockClear();
   mockApplyRoutinePlan.mockClear();
   mockAddOverride.mockClear();
-  mockDepth = 'balanced';
+  mockDismissed = [];
+  mockDismissGapCard.mockClear();
+  mockSheetProps.mockClear();
   mockAccordion = toPersistedAccordionState({ morning: true, evening: false });
   // The real engine behind the mocked domain boundary: validate = validateRoutines over the live mock stores.
   mockValidateSpy.mockImplementation(() =>
-    validateRoutines(mockRoutines, makeDepthInput(mockProducts, mockDepth)),
+    validateRoutines(mockRoutines, makeEngineInput(mockProducts)),
   );
   mockProducts = makeS3();
   mockRoutines = savedFrom(mockProducts, [S3.cleanser, S3.cream, S3.spf]);
 });
 
-describe('gap cards follow the routine style (Story 3, Story 1 AC5)', () => {
+function lastSheetProps(): { product: Product | null; allowRemoval?: boolean } {
+  return mockSheetProps.mock.calls[mockSheetProps.mock.calls.length - 1][0];
+}
+
+describe('gap cards (Story 2)', () => {
   it('harness sanity: an existing required-slot gap (no SPF) still shows its card', () => {
     mockProducts = makeS3().filter((p) => p.id !== S3.spf);
     mockRoutines = savedFrom(mockProducts, [S3.cleanser, S3.cream]);
-    mockDepth = 'essential';
 
     renderScreen();
 
     expect(screen.getByText('No SPF in your morning routine')).toBeTruthy();
   });
 
-  it('Balanced: shows the Toner and Eye Cream gap cards for the morning', () => {
+  it('shows the Toner and Eye Cream gap cards for the morning on S3', () => {
     renderScreen();
 
     expect(screen.getByText('No Toner in your morning routine')).toBeTruthy();
     expect(screen.getByText('No Eye Cream in your morning routine')).toBeTruthy();
   });
 
-  it('Balanced: shows the evening equivalents when Evening is the active period', () => {
+  it('shows the evening equivalents when Evening is the active period', () => {
     mockAccordion = toPersistedAccordionState({ morning: false, evening: true });
 
     renderScreen();
@@ -176,24 +187,18 @@ describe('gap cards follow the routine style (Story 3, Story 1 AC5)', () => {
     expect(screen.getByText('No Eye Cream in your evening routine')).toBeTruthy();
   });
 
-  it('Essential: shows none of the four', () => {
-    mockDepth = 'essential';
+  it('still shows the toner cards for a wishlist toner, which is not in the list either', () => {
+    mockProducts = [...makeS3(), shelfProduct('wish', 'Wishlist Toner', 'toner', { status: 'wishlist' })];
+    mockRoutines = savedFrom(mockProducts, [S3.cleanser, S3.cream, S3.spf]);
+    // The live plan is built from owned products only (what buildEngineInputFromStores does).
+    mockValidateSpy.mockImplementation(() =>
+      validateRoutines(mockRoutines, makeEngineInput(mockProducts.filter((p) => p.status !== 'wishlist'))),
+    );
 
     renderScreen();
 
-    expect(screen.queryByText(/No Toner in your/)).toBeNull();
-    expect(screen.queryByText(/No Eye Cream in your/)).toBeNull();
-  });
-
-  it('re-derives the cards when the persisted style changes, without opening the Draft Preview', () => {
-    const view = renderScreen();
     expect(screen.getByText('No Toner in your morning routine')).toBeTruthy();
-
-    mockDepth = 'essential';
-    view.again();
-
-    expect(screen.queryByText('No Toner in your morning routine')).toBeNull();
-    expect(lastDraftProps().visible).toBe(false);
+    expect(screen.queryByText(/Not in your routine/)).toBeNull();
   });
 
   it('shows the Generate card and no gap card when nothing is saved', () => {
@@ -206,8 +211,8 @@ describe('gap cards follow the routine style (Story 3, Story 1 AC5)', () => {
   });
 });
 
-describe('"Not in your routine" section (Story 5)', () => {
-  const header = (n: number) => ROUTINE_DEPTH_COPY.leftOutHeader(n);
+describe('"Not in your routine" section (Story 4)', () => {
+  const header = (n: number) => LEFT_OUT_COPY.leftOutHeader(n);
 
   function withShelf(extra: Product[]) {
     mockProducts = [...makeS3(), ...extra];
@@ -233,7 +238,7 @@ describe('"Not in your routine" section (Story 5)', () => {
     fireEvent.press(screen.getByText(header(2)));
 
     expect(screen.getByText('Hydrating Toner')).toBeTruthy();
-    expect(screen.getByText(ROUTINE_DEPTH_COPY.readyToAdd)).toBeTruthy();
+    expect(screen.getByText(LEFT_OUT_COPY.readyToAdd)).toBeTruthy();
     expect(screen.getByText('Face Oil')).toBeTruthy();
     expect(screen.getByText('Your current goals don’t call for this product — kept in reserve.')).toBeTruthy();
   });
@@ -243,7 +248,7 @@ describe('"Not in your routine" section (Story 5)', () => {
     renderScreen();
     fireEvent.press(screen.getByText(header(1)));
 
-    fireEvent.press(screen.getByLabelText(`${ROUTINE_DEPTH_COPY.addAction} Face Oil`));
+    fireEvent.press(screen.getByLabelText(`${LEFT_OUT_COPY.addAction} Face Oil`));
 
     expect(mockAddOverride).toHaveBeenCalledWith('oil', 'hash-1');
     expect(lastDraftProps().visible).toBe(true);
@@ -255,7 +260,7 @@ describe('"Not in your routine" section (Story 5)', () => {
     renderScreen();
     fireEvent.press(screen.getByText(header(1)));
 
-    fireEvent.press(screen.getByLabelText(`${ROUTINE_DEPTH_COPY.reviewAction} Hydrating Toner`));
+    fireEvent.press(screen.getByLabelText(`${LEFT_OUT_COPY.reviewAction} Hydrating Toner`));
 
     expect(lastDraftProps().visible).toBe(true);
     expect(mockAddOverride).not.toHaveBeenCalled();
@@ -286,12 +291,118 @@ describe('"Not in your routine" section (Story 5)', () => {
 
     expect(screen.queryByText('No Toner in your morning routine')).toBeNull();
     fireEvent.press(screen.getByText(header(1)));
-    expect(screen.getByText(ROUTINE_DEPTH_COPY.readyToAdd)).toBeTruthy();
+    expect(screen.getByText(LEFT_OUT_COPY.readyToAdd)).toBeTruthy();
+  });
+});
+
+describe('"Not for me" on optional cards (Story 6)', () => {
+  const dismissButtons = () => screen.queryAllByText(GAP_DISMISS_COPY.action);
+
+  it('is offered on the toner and eye-cream cards only, not on the SPF card', () => {
+    mockProducts = makeS3().filter((p) => p.id !== S3.spf);
+    mockRoutines = savedFrom(mockProducts, [S3.cleanser, S3.cream]);
+
+    renderScreen();
+
+    expect(screen.getByText('No SPF in your morning routine')).toBeTruthy();
+    expect(dismissButtons()).toHaveLength(2); // toner + eye cream; none for SPF
+  });
+
+  it('is offered with edit mode on as well as off', () => {
+    renderScreen();
+    expect(dismissButtons()).toHaveLength(2);
+
+    fireEvent.press(screen.getByLabelText('Edit routine'));
+
+    expect(dismissButtons()).toHaveLength(2);
+  });
+
+  it('records the morning toner key when its card is dismissed', () => {
+    renderScreen();
+
+    fireEvent.press(dismissButtons()[0]); // toner precedes eye cream in build order
+
+    expect(mockDismissGapCard).toHaveBeenCalledWith('am:toner');
+  });
+
+  it('hides only the dismissed card; the other morning card and the evening cards stay', () => {
+    mockDismissed = ['am:toner'];
+    const view = renderScreen();
+
+    expect(screen.queryByText('No Toner in your morning routine')).toBeNull();
+    expect(screen.getByText('No Eye Cream in your morning routine')).toBeTruthy();
+
+    mockAccordion = toPersistedAccordionState({ morning: false, evening: true });
+    view.unmount();
+    renderScreen();
+    expect(screen.getByText('No Toner in your evening routine')).toBeTruthy();
+    expect(screen.getByText('No Eye Cream in your evening routine')).toBeTruthy();
+  });
+
+  it('does not change the left-out section or the draft because of a dismissal', () => {
+    mockProducts = [...makeS3(), shelfProduct('oil', 'Face Oil', 'oil')];
+    mockRoutines = savedFrom(mockProducts, [S3.cleanser, S3.cream, S3.spf]);
+    const first = renderScreen();
+    const withoutDismissal = JSON.stringify(first.toJSON()).includes(LEFT_OUT_COPY.leftOutHeader(1));
+    first.unmount();
+
+    mockDismissed = ['am:toner', 'pm:toner', 'am:eye_cream', 'pm:eye_cream'];
+    renderScreen();
+
+    expect(withoutDismissal).toBe(true);
+    expect(screen.getByText(LEFT_OUT_COPY.leftOutHeader(1))).toBeTruthy();
+    expect(lastDraftProps().visible).toBe(false);
+  });
+});
+
+describe('Remove and Hide exist only in edit mode (Story 5)', () => {
+  it('opens no action sheet when a list card is tapped with edit mode off', () => {
+    renderScreen();
+
+    fireEvent.press(screen.getByText('Plain Cream'));
+
+    expect(lastSheetProps().product).toBeNull();
+  });
+
+  it('opens the sheet with removal allowed when a list card is tapped in edit mode', () => {
+    renderScreen();
+    fireEvent.press(screen.getByLabelText('Edit routine'));
+
+    fireEvent.press(screen.getByText('Plain Cream'));
+
+    expect(lastSheetProps().product?.id).toBe(S3.cream);
+    expect(lastSheetProps().allowRemoval).toBe(true);
+  });
+
+  it('passes allowRemoval=false from the calendar with edit mode off, and true once the pencil is on', () => {
+    renderScreen();
+    fireEvent.press(screen.getByLabelText('Calendar view'));
+
+    fireEvent.press(screen.getByLabelText('Plain Cream, open actions'));
+    expect(lastSheetProps().product?.id).toBe(S3.cream);
+    expect(lastSheetProps().allowRemoval).toBe(false);
+
+    fireEvent.press(screen.getByLabelText('Edit routine'));
+    fireEvent.press(screen.getByLabelText('Plain Cream, open actions'));
+    expect(lastSheetProps().allowRemoval).toBe(true);
+  });
+});
+
+describe('calendar discoverability follows the pencil (Story 7)', () => {
+  it('shows the view caption, then the edit caption after the pencil is toggled, without leaving the calendar', () => {
+    renderScreen();
+    fireEvent.press(screen.getByLabelText('Calendar view'));
+    expect(screen.getByText(CALENDAR_HINT_COPY.view)).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Edit routine'));
+
+    expect(screen.getByText(CALENDAR_HINT_COPY.edit)).toBeTruthy();
+    expect(screen.queryByText(CALENDAR_HINT_COPY.view)).toBeNull();
   });
 });
 
 describe('copy contract (spec-literal strings that are NOT placeholders)', () => {
   it('writes the header as "Not in your routine · N"', () => {
-    expect(ROUTINE_DEPTH_COPY.leftOutHeader(3)).toBe('Not in your routine · 3');
+    expect(LEFT_OUT_COPY.leftOutHeader(3)).toBe('Not in your routine · 3');
   });
 });

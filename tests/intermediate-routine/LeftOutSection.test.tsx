@@ -1,21 +1,21 @@
 /**
  * Component test for the "Not in your routine" section (tech design FE-10).
- * Spec Story 5 and §5. Copy that is still PLACEHOLDER (spec Q4b) is read from
- * ONE exported constant, ROUTINE_DEPTH_COPY, so a copy change touches one file.
+ * Spec Story 4 and §5. Copy that is still PLACEHOLDER (spec Q4b) is read from
+ * ONE exported module, routineScreenCopy.ts (LEFT_OUT_COPY), so a copy change touches one file.
  *
- * ASSUMED props (the tech design names the component and its two actions only):
+ * Props (pinned by FE-8):
  *   <LeftOutSection items={LeftOutItem[]} products={Product[]}
  *                   onAdd={(productId: string) => void} onReview={() => void} />
- * ASSUMED a11y: header is a button whose label/text is ROUTINE_DEPTH_COPY.leftOutHeader(n) and which
+ * ASSUMED a11y (not pinned by the design): header is a button whose label/text is LEFT_OUT_COPY.leftOutHeader(n) and which
  * exposes accessibilityState.expanded; row actions have accessibilityLabel
- * `${ROUTINE_DEPTH_COPY.addAction} ${name}` / `${ROUTINE_DEPTH_COPY.reviewAction} ${name}`.
- * Written against a DRAFT spec.
+ * `${LEFT_OUT_COPY.addAction} ${name}` / `${LEFT_OUT_COPY.reviewAction} ${name}`.
+ * Props and copy shape are pinned by the tech design (FE-8).
  */
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { reasonText } from '@/constants/decisionReasons';
-import { ROUTINE_DEPTH_COPY } from '@/constants/routineDepth';
+import { LEFT_OUT_COPY } from '@/constants/routineScreenCopy';
 import type { Product } from '@/types';
 import { LeftOutSection, type LeftOutSectionProps } from '@/components/routine/LeftOutSection';
 import { makeLeftOutItem, REASON, shelfProduct } from './fixtures';
@@ -47,7 +47,7 @@ function makeProps(overrides: Partial<LeftOutSectionProps> = {}): LeftOutSection
   };
 }
 
-const header = (n: number) => ROUTINE_DEPTH_COPY.leftOutHeader(n);
+const header = (n: number) => LEFT_OUT_COPY.leftOutHeader(n);
 
 describe('collapsed header', () => {
   it('shows "Not in your routine · N" and keeps the rows hidden until tapped', () => {
@@ -101,11 +101,11 @@ describe('one reason line per row, by kind', () => {
   });
 
   it('states the ready copy for a row a fresh draft would include', () => {
-    expect(screen.getByText(ROUTINE_DEPTH_COPY.readyToAdd)).toBeTruthy();
+    expect(screen.getByText(LEFT_OUT_COPY.readyToAdd)).toBeTruthy();
   });
 
   it('states the backup copy for a same-slot loser', () => {
-    expect(screen.getByText(ROUTINE_DEPTH_COPY.backup)).toBeTruthy();
+    expect(screen.getByText(LEFT_OUT_COPY.backup)).toBeTruthy();
   });
 });
 
@@ -115,7 +115,7 @@ describe('row actions', () => {
     render(<LeftOutSection {...props} />);
     fireEvent.press(screen.getByText(header(4)));
 
-    fireEvent.press(screen.getByLabelText(`${ROUTINE_DEPTH_COPY.addAction} Face Oil`));
+    fireEvent.press(screen.getByLabelText(`${LEFT_OUT_COPY.addAction} Face Oil`));
 
     expect(props.onAdd).toHaveBeenCalledWith('oil');
     expect(props.onReview).not.toHaveBeenCalled();
@@ -126,7 +126,7 @@ describe('row actions', () => {
     render(<LeftOutSection {...props} />);
     fireEvent.press(screen.getByText(header(4)));
 
-    fireEvent.press(screen.getByLabelText(`${ROUTINE_DEPTH_COPY.reviewAction} Hydrating Toner`));
+    fireEvent.press(screen.getByLabelText(`${LEFT_OUT_COPY.reviewAction} Hydrating Toner`));
 
     expect(props.onReview).toHaveBeenCalledTimes(1);
     expect(props.onAdd).not.toHaveBeenCalled();
@@ -136,10 +136,10 @@ describe('row actions', () => {
     render(<LeftOutSection {...makeProps()} />);
     fireEvent.press(screen.getByText(header(4)));
 
-    expect(screen.queryByLabelText(`${ROUTINE_DEPTH_COPY.addAction} AHA Serum`)).toBeNull();
-    expect(screen.queryByLabelText(`${ROUTINE_DEPTH_COPY.reviewAction} AHA Serum`)).toBeNull();
-    expect(screen.queryByLabelText(`${ROUTINE_DEPTH_COPY.addAction} Backup Toner`)).toBeNull();
-    expect(screen.queryByLabelText(`${ROUTINE_DEPTH_COPY.reviewAction} Backup Toner`)).toBeNull();
+    expect(screen.queryByLabelText(`${LEFT_OUT_COPY.addAction} AHA Serum`)).toBeNull();
+    expect(screen.queryByLabelText(`${LEFT_OUT_COPY.reviewAction} AHA Serum`)).toBeNull();
+    expect(screen.queryByLabelText(`${LEFT_OUT_COPY.addAction} Backup Toner`)).toBeNull();
+    expect(screen.queryByLabelText(`${LEFT_OUT_COPY.reviewAction} Backup Toner`)).toBeNull();
   });
 });
 

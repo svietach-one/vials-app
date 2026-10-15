@@ -1,11 +1,11 @@
-Status: DESIGNED
+Status: IN_PROGRESS
 Tech Design: docs/tech-design/intermediate-routine.md
 Code: —
 
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
-- [ ] QA tests (qa-lead)
+- [x] QA tests (qa-lead)
 - [ ] Implementation (engineer)
 - [ ] Architecture review (tech-lead)
 
@@ -279,3 +279,26 @@ Spec Status DRAFT -> APPROVED. Open items that do NOT block: Q4b placeholder
 screen copy (design-owned); clinical review of the enzyme values (after the
 MVP, before the global release). Next: qa-lead reworks the tests written for the
 retired two-mode design, then engineer. Roadmap sync still owed.
+
+2026-10-15 — qa-lead: **QA tests rewritten for the single-mode design** (spec APPROVED 2026-10-15; product owner
+confirmed the delta plan herself, "Да, писать тесты"). Written BEFORE any production code.
+- Deleted (retired two-mode design): `balanced-vs-essential`, `essential-regression`, `golden/` (3 MB JSON + generator),
+  `routine-depth-store`, `draft-preview-style-control`.
+- Reworked: `fixtures.ts` (no style dimension; wishlist/hidden salting; owned-only sweep input), `routine-plan`
+  (was `balanced-plan`), `gap-cards`, `enzyme-exfoliant`, `left-out-items`, `LeftOutSection`, `determinism-and-safety`,
+  `routines-screen`.
+- New: `trimming` (Story 5, real stores), `draft-summary` (Story 5 AC5), `gap-dismissal` (Story 6),
+  `step-action-sheet` (allowRemoval), `calendar-hints` (Story 7), `wishlist-exclusion` (Story 2 AC6, FE-3).
+- Owner rulings applied: (1) Story 1 AC3 "a swap never offers the scheduled product" is tested strictly in
+  `routine-plan.test.ts` and FAILS until the engine root cause is fixed (today the engine can list a slot's own
+  product among its alternatives: e.g. sweep seed 9, salt 8). (2) Story 5 AC5: the draft summary must always name
+  re-added steps, including a one-weekday removal and a hidden-step un-hide, and must not drop its other lines to
+  the 3-line cap; tested through `buildDraftSummaryLines`. (3) "First 12 ingredients" = plain comma list of top-level
+  tokens, 1-based; a parenthesised sub-ingredient takes no position; "Aqua" is position 1 (12-vs-13 boundary kept).
+  (4) Mild-active toner/eye cream: neither outcome asserted.
+- Right-reason failures only: missing modules (`@/constants/routineScreenCopy`, `@/utils/routineLeftOut`,
+  `@/utils/productOwnership`, `@/utils/gapDismissal`, `@/components/routine/LeftOutSection`) or missing behaviour.
+  Passing tests are regression guards (balm routing, precedence, determinism/safety, trimming store behaviour).
+  `tsc` errors are confined to `tests/intermediate-routine/` and each is an interface the engineer owes
+  (handoff JSON `qa.owed_interfaces`).
+- Assumed interfaces the design does not pin: handoff JSON `qa.assumed_interfaces`. Engineer: match them or push back here.

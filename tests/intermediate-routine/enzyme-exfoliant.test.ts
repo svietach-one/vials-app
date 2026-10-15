@@ -15,13 +15,12 @@ import { generatePlan } from '@/utils/routineEngine/generate';
 import {
   buildSweepShelf,
   daysPerWeek,
-  DEPTHS,
-  ENZYME_ID,
+    ENZYME_ID,
   ENZYME_TAG,
   gapKeys,
   ids,
-  makeDepthInput,
   makeE4,
+  makeEngineInput,
   makeEnzymePowder,
   makeProcedureLogForPeel,
   makeS3,
@@ -77,11 +76,35 @@ describe('recognition (Story 4 AC1)', () => {
   });
 });
 
+describe('the 12-ingredient window counting rule (owner/coordinator decision 2026-10-15)', () => {
+  // A plain comma-separated list of top-level tokens, positions 1-based; a parenthesised
+  // sub-ingredient does not take a position of its own; "Aqua" counts as position 1.
+  const nested = (n: number) => `Base Blend (${Array.from({ length: n }, (_, i) => `Sub${i + 1}`).join(', ')})`;
+
+  it('counts "Aqua" as position 1, so papain at position 12 is inside the window', () => {
+    const text = ['Aqua', ...Array.from({ length: 10 }, (_, i) => `Filler${i + 2}`), 'Papain'].join(', ');
+
+    expect(getProductActiveKeys({ activeIngredients: [], fullIngredientText: text })).toContain(ENZYME_TAG);
+  });
+
+  it('does not let a parenthesised sub-ingredient list push papain out of the window', () => {
+    const text = ['Aqua', nested(8), ...Array.from({ length: 9 }, (_, i) => `Filler${i + 3}`), 'Papain'].join(', ');
+
+    expect(getProductActiveKeys({ activeIngredients: [], fullIngredientText: text })).toContain(ENZYME_TAG);
+  });
+
+  it('reads papain at top-level position 13 as outside the window even with a nested list before it', () => {
+    const text = ['Aqua', nested(3), ...Array.from({ length: 10 }, (_, i) => `Filler${i + 3}`), 'Papain'].join(', ');
+
+    expect(getProductActiveKeys({ activeIngredients: [], fullIngredientText: text })).not.toContain(ENZYME_TAG);
+  });
+});
+
 describe('scheduling on E4 at Balanced (Story 4 AC2-3)', () => {
   it.each(['spring', 'autumn', 'winter'] as const)(
     'keeps the plain cleanser daily and adds the powder after it on exactly 3 weekdays in the morning (%s)',
     (season) => {
-      const plan = generatePlan(makeDepthInput(makeE4(), 'balanced', { seasonMask: makeSeasonMask(season) }));
+      const plan = generatePlan(makeEngineInput(makeE4(), { seasonMask: makeSeasonMask(season) }));
 
       const cleanser = stepFor(plan, S3.cleanser, 'morning');
       const powder = stepFor(plan, ENZYME_ID, 'morning');
@@ -95,14 +118,14 @@ describe('scheduling on E4 at Balanced (Story 4 AC2-3)', () => {
   );
 
   it('schedules the powder on 1 weekday in summer', () => {
-    const plan = generatePlan(makeDepthInput(makeE4(), 'balanced', { seasonMask: makeSeasonMask('summer') }));
+    const plan = generatePlan(makeEngineInput(makeE4(), { seasonMask: makeSeasonMask('summer') }));
 
     expect(daysPerWeek(stepFor(plan, ENZYME_ID, 'morning')!)).toBe(ENZYME_DAYS_CAPPED);
   });
 
   it.each([4, 5, 6] as FitzpatrickType[])('schedules the powder on 1 weekday for Fitzpatrick type %i', (fitzpatrick) => {
     const plan = generatePlan(
-      makeDepthInput(makeE4(), 'balanced', { profile: { fitzpatrick, concerns: [] } }),
+      makeEngineInput(makeE4(), { profile: { fitzpatrick, concerns: [] } }),
     );
 
     expect(daysPerWeek(stepFor(plan, ENZYME_ID, 'morning')!)).toBe(ENZYME_DAYS_CAPPED);
@@ -111,7 +134,7 @@ describe('scheduling on E4 at Balanced (Story 4 AC2-3)', () => {
   it('recognises the powder from its ingredient list alone when it carries no tag', () => {
     const untagged = makeEnzymePowder({ activeTags: undefined, fullIngredientText: inciWith('Papain', 3) });
 
-    const plan = generatePlan(makeDepthInput([...makeS3(), untagged], 'balanced'));
+    const plan = generatePlan(makeEngineInput([...makeS3(), untagged]));
 
     expect(daysPerWeek(stepFor(plan, ENZYME_ID, 'morning')!)).toBe(ENZYME_DAYS_NORMAL);
   });
@@ -119,17 +142,17 @@ describe('scheduling on E4 at Balanced (Story 4 AC2-3)', () => {
   it('treats papain listed beyond the window as an ordinary cleanser, not a weekly exfoliant', () => {
     const untagged = makeEnzymePowder({ activeTags: undefined, fullIngredientText: inciWith('Papain', INGREDIENT_WINDOW + 1) });
 
-    const plan = generatePlan(makeDepthInput([...makeS3(), untagged], 'balanced'));
+    const plan = generatePlan(makeEngineInput([...makeS3(), untagged]));
 
     expect(stepFor(plan, ENZYME_ID, 'morning')?.productType).not.toBe('peeling');
   });
 });
 
 describe('an enzyme powder is not the daily cleanse step (Story 4 AC4)', () => {
-  it.each(DEPTHS)('%s: a shelf whose only cleanser is the powder still raises both cleanser gaps', (depth) => {
+  it('a shelf whose only cleanser is the powder still raises both cleanser gaps', () => {
     const products = [makeEnzymePowder(), shelfProduct('c', 'Cream', 'moisturizer'), shelfProduct('s', 'SPF', 'spf')];
 
-    const plan = generatePlan(makeDepthInput(products, depth));
+    const plan = generatePlan(makeEngineInput(products));
 
     expect(gapKeys(plan)).toEqual(expect.arrayContaining(['am:cleanser', 'pm:cleanser']));
   });
@@ -138,7 +161,7 @@ describe('an enzyme powder is not the daily cleanse step (Story 4 AC4)', () => {
 describe('only one enzyme product is scheduled (Story 4 AC5)', () => {
   it('schedules one of two powders and keeps the other in reserve as a duplicate role', () => {
     const second = makeEnzymePowder({ id: 'e4-enzyme-2', name: 'Pineapple Enzyme Mask Powder', addedAt: '2026-02-01' });
-    const plan = generatePlan(makeDepthInput([...makeE4(), second], 'balanced'));
+    const plan = generatePlan(makeEngineInput([...makeE4(), second]));
 
     const scheduled = [ENZYME_ID, second.id].filter((id) => ids(plan.periods.morning).includes(id));
     expect(scheduled).toHaveLength(1);
@@ -154,7 +177,7 @@ describe('goal, procedure and style gates (Story 4 AC6-8)', () => {
     ['primary', goal('barrier_repair')],
     ['secondary', goal('maintenance', 'barrier_repair')],
   ])('defers the powder to reserve when barrier repair is the %s goal', (_label, profile) => {
-    const plan = generatePlan(makeDepthInput(makeE4(), 'balanced', { profile }));
+    const plan = generatePlan(makeEngineInput(makeE4(), { profile }));
 
     const row = plan.reserve.find((r) => r.productId === ENZYME_ID);
     expect(row?.reasonCode).toBe(REASON('exfoliant_deferred_barrier_repair'));
@@ -164,7 +187,7 @@ describe('goal, procedure and style gates (Story 4 AC6-8)', () => {
 
   it('pauses the powder with its expiry date and never schedules it during peel rehab', () => {
     const plan = generatePlan(
-      makeDepthInput(makeE4(), 'balanced', { procedures: [makeProcedureLogForPeel('2026-07-04')] }),
+      makeEngineInput(makeE4(), { procedures: [makeProcedureLogForPeel('2026-07-04')] }),
     );
 
     const frozen = plan.frozen.find((f) => f.productId === ENZYME_ID);
@@ -172,24 +195,12 @@ describe('goal, procedure and style gates (Story 4 AC6-8)', () => {
     expect(frozen?.until).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect([...ids(plan.periods.morning), ...ids(plan.periods.evening)]).not.toContain(ENZYME_ID);
   });
-
-  it('keeps the powder in reserve at Essential under the style reason, while the plain cleanser stays', () => {
-    const plan = generatePlan(makeDepthInput(makeE4(), 'essential'));
-
-    expect(plan.reserve.find((r) => r.productId === ENZYME_ID)?.reasonCode).toBe(REASON('outside_routine_depth'));
-    expect(ids(plan.periods.morning)).toEqual([S3.cleanser, S3.cream, S3.spf]);
-  });
 });
 
 describe('"Add anyway" on an enzyme product (Story 4 AC9, FE-8 override hole)', () => {
-  const cases: [string, 'balanced' | 'essential', SkinGoal][] = [
-    ['reserved by the barrier-repair goal at Balanced', 'balanced', 'barrier_repair'],
-    ['reserved by the Essential style', 'essential', 'maintenance'],
-  ];
-
-  it.each(cases)('lands in one period only, capped, when %s', (_label, depth, primaryGoal) => {
+  it('lands in one period only, capped, when forced past the barrier-repair deferral', () => {
     const plan = generatePlan(
-      makeDepthInput(makeE4(), depth, { userOverrides: [ENZYME_ID], profile: goal(primaryGoal) }),
+      makeEngineInput(makeE4(), { userOverrides: [ENZYME_ID], profile: goal('barrier_repair') }),
     );
 
     const inMorning = stepFor(plan, ENZYME_ID, 'morning');
@@ -200,9 +211,24 @@ describe('"Add anyway" on an enzyme product (Story 4 AC9, FE-8 override hole)', 
     expect(step.scheduledDays.length).toBeGreaterThan(0);
   });
 
+  it('lands in one period only, capped, when a duplicate second powder is forced in', () => {
+    const second = makeEnzymePowder({ id: 'e4-enzyme-2', name: 'Pineapple Enzyme Powder', addedAt: '2026-02-01' });
+    const plan = generatePlan(makeEngineInput([...makeE4(), second], { userOverrides: [ENZYME_ID, second.id] }));
+
+    for (const id of [ENZYME_ID, second.id]) {
+      const periods = (['morning', 'evening'] as const).filter((p) => stepFor(plan, id, p));
+      expect(periods.length).toBeLessThanOrEqual(1);
+      for (const p of periods) {
+        const step = stepFor(plan, id, p)!;
+        expect(step.scheduledDays.length).toBeGreaterThan(0);
+        expect(daysPerWeek(step)).toBeLessThanOrEqual(ENZYME_DAYS_NORMAL);
+      }
+    }
+  });
+
   it('re-enters its preferred (morning) period, not the evening', () => {
     const plan = generatePlan(
-      makeDepthInput(makeE4(), 'essential', { userOverrides: [ENZYME_ID] }),
+      makeEngineInput(makeE4(), { userOverrides: [ENZYME_ID] }),
     );
 
     expect(stepFor(plan, ENZYME_ID, 'morning')).toBeDefined();
@@ -211,7 +237,7 @@ describe('"Add anyway" on an enzyme product (Story 4 AC9, FE-8 override hole)', 
 
   it('keeps the 1-day cap in summer even when forced in', () => {
     const plan = generatePlan(
-      makeDepthInput(makeE4(), 'essential', { userOverrides: [ENZYME_ID], seasonMask: makeSeasonMask('summer') }),
+      makeEngineInput(makeE4(), { userOverrides: [ENZYME_ID], seasonMask: makeSeasonMask('summer') }),
     );
 
     expect(daysPerWeek(stepFor(plan, ENZYME_ID, 'morning')!)).toBeLessThanOrEqual(ENZYME_DAYS_CAPPED);
@@ -219,11 +245,11 @@ describe('"Add anyway" on an enzyme product (Story 4 AC9, FE-8 override hole)', 
 });
 
 describe('safety locks hold on enzyme-salted shelves (Story 4 AC10)', () => {
-  it.each(DEPTHS)('%s: never schedules a retinoid, AHA or BHA product in the morning, over 300 seeded shelves', (depth) => {
+  it('never schedules a retinoid, AHA or BHA product in the morning, and never asks for an exfoliant, over 300 seeded shelves', () => {
     const offences: string[] = [];
     let shelvesWithEnzyme = 0;
     for (let seed = 0; seed < 300; seed += 1) {
-      const { input, tagsById } = buildSweepShelf(seed, depth, { enzyme: true, salt: 4 });
+      const { input, tagsById } = buildSweepShelf(seed, { enzyme: true, salt: 4 });
       const plan = generatePlan(input);
       if ([...tagsById.values()].some((t) => t.includes(ENZYME_TAG))) shelvesWithEnzyme += 1;
       for (const step of plan.periods.morning) {
@@ -238,10 +264,10 @@ describe('safety locks hold on enzyme-salted shelves (Story 4 AC10)', () => {
     expect(offences).toEqual([]);
   });
 
-  it.each(DEPTHS)('%s: an enzyme product is never scheduled on more than 3 days or in both periods without an override', (depth) => {
+  it('never schedules an enzyme product on more than 3 days, daily, or in both periods without an override', () => {
     const offences: string[] = [];
     for (let seed = 0; seed < 300; seed += 1) {
-      const { input, tagsById } = buildSweepShelf(seed, depth, { enzyme: true, salt: 5 });
+      const { input, tagsById } = buildSweepShelf(seed, { enzyme: true, salt: 5 });
       const plan = generatePlan({ ...input, userOverrides: undefined });
       const enzymeIds = [...tagsById.entries()].filter(([, t]) => t.includes(ENZYME_TAG)).map(([id]) => id);
       for (const id of enzymeIds) {

@@ -1,7 +1,7 @@
 {
   "task": "intermediate-routine",
-  "phase": "design",
-  "status": "DESIGNED",
+  "phase": "qa",
+  "status": "IN_PROGRESS",
   "revision": "2026-10-15 second pass: one mode (routine-style concept removed); owner answers applied (Q5 option B, Q6 yes, Q7 yes, wishlist yes) plus the calendar-discoverability requirement; spec and tech design revised in place, nothing committed",
   "flags": {
     "backend_layer": false,
@@ -73,50 +73,75 @@
     "selectSkeleton (125 lines) and generatePlan (118 lines) exceed the 50-line guideline: do not grow them."
   ],
   "qa": {
-    "status": "REWORK_REQUIRED",
-    "note": "The 2026-10-14 suite in tests/intermediate-routine/ (commit b44d909) targets the retired design. The planner wrote no tests. Spec story numbers are now: 1 toner/eye cream, 2 gap cards, 3 enzyme, 4 left-out, 5 trimming, 6 'Not for me', 7 calendar discoverability, 8 safety.",
-    "delete": [
-      "balanced-vs-essential.test.ts",
-      "essential-regression.test.ts",
-      "golden/ (essential-plans.golden.json and regenerate-essential-golden.test.ts)",
-      "routine-depth-store.test.ts",
-      "draft-preview-style-control.test.tsx"
-    ],
-    "rework": [
-      "fixtures.ts (remove the style type, DEPTHS, makeDepthInput, the style parameter of the shelf builders, normaliseEssentialPlan; keep R9/S3/E4, sweeps, safety checkers; add removed/hidden-step and wishlist shelves)",
-      "balanced-plan.test.ts (drop Essential cases; rename, e.g. routine-plan.test.ts)",
-      "gap-cards.test.ts",
-      "enzyme-exfoliant.test.ts",
-      "determinism-and-safety.test.ts",
-      "left-out-items.test.ts (new membership rule; owned only)",
-      "LeftOutSection.test.tsx (copy from @/constants/routineScreenCopy, LEFT_OUT_COPY)",
-      "routines-screen.test.tsx (no style wiring)"
-    ],
-    "add": [
-      "Story 5: list view offers no Remove/Hide with edit mode off; calendar sheet omits Remove/Hide with edit mode off (allowRemoval); removal then revalidation leaves stored routines identical; save restores the step iff the plan schedules it",
-      "Story 6: Not for me only on generic toner/eye-cream cards; persists across restart; cleared per period by applyRoutinePlan scope and wholly by Reset all; NOT cleared by manual add/remove/hide/reorder, shelf edits or period switches; mandate/follow-up/core cards never dismissible; plan, draft and left-out list identical with and without dismissals",
-      "Story 7: caption and row hint per editMode, no highlight outside edit mode, nothing in the empty state; the highlight is a visual state, so qa-lead pins a testID in the feature fixtures and the engineer matches it",
-      "Story 2/4/8: wishlist products excluded at buildEngineInputFromStores, generateDraftPlan and validateCurrentRoutines (one input); currentOverrideHash ignores wishlist ids",
-      "Gap cards unchanged by removal"
-    ],
-    "interfaces_pinned_by_design": [
-      "isOwnedProduct(p) in src/utils/productOwnership.ts",
-      "buildLeftOutItems(plan, products, routines): LeftOutItem[] in src/utils/routineLeftOut.ts",
-      "LeftOutItem { productId; kind: 'ready'|'reserve'|'frozen'|'alternative'; reasonCode: DecisionReasonCode | null; until?: string }",
-      "LeftOutSection props { items, products, onAdd(productId), onReview() } in src/components/routine/LeftOutSection.tsx",
-      "src/constants/routineScreenCopy.ts: LEFT_OUT_COPY { leftOutHeader(n), readyToAdd, backup, addAction, reviewAction }, GAP_DISMISS_COPY { action }, CALENDAR_HINT_COPY { view, edit, rowHintView, rowHintEdit }",
-      "src/utils/gapDismissal.ts: gapDismissKey(p: PlaceholderSlot): string | null; visibleGaps(placeholders, keys): PlaceholderSlot[]; keysAfterSave(keys, periods): string[]",
-      "AppSettings.dismissedGapCards: string[]; settingsStore dismissGapCard(key) and clearDismissedGapCards(periods)",
-      "GapCard optional prop onDismiss; RoutineStepActionSheet optional prop allowRemoval (default true); RoutineCalendarView optional prop editMode (default false)",
-      "ActiveIngredientKey gains enzyme_exfoliant (label 'Enzyme Exfoliant'); reason codes toner_recommended, eye_cream_recommended, enzyme_exfoliant_cap, exfoliant_deferred_barrier_repair",
-      "enzyme step productType is peeling, morning, scheduledDays length 3 (1 in summer or Fitzpatrick 4-6)"
-    ],
+    "status": "TESTS_WRITTEN",
+    "note": "2026-10-15: suite rewritten for the single-mode design (spec APPROVED). Supersedes the 2026-10-14 two-mode suite.",
     "run_command": "npx jest tests/intermediate-routine --testPathIgnorePatterns=\"worktrees\"",
     "previous_run": {
       "agent": "qa-lead",
       "date": "2026-10-14",
-      "superseded_by": "2026-10-15 revision"
-    }
+      "superseded_by": "2026-10-15 rewrite"
+    },
+    "files": {
+      "deleted": [
+        "balanced-vs-essential.test.ts",
+        "essential-regression.test.ts",
+        "golden/",
+        "routine-depth-store.test.ts",
+        "draft-preview-style-control.test.tsx",
+        "balanced-plan.test.ts (renamed)"
+      ],
+      "reworked": [
+        "fixtures.ts",
+        "routine-plan.test.ts",
+        "gap-cards.test.ts",
+        "enzyme-exfoliant.test.ts",
+        "left-out-items.test.ts",
+        "LeftOutSection.test.tsx",
+        "determinism-and-safety.test.ts",
+        "routines-screen.test.tsx"
+      ],
+      "new": [
+        "trimming.test.ts",
+        "draft-summary.test.ts",
+        "gap-dismissal.test.ts",
+        "step-action-sheet.test.tsx",
+        "calendar-hints.test.tsx",
+        "wishlist-exclusion.test.ts"
+      ]
+    },
+    "decisions_recorded": {
+      "twelve_ingredient_rule": "plain comma-separated list of top-level tokens, 1-based; parenthesised sub-ingredient takes no position; Aqua = 1; 12-vs-13 boundary tested",
+      "mild_active_toner_or_eye_cream": "neither outcome asserted",
+      "swap_never_offers_scheduled_product": "owner: FIX in engine; strict test in routine-plan.test.ts fails until fixed",
+      "draft_summary": "owner: IMPROVE; must name re-added steps incl. one-weekday removal and hidden un-hide, and not lose other lines to the 3-line cap"
+    },
+    "assumed_interfaces": [
+      "buildDraftSummaryLines(plan, diff, products, routines?: Routine[]): string[] - new optional 4th argument = SAVED routines (existing function name kept)",
+      "The summary may exceed 3 lines when needed: the test requires day-split, paused, reserve AND \"N products added\" together",
+      "Summary wording: \"1 product added\" / \"2 products added\" (existing text); a product counts once even if re-added in both periods",
+      "testID \"calendar-product-column\" on the frozen product column in BOTH modes; highlighted = flattened style backgroundColor colors.statusInfoTint and colors.statusInfoLine as an edge colour (never plum)",
+      "RoutineCalendarView prop editMode?: boolean; caption text = CALENDAR_HINT_COPY.view|edit; row accessibilityHint = rowHintView|rowHintEdit; caption fontSize >= 14",
+      "GapCard dismiss control = a button whose text is GAP_DISMISS_COPY.action; toner card precedes eye-cream card in the same period (build order)",
+      "keysAfterSave(keys, periods: ('am'|'pm')[]) returns the keys that REMAIN; clearDismissedGapCards takes the same periods; dismissGapCard(key) is idempotent",
+      "applyRoutinePlan(plan, scope) clears the periods it wrote (both=am+pm, am, pm); resetAllRoutines clears both",
+      "RoutinesScreen reads dismissedGapCards / dismissGapCard via useSettingsStore selectors, passes allowRemoval={editMode} to RoutineStepActionSheet and editMode to RoutineCalendarView; the list footer renders LeftOutSection above the \"Add product to routine\" button",
+      "LeftOutSection a11y (not pinned by design): header is a button with accessibilityState.expanded; row action labels `${addAction} ${name}` and `${reviewAction} ${name}`; text >= 14px",
+      "Wishlist: isOwnedProduct(p) = p.status !== 'wishlist' (absent = owned); buildEngineInputFromStores filters; currentOverrideHash hashes owned ids only",
+      "Reason codes toner_recommended, eye_cream_recommended, exfoliant_deferred_barrier_repair (texts per spec); enzyme step productType peeling, morning, 3 weekdays (1 in summer / Fitzpatrick 4-6)"
+    ],
+    "owed_interfaces": [
+      "@/constants/routineScreenCopy",
+      "@/utils/routineLeftOut",
+      "@/utils/productOwnership",
+      "@/utils/gapDismissal",
+      "@/components/routine/LeftOutSection",
+      "ActiveIngredientKey enzyme_exfoliant",
+      "DecisionReasonCode toner_recommended/eye_cream_recommended/exfoliant_deferred_barrier_repair",
+      "AppSettings.dismissedGapCards + settingsStore.dismissGapCard/clearDismissedGapCards",
+      "RoutineStepActionSheetProps.allowRemoval",
+      "RoutineCalendarViewProps.editMode",
+      "buildDraftSummaryLines 4th argument"
+    ]
   },
   "owed_by_coordinator": [
     "Roadmap sync per .claude/rules/roadmap-sync.md (spec and tech design materially edited again); the planner has no WebFetch/Artifact tools."

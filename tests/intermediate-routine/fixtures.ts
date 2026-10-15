@@ -1,6 +1,6 @@
 /**
  * Shared fixtures for the intermediate-routine ("Balanced" style) suite.
- * Spec: docs/specs/intermediate-routine.md (Status: DRAFT when these were written)
+ * Spec: docs/specs/intermediate-routine.md (APPROVED 2026-10-15; ONE routine, no style concept)
  * Tech design: docs/tech-design/intermediate-routine.md
  *
  * Every factory is annotated with the REAL types so drift fails `tsc`
@@ -8,12 +8,9 @@
  * the module the tech design assigns them to, so `tsc` points at exactly the
  * work the engineer still owes. The complete list of such references:
  *
- *   - `RoutineDepth`                    @/types                     (FE-1)
- *   - `EngineInput.depth`               generate.ts                 (FE-4)  -> makeDepthInput below
- *   - `'enzyme_exfoliant'` as an ActiveIngredientKey                (FE-6)  -> ENZYME_TAG below
- *   - `'outside_routine_depth'` etc. as DecisionReasonCode          (FE-4/6)-> REASON below
- *   - `@/constants/routineDepth`        copy + default constant     (FE-1)
- *   - `@/utils/routineLeftOut`          buildLeftOutItems/LeftOutItem (FE-9)
+ *   - `'enzyme_exfoliant'` as an ActiveIngredientKey                (FE-4)  -> ENZYME_TAG below
+ *   - `'toner_recommended'` etc. as DecisionReasonCode              (FE-2/4)-> REASON below
+ *   - `@/utils/routineLeftOut`          buildLeftOutItems/LeftOutItem (FE-7)
  *
  * Each of those is referenced from ONE place in this file where possible, so a
  * single engineer change clears the type error.
@@ -25,7 +22,6 @@ import type {
   FitzpatrickType,
   Product,
   ProductType,
-  RoutineDepth,
   SkinGoal,
   UserProcedureLog,
 } from '@/types';
@@ -35,6 +31,8 @@ import type { LeftOutItem } from '@/utils/routineLeftOut';
 import {
   daysOverlap,
   makeEngineInput,
+  makeRoutine,
+  makeRoutineStep,
   makeProcedureLog,
   makeProduct,
   makeRng,
@@ -47,24 +45,12 @@ export { resetFixtureCounters, routinesFromPlan, makeRoutine, makeRoutineStep } 
 
 // ─── Intended-interface shims (single reference points) ──────────────────────
 
-/** Both routine styles, Essential first. */
-export const DEPTHS: RoutineDepth[] = ['essential', 'balanced'];
-
 /** Enzyme exfoliant active class key (FE-6). Not yet in ActiveIngredientKey. */
 export const ENZYME_TAG = 'enzyme_exfoliant' as const satisfies ActiveIngredientKey;
 
 /** Typed reason-code literal: drift in a code name fails `tsc`, not just the run. */
 export function REASON(code: DecisionReasonCode): DecisionReasonCode {
   return code;
-}
-
-/** EngineInput with the new `depth` field (FE-4). The ONLY place tests set it. */
-export function makeDepthInput(
-  products: Product[],
-  depth: RoutineDepth,
-  overrides: Partial<EngineInput> = {},
-): EngineInput {
-  return { ...makeEngineInput(products, overrides), depth };
 }
 
 // ─── Reference shelves (spec §4) ─────────────────────────────────────────────
@@ -135,6 +121,14 @@ export function makeLeftOutItem(overrides: Partial<LeftOutItem> & Pick<LeftOutIt
 
 // ─── Plan readers ────────────────────────────────────────────────────────────
 
+/** Saved routines holding a visible step for each product id, in both periods. */
+export function savedRoutinesFor(products: Product[], productIds: string[]) {
+  return [
+    makeRoutine('morning', productIds.map((id) => makeRoutineStep(products.find((p) => p.id === id)!))),
+    makeRoutine('evening', productIds.map((id) => makeRoutineStep(products.find((p) => p.id === id)!))),
+  ];
+}
+
 export function ids(steps: PlannedStep[]): string[] {
   return steps.map((s) => s.productId);
 }
@@ -187,14 +181,22 @@ const SWEEP_NAMES: Record<string, string[]> = {
   balm: ['Barrier Balm', 'Lip Balm', 'Hair Balm', 'Cleansing Balm'],
 };
 
+/** Mirrors isOwnedProduct (FE-3) locally so engine suites do not all depend on that module loading. */
+const isOwned = (p: Product): boolean => p.status !== 'wishlist';
+
 export interface SweepShelf {
+  /** Engine input: OWNED products only, as buildEngineInputFromStores (FE-3) builds it. */
   input: EngineInput;
+  /** The whole shelf, wishlist products included (what the products store holds). */
+  shelf: Product[];
   tagsById: Map<string, ActiveIngredientKey[]>;
 }
 
 export interface SweepOptions {
   /** Salt ~15% of products with the enzyme tag (needs FE-6 for the tag to mean anything). */
   enzyme?: boolean;
+  /** Make ~10% of products wishlist items (status 'wishlist'). */
+  wishlist?: boolean;
   /** Seed namespace so different suites do not share corpora. */
   salt?: number;
 }
@@ -204,7 +206,7 @@ export interface SweepOptions {
  * Deterministic (mulberry32). `tagsById` records what each product carries so a
  * property can check pair safety WITHOUT re-deriving facts through the engine.
  */
-export function buildSweepShelf(seed: number, depth: RoutineDepth, opts: SweepOptions = {}): SweepShelf {
+export function buildSweepShelf(seed: number, opts: SweepOptions = {}): SweepShelf {
   const rng = makeRng(seed * 7919 + 13 + (opts.salt ?? 0) * 100003);
   const pick = <T,>(a: readonly T[]): T => a[Math.floor(rng() * a.length)];
   const size = 3 + Math.floor(rng() * 11);
@@ -229,6 +231,7 @@ export function buildSweepShelf(seed: number, depth: RoutineDepth, opts: SweepOp
         activeTags: tags,
         usageTime: pick(USAGE),
         isHidden: rng() < 0.05,
+        ...(opts.wishlist && rng() < 0.1 ? { status: 'wishlist' as const } : {}),
         addedAt: `2026-0${1 + Math.floor(rng() * 6)}-${String(1 + Math.floor(rng() * 27)).padStart(2, '0')}`,
       }),
     );
@@ -237,7 +240,7 @@ export function buildSweepShelf(seed: number, depth: RoutineDepth, opts: SweepOp
   const procedures: UserProcedureLog[] = rng() < 0.1 ? [makeProcedureLog({ datePerformed: '2026-07-04' })] : [];
   const overridePool = products.map((p) => p.id);
   const userOverrides = rng() < 0.15 ? [pick(overridePool)] : undefined;
-  const input = makeDepthInput(products, depth, {
+  const input = makeEngineInput(products.filter(isOwned), {
     procedures,
     userOverrides,
     profile: {
@@ -249,7 +252,7 @@ export function buildSweepShelf(seed: number, depth: RoutineDepth, opts: SweepOp
     },
     seasonMask: makeSeasonMask(pick(SEASONS)),
   });
-  return { input, tagsById };
+  return { input, shelf: products, tagsById };
 }
 
 const PROMOTION_OTHER_TYPES = [
@@ -261,7 +264,7 @@ const PROMOTION_OTHER_TYPES = [
  * step on every shelf, 2-5 cleansers, active-bearing products to collide with) but
  * with toner and eye cream weighted in, because those are the steps Balanced ADDS.
  */
-export function buildPromotionShapedShelf(seed: number, depth: RoutineDepth): SweepShelf {
+export function buildPromotionShapedShelf(seed: number): SweepShelf {
   const rng = makeRng(seed * 104729 + 7);
   const pick = <T,>(a: readonly T[]): T => a[Math.floor(rng() * a.length)];
   const products: Product[] = [];
@@ -291,7 +294,7 @@ export function buildPromotionShapedShelf(seed: number, depth: RoutineDepth): Sw
   for (let i = 0; i < cleansers; i += 1) add('cleanser', 2, pick(USAGE));
   const others = 2 + Math.floor(rng() * 5);
   for (let i = 0; i < others; i += 1) add(pick(PROMOTION_OTHER_TYPES), 2, pick(USAGE));
-  const input = makeDepthInput(products, depth, {
+  const input = makeEngineInput(products, {
     profile: {
       fitzpatrick: pick(FITZ),
       concerns: [],
@@ -300,7 +303,7 @@ export function buildPromotionShapedShelf(seed: number, depth: RoutineDepth): Sw
     },
     seasonMask: makeSeasonMask(pick(SEASONS)),
   });
-  return { input, tagsById };
+  return { input, shelf: products, tagsById };
 }
 
 // ─── Independent safety checkers (do not call the engine's own validator) ────
@@ -369,19 +372,4 @@ export function hardGateViolations(plan: RoutinePlan): string[] {
   return plan.frozen
     .filter((f) => hard.has(f.reasonCode) && scheduled.has(f.productId))
     .map((f) => `${f.productId} frozen by ${f.reasonCode} but scheduled`);
-}
-
-// ─── Golden Essential corpus ─────────────────────────────────────────────────
-
-/** Rewrites the one relabelled reserve reason and drops the version stamp, so a
- *  plan produced AFTER this task compares against one captured BEFORE it. */
-export function normaliseEssentialPlan(plan: RoutinePlan): unknown {
-  const text = JSON.stringify(plan).replace(/outside_routine_depth/g, 'not_needed_for_goals');
-  const parsed = JSON.parse(text) as Record<string, unknown>;
-  delete parsed.rulesetVersion;
-  return parsed;
-}
-
-export function reviveEngineInput(raw: EngineInput & { now?: Date | string }): EngineInput {
-  return { ...raw, now: raw.now ? new Date(raw.now) : undefined };
 }
