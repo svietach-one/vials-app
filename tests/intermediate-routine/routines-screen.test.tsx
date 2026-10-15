@@ -12,7 +12,7 @@
  * allowRemoval={editMode} to RoutineStepActionSheet and editMode to RoutineCalendarView.
  */
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { CALENDAR_HINT_COPY, GAP_DISMISS_COPY, LEFT_OUT_COPY } from '@/constants/routineScreenCopy';
 import type { Product, Routine } from '@/types';
 import { validateRoutines } from '@/utils/routineEngine/validate';
@@ -297,6 +297,19 @@ describe('"Not in your routine" section (Story 4)', () => {
 
 describe('"Not for me" on optional cards (Story 6)', () => {
   const dismissButtons = () => screen.queryAllByText(GAP_DISMISS_COPY.action);
+  // DOM order is NOT build order: a card whose group exists (eye cream under "Moisturize") renders before a
+  // card in the trailing block (toner). So pick a card's own button by climbing from its text to the
+  // nearest ancestor that contains exactly one dismiss button.
+  const dismissButtonOf = (cardText: string) => {
+    let node = screen.getByText(cardText).parent;
+    while (node) {
+      const buttons = within(node).queryAllByText(GAP_DISMISS_COPY.action);
+      if (buttons.length === 1) return buttons[0];
+      if (buttons.length > 1) break;
+      node = node.parent;
+    }
+    throw new Error(`no dismiss button belongs to the card "${cardText}"`);
+  };
 
   it('is offered on the toner and eye-cream cards only, not on the SPF card', () => {
     mockProducts = makeS3().filter((p) => p.id !== S3.spf);
@@ -320,9 +333,11 @@ describe('"Not for me" on optional cards (Story 6)', () => {
   it('records the morning toner key when its card is dismissed', () => {
     renderScreen();
 
-    fireEvent.press(dismissButtons()[0]); // toner precedes eye cream in build order
+    fireEvent.press(dismissButtonOf('No Toner in your morning routine'));
 
+    expect(mockDismissGapCard).toHaveBeenCalledTimes(1);
     expect(mockDismissGapCard).toHaveBeenCalledWith('am:toner');
+    expect(screen.getByText('No Eye Cream in your morning routine')).toBeTruthy();
   });
 
   it('hides only the dismissed card; the other morning card and the evening cards stay', () => {
