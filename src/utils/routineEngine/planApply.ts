@@ -1,4 +1,4 @@
-import type { Product, RoutineStep } from '@/types';
+import type { Product, Routine, RoutineStep } from '@/types';
 import type { RoutinePlan } from '@/utils/routineEngine/generate';
 import type { FrozenItem, PlannedStep } from '@/utils/routineEngine/planTypes';
 import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
@@ -70,7 +70,11 @@ export function applySlotAlternativeSwap(
  *   `until`'s presence/absence is unrelated (pregnancy-pin-survival-fix —
  *   the old `until`-based proxy silently let a persistent, `until`-less
  *   safety freeze like `pregnancy_freeze` leave a pin surviving).
- * - hidden steps are user-managed and survive the rewrite untouched.
+ * - a hidden step survives the rewrite untouched ONLY when the plan does not
+ *   schedule its product; when it does, the step is un-hidden with the plan's
+ *   days (same id and pin) — regenerating shows hidden and removed steps again
+ *   (owner decision, intermediate-routine). The Draft Preview summary says so
+ *   (`findReaddedProductIds`).
  * The domain action owns store access; this module owns the shape.
  */
 
@@ -124,15 +128,78 @@ function formatShortDate(isoDate: string): string {
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
+const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
+/** Empty `scheduledDays` is the Routine schema's "every day". */
+function weekdaysOf(scheduledDays: number[]): number[] {
+  return scheduledDays.length === 0 ? ALL_WEEKDAYS : scheduledDays;
+}
+
 /**
- * At most three quiet summary lines for the Draft Preview (research §3:
- * "2–3 quiet summary lines", e.g. "Acids and retinol split across nights").
- * Priority: day splits → paused products → moved products → new steps.
+ * Products a save would bring (back) into the saved routines: any product with
+ * a planned (period, weekday) that no NON-HIDDEN saved step of that period
+ * covers. That includes a product never saved, one whose step was removed (all
+ * days or just some weekdays), and one whose only step is hidden — saving
+ * un-hides it (`buildStepsFromPlan`). Each product is listed once, in plan order
+ * (morning first), however many periods it comes back in.
+ *
+ * `computeDiff` cannot see this: it compares period membership of VISIBLE steps,
+ * so a one-weekday removal or an un-hide would read as "no change".
+ */
+export function findReaddedProductIds(plan: RoutinePlan, routines: Routine[]): string[] {
+  const readded: string[] = [];
+  for (const period of ['morning', 'evening'] as const) {
+    const saved = routines.filter((r) => r.timeOfDay === period).flatMap((r) => r.steps);
+    for (const step of plan.periods[period]) {
+      const covered = new Set(
+        saved
+          .filter((s) => !s.hidden && s.productId === step.productId)
+          .flatMap((s) => weekdaysOf(s.scheduledDays)),
+      );
+      const missing = weekdaysOf(step.scheduledDays).some((day) => !covered.has(day));
+      if (missing && !readded.includes(step.productId)) readded.push(step.productId);
+    }
+  }
+  return readded;
+}
+
+const SUMMARY_LINE_CAP = 3;
+
+/**
+ * Quiet summary lines for the Draft Preview (research §3: "2–3 quiet summary
+ * lines", e.g. "Acids and retinol split across nights"). Priority: day splits →
+ * paused products → set aside → reserve → moved products, capped at three.
+ *
+ * With the SAVED `routines` the "N products added" line is computed from them
+ * (`findReaddedProductIds`), sits OUTSIDE the cap and comes last — so a draft
+ * that restores a removed or hidden step always says so, and never at the cost
+ * of the lines that narrate what was set aside (up to four lines). Products
+ * already narrated as moved are not counted again. Without `routines` (older
+ * callers) the line stays diff-based and inside the cap, as before.
  */
 export function buildDraftSummaryLines(
   plan: RoutinePlan,
   diff: PlanDiffEntry[],
   products: Product[],
+  routines?: Routine[],
+): string[] {
+  const lines = buildCappedSummaryLines(plan, diff, products, routines === undefined);
+  if (routines === undefined) return lines;
+
+  const moved = new Set(diff.filter((d) => d.kind === 'moved').map((d) => d.productId));
+  const readded = findReaddedProductIds(plan, routines).filter((id) => !moved.has(id));
+  if (readded.length > 0) {
+    lines.push(readded.length === 1 ? '1 product added' : `${readded.length} products added`);
+  }
+  return lines;
+}
+
+/** The capped lines; `includeDiffAdded` is the legacy diff-based "added" line. */
+function buildCappedSummaryLines(
+  plan: RoutinePlan,
+  diff: PlanDiffEntry[],
+  products: Product[],
+  includeDiffAdded: boolean,
 ): string[] {
   const nameOf = (productId: string) =>
     products.find((p) => p.id === productId)?.name ?? 'A product';
@@ -164,7 +231,7 @@ export function buildDraftSummaryLines(
   // Pair-rule freezes carry no expiry — they must still be narrated
   // (research §1.8: nothing disappears silently; 2026-07-05 review warning 3)
   const setAside = plan.frozen.filter((f) => !f.until);
-  if (setAside.length > 0 && lines.length < 3) {
+  if (setAside.length > 0 && lines.length < SUMMARY_LINE_CAP) {
     lines.push(
       setAside.length === 1
         ? `${nameOf(setAside[0].productId)} set aside to avoid a conflict`
@@ -174,7 +241,7 @@ export function buildDraftSummaryLines(
 
   // Skeleton reserve (phase-04): healthy products the routine did not need —
   // narrated so nothing vanishes silently (research §1.8).
-  if (plan.reserve.length > 0 && lines.length < 3) {
+  if (plan.reserve.length > 0 && lines.length < SUMMARY_LINE_CAP) {
     lines.push(
       plan.reserve.length === 1
         ? `${nameOf(plan.reserve[0].productId)} kept in reserve`
@@ -183,15 +250,15 @@ export function buildDraftSummaryLines(
   }
 
   const moved = diff.filter((d) => d.kind === 'moved');
-  if (moved.length > 0 && lines.length < 3) {
+  if (moved.length > 0 && lines.length < SUMMARY_LINE_CAP) {
     const to = moved[0].to === 'morning' ? 'morning' : 'evening';
     lines.push(`${nameOf(moved[0].productId)} moved to the ${to} routine`);
   }
 
   const added = diff.filter((d) => d.kind === 'added');
-  if (added.length > 0 && lines.length < 3) {
+  if (includeDiffAdded && added.length > 0 && lines.length < SUMMARY_LINE_CAP) {
     lines.push(added.length === 1 ? '1 product added' : `${added.length} products added`);
   }
 
-  return lines.slice(0, 3);
+  return lines.slice(0, SUMMARY_LINE_CAP);
 }

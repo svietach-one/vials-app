@@ -36,8 +36,9 @@ the shelf.
 
 ```
 Skeleton (order = build order):
-  AM: [cleanser] → [treatment?] → [moisturizer] → [SPF*]
-  PM: [pre_cleanse?] → [cleanser] → [treatment?] → [moisturizer]
+  AM: [cleanser] → [toner] → [eye cream] → [treatment?] → [moisturizer] → [SPF*]
+  PM: [pre_cleanse?] → [cleanser] → [toner] → [eye cream] → [treatment?] → [moisturizer]
+  (toner and eye cream: added by intermediate-routine, 2026-10-15 — see below)
 
   * SPF per Phase 2 rules.
   cleanser/moisturizer: no product → cleanser slot is dropped; the moisturizer
@@ -63,7 +64,13 @@ Fill algorithm:
 3. **Optional second treatment** for `secondaryGoal` — only if it does not
    conflict with the first, total strong-active count stays within caps, and
    its class differs functionally from the first.
-4. **Nothing else enters.** Every excluded product gets a DecisionLog entry:
+4. **Nothing else enters** — amended by `docs/specs/intermediate-routine.md`
+   (2026-10-15): toner and eye cream are now structural slots (candidates AND
+   required slots that raise a gap placeholder when the shelf cannot fill them),
+   and a non-strong enzyme exfoliant is placed by its own rule (one per period,
+   at most 3 days a week, morning preferred, deferred under a barrier-repair
+   goal, never a purchase prompt). Everything else is still excluded. Every
+   excluded product gets a DecisionLog entry:
    `not_needed_for_goals` / `duplicate_function` / `conflicts_with_selected` /
    `frozen_irritation` (lower_snake_case, per the codebase's existing 22 codes).
 

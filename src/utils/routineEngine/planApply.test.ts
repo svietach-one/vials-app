@@ -1,6 +1,11 @@
-import type { Product, RoutineStep } from '@/types';
+import type { Product, Routine, RoutineStep } from '@/types';
 import type { RoutinePlan } from '@/utils/routineEngine/generate';
-import { applySlotAlternativeSwap, buildDraftSummaryLines, buildStepsFromPlan } from '@/utils/routineEngine/planApply';
+import {
+  applySlotAlternativeSwap,
+  buildDraftSummaryLines,
+  buildStepsFromPlan,
+  findReaddedProductIds,
+} from '@/utils/routineEngine/planApply';
 import type { FrozenItem, PlannedStep, SlotAlternative } from '@/utils/routineEngine/planTypes';
 import type { PlanDiffEntry } from '@/utils/routineEngine/validate';
 
@@ -49,6 +54,31 @@ describe('buildStepsFromPlan', () => {
     expect(steps).toEqual([
       expect.objectContaining({ id: 'step-a', productId: 'a', userPinned: true }),
     ]);
+  });
+
+  it('re-creates a step the user removed when the plan schedules the product (regeneration shows it again)', () => {
+    const steps = buildStepsFromPlan([makePlanned('a')], [], [], makeIdFactory());
+
+    expect(steps).toEqual([expect.objectContaining({ id: 'new-1', productId: 'a', hidden: false })]);
+  });
+
+  it('un-hides a hidden step the plan schedules, keeping its id and pin and taking the plan days', () => {
+    const existing = [makeStep('a', { hidden: true, userPinned: true, scheduledDays: [1] })];
+
+    const steps = buildStepsFromPlan([makePlanned('a', { scheduledDays: [2, 4] })], existing, [], makeIdFactory());
+
+    expect(steps).toEqual([
+      expect.objectContaining({ id: 'step-a', hidden: false, userPinned: true, scheduledDays: [2, 4] }),
+    ]);
+  });
+
+  it('keeps a hidden step hidden and untouched when the plan does not schedule that product', () => {
+    const existing = [makeStep('h', { hidden: true, scheduledDays: [3] })];
+
+    const steps = buildStepsFromPlan([makePlanned('a')], existing, [], makeIdFactory());
+
+    expect(steps.map((s) => s.productId)).toEqual(['a', 'h']);
+    expect(steps[1]).toEqual(expect.objectContaining({ id: 'step-h', hidden: true, scheduledDays: [3] }));
   });
 
   it('carries the plan schedule, not the old one', () => {
@@ -201,7 +231,7 @@ describe('buildDraftSummaryLines', () => {
     expect(lines).toEqual(['Vitamin C moved to the morning routine', '1 product added']);
   });
 
-  it('never emits more than three lines', () => {
+  it('never emits more than three lines when no saved routines are passed (legacy diff-based path)', () => {
     const plan = makePlan({
       decisions: [
         { action: 'day_split', productId: 'aha' },
@@ -338,5 +368,126 @@ describe('applySlotAlternativeSwap', () => {
 
     const step3 = applySlotAlternativeSwap(step2, 'winner', 'alt-1');
     expect(step3.periods.morning.map((s) => s.productId)).toEqual(['alt-1']);
+  });
+});
+
+describe('findReaddedProductIds and the "N products added" summary line (intermediate-routine FE-14)', () => {
+  const step = (productId: string, scheduledDays: number[] = []): PlannedStep => ({
+    productId,
+    productType: 'serum',
+    scheduledDays,
+    slotIndex: 6,
+    score: 0,
+    addedAt: '2026-01-01',
+  });
+  const saved = (productId: string, overrides: Partial<RoutineStep> = {}): RoutineStep => ({
+    id: `s-${productId}-${Math.random().toString(36).slice(2, 6)}`,
+    productType: 'serum',
+    productId,
+    hidden: false,
+    scheduledDays: [],
+    ...overrides,
+  });
+  const routines = (morning: RoutineStep[], evening: RoutineStep[] = []): Routine[] => [
+    { id: 'm', name: 'Morning', timeOfDay: 'morning', steps: morning },
+    { id: 'e', name: 'Evening', timeOfDay: 'evening', steps: evening },
+  ];
+  const plan = (morning: PlannedStep[], evening: PlannedStep[] = []): RoutinePlan => ({
+    rulesetVersion: 'test',
+    generatedFor: '2026-07-05',
+    periods: { morning, evening },
+    frozen: [],
+    reserve: [],
+    placeholders: [],
+    decisions: [],
+  });
+
+  it('is empty when every planned step is already saved on all its days', () => {
+    expect(findReaddedProductIds(plan([step('a')], [step('b', [1, 3])]), routines([saved('a')], [saved('b', { scheduledDays: [1, 3, 5] })]))).toEqual([]);
+  });
+
+  it('names a product with no saved step at all', () => {
+    expect(findReaddedProductIds(plan([step('a')]), routines([]))).toEqual(['a']);
+  });
+
+  it('names a product removed for one weekday only (the plan restores every day)', () => {
+    expect(findReaddedProductIds(plan([step('a')]), routines([saved('a', { scheduledDays: [0, 1, 2, 4, 5, 6] })]))).toEqual(['a']);
+  });
+
+  it('names a product whose only saved step is hidden (a save un-hides it)', () => {
+    expect(findReaddedProductIds(plan([step('a')]), routines([saved('a', { hidden: true })]))).toEqual(['a']);
+  });
+
+  it('counts a visible step alongside a hidden twin as covering', () => {
+    expect(
+      findReaddedProductIds(plan([step('a')]), routines([saved('a', { hidden: true }), saved('a')])),
+    ).toEqual([]);
+  });
+
+  it('lets two saved steps jointly cover the planned weekdays', () => {
+    const covering = routines([saved('a', { scheduledDays: [0, 1, 2] }), saved('a', { scheduledDays: [3, 4, 5, 6] })]);
+
+    expect(findReaddedProductIds(plan([step('a')]), covering)).toEqual([]);
+  });
+
+  it('lists a product once even when it comes back in both periods, morning first', () => {
+    expect(findReaddedProductIds(plan([step('b'), step('a')], [step('a')]), routines([]))).toEqual(['b', 'a']);
+  });
+
+  it('does not name a product the plan does not schedule', () => {
+    expect(findReaddedProductIds(plan([step('a')]), routines([saved('a'), saved('gone')]))).toEqual([]);
+  });
+
+  it('only counts steps of the same period as covering', () => {
+    expect(findReaddedProductIds(plan([step('a')]), routines([], [saved('a')]))).toEqual(['a']);
+  });
+
+  describe('in the summary', () => {
+    const products = ['a', 'b', 'c'].map((id) => ({
+      id, name: `Product ${id}`, brand: null, productType: 'serum' as const, imageUrl: null, activeIngredients: [],
+      fullIngredientText: null, usageTime: 'both' as const, openBeautyFactsId: null, addedAt: '2026-01-01',
+      notes: null, openedDate: null, paoMonths: null,
+    }));
+
+    it('adds a singular and a plural line from the saved routines', () => {
+      expect(buildDraftSummaryLines(plan([step('a')]), [], products, routines([]))).toEqual(['1 product added']);
+      expect(buildDraftSummaryLines(plan([step('a'), step('b')]), [], products, routines([]))).toEqual(['2 products added']);
+    });
+
+    it('says nothing when the save changes no step', () => {
+      expect(buildDraftSummaryLines(plan([step('a')]), [], products, routines([saved('a')]))).toEqual([]);
+    });
+
+    it('keeps the three narration lines and puts "added" fourth, last', () => {
+      const crowded: RoutinePlan = {
+        ...plan([step('a')]),
+        decisions: [{ action: 'day_split', productId: 'b' }],
+        frozen: [{ productId: 'c', reasonCode: 'peel_rehab_no_exfoliants', until: '2026-07-20', overridesPin: true }],
+        reserve: [{ productId: 'c', reasonCode: 'not_needed_for_goals' }],
+      };
+
+      const lines = buildDraftSummaryLines(crowded, [], products, routines([]));
+
+      expect(lines).toEqual([
+        'Product b scheduled on alternate nights',
+        '1 product paused until Jul 20',
+        'Product c kept in reserve',
+        '1 product added',
+      ]);
+    });
+
+    it('does not count a product twice when it is already narrated as moved', () => {
+      const diff: PlanDiffEntry[] = [{ productId: 'a', kind: 'moved', from: 'evening', to: 'morning' }];
+
+      expect(buildDraftSummaryLines(plan([step('a')]), diff, products, routines([]))).toEqual([
+        'Product a moved to the morning routine',
+      ]);
+    });
+
+    it('ignores the diff-based "added" entries when saved routines are given (the saved steps decide)', () => {
+      const diff: PlanDiffEntry[] = [{ productId: 'a', kind: 'added', to: 'morning' }];
+
+      expect(buildDraftSummaryLines(plan([step('a')]), diff, products, routines([saved('a')]))).toEqual([]);
+    });
   });
 });

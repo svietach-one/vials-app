@@ -180,7 +180,7 @@ export function DraftPreviewScreen({
   const productOf = (productId: string | null): Product | undefined =>
     (productId && products.find((p) => p.id === productId)) || undefined;
   const nameOf = (productId: string | null) => productOf(productId)?.name ?? 'Unknown product';
-  const summaryLines = buildDraftSummaryLines(plan, diff, products);
+  const summaryLines = buildDraftSummaryLines(plan, diff, products, routines);
 
   // The currently-saved product occupying each layering slot, keyed by
   // slotIndex — used to decide whether an After step is "changing" and, if

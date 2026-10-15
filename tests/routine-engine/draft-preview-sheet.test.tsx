@@ -170,20 +170,37 @@ describe('Story 2 AC: Draft Preview renders the step list with the commit-scope 
     );
   });
 
-  it('caps the summary lines at 3', () => {
+  it('shows at most four summary lines on a crowded draft: three narration lines under the cap, then "added" last', () => {
+    // Nothing is saved (mockRoutines = []), so the draft brings both scheduled
+    // products (cleanser, vitamin C) into the routines: "2 products added".
+    const OIL = makeProduct({ id: 'p-oil', name: 'Face Oil' });
+    mockProducts = [CLEANSER, VITC, RETINOID, OIL];
     render(
       <DraftPreviewScreen
         visible
         onClose={jest.fn()}
-        plan={makePlan()}
+        plan={makePlan({
+          decisions: [
+            { action: 'day_split', productId: VITC.id },
+            { action: 'day_split', productId: RETINOID.id },
+          ],
+          reserve: [{ productId: OIL.id, reasonCode: 'not_needed_for_goals' }],
+        })}
         diff={NO_DIFF}
         onCommit={jest.fn()}
       />,
     );
-    // buildDraftSummaryLines is unit-tested exhaustively in planApply.test.ts;
-    // this just confirms the sheet never renders more rows than that cap.
-    const summaryRows = screen.queryAllByText(/paused until|added|moved|Split/);
-    expect(summaryRows.length).toBeLessThanOrEqual(4); // <=3 summary lines + 1 paused-block duplicate check
+
+    const lines = [
+      'Vitamin C Serum and Retinol Night Cream split across nights',
+      '1 product paused until Jul 18',
+      'Face Oil kept in reserve',
+      '2 products added',
+    ];
+    for (const line of lines) expect(screen.getAllByText(line)).toHaveLength(1);
+    const tree = JSON.stringify(screen.toJSON());
+    const positions = lines.map((line) => tree.indexOf(line));
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
   });
 });
 
