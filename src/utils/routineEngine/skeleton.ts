@@ -93,15 +93,26 @@ export function isStrongCarrier(facts: ProductFacts): boolean {
 }
 
 /**
- * A non-strong carrier of an enzyme exfoliant, in ANY product format. It is
- * placed by its own rule (`selectExfoliants`), not by its format's slot: an
- * enzyme toner or cream leaves the toner/moisturiser slot (the gap card may
- * then appear) because scheduling it daily would defeat the weekly cap. A
- * STRONG carrier that also lists an enzyme (an AHA product with papain) stays a
- * treatment under the stricter strong-active rules.
+ * A non-strong carrier of an enzyme exfoliant. It is placed by its own rule
+ * (`selectExfoliants`), not by a format slot. Any format qualifies, because
+ * `normalizeProductType` has already read every such product as a `peeling`
+ * (an enzyme toner or cream leaves the toner/moisturiser slot, so the gap card
+ * may appear, and it can never displace the user's plain product — it has its
+ * own layering slot). A STRONG carrier that also lists an enzyme (an AHA product
+ * with papain) stays a treatment under the stricter strong-active rules.
  */
 export function isEnzymeExfoliant(facts: ProductFacts): boolean {
   return !isStrongCarrier(facts) && facts.classes.some((c) => c.key === 'enzyme_exfoliant');
+}
+
+/**
+ * The entry-level test the skeleton uses: an enzyme carrier AS NORMALISED, i.e. a
+ * `peeling`. A makeup remover or SPF that lists an enzyme keeps its function and
+ * its slot (normalizeProductType leaves it alone), so it must not be pulled out
+ * of that slot here either.
+ */
+function isExfoliantEntry(entry: Entry): boolean {
+  return entry.product.productType === 'peeling' && isEnzymeExfoliant(entry.facts);
 }
 
 /** Newest first, then id — the same stable tiebreak the admission pass uses. */
@@ -195,7 +206,7 @@ function pickTreatment(
 function treatmentCapFor(entry: Entry): AdaptationLimit | null {
   // Checked on NON-strong carriers only (isEnzymeExfoliant): an AHA+papain
   // product keeps the acids' stricter two-night cap below, never this looser one.
-  if (isEnzymeExfoliant(entry.facts)) {
+  if (isExfoliantEntry(entry)) {
     return { maxDaysPerWeek: ENZYME_EXFOLIANT_MAX_DAYS, reasonCode: 'enzyme_exfoliant_cap' };
   }
   if (!isStrongCarrier(entry.facts)) return null;
@@ -237,7 +248,7 @@ function classifyEntries(entries: Entry[], ranking: readonly ActiveIngredientKey
       treatmentPool.push(entry); // reclassified to treatment regardless of format
       continue;
     }
-    if (isEnzymeExfoliant(entry.facts)) {
+    if (isExfoliantEntry(entry)) {
       exfoliants.push(entry); // its own weekly slot, whatever its format
       continue;
     }
@@ -385,7 +396,7 @@ function applyUserOverrides(
       continue;
     }
     const allowed = periodsForProduct(entry.product.productType, entry.facts);
-    const isEnzyme = isEnzymeExfoliant(entry.facts);
+    const isEnzyme = isExfoliantEntry(entry);
     const periods = isEnzyme && allowed.length > 0 ? [preferredPeriodFor(entry.facts, allowed)] : allowed;
     for (const period of periods) periodCandidates[period].add(item.productId);
     decisions.push({ action: 'admit', productId: item.productId, detail: 'user override' });

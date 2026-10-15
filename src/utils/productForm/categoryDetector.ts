@@ -1,5 +1,6 @@
 import type { Product, ProductType } from '../../types';
 import { getProductActiveKeys } from '../ingredientParser';
+import { buildProductFacts } from '../routineEngine/productFacts';
 
 /**
  * A surfactant-based makeup/SPF remover (micellar water, cleansing oil/balm,
@@ -99,21 +100,47 @@ function demoteNonFaceBalm(product: Product): Product {
   return { ...product, productType: 'other' };
 }
 
+/** Cheap pre-test so the INCI parse and the facts build run only for products that can be enzyme carriers. */
+const ENZYME_WORD = /papain|bromelain|subtilisin/i;
+
+function mightCarryEnzyme(product: Product): boolean {
+  return (
+    (product.activeTags ?? []).includes('enzyme_exfoliant') ||
+    product.activeIngredients.some((ing) => ing.key === 'enzyme_exfoliant') ||
+    ENZYME_WORD.test(product.fullIngredientText ?? '')
+  );
+}
+
 /**
- * An enzyme exfoliant (papain, bromelain, subtilisin) sold as a cleanser —
- * typically a powder. It is read as a `peeling`, not the daily cleanse step:
- * letting it compete for the cleanser slot would cost the plain cleanser its
- * non-enzyme days under the enzyme's weekly cap, and a shelf whose only
- * "cleanser" is the powder should surface a cleanser gap rather than hide it.
+ * An enzyme exfoliant (papain, bromelain, subtilisin) is read as a `peeling`,
+ * whatever format it is sold in — the weekly "Exfoliate" step, never the daily
+ * cleanse / tone / moisturise step of its format. Letting it keep its format
+ * would put it in a slot it shares with the user's own plain product: it would
+ * out-rank that product for the slot and demote it to a "Change" alternative
+ * (no moisturiser on four mornings, and no gap card to say so), and the saved
+ * routine would list an enzyme cream and a plain cream as duplicates of one slot.
+ * As a `peeling` it has a slot of its own at every consumer (engine, grouping,
+ * duplicate-slot check, Draft Preview). A shelf whose only "cleanser", "toner" or
+ * "cream" is the enzyme product therefore raises the gap card for it.
  *
- * Only `cleanser` and `other` are reclassified (type is checked first: it is
- * the cheap test), and hair/lip names are skipped — the same exemptions the
- * balm guard makes. Pure; same reference when nothing changes.
+ * Not reclassified: a makeup remover and an SPF keep their function; a STRONG
+ * carrier (an AHA/BHA/retinoid leave-on that also lists an enzyme) stays in its
+ * format — it is a treatment under the stricter strong-active rules, not a weekly
+ * enzyme step; hair and lip names are skipped, like the balm guard. A cleanser or
+ * "other" is reclassified without the strong check (as before: a rinse-off
+ * cleanser never counts as a strong carrier, and `other` has no slot to displace).
+ * Pure; same reference when nothing changes.
  */
 export function reclassifyEnzymeExfoliant(product: Product): Product {
-  if (product.productType !== 'cleanser' && product.productType !== 'other') return product;
+  const type = product.productType;
+  if (type === 'peeling' || type === 'makeup_remover' || type === 'spf') return product;
+  if (!mightCarryEnzyme(product)) return product;
   if (isHairProductName(product.name) || isLipProductName(product.name)) return product;
   if (!getProductActiveKeys(product).includes('enzyme_exfoliant')) return product;
+  if (type !== 'cleanser' && type !== 'other') {
+    const facts = buildProductFacts(product);
+    if (facts.properties.irritancy >= 3 && !facts.rinseOff) return product; // strong carrier: a treatment
+  }
   return { ...product, productType: 'peeling' };
 }
 
@@ -127,8 +154,7 @@ export function normalizeProductType(product: Product): Product {
   // Order matters: the makeup-remover guard runs FIRST so a "Cleansing Balm"
   // becomes a pre_cleanse rather than being demoted out of the routine, and so
   // a cleansing balm that also lists an enzyme stays a pre_cleanse too (the
-  // enzyme guard only reads `cleanser`/`other`, which the first guard has
-  // already emptied of makeup removers).
+  // enzyme guard skips `makeup_remover`).
   return reclassifyEnzymeExfoliant(
     demoteNonFaceBalm(reclassifyGelCream(reclassifyMakeupRemover(product))),
   );

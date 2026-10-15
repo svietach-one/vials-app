@@ -205,14 +205,48 @@ describe('reclassifyEnzymeExfoliant — an enzyme powder is not the daily cleans
     expect(reclassifyEnzymeExfoliant(other).productType).toBe('peeling');
   });
 
-  it.each(['serum', 'toner', 'moisturizer', 'mask', 'peeling'] as const)(
-    'never changes the type of a %s (format slots are decided in the skeleton, not here)',
+  it.each(['serum', 'toner', 'moisturizer', 'cream', 'lotion', 'gel', 'essence', 'ampoule', 'mask', 'oil', 'balm', 'eye_cream'] as const)(
+    'reads a non-strong enzyme %s as a peeling, so it never shares a slot with the plain %s',
     (productType) => {
-      const p = make({ productType, activeTags: ['enzyme_exfoliant'] });
+      const p = make({ productType, name: 'Enzyme Thing', activeTags: ['enzyme_exfoliant'] });
 
-      expect(reclassifyEnzymeExfoliant(p)).toBe(p);
+      expect(reclassifyEnzymeExfoliant(p).productType).toBe('peeling');
     },
   );
+
+  it('leaves a peeling alone (same reference)', () => {
+    const p = make({ productType: 'peeling', activeTags: ['enzyme_exfoliant'] });
+
+    expect(reclassifyEnzymeExfoliant(p)).toBe(p);
+  });
+
+  it('keeps an SPF and a makeup remover as they are — they keep their function', () => {
+    const spf = make({ productType: 'spf', activeTags: ['enzyme_exfoliant'] });
+    const remover = make({ productType: 'makeup_remover', activeTags: ['enzyme_exfoliant'] });
+
+    expect(reclassifyEnzymeExfoliant(spf)).toBe(spf);
+    expect(reclassifyEnzymeExfoliant(remover)).toBe(remover);
+  });
+
+  it('keeps a STRONG leave-on carrier that also lists an enzyme in its format (a treatment, not the weekly enzyme step)', () => {
+    const ahaToner = make({ productType: 'toner', activeTags: ['aha', 'enzyme_exfoliant'] });
+    const ahaSerum = make({ productType: 'serum', activeTags: ['aha', 'enzyme_exfoliant'] });
+
+    expect(reclassifyEnzymeExfoliant(ahaToner)).toBe(ahaToner);
+    expect(reclassifyEnzymeExfoliant(ahaSerum)).toBe(ahaSerum);
+  });
+
+  it('reads an enzyme moisturiser found by its ingredient list alone (no tag) within the first 12 ingredients', () => {
+    const cream = make({ productType: 'moisturizer', fullIngredientText: 'Aqua, Glycerin, Papain, Parfum' });
+
+    expect(reclassifyEnzymeExfoliant(cream).productType).toBe('peeling');
+  });
+
+  it('does not touch a plain cream that merely mentions papaya in its name', () => {
+    const cream = make({ productType: 'moisturizer', name: 'Papaya Cream' });
+
+    expect(reclassifyEnzymeExfoliant(cream)).toBe(cream);
+  });
 
   it('skips hair and lip products', () => {
     const hair = make({ name: 'Scalp Enzyme Wash', activeTags: ['enzyme_exfoliant'] });

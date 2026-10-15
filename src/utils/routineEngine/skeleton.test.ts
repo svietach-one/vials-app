@@ -1,6 +1,7 @@
 import type { Product, SkinGoal } from '@/types';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { buildShelfFacts } from '@/utils/routineEngine/productFacts';
+import { normalizeProductType } from '@/utils/productForm/categoryDetector';
 import { selectSkeleton } from '@/utils/routineEngine/skeleton';
 
 const NOW = new Date('2026-07-04T12:00:00Z');
@@ -431,16 +432,29 @@ describe('selectSkeleton — enzyme exfoliant (intermediate-routine FE-6)', () =
     expect(r.placeholders.flatMap((p) => p.productTypes)).not.toContain('peeling');
   });
 
-  it('takes an enzyme toner out of the toner slot, so the toner gap appears', () => {
-    const enzymeToner = makeProduct({ productType: 'toner', activeTags: ['enzyme_exfoliant'] });
+  it('takes an enzyme toner out of the toner slot (read as a peeling), so the toner gap appears', () => {
+    // The engine sees products AS NORMALISED (generatePlan runs normalizeProductType first).
+    const enzymeToner = normalizeProductType(makeProduct({ productType: 'toner', activeTags: ['enzyme_exfoliant'] }));
 
     const r = run([enzymeToner]);
 
+    expect(enzymeToner.productType).toBe('peeling');
     expect(r.placeholders.map((p) => `${p.period}:${p.productTypes[0]}`)).toEqual(
       expect.arrayContaining(['am:toner', 'pm:toner']),
     );
     expect(r.periodCandidates.am.has(enzymeToner.id)).toBe(true); // placed as the exfoliant
     expect(r.periodCandidates.pm.has(enzymeToner.id)).toBe(false);
+  });
+
+  it('does not pull a makeup remover or an SPF that lists an enzyme out of its own slot', () => {
+    const remover = makeProduct({ productType: 'makeup_remover', activeTags: ['enzyme_exfoliant'] });
+    const spf = makeProduct({ productType: 'spf', activeTags: ['enzyme_exfoliant'] });
+
+    const r = run([remover, spf]);
+
+    expect(r.treatmentCaps.has(remover.id) || r.treatmentCaps.has(spf.id)).toBe(false);
+    expect(r.periodCandidates.pm.has(remover.id)).toBe(true);
+    expect(r.periodCandidates.am.has(spf.id)).toBe(true);
   });
 
   it('leaves a strong carrier that also lists an enzyme a treatment with the acids\' two-night cap, not the enzyme\'s three', () => {
