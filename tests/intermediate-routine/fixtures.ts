@@ -45,7 +45,7 @@ export { resetFixtureCounters, routinesFromPlan, makeRoutine, makeRoutineStep } 
 
 // ─── Intended-interface shims (single reference points) ──────────────────────
 
-/** Enzyme exfoliant active class key (FE-6). Not yet in ActiveIngredientKey. */
+/** Enzyme exfoliant active class key (FE-4). Not yet in ActiveIngredientKey. */
 export const ENZYME_TAG = 'enzyme_exfoliant' as const satisfies ActiveIngredientKey;
 
 /** Typed reason-code literal: drift in a code name fails `tsc`, not just the run. */
@@ -114,7 +114,7 @@ export function makeProcedureLogForPeel(datePerformed: string): UserProcedureLog
   return makeProcedureLog({ procedureKey: 'chemical_peel_deep', datePerformed, status: 'rehab' });
 }
 
-/** A LeftOutItem (FE-9). Typed against the real interface so shape drift fails `tsc`. */
+/** A LeftOutItem (FE-7). Typed against the real interface so shape drift fails `tsc`. */
 export function makeLeftOutItem(overrides: Partial<LeftOutItem> & Pick<LeftOutItem, 'productId' | 'kind'>): LeftOutItem {
   return { reasonCode: null, ...overrides };
 }
@@ -193,7 +193,7 @@ export interface SweepShelf {
 }
 
 export interface SweepOptions {
-  /** Salt ~15% of products with the enzyme tag (needs FE-6 for the tag to mean anything). */
+  /** Salt ~15% of products with the enzyme tag (needs FE-4 for the tag to mean anything). */
   enzyme?: boolean;
   /** Make ~10% of products wishlist items (status 'wishlist'). */
   wishlist?: boolean;

@@ -74,7 +74,7 @@ describe('toner and eye cream scheduling (Story 1)', () => {
 
   it('does not count a toner carrying a strong acid as the toner step, and files it as a treatment', () => {
     const acidToner = shelfProduct('t-acid', 'Acid Toner', 'toner', { activeTags: ['aha'] });
-    const profile = { fitzpatrick: null, concerns: [], primaryGoal: 'acne' as const, secondaryGoal: null };
+    const profile = { fitzpatrick: null, concerns: [], primaryGoal: 'pigmentation' as const, secondaryGoal: null };
 
     const plan = generatePlan(makeEngineInput([...makeS3(), acidToner], { profile }));
 
