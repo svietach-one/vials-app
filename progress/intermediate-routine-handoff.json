@@ -1,6 +1,6 @@
 {
   "task": "intermediate-routine",
-  "phase": "qa",
+  "phase": "engineer",
   "status": "IN_PROGRESS",
   "revision": "2026-10-15 second pass: one mode (routine-style concept removed); owner answers applied (Q5 option B, Q6 yes, Q7 yes, wishlist yes) plus the calendar-discoverability requirement; spec and tech design revised in place, nothing committed",
   "flags": {
@@ -145,5 +145,34 @@
   },
   "owed_by_coordinator": [
     "Roadmap sync per .claude/rules/roadmap-sync.md (spec and tech design materially edited again); the planner has no WebFetch/Artifact tools."
-  ]
+  ],
+  "engineer": {
+    "agent": "engineer",
+    "date": "2026-10-15",
+    "status": "IMPLEMENTED_PENDING_REVIEW",
+    "commits": {
+      "A": "f3b42da",
+      "A2": "e7c6391",
+      "B": "6306790",
+      "C": "156fddf",
+      "D": "c100d52",
+      "E": "0135f0b",
+      "final": "see git log (sweeps + progress log)"
+    },
+    "gates": "tsc: zero errors outside tests/intermediate-routine after every phase; full jest after every phase: only the 9 baseline suites red plus the not-yet-built QA suites of later phases",
+    "open_items": [
+      "QA test bug: tests/intermediate-routine/routines-screen.test.tsx 'records the morning toner key when its card is dismissed' presses dismissButtons()[0] assuming the toner card is first on screen; on S3 the eye-cream card renders first (Moisturize group) and the toner card is in the trailing block, so the key recorded is am:eye_cream. Implementation is correct; test must select the toner card's button.",
+      "Known pre-existing, left as is: 24/6000 shelves have a product with two FrozenItem rows (frozen in both periods); explainability sweep seed size kept at 100.",
+      "Roadmap sync owed by the coordinator."
+    ],
+    "deviations": [
+      "enzyme cap applies to non-strong carriers only (FE-6 letter would loosen AHA+papain)",
+      "FE-7 into phase A, FE-13 as A2",
+      "hydrate/dismissGapCard sanitise to the four known keys",
+      "legacy buildDraftSummaryLines path (no routines) keeps cap 3",
+      "INCI position counts top-level ingredients for all classes",
+      "own 'Enzymes' wizard group",
+      "no wishlist weighting in engine-level sweeps (filter lives at the store boundary)"
+    ]
+  }
 }

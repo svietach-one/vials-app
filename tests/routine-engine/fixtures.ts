@@ -199,6 +199,10 @@ const RANDOM_PRODUCT_TYPES: ProductType[] = [
   'cleanser',
   'cleanser',
   'makeup_remover',
+  // toner and eye cream are structural slots since intermediate-routine, and
+  // active-bearing ones are what pair rules relocate/freeze — weight them in
+  // (twice) so the sweeps exercise the slots the fuller routine added.
+  'toner',
   'toner',
   'serum',
   'gel',
@@ -206,8 +210,10 @@ const RANDOM_PRODUCT_TYPES: ProductType[] = [
   'cream',
   'balm',
   'eye_cream',
+  'eye_cream',
   'oil',
   'spf',
+  'peeling',
 ];
 
 const RANDOM_ACTIVE_KEYS: ActiveIngredientKey[] = [
@@ -225,6 +231,8 @@ const RANDOM_ACTIVE_KEYS: ActiveIngredientKey[] = [
   'hyaluronic_acid',
   'panthenol',
   'cica',
+  // intermediate-routine: a mild, weekly-capped exfoliant carried by any format.
+  'enzyme_exfoliant',
 ];
 
 const RANDOM_CONCERNS: SkinConcern[] = ['acne', 'wrinkles', 'hyperpigmentation', 'dryness'];

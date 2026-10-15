@@ -1,12 +1,17 @@
 Status: IN_PROGRESS
 Tech Design: docs/tech-design/intermediate-routine.md
-Code: —
+Code:
+  - engine: src/utils/routineEngine/{slotting,skeleton,resolve,planApply}.ts, src/constants/decisionReasons.ts, src/constants/rulesets/actives.json (+version 2026-10-15), src/utils/ingredientParser.ts (splitInciTopLevel), src/utils/productForm/categoryDetector.ts
+  - new: src/utils/{productOwnership,routineLeftOut,gapDismissal}.ts, src/constants/routineScreenCopy.ts, src/components/routine/LeftOutSection.tsx
+  - wiring: src/domain/routinePlanActions.ts, src/store/settingsStore.ts, src/types/index.ts, src/constants/labels.ts, src/utils/activeBadges.ts, src/components/addProduct/activesGroups.ts, src/components/routine/{GapCard,RoutineStepActionSheet,RoutineCalendarView,DraftPreviewScreen}.tsx, src/screens/RoutinesScreen.tsx
+  - tests: co-located *.test.ts next to each util; tests/routine-engine/{generate,determinism-and-safety,explainability-invariant,draft-preview-sheet}.test.ts(x) (rewritten), relocation-single-outcome.test.ts (new), fixtures.ts (sweep weights)
+  - docs: docs/specs/routine-engine-v2.1/phase-04-skeleton-buildup.md (amended)
 
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
 - [x] QA tests (qa-lead)
-- [ ] Implementation (engineer)
+- [x] Implementation (engineer)
 - [ ] Architecture review (tech-lead)
 
 ## Log
@@ -322,4 +327,63 @@ qa-lead findings. Spec unchanged (the ACs already existed).
   "never emits more than three lines" pins the old cap and must be replaced.
   Signature matches what qa-lead's draft-summary.test.ts assumed.
 Phase map: A FE-1-3, B FE-4-6, C FE-7-10, D FE-11-12, E FE-13-14.
+
+2026-10-15 — engineer: **Implementation done (phases A, A2, B, C, D, E, Final), one local commit per phase, nothing pushed.**
+Commits: f3b42da (A), e7c6391 (A2), 6306790 (B), 156fddf (C), c100d52 (D), 0135f0b (E), final commit (sweeps + log).
+Authorisation: product owner approved the plan herself ("Да, начинать") and confirmed any-format enzyme extraction; the coordinator decided the
+reorders (FE-7 into A, FE-13 as A2), leave duplicate FrozenItem rows, legacy summary path keeps the cap, acid-toner test fix by qa-lead, global paren-aware
+tokenizer (condition: no existing suite may shift), strong+enzyme keeps the 2-day cap, hydrate sanitising.
+
+**Deviations from the tech design (all deliberate):**
+1. FE-6: the enzyme cap (3 days) applies to NON-strong carriers only (`isEnzymeExfoliant`). The design said "BEFORE its isStrongCarrier return", which would have
+   loosened an AHA/BHA product that also lists papain from the acids' 2-night cap to 3. Safety beats the letter; the strong path is unchanged and pinned by a test.
+2. FE-7 moved into phase A and FE-13 became A2 (coordinator-approved): four QA suites import `routineLeftOut` at file level, and phase A widens the FE-13 exposure.
+3. FE-11: `settingsStore.hydrate` and `dismissGapCard` accept only the four known keys (`GAP_DISMISS_KEYS`, `sanitizeDismissedKeys`) so "at most four keys" holds against
+   corrupt stored data. Not in the design.
+4. FE-14: `buildDraftSummaryLines` WITHOUT `routines` keeps today's diff-based "added" line inside the cap of 3 (the old "never emits more than three lines" test is kept for
+   that legacy path and renamed); with `routines` the added line is computed from them, outside the cap, last (max 4 lines).
+5. FE-4: INCI "position" now counts TOP-LEVEL ingredients (a parenthesised sub-list is one position) for EVERY class, not only the enzyme (one definition of position).
+   The 47 ingredient/attribution/product-profile suites (634 tests) were run right after the change, before anything else, and none shifted.
+6. FE-4: the wizard group for the new key is its own "Enzymes" group (amber), not folded into "Acids".
+7. Wishlist weighting was NOT added to `tests/routine-engine/fixtures.ts`: the engine has no status check (the owned-only filter is at the store boundary, FE-3), so an
+   engine-level sweep cannot exercise it. `tests/intermediate-routine` covers it end to end.
+
+**FE-13 (safety-relevant engine fix) — measured effect**, 6,000 seeded shelves (3,000 QA sweep with wishlist salting + 3,000 promotion-shaped), per-period views:
+| | alternatives | self-offered | duplicate alternatives | product scheduled twice in a period | scheduled-and-frozen records | avoid pairs | unaccounted |
+|---|---|---|---|---|---|---|---|
+| dev engine before this task | 10,525 | 296 | 110 | 17 | 34 | 0 | 0 |
+| after toner/eye cream slots, before FE-13 | 12,186 | 368 | 123 | 19 | 47 | 0 | 0 |
+| after FE-13 | 11,697 | 0 | 0 | 0 | 35 | 0 | 0 |
+458 of 6,000 plans (7.6%) differ from the pre-FE-13 output. The 35 remaining scheduled-and-frozen records are legitimate (frozen in one period, scheduled in the other):
+the strict per-period property "a freeze decision for period P means the product is not scheduled in P" finds 12 violations before FE-13 and 0 after (441 freezes).
+Failing-first repros (shrunk from failing seeds) are in `resolve.test.ts` and `tests/routine-engine/relocation-single-outcome.test.ts` (all 4 red before the fix).
+**Known pre-existing, left as is (coordinator ruling):** 24 of 6,000 shelves (17 on dev before this task) have a product with two `FrozenItem` rows (frozen in both periods;
+`FrozenItem` has no period field). Not the same defect as FE-13. It would trip `frozen.size === plan.frozen.length` in `explainability-invariant` if that sweep were widened, so its seed count stays at 100.
+
+**Old/new assertions for tech-lead (tests/routine-engine/generate.test.ts)** — new values derived from the spec (G2 shape: toner is a structural slot in both periods, no
+eye cream owned => a gap in both periods), NOT copied from engine output; each was shown to go red when the behaviour is reverted:
+- "builds a minimal goal-driven routine…" -> "builds a goal-driven routine from a realistic shelf: structural slots incl. toner, one treatment per period".
+  OLD AM [cleanser, vitC, moisturizer, spf], PM [cleanser, retinoid, moisturizer], toner expected in `reserve` as not_needed_for_goals.
+  NEW AM [cleanser, toner, vitC, moisturizer, spf], PM [cleanser, toner, retinoid, moisturizer], `reserve` == [], placeholders == [am:eye_cream, pm:eye_cream], rulesetVersion '2026-10-15'.
+  Mutation: dropping toner/eye_cream from SKELETON_SLOTS or from REQUIRED_SLOTS turns it red.
+- "maintenance goal -> minimal routine…" -> "maintenance goal -> structural routine incl. toner; actives, serums, essence and oil in reserve as not_needed_for_goals".
+  OLD `morning.length <= 3`, `evening.length <= 2`, retinoid and vitC reserved. NEW exact lists AM [cleanser, toner, moisturizer, spf], PM [cleanser, toner, moisturizer];
+  retinoid, vitC, both HA serums, essence, oil reserved (exactly 6 rows) and the toner NOT reserved. Mutation: dropping toner from SKELETON_SLOTS turns it red.
+- "orders an all-gaps morning cleanse -> moisturise -> protect, not SPF first" -> "...cleanse -> tone -> eye -> moisturise -> protect...".
+  OLD ['cleanser','moisturizer','spf']; NEW ['cleanser','toner','eye_cream','moisturizer','spf']. Mutation: dropping toner/eye_cream from REQUIRED_SLOTS turns it red.
+Also tightened (not loosened): `skeleton.test.ts` niacinamide case now asserts `reserve` is EMPTY and all three are candidates (its title always said "no reserve", the old assertion only
+checked no cap reserve); `draft-preview-sheet.test.tsx` "caps the summary lines at 3" (a regex that allowed up to four rows) is now an exact four-line, ordered assertion;
+the product-level "scheduled and frozen are mutually exclusive" checks in `determinism-and-safety` and `explainability-invariant` became the per-period freeze property plus
+hard-gate disjointness (150 seeds, with procedures and pregnancy, non-vacuity guarded). Version literal assertions updated to '2026-10-15' (kept as literals).
+
+**QA suite findings (not worked around):**
+- `tests/intermediate-routine/routines-screen.test.tsx` "records the morning toner key when its card is dismissed" assumes the toner card is the FIRST "Not for me" button on screen.
+  On S3 the eye-cream card attaches to the existing "Moisturize" group and renders before the toner card, which has no real "Tone" group and so renders in the trailing block
+  (spec §5, unchanged `attachPlaceholderGaps`). The assumption "toner precedes eye cream in build order" holds for the PLAN's placeholders, not for the screen's DOM order.
+  The implementation is correct (it records the key of the card whose button was pressed); the test must pick the toner card's button instead of index 0. Left red.
+- The strong-acid test goal (`acne` -> `pigmentation`) was fixed by qa-lead in f2cfe1a.
+
+**Other notes.** `selectSkeleton` went from 125 to 96 lines (override block and exfoliant selection extracted); `generatePlan` untouched; `resolvePeriods` extracted run creation. Known engine
+behaviours worth a clinical/product look later, not changed: a mild-active toner/eye cream now stays out of the single treatment slot (a gel or serum may win it); an enzyme toner or cream
+leaves its format slot (accepted by the owner). Roadmap sync still owed by the coordinator.
 

@@ -8,12 +8,14 @@
  * a frozen product. 0 violations."
  */
 import { ACTIVES_RULESET } from '@/constants/rulesets/rulesetTypes';
+import proceduresRuleset from '@/constants/rulesets/procedures.json';
 import type { ActiveIngredientKey } from '@/types';
 import { generatePlan } from '@/utils/routineEngine/generate';
 import { validateRoutines } from '@/utils/routineEngine/validate';
 import {
   daysOverlap,
   makeEngineInput,
+  makeProcedureLog,
   makeProduct,
   makeSeasonMask,
   NOW,
@@ -178,21 +180,74 @@ describe('Safety (spec §9): no generated plan ever co-schedules an avoid-level 
     expect(pairsChecked).toBeGreaterThan(0);
   });
 
-  it('never lists a frozen productId inside the plan\'s own periods (frozen and scheduled are mutually exclusive)', () => {
-    for (let seed = 0; seed < 40; seed += 1) {
+  /**
+   * "A frozen product is never scheduled" was asserted per PRODUCT, which is
+   * stricter than the engine's contract and was never true in general: a
+   * pair-rule or cap freeze is PER PERIOD, so a product may be frozen in one
+   * period and scheduled in the other (a legitimate outcome — found by the
+   * intermediate-routine work, together with a genuine bug that relocated
+   * products were tried twice in a period, fixed in resolve.ts). The two
+   * properties below are the precise contract and are stricter where it counts:
+   *   1. a freeze DECISION for a period means the product is not scheduled in
+   *      THAT period (this caught 12 genuine violations before the resolve fix);
+   *   2. a product frozen by a HARD gate (clinical procedure, pregnancy, expired
+   *      PAO, no allowed period) is scheduled in NEITHER period.
+   */
+  it('never schedules a product in a period it was frozen in, nor one frozen by a hard gate in either period', () => {
+    const PERIOD_KEY = { am: 'morning', pm: 'evening' } as const;
+    const hardGateCodes = new Set<string>(['pregnancy_blocked', 'pao_expired', 'no_allowed_period']);
+    const collectCodes = (node: unknown): void => {
+      if (Array.isArray(node)) node.forEach(collectCodes);
+      else if (node && typeof node === 'object') {
+        for (const [k, v] of Object.entries(node)) {
+          if (k === 'reasonCode' && typeof v === 'string') hardGateCodes.add(v);
+          else collectCodes(v);
+        }
+      }
+    };
+    collectCodes(proceduresRuleset);
+
+    let periodFreezes = 0;
+    let hardFrozen = 0;
+    for (let seed = 0; seed < 150; seed += 1) {
       const rng = makeRng(seed * 13 + 5);
       const { products } = randomShelf(rng, 4 + Math.floor(rng() * 12));
       const plan = generatePlan(
         makeEngineInput(products, {
-          profile: { fitzpatrick: randomFitzpatrick(rng), concerns: randomConcerns(rng) },
+          profile: {
+            fitzpatrick: randomFitzpatrick(rng),
+            concerns: randomConcerns(rng),
+            pregnantOrBreastfeeding: seed % 7 === 0,
+          },
+          procedures: seed % 5 === 0 ? [makeProcedureLog({ datePerformed: '2026-07-04' })] : [],
           now: NOW,
         }),
       );
-      const scheduled = new Set([...plan.periods.morning, ...plan.periods.evening].map((s) => s.productId));
-      for (const frozen of plan.frozen) {
-        expect(scheduled.has(frozen.productId)).toBe(false);
+      const scheduledIn = (period: 'morning' | 'evening') => new Set(plan.periods[period].map((s) => s.productId));
+
+      for (const d of plan.decisions) {
+        if (d.action !== 'freeze' || !d.period || !d.productId) continue;
+        periodFreezes += 1;
+        expect({ seed, id: d.productId, scheduledWhereFrozen: scheduledIn(PERIOD_KEY[d.period]).has(d.productId) }).toEqual({
+          seed,
+          id: d.productId,
+          scheduledWhereFrozen: false,
+        });
+      }
+      for (const f of plan.frozen.filter((item) => hardGateCodes.has(item.reasonCode))) {
+        hardFrozen += 1;
+        const scheduled = scheduledIn('morning').has(f.productId) || scheduledIn('evening').has(f.productId);
+        expect({ seed, id: f.productId, reason: f.reasonCode, scheduled }).toEqual({
+          seed,
+          id: f.productId,
+          reason: f.reasonCode,
+          scheduled: false,
+        });
       }
     }
+    // Non-vacuity: the sweep must actually freeze things both ways.
+    expect(periodFreezes).toBeGreaterThan(0);
+    expect(hardFrozen).toBeGreaterThan(0);
   });
 });
 
