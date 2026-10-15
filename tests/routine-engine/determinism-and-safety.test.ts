@@ -181,17 +181,26 @@ describe('Safety (spec §9): no generated plan ever co-schedules an avoid-level 
   });
 
   /**
-   * "A frozen product is never scheduled" was asserted per PRODUCT, which is
-   * stricter than the engine's contract and was never true in general: a
-   * pair-rule or cap freeze is PER PERIOD, so a product may be frozen in one
-   * period and scheduled in the other (a legitimate outcome — found by the
-   * intermediate-routine work, together with a genuine bug that relocated
-   * products were tried twice in a period, fixed in resolve.ts). The two
-   * properties below are the precise contract and are stricter where it counts:
+   * "A frozen product is never scheduled" used to be asserted per PRODUCT. That
+   * was never the engine's contract: a pair-rule or cap freeze is PER PERIOD, so
+   * a product may be frozen in one period and scheduled in the other (legitimate).
+   * The two properties below replace it:
    *   1. a freeze DECISION for a period means the product is not scheduled in
-   *      THAT period (this caught 12 genuine violations before the resolve fix);
+   *      THAT period;
    *   2. a product frozen by a HARD gate (clinical procedure, pregnancy, expired
    *      PAO, no allowed period) is scheduled in NEITHER period.
+   *
+   * Honest limits, so nobody over-trusts this test:
+   * - Property 1 found 12 genuine violations on a 6,000-shelf measurement before
+   *   the relocation fix in resolve.ts. The 150 seeds committed here stay GREEN
+   *   with that fix reverted, so this test does not guard the fix. Its real guards
+   *   are tests/routine-engine/relocation-single-outcome.test.ts and the
+   *   FE-13 cases in src/utils/routineEngine/resolve.test.ts.
+   * - Property 1 is logically WEAKER than the old "scheduled and frozen are
+   *   disjoint" check (it allows frozen-in-one-period, scheduled-in-the-other);
+   *   the old check was not a true invariant, which is why it was replaced.
+   * - The PAO half of property 2 is vacuous: no generated product has an expired
+   *   PAO, so only the clinical-procedure and pregnancy gates are exercised here.
    */
   it('never schedules a product in a period it was frozen in, nor one frozen by a hard gate in either period', () => {
     const PERIOD_KEY = { am: 'morning', pm: 'evening' } as const;
