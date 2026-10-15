@@ -2,7 +2,7 @@
 Date: 2026-10-14 (revised 2026-10-15)
 Author: planner-agent
 Jira: N/A (kebab-case task slug per agent-layer-protocol.md: `intermediate-routine`)
-Status: DRAFT
+Status: APPROVED (product owner, 2026-10-15: "одобряю спеку")
 
 ## AI-SDLC Flags
 ```

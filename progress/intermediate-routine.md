@@ -273,3 +273,9 @@ edits, non-dismissible cards, plan unchanged); Story 7 (caption and row hint per
 visual state, so qa-lead pins a testID in the feature fixtures and the engineer matches it); wishlist exclusion at
 `buildEngineInputFromStores`, `validateCurrentRoutines` and `generateDraftPlan` (one input); `allowRemoval`.
 **Owed by the coordinator:** roadmap sync (spec/tech design materially edited again); no WebFetch/Artifact tools here.
+
+2026-10-15 — product owner approved the spec ("одобряю спеку, запускай qa-lead").
+Spec Status DRAFT -> APPROVED. Open items that do NOT block: Q4b placeholder
+screen copy (design-owned); clinical review of the enzyme values (after the
+MVP, before the global release). Next: qa-lead reworks the tests written for the
+retired two-mode design, then engineer. Roadmap sync still owed.
