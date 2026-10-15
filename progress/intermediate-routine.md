@@ -396,3 +396,22 @@ Tokenizer: whole-corpus diff (21,084 products) changes attribution of 52 (0.25%)
 WARNINGS: W1 enzyme carrier in a toner/cream format displaces the user's plain toner/moisturiser (skeleton.ts:240, resolve.ts:602); W2 splitInciTopLevel docstring false for an unclosed '(' (ingredientParser.ts:107), untested; W3 pre-existing cycle-split avoid pair (separate task, roadmap blocker candidate); W4 test-integrity claims overstated; W5 new/grown >50-line functions (buildCappedSummaryLines 67, LeftOutSection 57, RoutinesScreen +29); W6 PHA toner now scheduled daily AM+PM (deferred clinical review); W7 no device QA.
 Clean: persistence, non-dismissible cards, wishlist exclusion, UI constraints (cobalt not plum, >=14px, one copy module, every reason code has text), layering greps, earlier PR #60 invariants.
 
+2026-10-16 — engineer: **Tech-lead W1, W2, W4 fixed** (owner decision; W3, W5, W6, W7 and the NITs untouched). One local commit each, nothing pushed.
+- **W1 (f9586db)** An enzyme cream/toner no longer displaces the user's plain one. APPROACH differs from the suggested key change in resolve.ts's same-slot cap: `normalizeProductType`
+  (the single normalisation entry point) now reads a NON-strong enzyme carrier of ANY format as a `peeling`; the skeleton extracts only products read as peelings. Why not the cap key:
+  `PlannedStep.slotIndex` is the slot identity for far more than the cap (Draft Preview `oldSteps`/`alternativesBySlot`, `applySlotAlternativeSwap`, `validate`, the saved-routine duplicate-slot
+  warning), so an enzyme cream and a plain cream would still collide in all of them (a duplicate-slot warning on the saved screen, a Change swap hitting the wrong step); a retyped product has its own
+  slot for every consumer. Kept: any-format extraction, <=3 days, morning preferred, one per period, strong carriers that also list an enzyme stay in their format (treatment rules), makeup remover and
+  SPF keep their function. Consequence to know: on the Routines screen an enzyme cream/toner now shows under "Exfoliate" with the peeling label (as an enzyme cleanser already did); the shelf, badges
+  and product detail read the raw product and are unchanged; a manual add of such a product via AddToRoutineSheet persists a `peeling` step.
+  Repros (tests/routine-engine/enzyme-format-slot.test.ts): BEFORE — plain cream older + enzyme cream newer: plain cream absent from the morning, no gap card; enzyme toner older + plain toner:
+  plain toner displaced. AFTER — plain cream/toner scheduled every day in both periods, enzyme product morning-only on <=3 days, no toner/moisturiser gap card. Also a per-format accounted-for table
+  and a 400-shelf enzyme-salted property. Corpus re-measured with enzyme salting (6,000 shelves), BEFORE -> AFTER: self-offered 0 -> 0; duplicate alternatives 0 -> 0; double-scheduled views 0 -> 0;
+  per-period freeze violations 0 -> 0; scheduled-and-frozen records 36 -> 36; avoid pairs 0 -> 0; unaccounted 0 -> 0; non-deterministic plans 0 -> 0; alternatives 11,213 -> 11,117.
+- **W2 (3d84d31)** `splitInciTopLevel` falls back to the plain comma split when a parenthesis is still open at the end (all-or-nothing); a stray ")" is unchanged; docstring states the real rules.
+  Failing-first tests: the exact tech-lead string, the enzyme first-12 window with an unclosed group, and the all-or-nothing case. The 47 ingredient/attribution/product-profile suites shifted nowhere.
+- **W4** comment in `tests/routine-engine/determinism-and-safety.test.ts` reworded (no assertion changed). The similar sentence in `explainability-invariant.test.ts` ("this is what the relocation fix restored")
+  has the same overstatement and was left alone (out of scope).
+- Unexpected: `tests/routine-engine/add-procedure-modal.test.tsx` (2 tests) started failing when the clock reached 2026-10-16 — it fails identically on the committed HEAD, so it is clock-dependent
+  and not caused by this work; it is a new member of the red set that is not in the 9-suite baseline.
+
