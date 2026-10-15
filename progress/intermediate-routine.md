@@ -302,3 +302,24 @@ confirmed the delta plan herself, "Да, писать тесты"). Written BEFO
   `tsc` errors are confined to `tests/intermediate-routine/` and each is an interface the engineer owes
   (handoff JSON `qa.owed_interfaces`).
 - Assumed interfaces the design does not pin: handoff JSON `qa.assumed_interfaces`. Engineer: match them or push back here.
+
+2026-10-15 — tech design amended (third planner pass) for two owner rulings on
+qa-lead findings. Spec unchanged (the ACs already existed).
+- FE-13 (Story 1 AC3, a swap never offers the scheduled product): fix in the
+  engine. Planner MEASURED the cause on 6,000 seeded shelves: it is NOT the
+  suspected day-split cleansers (9 of 349 offenders) but a product relocated by
+  a `separate_periods` rule being attempted twice in the target period
+  (`retryRelocatedInAm`). Same cause also double-scheduled a product in 17
+  period views (duplicate step id on save), co-scheduled one avoid-level pair
+  and produced 12 spurious "scheduled and frozen" records — a pre-existing
+  engine defect on dev, wider than the 2.5% self-offer symptom. Prototype ~12
+  lines in resolve.ts changes 343/6,000 plans (5.7%), 0 unaccounted products,
+  43 existing engine suites green. Re-measure after FE-1/FE-2.
+- FE-14 (Story 5 AC5, summary names re-added steps): improve the summary.
+  `buildDraftSummaryLines(plan, diff, products, routines?)` with a new pure
+  `findReaddedProductIds`; the "N product(s) added" line sits outside the cap
+  of 3 and last (max 4 lines). `computeDiff` is unchanged. The existing test
+  "never emits more than three lines" pins the old cap and must be replaced.
+  Signature matches what qa-lead's draft-summary.test.ts assumed.
+Phase map: A FE-1-3, B FE-4-6, C FE-7-10, D FE-11-12, E FE-13-14.
+
