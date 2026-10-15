@@ -1,4 +1,4 @@
-Status: IN_PROGRESS
+Status: PR_REVIEW
 Tech Design: docs/tech-design/intermediate-routine.md
 Code:
   - engine: src/utils/routineEngine/{slotting,skeleton,resolve,planApply}.ts, src/constants/decisionReasons.ts, src/constants/rulesets/actives.json (+version 2026-10-15), src/utils/ingredientParser.ts (splitInciTopLevel), src/utils/productForm/categoryDetector.ts
@@ -12,7 +12,7 @@ Code:
 - [x] Technical design (planner)
 - [x] QA tests (qa-lead)
 - [x] Implementation (engineer)
-- [ ] Architecture review (tech-lead)
+- [x] Architecture review (tech-lead) — ACCEPTED 2026-10-15 (0 BLOCKER, 7 WARNING, 6 NIT)
 
 ## Log
 
@@ -386,4 +386,13 @@ hard-gate disjointness (150 seeds, with procedures and pregnancy, non-vacuity gu
 **Other notes.** `selectSkeleton` went from 125 to 96 lines (override block and exfoliant selection extracted); `generatePlan` untouched; `resolvePeriods` extracted run creation. Known engine
 behaviours worth a clinical/product look later, not changed: a mild-active toner/eye cream now stays out of the single treatment slot (a gel or serum may win it); an enzyme toner or cream
 leaves its format slot (accepted by the owner). Roadmap sync still owed by the coordinator.
+
+2026-10-15 — tech-lead: **Architecture review of origin/dev..73cfc19: ACCEPT -> PR_REVIEW. No BLOCKER; 7 WARNING, 6 NIT.**
+Read-only; Step 0 human confirmation not obtainable inside the subagent run. Reviewed on a git-archive snapshot.
+Gates re-run independently: tsc 0 errors; jest 3,247 passed / 61 failed in 9 suites; the 61 are the identical test names that fail on origin/dev 5ed283f (re-run there). The engineer's 62nd failure was qa-lead's test bug, fixed in 73cfc19.
+FE-13 re-measured with an INDEPENDENT generator (6,000 single-active + 6,000 adversarial multi-active shelves): self-offered alternatives 145/248 (dev) -> 245/382 (without FE-13) -> 0/0; duplicate alternatives 21/66 -> 38/94 -> 0/0; double-scheduled 0/9 -> 2/11 -> 0/0; per-period freeze violations 0/5 -> 0/5 -> 0/0; unaccounted 0 throughout; 0/12,000 non-deterministic; relocate confirmed non-terminal (making it terminal strands 152/152 ping-ponged products). Failing-first confirmed. The planner's co-scheduled avoid pair REPRODUCED in two shapes: (a) fixed by FE-13 (phase A made it reachable), (b) PRE-EXISTING on dev through the cycle-split path (resolve.ts:578-579, seed 3080), NOT fixed by FE-13 -> separate task.
+Test rewrites are spec-derived; mutation checks go red. The per-period freeze property is logically WEAKER than the old scheduled-and-frozen-is-empty check (the old one was not a real invariant); its PAO half is vacuous; it does not go red with FE-13 reverted at the committed seeds — FE-13's real guards are the dedicated repro tests.
+Tokenizer: whole-corpus diff (21,084 products) changes attribution of 52 (0.25%), 15 potency shifts all low->high (conservative); enzyme attribution unchanged.
+WARNINGS: W1 enzyme carrier in a toner/cream format displaces the user's plain toner/moisturiser (skeleton.ts:240, resolve.ts:602); W2 splitInciTopLevel docstring false for an unclosed '(' (ingredientParser.ts:107), untested; W3 pre-existing cycle-split avoid pair (separate task, roadmap blocker candidate); W4 test-integrity claims overstated; W5 new/grown >50-line functions (buildCappedSummaryLines 67, LeftOutSection 57, RoutinesScreen +29); W6 PHA toner now scheduled daily AM+PM (deferred clinical review); W7 no device QA.
+Clean: persistence, non-dismissible cards, wishlist exclusion, UI constraints (cobalt not plum, >=14px, one copy module, every reason code has text), layering greps, earlier PR #60 invariants.
 
