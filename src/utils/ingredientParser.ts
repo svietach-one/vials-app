@@ -104,8 +104,13 @@ export function parseActiveIngredientsFromInci(inciText: string): ActiveIngredie
  * "Base Blend (Sub1, Sub2, Sub3)" — is one ingredient and takes one position,
  * so a long nested list cannot push a later ingredient out of a position window
  * (intermediate-routine: the enzyme exfoliant's "first 12 ingredients" rule).
- * Unbalanced parentheses never go below depth 0, so malformed text degrades to
- * the plain comma split instead of swallowing the rest of the list.
+ *
+ * Malformed text degrades to the PLAIN comma split rather than guessing:
+ * - a stray ")" never takes the depth below 0, so it only ends up in a token;
+ * - an UNCLOSED "(" (depth still above 0 at the end of the text) would swallow
+ *   the rest of the list into one token and drag every later ingredient to a
+ *   falsely early position, so the whole text falls back to the plain comma
+ *   split — all-or-nothing, even for groups that balanced before it.
  */
 export function splitInciTopLevel(inciText: string): string[] {
   const tokens: string[] = [];
@@ -120,6 +125,7 @@ export function splitInciTopLevel(inciText: string): string[] {
       start = i + 1;
     }
   }
+  if (depth > 0) return inciText.split(',').map((t) => t.trim());
   tokens.push(inciText.slice(start).trim());
   return tokens;
 }

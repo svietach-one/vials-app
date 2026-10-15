@@ -484,6 +484,31 @@ describe('splitInciTopLevel — a parenthesised sub-list is one ingredient', () 
     expect(splitInciTopLevel('Aqua), Glycerin, Papain')).toEqual(['Aqua)', 'Glycerin', 'Papain']);
   });
 
+  it('falls back to the plain comma split when a parenthesis is never closed', () => {
+    // An unclosed "(" used to swallow the rest of the list into one token, so
+    // Papain/Bromelain here counted as position 2 and over-attributed classes
+    // gated by `requireWithinPosition`.
+    expect(splitInciTopLevel('Aqua, Glycerin (Vegetable, Niacinamide, Papain, Bromelain')).toEqual([
+      'Aqua',
+      'Glycerin (Vegetable',
+      'Niacinamide',
+      'Papain',
+      'Bromelain',
+    ]);
+  });
+
+  it('does not let an unclosed parenthesis pull a late enzyme into the first-12 window', () => {
+    const filler = Array.from({ length: 12 }, (_, i) => `Filler${i + 1}`);
+    const inci = ['Aqua', 'Base (broken', ...filler, 'Papain'].join(', ');
+
+    expect(parseActiveIngredientsFromInci(inci)).not.toContain('enzyme_exfoliant');
+  });
+
+  it('the fallback is all-or-nothing: a balanced group before an unclosed one is split on commas too', () => {
+    // The fallback is all-or-nothing: one unclosed "(" anywhere makes the text unreliable.
+    expect(splitInciTopLevel('A (b, c), D (e, f')).toEqual(['A (b', 'c)', 'D (e', 'f']);
+  });
+
   it('returns one token for text without commas', () => {
     expect(splitInciTopLevel('contains papain')).toEqual(['contains papain']);
   });
