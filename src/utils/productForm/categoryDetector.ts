@@ -1,4 +1,5 @@
 import type { Product, ProductType } from '../../types';
+import { getProductActiveKeys } from '../ingredientParser';
 
 /**
  * A surfactant-based makeup/SPF remover (micellar water, cleansing oil/balm,
@@ -99,6 +100,24 @@ function demoteNonFaceBalm(product: Product): Product {
 }
 
 /**
+ * An enzyme exfoliant (papain, bromelain, subtilisin) sold as a cleanser —
+ * typically a powder. It is read as a `peeling`, not the daily cleanse step:
+ * letting it compete for the cleanser slot would cost the plain cleanser its
+ * non-enzyme days under the enzyme's weekly cap, and a shelf whose only
+ * "cleanser" is the powder should surface a cleanser gap rather than hide it.
+ *
+ * Only `cleanser` and `other` are reclassified (type is checked first: it is
+ * the cheap test), and hair/lip names are skipped — the same exemptions the
+ * balm guard makes. Pure; same reference when nothing changes.
+ */
+export function reclassifyEnzymeExfoliant(product: Product): Product {
+  if (product.productType !== 'cleanser' && product.productType !== 'other') return product;
+  if (isHairProductName(product.name) || isLipProductName(product.name)) return product;
+  if (!getProductActiveKeys(product).includes('enzyme_exfoliant')) return product;
+  return { ...product, productType: 'peeling' };
+}
+
+/**
  * The single read-time normalisation every consumer should use: the catalog
  * type a product should be TREATED as, whatever is persisted on it. Composes
  * the individual guards (their input types are disjoint, so order is
@@ -106,8 +125,13 @@ function demoteNonFaceBalm(product: Product): Product {
  */
 export function normalizeProductType(product: Product): Product {
   // Order matters: the makeup-remover guard runs FIRST so a "Cleansing Balm"
-  // becomes a pre_cleanse rather than being demoted out of the routine.
-  return demoteNonFaceBalm(reclassifyGelCream(reclassifyMakeupRemover(product)));
+  // becomes a pre_cleanse rather than being demoted out of the routine, and so
+  // a cleansing balm that also lists an enzyme stays a pre_cleanse too (the
+  // enzyme guard only reads `cleanser`/`other`, which the first guard has
+  // already emptied of makeup removers).
+  return reclassifyEnzymeExfoliant(
+    demoteNonFaceBalm(reclassifyGelCream(reclassifyMakeupRemover(product))),
+  );
 }
 
 /**

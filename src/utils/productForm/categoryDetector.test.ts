@@ -87,7 +87,7 @@ describe('detectCategory', () => {
 });
 
 import type { Product } from '../../types';
-import { normalizeProductType, reclassifyGelCream } from './categoryDetector';
+import { normalizeProductType, reclassifyEnzymeExfoliant, reclassifyGelCream } from './categoryDetector';
 
 /** Annotated with the real domain type so field drift fails tsc, not just the run. */
 function makeProduct(overrides: Partial<Product> = {}): Product {
@@ -174,5 +174,69 @@ describe('only face balms reach the moisturiser slot', () => {
 
   it('leaves a genuine face balm as a balm so it can still hydrate', () => {
     expect(normalizeProductType(balm('Missha Rich Repair Balm')).productType).toBe('balm');
+  });
+});
+
+describe('reclassifyEnzymeExfoliant — an enzyme powder is not the daily cleanse step', () => {
+  const make = (overrides: Partial<Product>): Product => makeProduct({ productType: 'cleanser', ...overrides });
+
+  it('reads a cleanser tagged as an enzyme exfoliant as a peeling', () => {
+    const powder = make({ name: 'Papaya Enzyme Powder', activeTags: ['enzyme_exfoliant'] });
+
+    expect(reclassifyEnzymeExfoliant(powder).productType).toBe('peeling');
+  });
+
+  it('reads a cleanser listing papain inside the first 12 ingredients as a peeling, with no tag', () => {
+    const inci = ['Aqua', 'Glycerin', 'Papain', 'Parfum'].join(', ');
+
+    expect(reclassifyEnzymeExfoliant(make({ fullIngredientText: inci })).productType).toBe('peeling');
+  });
+
+  it('leaves a cleanser alone when papain is listed beyond the 12th ingredient', () => {
+    const inci = [...Array.from({ length: 12 }, (_, i) => `Filler${i + 1}`), 'Papain'].join(', ');
+    const cleanser = make({ fullIngredientText: inci });
+
+    expect(reclassifyEnzymeExfoliant(cleanser)).toBe(cleanser);
+  });
+
+  it('reclassifies an untyped "other" enzyme product too', () => {
+    const other = make({ productType: 'other', activeTags: ['enzyme_exfoliant'] });
+
+    expect(reclassifyEnzymeExfoliant(other).productType).toBe('peeling');
+  });
+
+  it.each(['serum', 'toner', 'moisturizer', 'mask', 'peeling'] as const)(
+    'never changes the type of a %s (format slots are decided in the skeleton, not here)',
+    (productType) => {
+      const p = make({ productType, activeTags: ['enzyme_exfoliant'] });
+
+      expect(reclassifyEnzymeExfoliant(p)).toBe(p);
+    },
+  );
+
+  it('skips hair and lip products', () => {
+    const hair = make({ name: 'Scalp Enzyme Wash', activeTags: ['enzyme_exfoliant'] });
+    const lip = make({ name: 'Lip Enzyme Scrub', productType: 'other', activeTags: ['enzyme_exfoliant'] });
+
+    expect(reclassifyEnzymeExfoliant(hair)).toBe(hair);
+    expect(reclassifyEnzymeExfoliant(lip)).toBe(lip);
+  });
+
+  it('leaves a plain cleanser untouched (same reference)', () => {
+    const plain = make({ name: 'Gentle Cleanser' });
+
+    expect(reclassifyEnzymeExfoliant(plain)).toBe(plain);
+  });
+
+  it('is part of normalizeProductType', () => {
+    const powder = make({ name: 'Pineapple Enzyme Powder', activeTags: ['enzyme_exfoliant'] });
+
+    expect(normalizeProductType(powder).productType).toBe('peeling');
+  });
+
+  it('keeps a cleansing balm that lists an enzyme as a pre-cleanse step, not an exfoliant', () => {
+    const balm = make({ name: 'Enzyme Cleansing Balm', productType: 'balm', activeTags: ['enzyme_exfoliant'] });
+
+    expect(normalizeProductType(balm).productType).toBe('makeup_remover');
   });
 });

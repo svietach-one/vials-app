@@ -86,7 +86,7 @@ describe('generatePlan', () => {
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
     const plan = generatePlan(makeInput([cleanser, retinoid, vitC], { profile: AGING }));
 
-    expect(plan.rulesetVersion).toBe('2026-07-17');
+    expect(plan.rulesetVersion).toBe('2026-10-15');
     expect(plan.generatedFor).toBe('2026-07-04');
     expect(plan.periods.morning.map((s) => s.productId)).toEqual([cleanser.id, vitC.id]);
     expect(plan.periods.evening.map((s) => s.productId)).toEqual([cleanser.id, retinoid.id]);

@@ -152,6 +152,7 @@ export const ACTIVE_INGREDIENT_LABELS: Record<ActiveIngredientKey, string> = {
   panthenol: 'Panthenol',
   cica: 'Centella (Cica)',
   physical_exfoliant: 'Physical Exfoliant',
+  enzyme_exfoliant: 'Enzyme Exfoliant',
   // Legacy (pre-ruleset persisted tags)
   retinol: 'Retinol',
   vitamin_c: 'Vitamin C',
@@ -263,7 +264,7 @@ export const CAPABILITY_LABELS: Record<CapabilityKey, string> = {
  */
 export const FUNCTIONAL_BENEFIT_INGREDIENTS: Record<FunctionalBenefit, ActiveIngredientKey[]> = {
   hydration: ['hyaluronic_acid', 'glycerin_class', 'panthenol', 'ceramides'],
-  exfoliation: ['aha', 'bha', 'pha', 'retinoid', 'retinol'],
+  exfoliation: ['aha', 'bha', 'pha', 'enzyme_exfoliant', 'retinoid', 'retinol'],
   soothing: ['cica', 'panthenol', 'azelaic_acid', 'niacinamide'],
   anti_acne: ['benzoyl_peroxide', 'azelaic_acid', 'bha'],
   barrier_repair: [

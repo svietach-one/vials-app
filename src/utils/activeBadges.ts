@@ -24,6 +24,7 @@ const CATEGORY_KEYS: Record<ActiveBadgeCategory, ActiveIngredientKey[]> = {
     'aha',
     'bha',
     'pha',
+    'enzyme_exfoliant',
     'benzoyl_peroxide',
     'azelaic_acid',
     'vitamin_c_pure',

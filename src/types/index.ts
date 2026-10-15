@@ -12,6 +12,14 @@ export type ActiveIngredientKey =
   | 'aha'
   | 'bha'
   | 'pha'
+  /**
+   * Proteolytic enzyme exfoliant (papain, bromelain, subtilisin). Non-
+   * photosensitising and mild (irritancy 1), so unlike the acids it may run in
+   * the morning; capped at a few days a week by the routine engine
+   * (intermediate-routine). Attributed from the INCI only within the first 12
+   * ingredients; draft values await post-MVP clinical review.
+   */
+  | 'enzyme_exfoliant'
   | 'vitamin_c_pure'
   | 'vitamin_c_derivative'
   | 'niacinamide'

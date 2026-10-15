@@ -357,3 +357,136 @@ describe('selectSkeleton — toner and eye cream slots (intermediate-routine FE-
     for (const p of products) expect(reasonFor(r, p.id)).toBe('not_needed_for_goals');
   });
 });
+
+describe('selectSkeleton — enzyme exfoliant (intermediate-routine FE-6)', () => {
+  const enzyme = (overrides: Partial<Product> = {}) =>
+    makeProduct({ productType: 'peeling', activeTags: ['enzyme_exfoliant'], ...overrides });
+
+  it('puts one enzyme product in the morning pool only, capped at three days a week', () => {
+    const powder = enzyme();
+
+    const r = run([powder]);
+
+    expect(r.periodCandidates.am.has(powder.id)).toBe(true);
+    expect(r.periodCandidates.pm.has(powder.id)).toBe(false);
+    expect(r.treatmentCaps.get(powder.id)).toEqual({ maxDaysPerWeek: 3, reasonCode: 'enzyme_exfoliant_cap' });
+    expect(r.reserve).toEqual([]);
+  });
+
+  it('puts an evening-only enzyme product in the evening, where it is the period\'s only option', () => {
+    const powder = enzyme({ usageTime: 'evening' });
+
+    const r = run([powder]);
+
+    expect(r.periodCandidates.pm.has(powder.id)).toBe(true);
+    expect(r.periodCandidates.am.has(powder.id)).toBe(false);
+  });
+
+  it('keeps one enzyme product per period: the newer wins, the other is duplicate_function', () => {
+    const older = enzyme({ addedAt: '2026-01-01' });
+    const newer = enzyme({ addedAt: '2026-03-01' });
+
+    const r = run([older, newer]);
+
+    expect(r.periodCandidates.am.has(newer.id)).toBe(true);
+    expect(isCandidate(r, older.id)).toBe(false);
+    expect(reasonFor(r, older.id)).toBe('duplicate_function');
+  });
+
+  it('gives a morning product and an evening-only product one slot each', () => {
+    const am = enzyme({ usageTime: 'morning' });
+    const pm = enzyme({ usageTime: 'evening' });
+
+    const r = run([am, pm]);
+
+    expect(r.periodCandidates.am.has(am.id)).toBe(true);
+    expect(r.periodCandidates.pm.has(pm.id)).toBe(true);
+    expect(r.reserve).toEqual([]);
+  });
+
+  it.each([
+    ['primary', 'barrier_repair', null],
+    ['secondary', 'maintenance', 'barrier_repair'],
+  ] as const)('defers every enzyme product when barrier repair is the %s goal', (_label, primary, secondary) => {
+    const a = enzyme();
+    const b = enzyme({ usageTime: 'evening' });
+    const facts = buildShelfFacts([a, b], NOW);
+    const context = buildRoutineContext({
+      procedures: [],
+      profile: { fitzpatrick: null, primaryGoal: primary, secondaryGoal: secondary },
+      seasonMask: { season: 'spring', source: 'calendar' },
+      now: NOW,
+    });
+
+    const r = selectSkeleton({ products: [a, b], facts, context });
+
+    expect(reasonFor(r, a.id)).toBe('exfoliant_deferred_barrier_repair');
+    expect(reasonFor(r, b.id)).toBe('exfoliant_deferred_barrier_repair');
+    expect(isCandidate(r, a.id) || isCandidate(r, b.id)).toBe(false);
+  });
+
+  it('never raises a placeholder asking for an exfoliant', () => {
+    const r = run([]);
+
+    expect(r.placeholders.flatMap((p) => p.productTypes)).not.toContain('peeling');
+  });
+
+  it('takes an enzyme toner out of the toner slot, so the toner gap appears', () => {
+    const enzymeToner = makeProduct({ productType: 'toner', activeTags: ['enzyme_exfoliant'] });
+
+    const r = run([enzymeToner]);
+
+    expect(r.placeholders.map((p) => `${p.period}:${p.productTypes[0]}`)).toEqual(
+      expect.arrayContaining(['am:toner', 'pm:toner']),
+    );
+    expect(r.periodCandidates.am.has(enzymeToner.id)).toBe(true); // placed as the exfoliant
+    expect(r.periodCandidates.pm.has(enzymeToner.id)).toBe(false);
+  });
+
+  it('leaves a strong carrier that also lists an enzyme a treatment with the acids\' two-night cap, not the enzyme\'s three', () => {
+    const ahaWithEnzyme = makeProduct({ productType: 'serum', activeTags: ['aha', 'enzyme_exfoliant'] });
+
+    const r = run([ahaWithEnzyme], 'pigmentation');
+
+    expect(r.treatmentCaps.get(ahaWithEnzyme.id)).toEqual({ maxDaysPerWeek: 2, reasonCode: 'exfoliant_treatment_cap' });
+  });
+
+  describe('"Add anyway"', () => {
+    it('re-enters a deferred enzyme product in its preferred period only, with its cap', () => {
+      const powder = enzyme();
+      const facts = buildShelfFacts([powder], NOW);
+      const context = buildRoutineContext({
+        procedures: [],
+        profile: { fitzpatrick: null, primaryGoal: 'barrier_repair', secondaryGoal: null },
+        seasonMask: { season: 'spring', source: 'calendar' },
+        now: NOW,
+      });
+
+      const r = selectSkeleton({ products: [powder], facts, context, userOverrides: [powder.id] });
+
+      expect(r.periodCandidates.am.has(powder.id)).toBe(true);
+      expect(r.periodCandidates.pm.has(powder.id)).toBe(false);
+      expect(r.treatmentCaps.get(powder.id)?.maxDaysPerWeek).toBe(3);
+      expect(r.reserve).toEqual([]);
+    });
+
+    it('re-enters a duplicate loser the same way (one period, capped)', () => {
+      const older = enzyme({ addedAt: '2026-01-01' });
+      const newer = enzyme({ addedAt: '2026-03-01' });
+
+      const r = run([older, newer], 'maintenance', [older.id]);
+
+      expect(r.periodCandidates.am.has(older.id)).toBe(true);
+      expect(r.periodCandidates.pm.has(older.id)).toBe(false);
+      expect(r.treatmentCaps.get(older.id)?.maxDaysPerWeek).toBe(3);
+    });
+
+    it('still lets an ordinary reserved product re-enter every eligible period', () => {
+      const oil = makeProduct({ productType: 'oil' });
+
+      const r = run([oil], 'maintenance', [oil.id]);
+
+      expect(r.periodCandidates.am.has(oil.id) && r.periodCandidates.pm.has(oil.id)).toBe(true);
+    });
+  });
+});

@@ -85,6 +85,10 @@ export type EngineReasonCode =
   | 'pre_cleanse_requires_followup'
   | 'rinse_off_active_note'
   | 'exfoliant_treatment_cap'
+  // intermediate-routine: enzyme exfoliants are placed by their own rule (a few
+  // mornings a week; paused while the barrier is the goal).
+  | 'enzyme_exfoliant_cap'
+  | 'exfoliant_deferred_barrier_repair'
   | 'reclassified_treatment_cap'
   // day-split-alternation: a cross-cycleClass rival (retinoid vs AHA/BHA)
   // structurally competing with the period's admitted winner for one nightly
@@ -177,6 +181,8 @@ export const REASON_TEXT = {
     'Micellar water and cleansing oils/balms don’t rinse clean — add a gentle rinse-off cleanser after this step.',
   rinse_off_active_note: 'Heads-up: your cleanser also contains an active (it rinses off, so it’s fine).',
   exfoliant_treatment_cap: 'Exfoliating treatments are limited to two nights a week.',
+  enzyme_exfoliant_cap: 'Enzyme exfoliation is limited to a few mornings a week.',
+  exfoliant_deferred_barrier_repair: 'Repairing your barrier first — exfoliation is paused.',
   reclassified_treatment_cap: 'This leave-on active is treated as a treatment, not a daily step.',
   cycle_class_rival:
     'Competes with another strong active for the same night — alternate them or keep just one.',

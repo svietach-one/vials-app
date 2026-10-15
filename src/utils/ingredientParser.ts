@@ -48,7 +48,7 @@ export interface ParsedActiveDetail {
   potency?: string;
   matches: MatchedToken[];
   /**
-   * 1-based comma-token index of the earliest matcher hit — INCI lists are
+   * 1-based top-level comma-token index of the earliest matcher hit — INCI lists are
    * concentration-ordered above 1%, so position approximates concentration.
    * Always 1 for freeform text without commas (gates then never fire).
    */
@@ -99,7 +99,32 @@ export function parseActiveIngredientsFromInci(inciText: string): ActiveIngredie
   return parseActiveIngredientDetails(inciText).map((detail) => detail.key);
 }
 
-/** Earliest 1-based comma-token index any of the class's matchers fires on. */
+/**
+ * Splits an INCI list on its TOP-LEVEL commas. A parenthesised sub-list —
+ * "Base Blend (Sub1, Sub2, Sub3)" — is one ingredient and takes one position,
+ * so a long nested list cannot push a later ingredient out of a position window
+ * (intermediate-routine: the enzyme exfoliant's "first 12 ingredients" rule).
+ * Unbalanced parentheses never go below depth 0, so malformed text degrades to
+ * the plain comma split instead of swallowing the rest of the list.
+ */
+export function splitInciTopLevel(inciText: string): string[] {
+  const tokens: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < inciText.length; i += 1) {
+    const ch = inciText[i];
+    if (ch === '(') depth += 1;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    else if (ch === ',' && depth === 0) {
+      tokens.push(inciText.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  tokens.push(inciText.slice(start).trim());
+  return tokens;
+}
+
+/** Earliest 1-based top-level token index any of the class's matchers fires on. */
 function earliestMatchPosition(tokens: string[], cls: CompiledActiveClass): number | null {
   for (let i = 0; i < tokens.length; i += 1) {
     let token = tokens[i];
@@ -128,7 +153,7 @@ function earliestMatchPosition(tokens: string[], cls: CompiledActiveClass): numb
  */
 export function parseActiveIngredientDetails(inciText: string): ParsedActiveDetail[] {
   const found: ParsedActiveDetail[] = [];
-  const tokens = inciText.split(',').map((t) => t.trim());
+  const tokens = splitInciTopLevel(inciText);
 
   for (const cls of COMPILED_CLASSES) {
     let text = inciText;

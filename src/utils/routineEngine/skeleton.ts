@@ -72,6 +72,11 @@ export interface SkeletonSelection {
 /** Draft cap values — consultant review items (tech design Phase 4, Assumption 4). */
 const EXFOLIANT_TREATMENT_MAX_DAYS = 2;
 const RECLASSIFIED_TREATMENT_MAX_DAYS = 4;
+/** Enzyme exfoliants (papain, bromelain, subtilisin) run a few mornings a week —
+ *  gentler than the acids' two nights, never daily. Draft value awaiting the
+ *  post-MVP clinical review (spec Q3). The summer and phototype 4-6 caps (1 day)
+ *  still clamp it further through the ordinary frequency-cap pipeline. */
+const ENZYME_EXFOLIANT_MAX_DAYS = 3;
 
 /** The serum/gel band — the formats a treatment is "expected" in; anything
  *  else carrying a strong class is a reclassified format (acid toner/cream). */
@@ -85,6 +90,18 @@ interface Entry {
 /** Leave-on carrier of a strong active — the unit the cumulative cap counts. */
 export function isStrongCarrier(facts: ProductFacts): boolean {
   return facts.properties.irritancy >= 3 && !facts.rinseOff;
+}
+
+/**
+ * A non-strong carrier of an enzyme exfoliant, in ANY product format. It is
+ * placed by its own rule (`selectExfoliants`), not by its format's slot: an
+ * enzyme toner or cream leaves the toner/moisturiser slot (the gap card may
+ * then appear) because scheduling it daily would defeat the weekly cap. A
+ * STRONG carrier that also lists an enzyme (an AHA product with papain) stays a
+ * treatment under the stricter strong-active rules.
+ */
+export function isEnzymeExfoliant(facts: ProductFacts): boolean {
+  return !isStrongCarrier(facts) && facts.classes.some((c) => c.key === 'enzyme_exfoliant');
 }
 
 /** Newest first, then id — the same stable tiebreak the admission pass uses. */
@@ -176,6 +193,11 @@ function pickTreatment(
 
 /** The frequency cap a selected treatment inherits, if any. */
 function treatmentCapFor(entry: Entry): AdaptationLimit | null {
+  // Checked on NON-strong carriers only (isEnzymeExfoliant): an AHA+papain
+  // product keeps the acids' stricter two-night cap below, never this looser one.
+  if (isEnzymeExfoliant(entry.facts)) {
+    return { maxDaysPerWeek: ENZYME_EXFOLIANT_MAX_DAYS, reasonCode: 'enzyme_exfoliant_cap' };
+  }
   if (!isStrongCarrier(entry.facts)) return null;
   if (entry.facts.properties.exfoliating) {
     return { maxDaysPerWeek: EXFOLIANT_TREATMENT_MAX_DAYS, reasonCode: 'exfoliant_treatment_cap' };
@@ -198,6 +220,8 @@ interface Classified {
   treatmentPool: Entry[];
   /** Neither structural nor goal-relevant — always reserved. */
   rest: Entry[];
+  /** Non-strong enzyme carriers of any format — placed by `selectExfoliants`. */
+  exfoliants: Entry[];
 }
 
 /** Splits eligible entries into structural / treatment-pool / rest, emitting
@@ -207,9 +231,14 @@ function classifyEntries(entries: Entry[], ranking: readonly ActiveIngredientKey
   const structural: Entry[] = [];
   const treatmentPool: Entry[] = [];
   const rest: Entry[] = [];
+  const exfoliants: Entry[] = [];
   for (const entry of entries) {
     if (isStrongCarrier(entry.facts)) {
       treatmentPool.push(entry); // reclassified to treatment regardless of format
+      continue;
+    }
+    if (isEnzymeExfoliant(entry.facts)) {
+      exfoliants.push(entry); // its own weekly slot, whatever its format
       continue;
     }
     if (structuralSlotFor(entry.product.productType) !== null) {
@@ -225,7 +254,7 @@ function classifyEntries(entries: Entry[], ranking: readonly ActiveIngredientKey
       rest.push(entry);
     }
   }
-  return { structural, treatmentPool, rest };
+  return { structural, treatmentPool, rest, exfoliants };
 }
 
 /**
@@ -284,6 +313,98 @@ function structuralGapPlaceholders(structural: Entry[]): PlaceholderSlot[] {
   return placeholders;
 }
 
+/** True when barrier repair is either goal — exfoliation is deferred then. */
+function isBarrierRepairGoal(context: RoutineContext): boolean {
+  return context.goals.primary === 'barrier_repair' || context.goals.secondary === 'barrier_repair';
+}
+
+/**
+ * Enzyme exfoliants (intermediate-routine): at most ONE per period, in the
+ * period the product prefers (morning unless it can only run in the evening),
+ * capped at ENZYME_EXFOLIANT_MAX_DAYS. A second product preferring the same
+ * period is `duplicate_function`; with barrier repair as either goal every
+ * enzyme product is deferred. Never raises a placeholder: exfoliation depends
+ * on skin state, so the app never asks the user to buy one (spec Q2). Mutates
+ * the candidate sets and caps like the treatment selection above.
+ */
+function selectExfoliants(
+  exfoliants: Entry[],
+  context: RoutineContext,
+  periodCandidates: Record<Period, Set<string>>,
+  treatmentCaps: Map<string, AdaptationLimit>,
+): ReserveItem[] {
+  if (isBarrierRepairGoal(context)) {
+    return exfoliants.map((e) => ({ productId: e.product.id, reasonCode: 'exfoliant_deferred_barrier_repair' }));
+  }
+  const reserve: ReserveItem[] = [];
+  for (const period of ['am', 'pm'] as const) {
+    const ranked = exfoliants
+      .filter((e) => {
+        const allowed = periodsForProduct(e.product.productType, e.facts);
+        return allowed.length > 0 && preferredPeriodFor(e.facts, allowed) === period;
+      })
+      .sort(compareEntries);
+    ranked.forEach((entry, index) => {
+      if (index > 0) {
+        reserve.push({ productId: entry.product.id, reasonCode: 'duplicate_function' });
+        return;
+      }
+      periodCandidates[period].add(entry.product.id);
+      const cap = treatmentCapFor(entry);
+      if (cap) treatmentCaps.set(entry.product.id, cap);
+    });
+  }
+  return reserve;
+}
+
+/**
+ * Override (phase-07): a reserved product the user forced back in re-enters
+ * its ELIGIBLE periods instead of reserving. periodsForProduct enforces
+ * period eligibility, so a retinoid override lands in PM only — never AM.
+ * The admission pass still resolves any resulting conflict, so an override
+ * bypasses minimalism, not same-day safety. An enzyme exfoliant re-enters its
+ * PREFERRED period only and with its weekly cap: unguarded, "Add anyway" ran it
+ * in both periods every day.
+ */
+function applyUserOverrides(
+  reserve: ReserveItem[],
+  entries: Entry[],
+  userOverrides: string[] | undefined,
+  periodCandidates: Record<Period, Set<string>>,
+  treatmentCaps: Map<string, AdaptationLimit>,
+  decisions: DecisionLogEntry[],
+): { finalReserve: ReserveItem[]; cycleSplitPairs: CycleSplitPair[] } {
+  const overrides = new Set(userOverrides ?? []);
+  const finalReserve: ReserveItem[] = [];
+  const cycleSplitPairs: CycleSplitPair[] = [];
+  const entryFor = new Map(entries.map((e) => [e.product.id, e]));
+  for (const item of reserve) {
+    const entry = entryFor.get(item.productId);
+    if (!overrides.has(item.productId) || !entry) {
+      finalReserve.push(item);
+      continue;
+    }
+    const allowed = periodsForProduct(entry.product.productType, entry.facts);
+    const isEnzyme = isEnzymeExfoliant(entry.facts);
+    const periods = isEnzyme && allowed.length > 0 ? [preferredPeriodFor(entry.facts, allowed)] : allowed;
+    for (const period of periods) periodCandidates[period].add(item.productId);
+    decisions.push({ action: 'admit', productId: item.productId, detail: 'user override' });
+    // A forced-in enzyme never won a selection slot, so it never received its cap.
+    const cap = treatmentCapFor(entry);
+    if (isEnzyme && cap) treatmentCaps.set(item.productId, cap);
+    // Cycle-class rivalry accepted (day-split-alternation, Story 3): the
+    // rival re-enters like any other override, plus resolve.ts needs to
+    // know the pair AND the rival's own frequency cap (a rival never won
+    // its period's treatment slot, so it never received one via
+    // treatmentCapFor above) to compute a complementary split.
+    if (item.reasonCode === 'cycle_class_rival' && item.rivalOfProductId) {
+      cycleSplitPairs.push({ winnerProductId: item.rivalOfProductId, rivalProductId: item.productId });
+      if (cap) treatmentCaps.set(item.productId, cap);
+    }
+  }
+  return { finalReserve, cycleSplitPairs };
+}
+
 export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
   const ranking = input.context.treatmentClassRanking;
   const periodCandidates: Record<Period, Set<string>> = { am: new Set(), pm: new Set() };
@@ -299,7 +420,7 @@ export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
     entries.push({ product, facts });
   }
 
-  const { structural, treatmentPool, rest } = classifyEntries(entries, ranking, decisions);
+  const { structural, treatmentPool, rest, exfoliants } = classifyEntries(entries, ranking, decisions);
 
   // Structural slots: every type-matching candidate enters; the admission
   // pass's same-slot cap picks the winner and keeps swap alternatives.
@@ -363,45 +484,16 @@ export function selectSkeleton(input: SkeletonInput): SkeletonSelection {
   for (const entry of rest) {
     reserve.push({ productId: entry.product.id, reasonCode: 'not_needed_for_goals' });
   }
+  reserve.push(...selectExfoliants(exfoliants, input.context, periodCandidates, treatmentCaps));
 
-  // Override (phase-07): a reserved product the user forced back in re-enters
-  // its ELIGIBLE periods instead of reserving. periodsForProduct enforces
-  // period eligibility, so a retinoid override lands in PM only — never AM.
-  // The admission pass still resolves any resulting conflict, so an override
-  // bypasses minimalism, not same-day safety.
-  const overrides = new Set(input.userOverrides ?? []);
-  const finalReserve: ReserveItem[] = [];
-  const cycleSplitPairs: CycleSplitPair[] = [];
-  const factsFor = new Map(entries.map((e) => [e.product.id, e.facts]));
-  const entryFor = new Map(entries.map((e) => [e.product.id, e]));
-  for (const item of reserve) {
-    const facts = factsFor.get(item.productId);
-    if (overrides.has(item.productId) && facts) {
-      const product = entries.find((e) => e.product.id === item.productId)?.product;
-      const periods = product ? periodsForProduct(product.productType, facts) : [];
-      for (const period of periods) periodCandidates[period].add(item.productId);
-      decisions.push({
-        action: 'admit',
-        productId: item.productId,
-        detail: 'user override',
-      });
-      // Cycle-class rivalry accepted (day-split-alternation, Story 3): the
-      // rival re-enters like any other override, plus resolve.ts needs to
-      // know the pair AND the rival's own frequency cap (a rival never won
-      // its period's treatment slot, so it never received one via
-      // treatmentCapFor above) to compute a complementary split.
-      if (item.reasonCode === 'cycle_class_rival' && item.rivalOfProductId) {
-        cycleSplitPairs.push({ winnerProductId: item.rivalOfProductId, rivalProductId: item.productId });
-        const rivalEntry = entryFor.get(item.productId);
-        if (rivalEntry) {
-          const cap = treatmentCapFor(rivalEntry);
-          if (cap) treatmentCaps.set(item.productId, cap);
-        }
-      }
-      continue;
-    }
-    finalReserve.push(item);
-  }
+  const { finalReserve, cycleSplitPairs } = applyUserOverrides(
+    reserve,
+    entries,
+    input.userOverrides,
+    periodCandidates,
+    treatmentCaps,
+    decisions,
+  );
   for (const item of finalReserve) {
     decisions.push({ action: 'reserve', productId: item.productId, reasonCode: item.reasonCode });
   }
