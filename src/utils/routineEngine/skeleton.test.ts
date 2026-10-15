@@ -146,9 +146,13 @@ describe('selectSkeleton — cumulative active exposure (phase-04 §4.2, report 
     const r = run([serum, toner, cream], 'oil_control');
 
     // niacinamide is ranked for oil_control; one becomes the treatment, the
-    // cream fills the moisturizer slot, the toner is a mild extra (not needed).
-    // None hit the cumulative cap — the key assertion is no cap reserve.
-    expect(r.reserve.map((x) => x.reasonCode)).not.toContain('cumulative_active_cap');
+    // cream fills the moisturizer slot and the toner fills the toner slot
+    // (toner joined the skeleton with intermediate-routine). None hit the
+    // cumulative cap and nothing at all is reserved.
+    expect(r.reserve).toEqual([]);
+    expect(isCandidate(r, serum.id)).toBe(true);
+    expect(isCandidate(r, toner.id)).toBe(true);
+    expect(isCandidate(r, cream.id)).toBe(true);
   });
 
   it('reclassifies a retinoid cream (only moisturizer) as a treatment and recommends a neutral one', () => {
@@ -285,5 +289,71 @@ describe('selectSkeleton — cycle-class rivalry (day-split-alternation FE-2/FE-
     const b = run([retinoid, aha], 'acne', [aha.id]);
     expect(a.cycleSplitPairs).toEqual(b.cycleSplitPairs);
     expect(a.reserve).toEqual(b.reserve);
+  });
+});
+
+describe('selectSkeleton — toner and eye cream slots (intermediate-routine FE-1/FE-2)', () => {
+  const gaps = (r: ReturnType<typeof run>) => r.placeholders.map((p) => `${p.period}:${p.productTypes[0]}`);
+
+  it('admits a plain toner and eye cream as candidates of both periods, without reserving them', () => {
+    const toner = makeProduct({ productType: 'toner' });
+    const eye = makeProduct({ productType: 'eye_cream' });
+
+    const r = run([toner, eye]);
+
+    expect(r.periodCandidates.am.has(toner.id) && r.periodCandidates.pm.has(toner.id)).toBe(true);
+    expect(r.periodCandidates.am.has(eye.id) && r.periodCandidates.pm.has(eye.id)).toBe(true);
+    expect(r.reserve).toEqual([]);
+  });
+
+  it('raises toner and eye-cream gap placeholders in both periods when the shelf has neither', () => {
+    const r = run([]);
+
+    expect(gaps(r)).toEqual(expect.arrayContaining(['am:toner', 'pm:toner', 'am:eye_cream', 'pm:eye_cream']));
+    const toner = r.placeholders.find((p) => p.productTypes[0] === 'toner');
+    expect(toner?.reasonCode).toBe('toner_recommended');
+    expect(r.placeholders.find((p) => p.productTypes[0] === 'eye_cream')?.reasonCode).toBe('eye_cream_recommended');
+  });
+
+  it('raises no toner gap for the period a toner is allowed in, only for the other', () => {
+    const eveningToner = makeProduct({ productType: 'toner', usageTime: 'evening' });
+
+    const r = run([eveningToner]);
+
+    expect(gaps(r)).toContain('am:toner');
+    expect(gaps(r)).not.toContain('pm:toner');
+  });
+
+  it('does not let a toner carrying a strong acid count as the toner step', () => {
+    const acidToner = makeProduct({ productType: 'toner', activeTags: ['aha'] });
+
+    const r = run([acidToner], 'pigmentation');
+
+    expect(gaps(r)).toEqual(expect.arrayContaining(['am:toner', 'pm:toner']));
+    expect(r.periodCandidates.pm.has(acidToner.id)).toBe(true); // a treatment, PM only
+    expect(r.periodCandidates.am.has(acidToner.id)).toBe(false);
+  });
+
+  it('does not let an eye cream fill the moisturiser slot', () => {
+    const eye = makeProduct({ productType: 'eye_cream' });
+
+    const r = run([eye]);
+
+    expect(gaps(r)).toEqual(expect.arrayContaining(['am:moisturizer', 'pm:moisturizer']));
+    expect(gaps(r)).not.toContain('am:eye_cream');
+  });
+
+  it('leaves the toner gaps open when the shelf holds only a cleanser', () => {
+    const r = run([makeProduct({ productType: 'cleanser' })]);
+
+    expect(gaps(r)).toEqual(expect.arrayContaining(['am:toner', 'pm:toner']));
+  });
+
+  it('keeps essence, oil and ampoule in reserve under maintenance', () => {
+    const products = (['essence', 'oil', 'ampoule'] as const).map((productType) => makeProduct({ productType }));
+
+    const r = run(products);
+
+    for (const p of products) expect(reasonFor(r, p.id)).toBe('not_needed_for_goals');
   });
 });

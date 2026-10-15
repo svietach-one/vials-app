@@ -24,9 +24,10 @@ import {
  * flips from "does this product violate anything?" to "does this product
  * serve the goal?" — absence of a violation stops being a reason to include.
  *
- * Skeleton (build order): AM cleanse → treatment? → moisturize → SPF;
- * PM cleanse → treatment? → moisturize. Products outside the structural
- * slots and the treatment ranking go to `reserve` with a reason code.
+ * Skeleton (build order): AM cleanse → tone → eye → treatment? → moisturize →
+ * SPF; PM cleanse → tone → eye → treatment? → moisturize (toner and eye cream
+ * joined with intermediate-routine). Products outside the structural slots and
+ * the treatment ranking go to `reserve` with a reason code.
  *
  * Cumulative active exposure (report §7): at most ONE leave-on strong-class
  * carrier per period across all slots; strong carriers are treatment
@@ -239,11 +240,15 @@ const REQUIRED_SLOTS: Record<
 > = {
   am: [
     { slot: 'cleanser', productType: 'cleanser', reasonCode: 'cleanser_recommended' },
+    { slot: 'toner', productType: 'toner', reasonCode: 'toner_recommended' },
+    { slot: 'eye_cream', productType: 'eye_cream', reasonCode: 'eye_cream_recommended' },
     { slot: 'moisturizer', productType: 'moisturizer', reasonCode: 'moisturizer_recommended' },
     { slot: 'spf', productType: 'spf', reasonCode: 'spf_recommended' },
   ],
   pm: [
     { slot: 'cleanser', productType: 'cleanser', reasonCode: 'cleanser_recommended' },
+    { slot: 'toner', productType: 'toner', reasonCode: 'toner_recommended' },
+    { slot: 'eye_cream', productType: 'eye_cream', reasonCode: 'eye_cream_recommended' },
     { slot: 'moisturizer', productType: 'moisturizer', reasonCode: 'moisturizer_recommended' },
   ],
 };

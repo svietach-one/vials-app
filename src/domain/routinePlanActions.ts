@@ -6,6 +6,7 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import { generateId } from '@/utils/generateId';
+import { isOwnedProduct } from '@/utils/productOwnership';
 import { generatePlan, type EngineInput, type RoutinePlan } from '@/utils/routineEngine/generate';
 import { buildStepsFromPlan } from '@/utils/routineEngine/planApply';
 import { validateRoutines, type ValidationResult } from '@/utils/routineEngine/validate';
@@ -51,7 +52,8 @@ export function computeOverrideHash(
 export function currentOverrideHash(): string {
   const profile = useProfileStore.getState().profile;
   return computeOverrideHash(
-    useProductsStore.getState().products.map((p) => p.id),
+    // Owned products only: saving a wishlist item must not discard "Add anyway".
+    useProductsStore.getState().products.filter(isOwnedProduct).map((p) => p.id),
     profile?.primaryGoal ?? 'maintenance',
     profile?.secondaryGoal ?? null,
   );
@@ -66,12 +68,17 @@ export function activeOverrides(): string[] {
   return tracking.overrideHash === currentOverrideHash() ? tracking.overrides : [];
 }
 
-/** Assembles the engine input from the hydrated stores. */
+/**
+ * Assembles the engine input from the hydrated stores. Wishlist products are
+ * excluded here — the one place the stores meet the engine — so the live gap
+ * cards (validateCurrentRoutines), the Draft Preview (generateDraftPlan) and
+ * the "Not in your routine" list all see the same owned-only shelf.
+ */
 export function buildEngineInputFromStores(now: Date = new Date()): EngineInput {
   const profile = useProfileStore.getState().profile;
   const tracking = useTrackingStore.getState();
   return {
-    products: useProductsStore.getState().products,
+    products: useProductsStore.getState().products.filter(isOwnedProduct),
     procedures: useProceduresStore.getState().procedures,
     profile: {
       fitzpatrick: profile?.fitzpatrick ?? null,
