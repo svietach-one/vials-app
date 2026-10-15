@@ -70,6 +70,7 @@ import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine, type ConflictStepInput } from '@/utils/conflictEngine';
 import { getRecoveryConditionCaution } from '@/utils/skinConditionModifiers';
 import { normalizeProductType } from '@/utils/productForm/categoryDetector';
+import { gapDismissKey, visibleGaps } from '@/utils/gapDismissal';
 import { buildLeftOutItems } from '@/utils/routineLeftOut';
 import { dateForDow, isScheduledOnDay } from '@/utils/routineSchedule';
 import { getSkincareDateString } from '@/utils/timeHelpers';
@@ -125,6 +126,8 @@ export default function RoutinesScreen({ navigation }: Props) {
   const updateProfile = useProfileStore((s) => s.updateProfile);
   const cycleType = useSettingsStore((s) => s.routineCycleType);
   const gamificationEnabled = useSettingsStore((s) => s.gamificationEnabled);
+  const dismissedGapCards = useSettingsStore((s) => s.dismissedGapCards);
+  const dismissGapCard = useSettingsStore((s) => s.dismissGapCard);
   const applicationStats = useTrackingStore((s) => s.applicationStats);
   const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
   const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
@@ -228,7 +231,13 @@ export default function RoutinesScreen({ navigation }: Props) {
     [routines, products, procedures, totalSteps],
   );
 
-  const placeholders: PlaceholderSlot[] = validation?.proposedPlan.placeholders ?? [];
+  // The gap cards to draw: the plan's placeholders minus the toner / eye-cream
+  // cards the user waved off ("Not for me"). Presentation only — the plan, the
+  // draft and the left-out list below still use the unfiltered placeholders.
+  const placeholders: PlaceholderSlot[] = useMemo(
+    () => visibleGaps(validation?.proposedPlan.placeholders ?? [], dismissedGapCards),
+    [validation, dismissedGapCards],
+  );
 
   // "Not in your routine": owned products with no visible saved step, from the
   // same proposed plan the gap cards and the Draft Preview use (rule lives in
@@ -552,15 +561,19 @@ export default function RoutinesScreen({ navigation }: Props) {
   );
 
   function renderGaps(group: RenderGroup) {
-    return group.gaps.map((gap, index) => (
-      <View key={`gap-${gap.reasonCode}-${index}`} style={styles.stepRowWrap}>
-        <GapCard
-          label={PRODUCT_TYPE_LABELS[gap.productTypes[0]] ?? gap.productTypes[0]}
-          period={gap.period === 'am' ? 'morning' : 'evening'}
-          onFindInCatalog={handleFindInCatalog}
-        />
-      </View>
-    ));
+    return group.gaps.map((gap, index) => {
+      const dismissKey = gapDismissKey(gap);
+      return (
+        <View key={`gap-${gap.reasonCode}-${index}`} style={styles.stepRowWrap}>
+          <GapCard
+            label={PRODUCT_TYPE_LABELS[gap.productTypes[0]] ?? gap.productTypes[0]}
+            period={gap.period === 'am' ? 'morning' : 'evening'}
+            onFindInCatalog={handleFindInCatalog}
+            onDismiss={dismissKey ? () => dismissGapCard(dismissKey) : undefined}
+          />
+        </View>
+      );
+    });
   }
 
   // One step GROUP inside a period's draggable list. Each period owns its

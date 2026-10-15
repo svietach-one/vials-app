@@ -726,6 +726,14 @@ export interface AppSettings {
    */
   reminderCountShown: number;
   /**
+   * Toner / eye-cream gap cards the user waved off with "Not for me", as
+   * `'<am|pm>:<toner|eye_cream>'` keys (at most four). Presentation only: the
+   * engine's plan is unchanged. A Draft Preview save clears the keys of the
+   * periods it wrote, "Reset all" clears all (intermediate-routine, Story 6).
+   * Absent in older stored settings; the hydrate merge defaults it to [].
+   */
+  dismissedGapCards: string[];
+  /**
    * Per-procedure RehabNoticeCard collapse state on the Routines screen,
    * keyed by RehabNotice.key, so a manual collapse survives a re-visit for
    * the rest of the skincare day — mirrors `routineAccordion`'s day-scoping.

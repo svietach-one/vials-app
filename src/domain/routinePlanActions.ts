@@ -1,4 +1,5 @@
 import { getActiveSeasonMask } from '@/domain/seasonActions';
+import type { Period } from '@/constants/rulesets/rulesetTypes';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
@@ -21,6 +22,11 @@ import { getSkincareDateString } from '@/utils/timeHelpers';
 /** Which routines a Draft Preview commit writes (research §3 commit scopes). */
 export type PlanCommitScope = 'both' | 'am' | 'pm';
 
+/** The engine periods a commit scope writes. */
+function periodsOfScope(scope: PlanCommitScope): Period[] {
+  return scope === 'both' ? ['am', 'pm'] : [scope];
+}
+
 /**
  * Reset-all (Draft Preview "Reset all" option): empties every routine so the
  * user can rebuild from scratch instead of deleting products one by one.
@@ -33,6 +39,8 @@ export function resetAllRoutines(): void {
   for (const routine of routines) {
     if (routine.steps.length > 0) updateRoutine(routine.id, { steps: [] });
   }
+  // A fresh start brings every waved-off toner / eye-cream card back.
+  useSettingsStore.getState().clearDismissedGapCards(['am', 'pm']);
 }
 
 /**
@@ -135,6 +143,10 @@ export function applyRoutinePlan(
       steps: buildStepsFromPlan(planned, routine.steps, plan.frozen, generateId),
     });
   }
+
+  // "Not for me" on a toner / eye-cream card lasts until the next save of its
+  // period: the periods this commit wrote bring their dismissed cards back.
+  useSettingsStore.getState().clearDismissedGapCards(periodsOfScope(scope));
 
   // Usage anchor (phase-05): a product's first appearance in a SAVED plan
   // starts its adaptation clock. Idempotent — an existing anchor is never

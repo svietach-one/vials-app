@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
+import { GAP_DISMISS_COPY } from '@/constants/routineScreenCopy';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 /**
@@ -24,9 +25,15 @@ export interface GapCardProps {
    */
   period?: 'morning' | 'evening';
   onFindInCatalog: () => void;
+  /**
+   * "Not for me" — only passed for the optional toner / eye-cream cards
+   * (intermediate-routine, Story 6). Absent ⇒ no second button. The card is a
+   * prompt, not a step, so this is offered with edit mode on or off.
+   */
+  onDismiss?: () => void;
 }
 
-export function GapCard({ label, period, onFindInCatalog }: GapCardProps) {
+export function GapCard({ label, period, onFindInCatalog, onDismiss }: GapCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.iconCircle}>
@@ -35,9 +42,16 @@ export function GapCard({ label, period, onFindInCatalog }: GapCardProps) {
       <Text style={styles.text}>
         {period ? `No ${label} in your ${period} routine` : `No ${label} in your shelf`}
       </Text>
-      <Button variant="ghost" size="sm" accessibilityRole="button" onPress={onFindInCatalog}>
-        Find in catalog
-      </Button>
+      <View style={styles.actions}>
+        <Button variant="ghost" size="sm" accessibilityRole="button" onPress={onFindInCatalog}>
+          Find in catalog
+        </Button>
+        {onDismiss ? (
+          <Button variant="ghost" size="sm" accessibilityRole="button" onPress={onDismiss}>
+            {GAP_DISMISS_COPY.action}
+          </Button>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -45,6 +59,8 @@ export function GapCard({ label, period, onFindInCatalog }: GapCardProps) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
+    // The actions wrap under the text on a narrow screen instead of squeezing it.
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: space[2],
     backgroundColor: colors.statusInfoTint,
@@ -66,6 +82,13 @@ const styles = StyleSheet.create({
   text: {
     ...typography.bodySmall,
     color: colors.textPrimary,
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 140,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
   },
 });

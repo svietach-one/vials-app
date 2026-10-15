@@ -7,6 +7,8 @@ import {
   saveJson,
   STORAGE_KEYS,
 } from '@/services/storage';
+import { GAP_DISMISS_KEYS, keysAfterSave, sanitizeDismissedKeys } from '@/utils/gapDismissal';
+import type { Period } from '@/constants/rulesets/rulesetTypes';
 import {
   AppSettings,
   ContributionConsentStatus,
@@ -51,6 +53,10 @@ interface SettingsState extends AppSettings {
   incrementDeclinedSaveCount: () => void;
   resetDeclinedSaveCount: () => void;
   incrementReminderCountShown: () => void;
+  /** Hides one toner / eye-cream gap card until the next save of its period. Idempotent. */
+  dismissGapCard: (key: string) => void;
+  /** Brings back the dismissed cards of the given periods (a save, or Reset all). */
+  clearDismissedGapCards: (periods: Period[]) => void;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -83,6 +89,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   contributionConsentStatus: 'unset',
   declinedSaveCountSinceLastReminder: 0,
   reminderCountShown: 0,
+  dismissedGapCards: [],
 };
 
 function pickSettings(s: SettingsState): AppSettings {
@@ -101,6 +108,7 @@ function pickSettings(s: SettingsState): AppSettings {
     contributionConsentStatus: s.contributionConsentStatus,
     declinedSaveCountSinceLastReminder: s.declinedSaveCountSinceLastReminder,
     reminderCountShown: s.reminderCountShown,
+    dismissedGapCards: s.dismissedGapCards,
   };
 }
 
@@ -112,7 +120,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const stored = await loadJson<Partial<AppSettings>>(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
     // Merge defaults so schema-v2 fields (routineCycleType) fill in for
     // settings persisted before they existed.
-    const settings: AppSettings = { ...DEFAULT_SETTINGS, ...stored };
+    const settings: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      ...stored,
+      // Stored data is untrusted: only the four known keys survive.
+      dismissedGapCards: sanitizeDismissedKeys(stored.dismissedGapCards),
+    };
     set({ ...settings, hydrated: true });
     if (stored.routineCycleType === undefined) {
       void saveJson(STORAGE_KEYS.settings, settings);
@@ -223,5 +236,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const next = get().reminderCountShown + 1;
     set({ reminderCountShown: next });
     void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), reminderCountShown: next }));
+  },
+
+  dismissGapCard: (key) => {
+    if (!(GAP_DISMISS_KEYS as readonly string[]).includes(key)) return;
+    const current = get().dismissedGapCards;
+    if (current.includes(key)) return;
+    const next = [...current, key];
+    set({ dismissedGapCards: next });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), dismissedGapCards: next }));
+  },
+
+  clearDismissedGapCards: (periods) => {
+    const current = get().dismissedGapCards;
+    const next = keysAfterSave(current, periods);
+    if (next.length === current.length) return;
+    set({ dismissedGapCards: next });
+    void saveJson(STORAGE_KEYS.settings, pickSettings({ ...get(), dismissedGapCards: next }));
   },
 }));
