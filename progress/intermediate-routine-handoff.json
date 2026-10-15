@@ -1,7 +1,7 @@
 {
   "task": "intermediate-routine",
-  "phase": "design",
-  "status": "DESIGNED",
+  "phase": "qa",
+  "status": "IN_PROGRESS",
   "flags": {
     "backend_layer": false,
     "frontend_layer": true,
@@ -43,5 +43,30 @@
   "notes_for_qa_lead": [
     "Reference shelves R9, S3, E4 and their expected results are in spec section 4.",
     "Parametrize the explainability, determinism-and-safety and generate suites over both styles; pin depth essential in the tier-contract tests."
-  ]
+  ],
+  "spec_status_at_qa": "DRAFT (unchanged) - tests written against a DRAFT spec; product owner confirmed the test plan, not the spec itself",
+  "qa": {
+    "agent": "qa-lead",
+    "date": "2026-10-14",
+    "tests_dir": "tests/intermediate-routine/",
+    "essential_oracle": {
+      "file": "tests/intermediate-routine/golden/essential-plans.golden.json",
+      "captured_from_commit": "5ed283f335eb7b7e7a61f3d39821178c76a502da",
+      "generator": "tests/intermediate-routine/golden/regenerate-essential-golden.test.ts",
+      "regenerate": "REGENERATE_ESSENTIAL_GOLDEN=1 npx jest tests/intermediate-routine/golden --testPathIgnorePatterns=\"worktrees\""
+    },
+    "run_command": "npx jest tests/intermediate-routine --testPathIgnorePatterns=\"worktrees\"",
+    "assumed_interfaces": [
+      "RoutineDepth in @/types; AppSettings.routineDepth; settingsStore.setRoutineDepth(depth)",
+      "EngineInput.depth?: RoutineDepth (absent => balanced)",
+      "@/constants/routineDepth exports: DEFAULT_ROUTINE_DEPTH, ROUTINE_DEPTH_OPTIONS: Record<RoutineDepth,{label,sublabel}>, ROUTINE_DEPTH_COPY {styleLabel, leftOutHeader(n), readyToAdd, backup, addAction, reviewAction}",
+      "@/utils/routineLeftOut: buildLeftOutItems(plan, products, routines): LeftOutItem[]; LeftOutItem {productId, kind:ready|reserve|frozen|alternative, reasonCode: DecisionReasonCode|null, until?}; ordered ready,reserve,frozen,alternative then shelf order",
+      "@/components/routine/LeftOutSection: props {items, products, onAdd(productId), onReview()}; header is a button with accessibilityState.expanded; row action labels `${addAction} ${name}` / `${reviewAction} ${name}`",
+      "DraftPreviewScreenProps gains depth + onDepthChange; control = existing SegmentedControl (role tab, name = label)",
+      "reason codes: outside_routine_depth, toner_recommended, eye_cream_recommended, exfoliant_deferred_barrier_repair (texts per spec)",
+      "ActiveIngredientKey gains enzyme_exfoliant; label \"Enzyme Exfoliant\"; badge bucket exfoliant; a wizard group lists it",
+      "enzyme step productType is peeling, morning, scheduledDays length 3 (1 in summer or Fitzpatrick 4-6)",
+      "RoutinesScreen reads routineDepth via useSettingsStore selector and re-derives validation when it changes"
+    ]
+  }
 }

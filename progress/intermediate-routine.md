@@ -1,11 +1,11 @@
-Status: DESIGNED
+Status: IN_PROGRESS
 Tech Design: docs/tech-design/intermediate-routine.md
 Code: —
 
 ## Карточка задачи
 - [x] Product requirements (planner)
 - [x] Technical design (planner)
-- [ ] QA tests (qa-lead)
+- [x] QA tests (qa-lead)
 - [ ] Implementation (engineer)
 - [ ] Architecture review (tech-lead)
 
@@ -87,3 +87,22 @@ window, barrier-repair deferral, AM). Q4 approve style names and PLACEHOLDER cop
 - Q4b remaining PLACEHOLDER screen copy: still open, owner design.
 Spec stays DRAFT pending Q4b and the owner's read-through — she has not yet
 said she read the spec itself, only answered the questions put to her.
+
+2026-10-14 — qa-lead: **QA tests written against a DRAFT spec** (status not flipped; the product owner confirmed
+the test plan herself but has not said she read or approved the spec). Written BEFORE any production code.
+Files: `tests/intermediate-routine/` — `fixtures.ts`, `balanced-plan`, `gap-cards`, `enzyme-exfoliant`,
+`left-out-items`, `balanced-vs-essential`, `determinism-and-safety`, `essential-regression` (+ `golden/`),
+`LeftOutSection.test.tsx`, `draft-preview-style-control.test.tsx`, `routine-depth-store`, `routines-screen.test.tsx`.
+- Essential oracle: `golden/essential-plans.golden.json` (600 stored input+plan cases) captured from the engine at
+  commit 5ed283f335eb7b7e7a61f3d39821178c76a502da (origin/dev, clean tree) before any change; regenerate only
+  deliberately via `REGENERATE_ESSENTIAL_GOLDEN=1 npx jest tests/intermediate-routine/golden`.
+- Run state today: new suites fail for the right reason (missing module `@/constants/routineDepth`,
+  `@/utils/routineLeftOut`, `@/components/routine/LeftOutSection`, or missing Balanced/enzyme behaviour). Tests that
+  already pass are regression guards and must stay green. `tsc` errors are confined to the new tests and each is a
+  reference to an interface the engineer still owes (list in the QA report / handoff JSON).
+- Interfaces the tech design did not pin, assumed by the tests: see `progress/intermediate-routine-handoff.json`
+  `qa.assumed_interfaces`. Engineer: match them or push back in this log.
+- Pre-existing engine quirk found (not caused by this task): a slot's own current product can appear in its
+  `slotAlternatives` (28 of 1092 alternatives on a 600-shelf corpus) — a no-op "Change". Not asserted.
+
+2026-10-14 — Balanced sublabel reworded at the owner's request ("adequate wording"): no longer promises a superset of Essential. Still PLACEHOLDER copy pending design (Q4b).

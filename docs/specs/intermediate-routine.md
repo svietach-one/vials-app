@@ -174,7 +174,10 @@ persists the choice and regenerates the draft; unsaved swaps made in the draft a
 
 Copy below is PLACEHOLDER pending design approval (project convention):
 - Essential — "Cleanse, moisturise and protect, plus one targeted treatment."
-- Balanced — "Essential plus toner and eye cream, and a gentle enzyme exfoliant a few mornings a week."
+- Balanced — "Builds on the basics with toner, eye cream and a gentle enzyme exfoliant a few mornings a week."
+  (Reworded 2026-10-14: "Essential plus …" promised a superset, but Balanced can drop an Essential step in
+  ~1% of shelves — see the non-superset assumption. `balanced-vs-essential.test.ts` forbids "essential plus",
+  "everything" and "all of essential".)
 
 **Gap cards (no UI change).** Existing `GapCard`, one per missing step and period, with the existing
 period-aware text, attached to the group where the product would go (toner under "Tone", eye cream under
