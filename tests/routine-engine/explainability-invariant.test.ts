@@ -93,9 +93,11 @@ describe('Explainability invariant (spec §9.7): every shelf product is accounte
       // scheduled / frozen are NOT disjoint per product: a pair-rule or cap
       // freeze is per period, so a product may be frozen in one period and
       // scheduled in the other. The precise partition is per PERIOD: a freeze
-      // decision for a period means the product is not scheduled in it
-      // (intermediate-routine: this is what the relocation fix in resolve.ts
-      // restored; hard-gate freezes are asserted in determinism-and-safety).
+      // decision for a period means the product is not scheduled in it. This
+      // holds with or without the relocation fix in resolve.ts at the seeds
+      // committed here (FE-13's real guards are relocation-single-outcome.test.ts
+      // and resolve.test.ts); hard-gate freezes are asserted in
+      // determinism-and-safety.
       for (const d of plan.decisions) {
         if (d.action !== 'freeze' || !d.period || !d.productId) continue;
         const period = d.period === 'am' ? plan.periods.morning : plan.periods.evening;
