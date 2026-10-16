@@ -1,5 +1,6 @@
 import { CLINICAL_RULES_DB } from '@/types';
 import type { ClinicalTimelineConfig, CosmeticProcedureKey, UserProcedureLog } from '@/types';
+import { parseLocalDate } from '@/utils/dateInput';
 import { scaleTimelineConfig } from '@/utils/metabolismCalibration';
 
 export type ComputedStatus = 'rehab' | 'active' | 'fading' | 'completed' | 'archived';
@@ -79,7 +80,7 @@ export function getTimelineConfig(proc: UserProcedureLog): ClinicalTimelineConfi
 export function computeStatus(proc: UserProcedureLog, now: Date): ComputedStatus {
   if (proc.status === 'archived') return 'archived';
   const config = getTimelineConfig(proc);
-  const elapsedDays = (now.getTime() - new Date(proc.datePerformed).getTime()) / MS_PER_DAY;
+  const elapsedDays = (now.getTime() - parseLocalDate(proc.datePerformed).getTime()) / MS_PER_DAY;
   const elapsedMonths = elapsedDays / DAYS_PER_MONTH;
   if (config.rehabDays > 0 && elapsedDays <= config.rehabDays) return 'rehab';
   if (elapsedMonths >= config.totalEffectMonths) return 'completed';
@@ -94,7 +95,7 @@ export function computeStatus(proc: UserProcedureLog, now: Date): ComputedStatus
  */
 export function getRepeatDate(proc: UserProcedureLog): Date {
   const config = getTimelineConfig(proc);
-  const performed = new Date(proc.datePerformed).getTime();
+  const performed = parseLocalDate(proc.datePerformed).getTime();
   return new Date(performed + config.totalEffectMonths * DAYS_PER_MONTH * MS_PER_DAY);
 }
 
@@ -104,7 +105,7 @@ export function getRepeatDate(proc: UserProcedureLog): Date {
  */
 export function getProgress(proc: UserProcedureLog, now: Date): number {
   const config = getTimelineConfig(proc);
-  const elapsedDays = (now.getTime() - new Date(proc.datePerformed).getTime()) / MS_PER_DAY;
+  const elapsedDays = (now.getTime() - parseLocalDate(proc.datePerformed).getTime()) / MS_PER_DAY;
   const elapsedMonths = elapsedDays / DAYS_PER_MONTH;
   return Math.min(elapsedMonths / config.totalEffectMonths, 1);
 }

@@ -20,7 +20,7 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import { useProfileStore } from '@/store/profileStore';
 import { ConflictEngine } from '@/utils/conflictEngine';
-import { parseDateInput } from '@/utils/dateInput';
+import { formatIsoToDateInput, parseDateInput, todayLocalIso } from '@/utils/dateInput';
 import { generateId } from '@/utils/generateId';
 import { PROCEDURE_LABELS } from '@/utils/procedureLifespanHelpers';
 import { CLINICAL_RULES_DB } from '@/types';
@@ -81,11 +81,7 @@ export interface AddProcedureModalProps {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function todayFormatted(): string {
-  const now = new Date();
-  const dd = String(now.getDate()).padStart(2, '0');
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const yyyy = String(now.getFullYear());
-  return `${dd}/${mm}/${yyyy}`;
+  return formatIsoToDateInput(todayLocalIso());
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -206,7 +202,7 @@ export function AddProcedureModal({
       setDateError('Enter a valid date in DD/MM/YYYY format');
       return;
     }
-    if (new Date(isoDate) > new Date()) {
+    if (isoDate > todayLocalIso()) {
       setDateError('Date cannot be in the future');
       return;
     }

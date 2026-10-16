@@ -8,33 +8,12 @@
  * for hemisphere detection. In the CI/test environment the timezone is typically
  * a northern hemisphere zone, so southern-hemisphere tests mock Intl explicitly.
  *
- * getSkincareDateString() uses getHours() for the boundary check (local time) but
- * toISOString() for the returned date string (UTC). Tests use relative helpers to
- * stay timezone-agnostic.
+ * getSkincareDateString() and getElapsedDays() work on the LOCAL calendar, so
+ * their tests assert literal dates built from local components and hold in
+ * any TZ (run with TZ=Europe/Warsaw / America/Los_Angeles to check).
  */
 
-import { getCurrentSeason, getSkincareDateString } from '@/utils/timeHelpers';
-
-// ─── Helpers for timezone-agnostic date assertions ────────────────────────────
-
-/**
- * Returns the ISO date string (YYYY-MM-DD) that `toISOString()` produces for the
- * given Date — identical to what getSkincareDateString() returns when getHours() >= 4.
- */
-function isoDateOf(d: Date): string {
-  return d.toISOString().split('T')[0];
-}
-
-/**
- * Returns the ISO date string for the previous local calendar day, then accessed
- * via toISOString() — identical to what getSkincareDateString() returns when
- * getHours() < 4 (i.e., before the skincare day boundary).
- */
-function isoDateOfPreviousLocalDay(d: Date): string {
-  const yesterday = new Date(d);
-  yesterday.setDate(d.getDate() - 1);
-  return yesterday.toISOString().split('T')[0];
-}
+import { getCurrentSeason, getElapsedDays, getSkincareDateString } from '@/utils/timeHelpers';
 
 // ─── getCurrentSeason — northern hemisphere boundary dates ────────────────────
 
@@ -163,64 +142,54 @@ describe('getCurrentSeason — southern hemisphere (Australia timezone mock)', (
 // ─── getSkincareDateString — 04:00 day boundary ───────────────────────────────
 
 describe('getSkincareDateString', () => {
-  it('should return the current date when the local time is 04:00 exactly (boundary is inclusive)', () => {
-    const at0400 = new Date(2026, 5, 15, 4, 0, 0);
-    const result = getSkincareDateString(at0400);
-    // 04:00 >= 04:00, so returns toISOString().split('T')[0] of the input date
-    expect(result).toBe(isoDateOf(at0400));
+  it.each([
+    ['04:00 exactly (boundary is inclusive)', new Date(2026, 5, 15, 4, 0), '2026-06-15'],
+    ['midday', new Date(2026, 5, 15, 12, 0), '2026-06-15'],
+    ['23:59', new Date(2026, 5, 15, 23, 59, 59), '2026-06-15'],
+    ['18:00 (evening, west of UTC)', new Date(2026, 9, 16, 18, 0), '2026-10-16'],
+    ['00:00 (before the boundary)', new Date(2026, 5, 15, 0, 0), '2026-06-14'],
+    ['01:00 (two hours past midnight in UTC+2)', new Date(2026, 9, 16, 1, 0), '2026-10-15'],
+    ['01:30', new Date(2026, 5, 15, 1, 30), '2026-06-14'],
+    ['03:59 (one minute before the boundary)', new Date(2026, 5, 15, 3, 59), '2026-06-14'],
+    ['00:30 on the 1st of a month', new Date(2026, 5, 1, 0, 30), '2026-05-31'],
+    ['00:30 on 1 January', new Date(2026, 0, 1, 0, 30), '2025-12-31'],
+  ])('returns the local skincare day at %s', (_label, now, expected) => {
+    expect(getSkincareDateString(now)).toBe(expected);
   });
 
-  it('should return the current date when the local time is midday', () => {
-    const midday = new Date(2026, 5, 15, 12, 0, 0);
-    const result = getSkincareDateString(midday);
-    expect(result).toBe(isoDateOf(midday));
+  it('returns different dates before and after the 04:00 boundary on the same calendar day', () => {
+    expect(getSkincareDateString(new Date(2026, 5, 15, 3, 0))).not.toBe(
+      getSkincareDateString(new Date(2026, 5, 15, 5, 0)),
+    );
+  });
+});
+
+// ─── getElapsedDays — whole local calendar days ───────────────────────────────
+
+describe('getElapsedDays', () => {
+  it.each([
+    ['00:30 the next day', new Date(2026, 9, 16, 0, 30), 1],
+    ['01:00 the next day', new Date(2026, 9, 16, 1, 0), 1],
+    ['12:00 the next day', new Date(2026, 9, 16, 12, 0), 1],
+    ['18:00 the same day', new Date(2026, 9, 15, 18, 0), 0],
+    ['23:59 the same day', new Date(2026, 9, 15, 23, 59), 0],
+    ['noon a week later', new Date(2026, 9, 22, 12, 0), 7],
+  ])('counts whole days from 2026-10-15 at %s', (_label, now, expected) => {
+    expect(getElapsedDays('2026-10-15', now)).toBe(expected);
   });
 
-  it('should return the current date when the local time is 23:59', () => {
-    const almostMidnight = new Date(2026, 5, 15, 23, 59, 59);
-    const result = getSkincareDateString(almostMidnight);
-    expect(result).toBe(isoDateOf(almostMidnight));
+  it('counts across a DST change as whole calendar days', () => {
+    // EU clocks go back on 2026-10-25; the 25th has 25 hours
+    expect(getElapsedDays('2026-10-24', new Date(2026, 9, 26, 0, 30))).toBe(2);
   });
 
-  it('should return the previous local day when the local time is 00:00 (before skincare boundary)', () => {
-    // 00:00 local — getHours()=0, which is < 4, so still the previous skincare day
-    const midnight = new Date(2026, 5, 15, 0, 0, 0);
-    const result = getSkincareDateString(midnight);
-    expect(result).toBe(isoDateOfPreviousLocalDay(midnight));
+  it('counts across the spring DST change (a 23-hour day) as whole calendar days', () => {
+    // EU clocks go forward on 2026-03-29; US on 2026-03-08
+    expect(getElapsedDays('2026-03-28', new Date(2026, 2, 30, 0, 30))).toBe(2);
+    expect(getElapsedDays('2026-03-07', new Date(2026, 2, 9, 0, 30))).toBe(2);
   });
 
-  it('should return the previous local day when the local time is 01:30', () => {
-    const earlyMorning = new Date(2026, 5, 15, 1, 30, 0);
-    const result = getSkincareDateString(earlyMorning);
-    expect(result).toBe(isoDateOfPreviousLocalDay(earlyMorning));
-  });
-
-  it('should return the previous local day when the local time is 03:59 (one minute before boundary)', () => {
-    const justBeforeBoundary = new Date(2026, 5, 15, 3, 59, 0);
-    const result = getSkincareDateString(justBeforeBoundary);
-    expect(result).toBe(isoDateOfPreviousLocalDay(justBeforeBoundary));
-  });
-
-  it('should correctly roll back across a month boundary when 00:30 local falls on the first of the month', () => {
-    // Local 00:30 on June 1 — before 04:00, so rolls to the previous local day (May 31)
-    const midnightOnFirstOfMonth = new Date(2026, 5, 1, 0, 30, 0);
-    const result = getSkincareDateString(midnightOnFirstOfMonth);
-    expect(result).toBe(isoDateOfPreviousLocalDay(midnightOnFirstOfMonth));
-  });
-
-  it('should return a string matching the YYYY-MM-DD format', () => {
-    const date = new Date(2026, 0, 5, 12, 0, 0);
-    const result = getSkincareDateString(date);
-    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-  });
-
-  it('should return different dates for a time before and after the 04:00 boundary on the same local calendar day', () => {
-    const before = new Date(2026, 5, 15, 3, 0, 0); // 03:00 — previous skincare day
-    const after = new Date(2026, 5, 15, 5, 0, 0);  // 05:00 — current skincare day
-
-    const resultBefore = getSkincareDateString(before);
-    const resultAfter = getSkincareDateString(after);
-
-    expect(resultBefore).not.toBe(resultAfter);
+  it('returns a negative count for a future date', () => {
+    expect(getElapsedDays('2026-10-17', new Date(2026, 9, 16, 12, 0))).toBe(-1);
   });
 });

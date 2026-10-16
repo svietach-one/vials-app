@@ -23,7 +23,7 @@ import { resetCalibration } from '@/domain/procedureActions';
 import type { ClinicStackParamList } from '@/navigation/AppNavigator';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProfileStore } from '@/store/profileStore';
-import { formatIsoToDateInput, parseDateInput } from '@/utils/dateInput';
+import { formatIsoToDateInput, parseDateInput, todayLocalIso } from '@/utils/dateInput';
 import { getProcedureDisplayName } from '@/utils/procedureLifespanHelpers';
 
 type Props = NativeStackScreenProps<ClinicStackParamList, 'ProcedureDetail'>;
@@ -50,7 +50,7 @@ export default function ProcedureDetailScreen({ route, navigation }: Props) {
       setDateError('Enter a valid date in DD/MM/YYYY format');
       return;
     }
-    if (new Date(iso) > new Date()) {
+    if (iso > todayLocalIso()) {
       setDateError('Date cannot be in the future');
       return;
     }

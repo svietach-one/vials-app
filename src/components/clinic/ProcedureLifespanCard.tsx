@@ -13,6 +13,7 @@ import { IconButton } from '@/components/ui/core/IconButton';
 import { CLINIC_FADING_PROMPT_ENABLED } from '@/constants/featureFlags';
 import { colors, palette, radius, shadow, space, typography } from '@/constants/tokens';
 import type { CosmeticProcedureKey, SkinConditionType, UserProcedureLog } from '@/types';
+import { parseLocalDate, todayLocalIso } from '@/utils/dateInput';
 import { formatMonthsCompact, parseReportedMonthsText } from '@/utils/metabolismCalibration';
 import {
   getRecoveryConditionCaution,
@@ -82,7 +83,7 @@ function getProcedureIcon(proc: UserProcedureLog): IconName {
 
 function getTimeLabel(proc: UserProcedureLog, status: ComputedStatus, now: Date): string {
   const config = getTimelineConfig(proc);
-  const elapsedDays = (now.getTime() - new Date(proc.datePerformed).getTime()) / MS_PER_DAY;
+  const elapsedDays = (now.getTime() - parseLocalDate(proc.datePerformed).getTime()) / MS_PER_DAY;
   const elapsedMonths = elapsedDays / DAYS_PER_MONTH;
 
   switch (status) {
@@ -112,7 +113,7 @@ function getTimeLabel(proc: UserProcedureLog, status: ComputedStatus, now: Date)
 }
 
 function formatDate(isoDate: string): string {
-  const d = new Date(isoDate);
+  const d = parseLocalDate(isoDate);
   return `${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
 }
 
@@ -390,7 +391,7 @@ export function ProcedureLifespanCard({
       {(status === 'active' || status === 'fading') ? (
         <View style={cardStyles.footer}>
           <Text style={cardStyles.footerLabel}>Repeat around</Text>
-          <Text style={cardStyles.footerDate}>{formatDate(getRepeatDate(proc).toISOString())}</Text>
+          <Text style={cardStyles.footerDate}>{formatDate(todayLocalIso(getRepeatDate(proc)))}</Text>
         </View>
       ) : null}
     </View>

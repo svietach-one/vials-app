@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/forms/Switch';
 import { colors, radius, space, typography } from '@/constants/tokens';
 import type { AddProductDraft } from '@/types';
 import type { FormAction } from '@/utils/productForm/formReducer';
+import { todayLocalIso } from '@/utils/dateInput';
 
 export interface UsageDetailsSectionProps {
   draft: AddProductDraft;
@@ -19,7 +20,7 @@ const PAO_PRESETS = [3, 6, 9, 12, 24] as const;
 function isoDaysAgo(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return d.toISOString().split('T')[0];
+  return todayLocalIso(d);
 }
 
 /**

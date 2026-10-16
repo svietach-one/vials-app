@@ -27,6 +27,7 @@ import {
   getTimelineConfig,
 } from '@/utils/procedureLifespanHelpers';
 import type { UserProcedureLog } from '@/types';
+import { parseLocalDate } from '@/utils/dateInput';
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ function makeProc(
 
 /** Returns a Date that is `days` calendar days after the given ISO date string */
 function daysAfter(isoDate: string, days: number): Date {
-  const d = new Date(isoDate);
+  const d = parseLocalDate(isoDate);
   d.setDate(d.getDate() + days);
   return d;
 }
@@ -57,7 +58,7 @@ function daysAfter(isoDate: string, days: number): Date {
  */
 function monthsAfter(isoDate: string, months: number): Date {
   const DAYS_PER_MONTH = 30.44;
-  const base = new Date(isoDate).getTime();
+  const base = parseLocalDate(isoDate).getTime();
   return new Date(base + months * DAYS_PER_MONTH * 86_400_000);
 }
 
@@ -205,7 +206,7 @@ describe('getProgress', () => {
 
   it('should return 0 at the moment of procedure (no time elapsed)', () => {
     const proc = makeProc({ procedureKey: 'botox', datePerformed: DATE });
-    const now = new Date(DATE);
+    const now = parseLocalDate(DATE);
 
     const result = getProgress(proc, now);
 
@@ -404,7 +405,7 @@ describe('getProgress — custom', () => {
   it('should return 0 at the moment of the procedure', () => {
     const proc = makeCustomProc();
 
-    expect(getProgress(proc, new Date(CUSTOM_PERFORMED))).toBeCloseTo(0, 5);
+    expect(getProgress(proc, parseLocalDate(CUSTOM_PERFORMED))).toBeCloseTo(0, 5);
   });
 
   it('should return approximately 0.5 halfway to the estimated return date', () => {
@@ -469,5 +470,25 @@ describe('getTimelineConfig — expectedMonths snapshot', () => {
     const sixMonth = makeProc({ procedureKey: 'botox', datePerformed: '2026-01-01' });
 
     expect(getRepeatDate(proc).getTime()).toBeLessThan(getRepeatDate(sixMonth).getTime());
+  });
+});
+
+describe('computeStatus — date-only datePerformed is a local calendar day', () => {
+  const custom: UserProcedureLog = {
+    id: 'c1',
+    procedureKey: 'custom',
+    datePerformed: '2026-10-16',
+    estimatedReturnDate: '2026-12-16',
+    customRehabDays: 3,
+    status: 'rehab',
+    deferralCount: 0,
+  };
+
+  it('is still in rehab at 23:30 on day 3 (evening, west of UTC)', () => {
+    expect(computeStatus(custom, new Date(2026, 9, 18, 23, 30))).toBe('rehab');
+  });
+
+  it('has left rehab at 00:30 on day 4 (night, east of UTC)', () => {
+    expect(computeStatus(custom, new Date(2026, 9, 19, 0, 30))).toBe('active');
   });
 });

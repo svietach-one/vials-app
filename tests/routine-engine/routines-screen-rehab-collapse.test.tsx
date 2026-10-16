@@ -11,6 +11,7 @@
  * settingsStore is real (reset per test) and RehabNoticeCard is NOT mocked
  * away, since the wiring itself is the subject here.
  */
+import { todayLocalIso } from '@/utils/dateInput';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import type { Product, Routine, UserProcedureLog } from '@/types';
@@ -166,7 +167,7 @@ beforeEach(() => {
       procedureKey: 'custom',
       customName: 'Laser resurfacing',
       customRehabDays: 7,
-      datePerformed: new Date().toISOString().split('T')[0],
+      datePerformed: todayLocalIso(),
       status: 'rehab',
       deferralCount: 0,
     },
