@@ -90,6 +90,7 @@ import {
   resolveNoticeCollapsed,
   toNoticeCollapseEntry,
 } from '@/utils/noticeCollapse';
+import { routineContentHash } from '@/utils/noticeDismissal';
 import { getAdaptationStatus } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { getDailyView, type FrozenStepView } from '@/utils/routineEngine/dailyView';
@@ -222,6 +223,14 @@ export default function RoutinesScreen({ navigation }: Props) {
   const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
   const totalSteps =
     (morningRoutine?.steps.length ?? 0) + (eveningRoutine?.steps.length ?? 0);
+
+  // What a dismissed conflict notice is tagged with: the whole SAVED routine
+  // (both periods, every weekday), not the open tab or day - otherwise each tab
+  // would hold its own hash and its dismissal would overwrite the other's.
+  const savedRoutineHash = useMemo(
+    () => routineContentHash(morningRoutine?.steps ?? [], eveningRoutine?.steps ?? []),
+    [morningRoutine, eveningRoutine],
+  );
 
   // Validate mode over the saved routines — avoid-level findings light the
   // bottom Optimize strip (research §3; never a banner, never a modal).
@@ -760,6 +769,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         <ConflictWarningInline
           morningSteps={selectedPeriod === 'morning' ? amSteps : []}
           eveningSteps={selectedPeriod === 'evening' ? pmSteps : []}
+          routineHash={savedRoutineHash}
           allSteps={[
             ...amSteps.map((step): ConflictStepInput => ({ ...step, period: 'am' })),
             ...pmSteps.map((step): ConflictStepInput => ({ ...step, period: 'pm' })),
@@ -785,6 +795,7 @@ export default function RoutinesScreen({ navigation }: Props) {
       persistedRehabCollapse,
       setRehabNoticeCollapsed,
       goalCoverageInput,
+      savedRoutineHash,
     ],
   );
 
