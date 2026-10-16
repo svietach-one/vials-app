@@ -3,6 +3,7 @@ import type { PlaceholderSlot } from '@/utils/routineEngine/planTypes';
 import {
   attachPlaceholderGaps,
   groupStepsIntoActions,
+  interleaveGapGroups,
   isGroupAllCompleted,
   resolveTransition,
 } from '@/utils/routineGrouping';
@@ -345,5 +346,48 @@ describe('isGroupAllCompleted', () => {
 
     expect(isGroupAllCompleted(group, () => true)).toBe(true);
     expect(isGroupAllCompleted(group, (m) => m.product?.id === 'cream')).toBe(false);
+  });
+});
+
+describe('interleaveGapGroups', () => {
+  function groupsFor(types: Product['productType'][]) {
+    const products = types.map((t) => makeProduct({ id: `id-${t}`, productType: t }));
+    const steps = types.map((t) => makeStep({ productType: t, productId: `id-${t}` }));
+    return groupStepsIntoActions(steps, products);
+  }
+
+  it('places a gap-only group by application order, before a later real group, not at the end', () => {
+    // Cleanser + SPF saved, no toner: "No Toner" belongs between them
+    const placeholder = makePlaceholder({ productTypes: ['toner'], reasonCode: 'toner_recommended' });
+    const { groups, extraGroups } = attachPlaceholderGaps(groupsFor(['cleanser', 'spf']), [placeholder]);
+
+    const actions = interleaveGapGroups(groups, extraGroups).map((g) => g.action);
+
+    expect(actions).toEqual(['cleanse', 'tone', 'protect']);
+  });
+
+  it('puts a gap-only group last when every real group is on an earlier layer', () => {
+    const placeholder = makePlaceholder({ productTypes: ['spf'] });
+    const { groups, extraGroups } = attachPlaceholderGaps(groupsFor(['cleanser', 'toner']), [placeholder]);
+
+    const actions = interleaveGapGroups(groups, extraGroups).map((g) => g.action);
+
+    expect(actions).toEqual(['cleanse', 'tone', 'protect']);
+  });
+
+  it('keeps the gap-only group empty of members so it is never a draggable step', () => {
+    const placeholder = makePlaceholder({ productTypes: ['toner'], reasonCode: 'toner_recommended' });
+    const { groups, extraGroups } = attachPlaceholderGaps(groupsFor(['cleanser', 'spf']), [placeholder]);
+
+    const tone = interleaveGapGroups(groups, extraGroups).find((g) => g.action === 'tone');
+
+    expect(tone?.members).toEqual([]);
+    expect(tone?.gaps).toEqual([placeholder]);
+  });
+
+  it('returns the real groups unchanged when there are no gap-only groups', () => {
+    const { groups, extraGroups } = attachPlaceholderGaps(groupsFor(['cleanser', 'spf']), []);
+
+    expect(interleaveGapGroups(groups, extraGroups)).toEqual(groups);
   });
 });
