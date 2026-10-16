@@ -24,6 +24,17 @@ jest.mock('@/store/profileStore', () => ({
 
 import { AddProcedureModal } from '@/components/clinic/AddProcedureModal';
 
+// The modal prefills "today" and validates it against the clock; pin the
+// clock (midday, so no timezone can flip the day) instead of using real time.
+beforeEach(() => {
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date(2026, 9, 16, 12, 0));
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 function renderModal() {
   return render(
     <AddProcedureModal visible procedures={[]} onClose={jest.fn()} onSave={jest.fn()} />,

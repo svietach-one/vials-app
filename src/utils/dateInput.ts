@@ -1,7 +1,7 @@
 /**
  * DD/MM/YYYY text ⇄ YYYY-MM-DD ISO conversion, shared by the clinic date
  * fields (AddProcedureModal, ProcedureDetailScreen). Pure — no React, no
- * store, no `new Date()` reliance beyond the caller-provided string.
+ * store, `now` is injected where the current day matters.
  */
 
 /** Parses DD/MM/YYYY → YYYY-MM-DD ISO date string, or null on failure. */
@@ -17,6 +17,17 @@ export function parseDateInput(text: string): string | null {
   // JS Date rolls overflow dates (e.g. April 31 → May 1); reject those
   if (isNaN(date.getTime()) || date.getDate() !== d || date.getMonth() + 1 !== m) return null;
   return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+}
+
+/**
+ * Today's date as YYYY-MM-DD in the LOCAL calendar. Not `toISOString()` (UTC)
+ * and not the 04:00-boundary skincare day — a date field means the calendar
+ * day the user sees on their clock. ISO dates compare correctly as strings.
+ */
+export function todayLocalIso(now: Date = new Date()): string {
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${mm}-${dd}`;
 }
 
 /** Formats a YYYY-MM-DD ISO date string → DD/MM/YYYY for display in inputs. */
