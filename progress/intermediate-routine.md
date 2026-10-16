@@ -401,11 +401,14 @@ Clean: persistence, non-dismissible cards, wishlist exclusion, UI constraints (c
   (the single normalisation entry point) now reads a NON-strong enzyme carrier of ANY format as a `peeling`; the skeleton extracts only products read as peelings. Why not the cap key:
   `PlannedStep.slotIndex` is the slot identity for far more than the cap (Draft Preview `oldSteps`/`alternativesBySlot`, `applySlotAlternativeSwap`, `validate`, the saved-routine duplicate-slot
   warning), so an enzyme cream and a plain cream would still collide in all of them (a duplicate-slot warning on the saved screen, a Change swap hitting the wrong step); a retyped product has its own
-  slot for every consumer. Kept: any-format extraction, <=3 days, morning preferred, one per period, strong carriers that also list an enzyme stay in their format (treatment rules), makeup remover and
-  SPF keep their function. Consequence to know: on the Routines screen an enzyme cream/toner now shows under "Exfoliate" with the peeling label (as an enzyme cleanser already did); the shelf, badges
-  and product detail read the raw product and are unchanged; a manual add of such a product via AddToRoutineSheet persists a `peeling` step.
-  Repros (tests/routine-engine/enzyme-format-slot.test.ts): BEFORE — plain cream older + enzyme cream newer: plain cream absent from the morning, no gap card; enzyme toner older + plain toner:
-  plain toner displaced. AFTER — plain cream/toner scheduled every day in both periods, enzyme product morning-only on <=3 days, no toner/moisturiser gap card. Also a per-format accounted-for table
+  slot for every consumer. Kept: any-format extraction, <=3 days, morning preferred, one per period, strong carriers that also list an enzyme stay in their format (treatment rules).
+  [Correction 2026-10-16, see W-C below] A makeup remover and an SPF that list an enzyme now keep their function and are NOT extracted — this is a BEHAVIOUR CHANGE from 6626804, where the skeleton
+  extracted both as exfoliants (capped at 3 days); it is in the safe direction (an SPF is never turned into a weekly exfoliant) and narrower than the owner's literal "any format".
+  Consequence to know: on the Routines screen an enzyme cream/toner now sits under the "Exfoliate" group header (and under that heading in the Draft Preview) — there is no peeling badge (as an enzyme
+  cleanser already did); the shelf, badges and product detail read the raw product and are unchanged. Manual adds: `AddToRoutineSheet` persisted the normalised `peeling`, but three raw-type writers
+  (Catalog, Product detail and the Routines screen's own scheduler, all through `RoutineSchedulerSheet`) persisted the RAW type — fixed at the sink in 8d796e8 (W-A).
+  Repros (tests/routine-engine/enzyme-format-slot.test.ts): BEFORE — plain cream older + enzyme cream newer: plain cream absent from the morning, no gap card; toner variant with the enzyme toner OLDER: the enzyme toner was never scheduled as an exfoliant
+  and was offered as a "Change" for the plain toner (the plain toner itself is displaced only when the enzyme toner is NEWER). AFTER — plain cream/toner scheduled every day in both periods, enzyme product morning-only on <=3 days, no toner/moisturiser gap card. Also a per-format accounted-for table
   and a 400-shelf enzyme-salted property. Corpus re-measured with enzyme salting (6,000 shelves), BEFORE -> AFTER: self-offered 0 -> 0; duplicate alternatives 0 -> 0; double-scheduled views 0 -> 0;
   per-period freeze violations 0 -> 0; scheduled-and-frozen records 36 -> 36; avoid pairs 0 -> 0; unaccounted 0 -> 0; non-deterministic plans 0 -> 0; alternatives 11,213 -> 11,117.
 - **W2 (3d84d31)** `splitInciTopLevel` falls back to the plain comma split when a parenthesis is still open at the end (all-or-nothing); a stray ")" is unchanged; docstring states the real rules.
@@ -425,4 +428,17 @@ W4: comment-only; wording accurate.
 WARNINGS: W-A RoutineSchedulerSheet is fed the RAW product.productType by ProductDetailScreen:522, CatalogScreen:188/371, RoutinesScreen:531/999 (reproduced with the real store); W-B enzyme-format-slot.test.ts:107-141 does not assert its title; W-C tech design FE-5/FE-6 + assumptions stale, the owner's "ANY format" rule narrowed for SPF/makeup remover (a change from 6626804, not "kept"), the W1 log entry misdescribes repro 2's BEFORE state and the "peeling label".
 NITS: N1 explainability-invariant.test.ts:97-98 overstatement; N2 ENZYME_WORD duplicates the ruleset matcher, strong predicate copied a 4th time; N3 docstrings in categoryDetector.ts; N4 enzyme SPF/remover can still displace the plain one (pre-existing, 0/684 corpus SPFs); N5 slot-2 contests and one-enzyme-per-period broken by relocation (4/20,000); N6 findSubstitute raw types (no caller).
 UNRELATED, PRE-EXISTING: tests/routine-engine/add-procedure-modal.test.tsx (2 tests) fails on origin/dev 5ed283f, 6626804 and HEAD alike while the local calendar date is ahead of UTC (00:00-02:00 CEST daily; confirmed by timezone matrix). Cause: AddProcedureModal.tsx:83 (local date) + dateInput.ts:19 (date-only ISO) + AddProcedureModal.tsx:209 (new Date(isoDate) > new Date() compares UTC midnight with now), so "today" is rejected as "in the future". A real user-facing bug for UTC+ users; separate task, roadmap blocker candidate.
+
+2026-10-16 — engineer: **Tech-lead re-review items W-A, W-B, W-C, N1 done** (one local commit each, nothing pushed).
+- **W-A (8d796e8)** `RoutineSchedulerSheet` is the sink for five call sites that pass the RAW `product.productType` (ProductDetailScreen:522, CatalogScreen:188/371, RoutinesScreen:531/999). Instead of patching each
+  call site, the sheet resolves the type from the product it is scheduling (`normalizeProductType`, falling back to the prop when the product is not in the store), the guard the engine and AddToRoutineSheet use.
+  Failing-first with the real stores (tests/routine-engine/scheduler-sheet-normalized-type.test.tsx): BEFORE the enzyme cream got `moisturizer` steps in both periods (engine writes `peeling`), and micellar water typed as a
+  cleanser got `cleanser` steps (so the "already did" claim held for AddToRoutineSheet only, not for this sheet); AFTER `peeling` and `makeup_remover`. A plain cream stays `moisturizer`.
+- **W-B (0ea3676)** The 400-seed test was retitled for what it checks (accountability, one outcome per period, no self-offer) and a real non-interference property was added: removing the enzyme-only extras from a
+  shelf changes no other step and no gap card (SPF, makeup remover and shelves with another peeling excluded; salted products carry no other active, because an enzyme product's PHA/copper peptides legitimately interact
+  through the pair rules — the first version without that restriction failed on exactly those). Mutation: with the pre-W1 categoryDetector.ts and skeleton.ts restored, the new test and the three repros fail; the retitled
+  accountability test stays green (as it must).
+- **W-C** Dated revision note added to docs/tech-design/intermediate-routine.md (147 lines); the log corrections above (SPF/makeup remover behaviour change, repro 2 BEFORE state, "Exfoliate" header instead of a badge,
+  the three raw-type writers). The tech-lead's verdict block is untouched.
+- **N1** the comment in explainability-invariant.test.ts no longer credits the relocation fix (the property holds with or without FE-13; its guards are relocation-single-outcome.test.ts and resolve.test.ts).
 

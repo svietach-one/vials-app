@@ -3,6 +3,10 @@ Spec: docs/specs/intermediate-routine.md
 Author: tech-designer
 Date: 2026-10-14 (revised 2026-10-15: one routine; owner answers applied; FE-13/FE-14 added for qa-lead findings)
 
+> Revision 2026-10-16 (as built; supersedes FE-5/FE-6 and the enzyme-cleanser assumption below where they differ): `normalizeProductType` reads a NON-strong enzyme
+> carrier of ANY format as a `peeling` (SPF, makeup remover and strong carriers keep their role), so it has its own slot for every consumer and never displaces a plain product;
+> the skeleton extracts only peelings; the enzyme cap (3 days) applies to non-strong carriers only; `RoutineSchedulerSheet` persists the normalised type; INCI position counts top-level tokens.
+
 ## 1. Architecture Overview
 
 One engine behaviour, no style input. `selectSkeleton` decides who enters each period's pool; this task widens only that: toner and eye cream join
