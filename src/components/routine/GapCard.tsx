@@ -34,15 +34,22 @@ export interface GapCardProps {
 }
 
 export function GapCard({ label, period, onFindInCatalog, onDismiss }: GapCardProps) {
+  // Two actions never fit beside the copy on a phone: a shrinkable text next to
+  // them was squeezed to a few letters ("No Eye Crea|m in your morn|ing"). With
+  // a dismiss action the card therefore STACKS - copy on its own full-width
+  // row, actions on a row below. A lone action keeps the compact one-row card.
+  const stacked = Boolean(onDismiss);
   return (
-    <View style={styles.card}>
-      <View style={styles.iconCircle}>
-        <Icon name="info" size={16} color={colors.statusInfo} />
+    <View style={[styles.card, stacked && styles.cardStacked]}>
+      <View style={styles.header}>
+        <View style={styles.iconCircle}>
+          <Icon name="info" size={16} color={colors.statusInfo} />
+        </View>
+        <Text style={styles.text}>
+          {period ? `No ${label} in your ${period} routine` : `No ${label} in your shelf`}
+        </Text>
       </View>
-      <Text style={styles.text}>
-        {period ? `No ${label} in your ${period} routine` : `No ${label} in your shelf`}
-      </Text>
-      <View style={styles.actions}>
+      <View style={[styles.actions, stacked && styles.actionsStacked]}>
         <Button variant="ghost" size="sm" accessibilityRole="button" onPress={onFindInCatalog}>
           Find in catalog
         </Button>
@@ -59,8 +66,6 @@ export function GapCard({ label, period, onFindInCatalog, onDismiss }: GapCardPr
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    // The actions wrap under the text on a narrow screen instead of squeezing it.
-    flexWrap: 'wrap',
     alignItems: 'center',
     gap: space[2],
     backgroundColor: colors.statusInfoTint,
@@ -69,6 +74,16 @@ const styles = StyleSheet.create({
     borderColor: colors.statusInfoLine,
     borderStyle: 'dashed',
     padding: space[3],
+  },
+  cardStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  header: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
   },
   iconCircle: {
     width: 28,
@@ -82,13 +97,17 @@ const styles = StyleSheet.create({
   text: {
     ...typography.bodySmall,
     color: colors.textPrimary,
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 140,
+    flex: 1,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[1],
+  },
+  // Right-aligned under the copy, and allowed to wrap on the narrowest screens
+  // rather than overflow.
+  actionsStacked: {
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
   },
 });
