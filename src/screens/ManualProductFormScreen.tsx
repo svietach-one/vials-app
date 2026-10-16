@@ -43,6 +43,7 @@ import {
 } from '@/services/productImage';
 import { normalizeActiveKey, parseActiveIngredientsFromInci } from '@/utils/ingredientParser';
 import { generateId } from '@/utils/generateId';
+import { todayLocalIso } from '@/utils/dateInput';
 import { searchBrandsWithCorpus } from '@/utils/productForm/brandLookup';
 import { resolveProductType } from '@/utils/productType';
 import type {
@@ -110,7 +111,7 @@ const PAO_PRESETS = [
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function todayIso(): string {
-  return new Date().toISOString().split('T')[0];
+  return todayLocalIso();
 }
 
 function keysToIngredients(keys: ActiveIngredientKey[]): ActiveIngredient[] {
