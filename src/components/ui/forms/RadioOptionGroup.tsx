@@ -77,9 +77,12 @@ const styles = StyleSheet.create({
   group: {
     gap: space[3],
   },
+  // Top-aligned, not centred: a row with a sublabel ("Reset all" carries one)
+  // is two or more lines tall, and centring put the ring between the label and
+  // its description instead of beside the label.
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: space[3],
   },
   ring: {
@@ -90,6 +93,9 @@ const styles = StyleSheet.create({
     borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
+    // Centre the ring on the FIRST line of the label (its line box is taller
+    // than the ring), so it lines up with the label whatever follows it.
+    marginTop: (typography.body.lineHeight - RING_SIZE) / 2,
   },
   ringChecked: {
     borderColor: palette.plum,
