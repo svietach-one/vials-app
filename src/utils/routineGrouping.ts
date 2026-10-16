@@ -8,7 +8,7 @@ import type { Product, RoutineStep, StepAction, StepTransition } from '@/types';
 import { normalizeActiveKey } from '@/utils/ingredientParser';
 import { normalizeProductType } from '@/utils/productForm/categoryDetector';
 import type { PlaceholderSlot } from '@/utils/routineEngine/planTypes';
-import { structuralSlotFor } from '@/utils/routineEngine/slotting';
+import { getSlotIndex, structuralSlotFor } from '@/utils/routineEngine/slotting';
 
 /**
  * Pure grouping + transition logic for the routine-step-grouping render
@@ -179,4 +179,33 @@ export function attachPlaceholderGaps(
   }));
 
   return { groups: withGaps, extraGroups };
+}
+
+/** Application-order layer of a real group — its first member's (reclassified) type. */
+function groupLayer(group: RenderGroup): number {
+  const first = group.members[0];
+  const type = first.product ? normalizeProductType(first.product).productType : first.step.productType;
+  return getSlotIndex(type);
+}
+
+/**
+ * Merges gap-only groups (`attachPlaceholderGaps().extraGroups`) into the real
+ * groups by application order, so "No Toner" sits where a toner would go — before
+ * the moisturizer and SPF — instead of trailing after them. Each gap-only group
+ * goes before the first real group on a later layer (the same rule as
+ * `insertStepByLayering`), or last when there is none. Real groups keep their
+ * relative order, so a manual drag-reorder is untouched. A gap-only group has no
+ * members, so it carries no persisted step and cannot be reordered.
+ */
+export function interleaveGapGroups(groups: RenderGroup[], extraGroups: RenderGroup[]): RenderGroup[] {
+  if (extraGroups.length === 0) return groups;
+  const layerOf = (g: RenderGroup) => getSlotIndex(g.gaps[0].productTypes[0]);
+  const merged = [...groups];
+  for (const extra of [...extraGroups].sort((a, b) => layerOf(a) - layerOf(b))) {
+    const layer = layerOf(extra);
+    const at = merged.findIndex((g) => g.members.length > 0 && groupLayer(g) > layer);
+    if (at === -1) merged.push(extra);
+    else merged.splice(at, 0, extra);
+  }
+  return merged;
 }

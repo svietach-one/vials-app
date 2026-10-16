@@ -162,6 +162,28 @@ function lastSheetProps(): { product: Product | null; allowRemoval?: boolean } {
 }
 
 describe('gap cards (Story 2)', () => {
+  it('places the Toner gap card before the SPF step, in application order, not after it', () => {
+    mockProducts = makeS3().filter((p) => p.id === S3.spf);
+    mockRoutines = savedFrom(mockProducts, [S3.spf]);
+
+    renderScreen();
+
+    const tree = JSON.stringify(screen.toJSON());
+    expect(tree.indexOf('No Toner in your morning routine')).toBeGreaterThan(-1);
+    expect(tree.indexOf('No Toner in your morning routine')).toBeLessThan(tree.indexOf('Plain SPF'));
+  });
+
+  it('places the Eye Cream gap card before the SPF step when there is no moisturizer step', () => {
+    mockProducts = makeS3().filter((p) => p.id === S3.spf);
+    mockRoutines = savedFrom(mockProducts, [S3.spf]);
+
+    renderScreen();
+
+    const tree = JSON.stringify(screen.toJSON());
+    expect(tree.indexOf('No Eye Cream in your morning routine')).toBeGreaterThan(-1);
+    expect(tree.indexOf('No Eye Cream in your morning routine')).toBeLessThan(tree.indexOf('Plain SPF'));
+  });
+
   it('harness sanity: an existing required-slot gap (no SPF) still shows its card', () => {
     mockProducts = makeS3().filter((p) => p.id !== S3.spf);
     mockRoutines = savedFrom(mockProducts, [S3.cleanser, S3.cream]);

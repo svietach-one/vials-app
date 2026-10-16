@@ -75,6 +75,7 @@ import { getSkincareDateString } from '@/utils/timeHelpers';
 import {
   attachPlaceholderGaps,
   groupStepsIntoActions,
+  interleaveGapGroups,
   isGroupAllCompleted,
   resolveTransition,
   type RenderGroup,
@@ -430,18 +431,19 @@ export default function RoutinesScreen({ navigation }: Props) {
   // see a step that isn't actually rendered today.
   const amRenderGroups = useMemo(() => {
     const base = groupStepsIntoActions(amSteps, products);
-    return attachPlaceholderGaps(base, placeholders.filter((p) => p.period === 'am'));
+    const { groups, extraGroups } = attachPlaceholderGaps(base, placeholders.filter((p) => p.period === 'am'));
+    return interleaveGapGroups(groups, extraGroups);
   }, [amSteps, products, placeholders]);
   const pmRenderGroups = useMemo(() => {
     const base = groupStepsIntoActions(pmSteps, products);
-    return attachPlaceholderGaps(base, placeholders.filter((p) => p.period === 'pm'));
+    const { groups, extraGroups } = attachPlaceholderGaps(base, placeholders.filter((p) => p.period === 'pm'));
+    return interleaveGapGroups(groups, extraGroups);
   }, [pmSteps, products, placeholders]);
 
   // Single-active-period rendering: only the segmented control's current
   // selection is ever mounted in the draggable list below.
   const activeRenderGroups = selectedPeriod === 'morning' ? amRenderGroups : pmRenderGroups;
-  const activeHasContent =
-    activeRenderGroups.groups.length > 0 || activeRenderGroups.extraGroups.length > 0;
+  const activeHasContent = activeRenderGroups.length > 0;
 
   // Computed once here (not inside PreCleanseReminderCard) so renderItem can
   // match reminder.stepId against each step it renders and place the card
@@ -596,8 +598,8 @@ export default function RoutinesScreen({ navigation }: Props) {
           <ScaleDecorator>
             <View style={styles.groupWrap}>
               <Pressable
-                onLongPress={editMode ? drag : undefined}
-                disabled={!editMode}
+                onLongPress={editMode && group.members.length > 0 ? drag : undefined}
+                disabled={!editMode || group.members.length === 0}
                 style={styles.groupHeaderWrap}
               >
                 <StepGroupHeader ordinal={ordinal} action={group.action} allCompleted={allCompleted} editMode={editMode} />
@@ -612,18 +614,6 @@ export default function RoutinesScreen({ navigation }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- renderGaps/renderGroupMember close over deps already listed on their own memo
     [morningRoutine, eveningRoutine, editMode, isCompleted, completions, selectedSkincareDate, gamificationEnabled, renderGroupMember],
   );
-
-  // Gap-only synthetic groups (a generator placeholder whose action has no
-  // real step group yet) — no persisted steps to drag, so rendered as a
-  // static trailing block rather than inside the draggable list.
-  function renderExtraGroups(groups: RenderGroup[], extraGroups: RenderGroup[]) {
-    return extraGroups.map((group, i) => (
-      <View key={`extra-${group.action}`} style={styles.groupWrap}>
-        <StepGroupHeader ordinal={groups.length + i + 1} action={group.action} editMode={editMode} />
-        {renderGaps(group)}
-      </View>
-    ));
-  }
 
   const allFrozen = useMemo(() => [...frozenRows.values()].flat(), [frozenRows]);
 
@@ -857,13 +847,12 @@ export default function RoutinesScreen({ navigation }: Props) {
           // content, matching the mock exactly.
           <>
             <NestableDraggableFlatList
-              data={activeRenderGroups.groups}
+              data={activeRenderGroups}
               keyExtractor={(group) => group.action}
-              renderItem={renderGroupItem(selectedPeriod, activeRenderGroups.groups)}
+              renderItem={renderGroupItem(selectedPeriod, activeRenderGroups)}
               onDragEnd={({ data }) => handleDragEndForPeriod(selectedPeriod, data)}
               activationDistance={12}
             />
-            {renderExtraGroups(activeRenderGroups.groups, activeRenderGroups.extraGroups)}
             {!activeHasContent ? (
               <View style={styles.periodEmpty}>
                 <Text style={styles.periodEmptyText}>
