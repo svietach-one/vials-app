@@ -1,4 +1,5 @@
 import type { UserProcedureLog } from '@/types';
+import { parseLocalDate } from '@/utils/dateInput';
 import {
   computeStatus,
   DAYS_PER_MONTH,
@@ -95,7 +96,7 @@ function buildTrack(
   now: Date,
 ): ForecastTrack | null {
   const config = getTimelineConfig(proc);
-  const performed = new Date(proc.datePerformed);
+  const performed = parseLocalDate(proc.datePerformed);
   const monthsToMs = (months: number) => months * DAYS_PER_MONTH * MS_PER_DAY;
   const fadeDate = new Date(performed.getTime() + monthsToMs(config.fadeTriggerMonth));
   const endDate = new Date(performed.getTime() + monthsToMs(config.totalEffectMonths));

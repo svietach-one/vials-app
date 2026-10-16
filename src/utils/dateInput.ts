@@ -1,7 +1,8 @@
 /**
- * DD/MM/YYYY text ⇄ YYYY-MM-DD ISO conversion, shared by the clinic date
- * fields (AddProcedureModal, ProcedureDetailScreen). Pure — no React, no
- * store, `now` is injected where the current day matters.
+ * Calendar-date helpers: DD/MM/YYYY text ⇄ YYYY-MM-DD ISO conversion, and the
+ * LOCAL-calendar "today" / date-only parsing used by timeHelpers, paoHelpers,
+ * the clinic and the product forms. Pure — no React, no store, `now` is
+ * injected where the current day matters.
  */
 
 /** Parses DD/MM/YYYY → YYYY-MM-DD ISO date string, or null on failure. */
@@ -28,6 +29,15 @@ export function todayLocalIso(now: Date = new Date()): string {
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
   return `${now.getFullYear()}-${mm}-${dd}`;
+}
+
+/**
+ * Local midnight of a YYYY-MM-DD date. `new Date('YYYY-MM-DD')` is UTC
+ * midnight, which is a different calendar day on the local clock west of UTC.
+ */
+export function parseLocalDate(iso: string): Date {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
 /** Formats a YYYY-MM-DD ISO date string → DD/MM/YYYY for display in inputs. */

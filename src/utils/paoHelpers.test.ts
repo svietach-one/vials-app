@@ -2,7 +2,7 @@ import { computePaoStatus, getProductPaoStatus } from '@/utils/paoHelpers';
 import type { Product } from '@/types';
 
 // Fixed "now" used across all tests: 2026-06-27 (Saturday)
-const NOW = new Date('2026-06-27T12:00:00.000Z');
+const NOW = new Date(2026, 5, 27, 12, 0);
 
 // Minimal product factory — only fields relevant to PAO logic
 function makeProduct(overrides: Partial<Product>): Product {

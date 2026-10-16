@@ -69,7 +69,7 @@ export interface PaoStatus {
 computePaoStatus(openedDate: string, paoMonths: number, now?: Date): PaoStatus
   - Parse openedDate as UTC midnight (openedDate + 'T00:00:00.000Z')
   - Compute expiry: copy parsed date, call setUTCMonth(month + paoMonths)
-  - Compute todayUTC: parse now.toISOString().split('T')[0] + 'T00:00:00.000Z'
+  - Compute todayUTC: parse todayLocalIso(now) + 'T00:00:00.000Z' (the user's LOCAL calendar day; was the UTC date, which was off by one near midnight — fixed in fix/procedure-date-timezone)
   - daysRemaining = Math.ceil((expiry - todayUTC) / MS_PER_DAY)
   - Return { daysRemaining, isExpired: daysRemaining < 0,
              isExpiringSoon: daysRemaining >= 0 && daysRemaining <= 30 }

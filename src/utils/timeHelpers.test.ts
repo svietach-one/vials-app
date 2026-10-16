@@ -183,6 +183,12 @@ describe('getElapsedDays', () => {
     expect(getElapsedDays('2026-10-24', new Date(2026, 9, 26, 0, 30))).toBe(2);
   });
 
+  it('counts across the spring DST change (a 23-hour day) as whole calendar days', () => {
+    // EU clocks go forward on 2026-03-29; US on 2026-03-08
+    expect(getElapsedDays('2026-03-28', new Date(2026, 2, 30, 0, 30))).toBe(2);
+    expect(getElapsedDays('2026-03-07', new Date(2026, 2, 9, 0, 30))).toBe(2);
+  });
+
   it('returns a negative count for a future date', () => {
     expect(getElapsedDays('2026-10-17', new Date(2026, 9, 16, 12, 0))).toBe(-1);
   });

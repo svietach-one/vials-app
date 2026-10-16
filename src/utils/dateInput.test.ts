@@ -1,4 +1,4 @@
-import { todayLocalIso } from './dateInput';
+import { parseLocalDate, todayLocalIso } from './dateInput';
 
 describe('todayLocalIso', () => {
   it('returns the local calendar date at 01:00 regardless of timezone offset', () => {
@@ -33,5 +33,20 @@ describe('todayLocalIso', () => {
     expect('2026-10-17' > today).toBe(true);
     expect('2026-10-16' > today).toBe(false);
     expect('2026-09-30' > today).toBe(false);
+  });
+});
+
+describe('parseLocalDate', () => {
+  it('returns local midnight of the given calendar day in any timezone', () => {
+    const d = parseLocalDate('2026-10-16');
+
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()]).toEqual([
+      2026, 9, 16, 0, 0,
+    ]);
+  });
+
+  it('round-trips with todayLocalIso', () => {
+    expect(todayLocalIso(parseLocalDate('2026-01-01'))).toBe('2026-01-01');
+    expect(todayLocalIso(parseLocalDate('2026-12-31'))).toBe('2026-12-31');
   });
 });

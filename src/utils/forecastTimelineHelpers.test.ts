@@ -250,3 +250,11 @@ describe('buildForecastTimeline — archived exclusion and determinism', () => {
     expect(procedures).toEqual(snapshot);
   });
 });
+
+describe('buildForecastTimeline — date-only datePerformed is a local calendar day', () => {
+  it('starts a track performed on the 1st exactly on its month column', () => {
+    const data = buildForecastTimeline([makeLog({ datePerformed: '2026-07-01' })], NOW);
+
+    expect(trackFor(data, 'proc-1').startOffset).toBe(6);
+  });
+});

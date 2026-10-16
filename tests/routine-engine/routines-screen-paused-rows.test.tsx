@@ -9,6 +9,7 @@
  * tests/routine-engine/routines-screen-generation-ux.test.tsx, except
  * proceduresStore is seeded with a REAL custom procedure log (the subject).
  */
+import { todayLocalIso } from '@/utils/dateInput';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import type { Product, Routine, UserProcedureLog } from '@/types';
@@ -199,7 +200,7 @@ describe('Story 3 AC: an in-window custom_default match renders as a dimmed "Pau
         procedureKey: 'custom',
         customName: 'Laser resurfacing',
         customRehabDays: 7,
-        datePerformed: new Date().toISOString().split('T')[0],
+        datePerformed: todayLocalIso(),
         status: 'rehab',
         deferralCount: 0,
       },
