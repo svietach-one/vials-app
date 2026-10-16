@@ -1,30 +1,38 @@
+import { todayLocalIso } from '@/utils/dateInput';
+
 const MS_PER_DAY = 86_400_000;
 
-/**
- * Whole days elapsed between a YYYY-MM-DD date and `now`. Both sides resolve
- * to UTC midnight so the diff counts whole skincare days regardless of the
- * device's local time-of-day.
- */
-export function getElapsedDays(dateStr: string, now: Date = new Date()): number {
-  const start = new Date(dateStr).getTime();
-  const today = new Date(now.toISOString().split('T')[0]).getTime();
-  return Math.floor((today - start) / MS_PER_DAY);
+/** Midnight-UTC epoch of a calendar day, so differences are exact whole days (no DST). */
+function calendarDayNumber(year: number, month: number, day: number): number {
+  return Date.UTC(year, month, day) / MS_PER_DAY;
 }
 
 /**
- * Returns the current skincare date with a day boundary at 04:00.
- * Activity logged between 00:00–03:59 counts toward the previous calendar day.
+ * Whole calendar days between a YYYY-MM-DD date and `now`'s LOCAL calendar
+ * day. Both sides are plain calendar dates, so the result does not depend on
+ * the time of day or the device's UTC offset.
+ */
+export function getElapsedDays(dateStr: string, now: Date = new Date()): number {
+  const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number);
+  return (
+    calendarDayNumber(now.getFullYear(), now.getMonth(), now.getDate()) -
+    calendarDayNumber(y, m - 1, d)
+  );
+}
+
+/**
+ * Returns the current skincare date (local calendar, YYYY-MM-DD) with a day
+ * boundary at 04:00. Activity logged between 00:00–03:59 counts toward the
+ * previous calendar day.
  */
 export function getSkincareDateString(now: Date = new Date()): string {
-  const currentHour = now.getHours();
-
-  if (currentHour < 4) {
+  if (now.getHours() < 4) {
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
-    return yesterday.toISOString().split('T')[0];
+    return todayLocalIso(yesterday);
   }
 
-  return now.toISOString().split('T')[0];
+  return todayLocalIso(now);
 }
 
 /**
