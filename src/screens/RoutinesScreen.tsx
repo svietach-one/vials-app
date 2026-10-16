@@ -36,7 +36,6 @@ import { RemoveStepModal } from '@/components/routine/RemoveStepModal';
 import { RoutineProductCard } from '@/components/routine/RoutineProductCard';
 import { RoutineSchedulerSheet } from '@/components/routine/RoutineSchedulerSheet';
 import { RoutineStepActionSheet } from '@/components/routine/RoutineStepActionSheet';
-import { LeftOutSection } from '@/components/routine/LeftOutSection';
 import { StepGroupHeader } from '@/components/routine/StepGroupHeader';
 import { StepTransitionDivider } from '@/components/routine/StepTransitionDivider';
 import { GoalConfirmBanner } from '@/components/routine/GoalConfirmBanner';
@@ -71,7 +70,6 @@ import { ConflictEngine, type ConflictStepInput } from '@/utils/conflictEngine';
 import { getRecoveryConditionCaution } from '@/utils/skinConditionModifiers';
 import { normalizeProductType } from '@/utils/productForm/categoryDetector';
 import { gapDismissKey, visibleGaps } from '@/utils/gapDismissal';
-import { buildLeftOutItems } from '@/utils/routineLeftOut';
 import { dateForDow, isScheduledOnDay } from '@/utils/routineSchedule';
 import { getSkincareDateString } from '@/utils/timeHelpers';
 import {
@@ -246,14 +244,6 @@ export default function RoutinesScreen({ navigation }: Props) {
   const placeholders: PlaceholderSlot[] = useMemo(
     () => visibleGaps(validation?.proposedPlan.placeholders ?? [], dismissedGapCards),
     [validation, dismissedGapCards],
-  );
-
-  // "Not in your routine": owned products with no visible saved step, from the
-  // same proposed plan the gap cards and the Draft Preview use (rule lives in
-  // the pure util; nothing is stored).
-  const leftOutItems = useMemo(
-    () => (validation ? buildLeftOutItems(validation.proposedPlan, products, routines) : []),
-    [validation, products, routines],
   );
 
   const handleOpenDraftPreview = useCallback(() => {
@@ -890,12 +880,6 @@ export default function RoutinesScreen({ navigation }: Props) {
         {totalSteps > 0 ? (
           <View style={styles.addProductFooter}>
             <PausedSteps frozen={allFrozen} products={products} />
-            <LeftOutSection
-              items={leftOutItems}
-              products={products}
-              onAdd={handleOverride}
-              onReview={handleOpenDraftPreview}
-            />
             <Button
               variant="textActive"
               size="md"

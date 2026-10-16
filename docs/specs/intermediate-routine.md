@@ -378,3 +378,21 @@ The app is local-only with no telemetry, so success is verified on fixtures:
   (a) "Not for me" is available with edit mode on or off; (b) manual edits do not reset a dismissal, only a save does;
   (c) calendar caption and highlight follow edit mode, with no highlight outside it; (d) the calendar entry's unchanged
   limits (first visible step, today's weekday in the confirmation).
+
+## Revision 2026-10-16 — "Not in your routine" leaves the Routines screen (product owner)
+
+The owner does not want the "Not in your routine · N" block on the Routines
+screen; it stays on the generation page only (her words: "не хочу видеть блок
+not in your routine на странице рутин, пусть остается только на странице
+генерации рутин"). Supersedes the §5 / Story 4 placement above the "Add
+product" button and the Story 5 AC that the section shows products removed on
+purpose.
+
+The generation page (Draft Preview) already lists what the plan sets aside — the
+"Paused until …" rows and the collapsed "In reserve · N" block, each reserved
+row with its own "Add anyway" — so the "must not be silent" rule is met there,
+not on the saved screen. Trade-off accepted by the owner: a product the user
+removed on purpose is no longer listed on the saved Routines screen; it is
+surfaced only when they open the generation page. `buildLeftOutItems` and
+`LeftOutSection` stay in the code, tested, but are not rendered anywhere yet.
+

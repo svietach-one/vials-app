@@ -442,3 +442,6 @@ UNRELATED, PRE-EXISTING: tests/routine-engine/add-procedure-modal.test.tsx (2 te
   the three raw-type writers). The tech-lead's verdict block is untouched.
 - **N1** the comment in explainability-invariant.test.ts no longer credits the relocation fix (the property holds with or without FE-13; its guards are relocation-single-outcome.test.ts and resolve.test.ts).
 
+2026-10-16 — product owner: remove the "Not in your routine" block from the Routines screen; keep it on the generation page only. Done in RoutinesScreen (the render and the useMemo that built the items); the screen test now asserts the block is ABSENT. The Draft Preview already shows "Paused until ..." rows and a collapsed "In reserve · N" with "Add anyway", so nothing set aside is silent there. `buildLeftOutItems` / `LeftOutSection` / their tests are kept but unused by any screen - open question for the owner: render LeftOutSection inside the Draft Preview, or delete it.
+Also fixed on request the same day: (1) the gap card with two actions squeezed its copy into a few letters (stacked layout, 4f3cd10); (2) a closed orange "Ingredient conflict" notice reappeared after a Morning/Evening switch - the dismissal hash was scoped to the open tab and weekday (664b8dc); (3) the radio ring sat between a label and its sublabel ("Reset all") instead of beside the label (7760ed9).
+

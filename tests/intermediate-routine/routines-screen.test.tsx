@@ -1,13 +1,13 @@
 /**
- * Routines screen integration: gap cards, "Not for me", the "Not in your routine"
- * footer, and edit-mode gating of Remove/Hide in the list and the calendar.
- * Spec Stories 2, 4, 5, 6, 7. The proposed plan comes from the REAL engine
+ * Routines screen integration: gap cards, "Not for me", the ABSENCE of the
+ * "Not in your routine" block (owner decision 2026-10-16: it lives only on the
+ * generation page), and edit-mode gating of Remove/Hide in the list and the
+ * calendar. Spec Stories 2, 4, 5, 6, 7. The proposed plan comes from the REAL engine
  * (validateRoutines -> generatePlan); only stores, navigation and heavy native
  * modules sit behind mocks. Mock boundary follows
  * tests/routine-engine/routines-screen-paused-rows.test.tsx.
  *
- * ASSUMED: RoutinesScreen renders <LeftOutSection> between PausedSteps and the
- * "Add product" button, applies visibleGaps(placeholders, dismissedGapCards) before
+ * ASSUMED: RoutinesScreen applies visibleGaps(placeholders, dismissedGapCards) before
  * rendering GapCards, passes onDismiss only for dismissible cards, and passes
  * allowRemoval={editMode} to RoutineStepActionSheet and editMode to RoutineCalendarView.
  */
@@ -211,77 +211,23 @@ describe('gap cards (Story 2)', () => {
   });
 });
 
-describe('"Not in your routine" section (Story 4)', () => {
-  const header = (n: number) => LEFT_OUT_COPY.leftOutHeader(n);
-
+describe('"Not in your routine" is NOT shown on the Routines screen (owner decision 2026-10-16)', () => {
   function withShelf(extra: Product[]) {
     mockProducts = [...makeS3(), ...extra];
     mockRoutines = savedFrom(mockProducts, [S3.cleanser, S3.cream, S3.spf]);
   }
 
-  it('shows a collapsed header counting the products with no saved step, above the Add product button', () => {
+  it('renders no left-out header even when the shelf holds a ready toner and a reserved oil', () => {
     withShelf([shelfProduct('toner', 'Hydrating Toner', 'toner'), shelfProduct('oil', 'Face Oil', 'oil')]);
 
     renderScreen();
 
-    expect(screen.getByText(header(2))).toBeTruthy();
+    expect(screen.queryByText(/Not in your routine/)).toBeNull();
     expect(screen.queryByText('Face Oil')).toBeNull();
-    const tree = JSON.stringify(screen.toJSON());
-    expect(tree.indexOf(header(2))).toBeGreaterThan(-1);
-    expect(tree.indexOf(header(2))).toBeLessThan(tree.indexOf('Add product to routine'));
+    expect(screen.queryByText(LEFT_OUT_COPY.readyToAdd)).toBeNull();
   });
 
-  it('lists each product with its reason once expanded: ready for the toner, the reserve reason for the oil', () => {
-    withShelf([shelfProduct('toner', 'Hydrating Toner', 'toner'), shelfProduct('oil', 'Face Oil', 'oil')]);
-    renderScreen();
-
-    fireEvent.press(screen.getByText(header(2)));
-
-    expect(screen.getByText('Hydrating Toner')).toBeTruthy();
-    expect(screen.getByText(LEFT_OUT_COPY.readyToAdd)).toBeTruthy();
-    expect(screen.getByText('Face Oil')).toBeTruthy();
-    expect(screen.getByText('Your current goals don’t call for this product — kept in reserve.')).toBeTruthy();
-  });
-
-  it('opens the Draft Preview with the product included, records the override, and saves nothing, when "Add" is tapped on a reserve row', () => {
-    withShelf([shelfProduct('oil', 'Face Oil', 'oil')]);
-    renderScreen();
-    fireEvent.press(screen.getByText(header(1)));
-
-    fireEvent.press(screen.getByLabelText(`${LEFT_OUT_COPY.addAction} Face Oil`));
-
-    expect(mockAddOverride).toHaveBeenCalledWith('oil', 'hash-1');
-    expect(lastDraftProps().visible).toBe(true);
-    expect(mockApplyRoutinePlan).not.toHaveBeenCalled();
-  });
-
-  it('opens the Draft Preview, without recording an override, when "Review" is tapped on a ready row', () => {
-    withShelf([shelfProduct('toner', 'Hydrating Toner', 'toner')]);
-    renderScreen();
-    fireEvent.press(screen.getByText(header(1)));
-
-    fireEvent.press(screen.getByLabelText(`${LEFT_OUT_COPY.reviewAction} Hydrating Toner`));
-
-    expect(lastDraftProps().visible).toBe(true);
-    expect(mockAddOverride).not.toHaveBeenCalled();
-    expect(mockApplyRoutinePlan).not.toHaveBeenCalled();
-  });
-
-  it('does not list a hidden product', () => {
-    withShelf([shelfProduct('hid', 'Hidden Oil', 'oil', { isHidden: true })]);
-
-    renderScreen();
-
-    expect(screen.queryByText(/Not in your routine/)).toBeNull();
-  });
-
-  it('renders no section when every shelf product is already a saved step', () => {
-    renderScreen();
-
-    expect(screen.queryByText(/Not in your routine/)).toBeNull();
-  });
-
-  it('turns the toner from a gap card into a "ready" row when the user adds one to the shelf', () => {
+  it('still turns the toner gap card off when the user adds a toner to the shelf, without listing it', () => {
     const before = renderScreen();
     expect(screen.getByText('No Toner in your morning routine')).toBeTruthy();
     before.unmount();
@@ -290,8 +236,7 @@ describe('"Not in your routine" section (Story 4)', () => {
     renderScreen();
 
     expect(screen.queryByText('No Toner in your morning routine')).toBeNull();
-    fireEvent.press(screen.getByText(header(1)));
-    expect(screen.getByText(LEFT_OUT_COPY.readyToAdd)).toBeTruthy();
+    expect(screen.queryByText(/Not in your routine/)).toBeNull();
   });
 });
 
@@ -354,18 +299,13 @@ describe('"Not for me" on optional cards (Story 6)', () => {
     expect(screen.getByText('No Eye Cream in your evening routine')).toBeTruthy();
   });
 
-  it('does not change the left-out section or the draft because of a dismissal', () => {
+  it('does not change the draft because of a dismissal', () => {
     mockProducts = [...makeS3(), shelfProduct('oil', 'Face Oil', 'oil')];
     mockRoutines = savedFrom(mockProducts, [S3.cleanser, S3.cream, S3.spf]);
-    const first = renderScreen();
-    const withoutDismissal = JSON.stringify(first.toJSON()).includes(LEFT_OUT_COPY.leftOutHeader(1));
-    first.unmount();
-
     mockDismissed = ['am:toner', 'pm:toner', 'am:eye_cream', 'pm:eye_cream'];
+
     renderScreen();
 
-    expect(withoutDismissal).toBe(true);
-    expect(screen.getByText(LEFT_OUT_COPY.leftOutHeader(1))).toBeTruthy();
     expect(lastDraftProps().visible).toBe(false);
   });
 });
