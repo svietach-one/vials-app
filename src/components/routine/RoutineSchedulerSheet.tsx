@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/core/Button';
 import { TimeChip } from '@/components/ui/core/TimeChip';
 import { WeeklySchedulePicker } from '@/components/routine/WeeklySchedulePicker';
 import { colors, radius, space, typography } from '@/constants/tokens';
+import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
+import { normalizeProductType } from '@/utils/productForm/categoryDetector';
 import { derivePeriodSchedules } from '@/utils/routineLabel';
 import type { ProductType } from '@/types';
 
@@ -75,13 +77,21 @@ export function RoutineSchedulerSheet({
     }
     setValidationError(null);
 
+    // Persist the type the engine treats the product as (an enzyme cream is a
+    // peeling, micellar water a makeup remover), not the raw catalog type the
+    // call site passed: the engine writes the normalised type, so a raw one here
+    // would leave two steps of different types for one product. Falls back to the
+    // prop when the product is not in the store.
+    const product = useProductsStore.getState().products.find((p) => p.id === productId);
+    const stepType = product ? normalizeProductType(product).productType : productType;
+
     const { routines } = useRoutinesStore.getState();
     const morningRoutine = routines.find((r) => r.timeOfDay === 'morning');
     const eveningRoutine = routines.find((r) => r.timeOfDay === 'evening');
 
     if (morningRoutine) {
       if (morning) {
-        upsertProductStep(morningRoutine.id, productId, productType, morningScheduledDays);
+        upsertProductStep(morningRoutine.id, productId, stepType, morningScheduledDays);
       } else {
         removeProductStep(morningRoutine.id, productId);
       }
@@ -89,7 +99,7 @@ export function RoutineSchedulerSheet({
 
     if (eveningRoutine) {
       if (evening) {
-        upsertProductStep(eveningRoutine.id, productId, productType, eveningScheduledDays);
+        upsertProductStep(eveningRoutine.id, productId, stepType, eveningScheduledDays);
       } else {
         removeProductStep(eveningRoutine.id, productId);
       }
