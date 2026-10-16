@@ -1,4 +1,4 @@
-# Technical Design: Intermediate routine (toner, eye cream, enzyme exfoliant, "Not in your routine")
+# Technical Design: Intermediate routine (toner, eye cream, enzyme exfoliant, nothing silent)
 Spec: docs/specs/intermediate-routine.md
 Author: tech-designer
 Date: 2026-10-14 (revised 2026-10-15: one routine; owner answers applied; FE-13/FE-14 added for qa-lead findings)
@@ -20,7 +20,7 @@ it, kept in settings and cleared by the next save of its period. Saved steps are
 owned products ─► buildEngineInputFromStores ─► generatePlan(EngineInput — shape unchanged)
   normalizeProductType (+enzyme⇒peeling) ─► selectSkeleton: SKELETON_SLOTS · REQUIRED_SLOTS (+toner, eye_cream) · selectExfoliants
   ─► resolvePeriods (one terminal outcome per product per period) ─► RoutinePlan {periods, frozen, reserve, placeholders, slotAlternatives}
-RoutinesScreen: visibleGaps(placeholders, dismissedGapCards) ─► GapCard(onDismiss) · buildLeftOutItems ─► LeftOutSection
+RoutinesScreen: visibleGaps(placeholders, dismissedGapCards) ─► GapCard(onDismiss)
 Edit mode ─► RoutineStepActionSheet(allowRemoval) · RoutineCalendarView(editMode) ─► routinesStore (no tombstones)
 applyRoutinePlan / resetAllRoutines ─► clearDismissedGapCards(periods saved); DraftPreview ─► buildDraftSummaryLines(plan, diff, products, routines)
 ```
@@ -54,16 +54,10 @@ Phases: A FE-1–3 · B FE-4–6 · C FE-7–10 · D FE-11–12 · E FE-13–14 
   = 3` for an enzyme carrier BEFORE its `isStrongCarrier` return (draft constant beside `EXFOLIANT_TREATMENT_MAX_DAYS`), applied at selection AND in the
   override block, which re-enters an enzyme in its preferred period only (unguarded it runs AM and PM daily). `selectSkeleton` must not grow: extract
   the override block, add one `selectExfoliants` call. No placeholder for an exfoliant. Tests: `skeleton` (cap, override, barrier repair, freeze).
-- FE-7: new `src/utils/routineLeftOut.ts` (pure): `buildLeftOutItems(plan, products, routines)` → `LeftOutItem { productId; kind:
-  'ready'|'reserve'|'frozen'|'alternative'; reasonCode: DecisionReasonCode | null; until?: string }`. Considered iff `isOwnedProduct`, not `isHidden`,
-  and no step with `hidden === false` in any routine (any weekday); precedence ready > reserve > frozen > alternative, shelf order within a kind; total
-  (fallback `reserve`/`not_needed_for_goals`, asserted unreachable). Tests: `routineLeftOut` incl. "non-hidden saved steps ∪ listed ⊇ owned shelf" over
-  shelves with removed, hidden and wishlist products.
-- FE-8: new `LeftOutSection.tsx` (props `{ items, products, onAdd(productId), onReview() }`) and ONE copy module `src/constants/routineScreenCopy.ts`, all
-  PLACEHOLDER (Q4b): `LEFT_OUT_COPY { leftOutHeader(n), readyToAdd, backup, addAction, reviewAction }`, `GAP_DISMISS_COPY { action }`, `CALENDAR_HINT_COPY
-  { view, edit, rowHintView, rowHintEdit }` (renamed from the style-named module). Footer wiring in `RoutinesScreen.tsx` between `PausedSteps` and "Add
-  product": collapsed "Not in your routine · N"; actions reuse `handleOverride`/`handleOpenDraftPreview`; items from the `validation` memo. Tests:
-  `LeftOutSection`.
+- FE-7: REMOVED 2026-10-16 (owner). The pure `routineLeftOut.ts` / `buildLeftOutItems` was built, tested and then deleted: the generation page's own
+  "Paused until" rows and collapsed "In reserve · N" (with "Add anyway") are where set-aside products are shown, so the saved Routines screen needs no list.
+- FE-8: now ONLY the copy module `src/constants/routineScreenCopy.ts` (PLACEHOLDER, Q4b): `GAP_DISMISS_COPY { action }`, `CALENDAR_HINT_COPY { view, edit,
+  rowHintView, rowHintEdit }`. The `LeftOutSection` component and `LEFT_OUT_COPY` were deleted with FE-7. Tests: `gap-dismissal`, `calendar-hints`.
 - FE-9: `RoutineStepActionSheet.tsx` gains `allowRemoval?: boolean` (default true; false omits "Remove from routine", "Hide from routine" and the
   divider on the last visible row); `RoutinesScreen.tsx` passes `allowRemoval={editMode}`. Outside edit mode the sheet keeps "View product details"
   and "Edit product" (product-only actions). Tests: sheet rows per flag.
@@ -114,7 +108,7 @@ Phases: A FE-1–3 · B FE-4–6 · C FE-7–10 · D FE-11–12 · E FE-13–14 
 - Enzyme cleansers read as `peeling`, never the daily cleanse step; hair and lip names are skipped.
   Alternative: let them compete for the cleanser slot under a day cap.
   Reason: the cap would drop the plain cleanser on non-enzyme days; this surfaces a cleanser gap instead of hiding it.
-- The left-out list reuses the plan and adds no state; a product whose only step is removed or hidden is listed; Remove and Hide both yield to the plan.
+- (Superseded 2026-10-16: no left-out list.) Remove and Hide both yield to the plan; a removed step returns when the plan schedules it again.
   Alternative: persist removal markers, or keep `hidden` through a save.
   Reason: owner — regeneration shows steps again; the list cannot tell removed-on-purpose from never-added; a hidden step is un-hidden by a save.
 - Calendar: Remove/Hide rows are omitted outside edit mode; caption and highlight follow `editMode`.
@@ -127,8 +121,8 @@ Phases: A FE-1–3 · B FE-4–6 · C FE-7–10 · D FE-11–12 · E FE-13–14 
 - The dismissal filter runs after the engine, with edit mode on or off, and checks `reasonCode`.
   Alternative: edit-mode only; filter inside `generatePlan`.
   Reason: a card is a prompt, reversible at the next save; the engine stays UI-free; a mandate or follow-up card winning the (period, type) dedupe is safe.
-- Wishlist products are excluded at the engine boundary (FE-3), not only in the left-out util.
-  Alternative: filter in the util only.
+- Wishlist products are excluded at the engine boundary (FE-3).
+  Alternative: filter in each consumer.
   Reason: one owned-only input keeps live cards, Draft Preview and list in agreement.
 - A product has one terminal outcome per period (FE-13).
   Alternative: hide self-offers in `applySlotAlternativeSwap`/Draft Preview; prune alternatives after the engine; only skip the relocation twin.
@@ -143,5 +137,5 @@ Phases: A FE-1–3 · B FE-4–6 · C FE-7–10 · D FE-11–12 · E FE-13–14 
 ## 5. Open Questions
 
 - None blocking: Q5 (option B), Q6, Q7, the wishlist question and both qa-lead findings are decided by the owner (spec §10, this revision).
-- Q4b — PLACEHOLDER copy (left-out, "Not for me", calendar hints) → design. For her read-through (vetoable): calendar gating, dismissal in view mode,
+- Q4b — PLACEHOLDER copy ("Not for me", calendar hints) → design. For her read-through (vetoable): calendar gating, dismissal in view mode,
   the calendar entry's unchanged limits, the summary's fourth line.

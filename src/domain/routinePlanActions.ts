@@ -79,8 +79,8 @@ export function activeOverrides(): string[] {
 /**
  * Assembles the engine input from the hydrated stores. Wishlist products are
  * excluded here — the one place the stores meet the engine — so the live gap
- * cards (validateCurrentRoutines), the Draft Preview (generateDraftPlan) and
- * the "Not in your routine" list all see the same owned-only shelf.
+ * cards (validateCurrentRoutines) and the Draft Preview (generateDraftPlan)
+ * see the same owned-only shelf.
  */
 export function buildEngineInputFromStores(now: Date = new Date()): EngineInput {
   const profile = useProfileStore.getState().profile;

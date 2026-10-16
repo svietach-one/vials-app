@@ -27,7 +27,6 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { gapDismissKey, keysAfterSave, visibleGaps } from '@/utils/gapDismissal';
 import { generatePlan } from '@/utils/routineEngine/generate';
-import { buildLeftOutItems } from '@/utils/routineLeftOut';
 import { gapKeys, makeEngineInput, makeS3, NOW, resetFixtureCounters, routinesFromPlan, shelfProduct } from './fixtures';
 
 const ALL_KEYS = ['am:toner', 'pm:toner', 'am:eye_cream', 'pm:eye_cream'];
@@ -182,11 +181,9 @@ describe('what clears a dismissal', () => {
 });
 
 describe('a dismissal changes only what is drawn', () => {
-  it('leaves the plan, the left-out list and the saved steps exactly as without it', () => {
-    const products = makeS3();
+  it('leaves the plan and the saved steps exactly as without it', () => {
     const snapshot = () => ({
       plan: JSON.stringify(validateCurrentRoutines(NOW).proposedPlan),
-      leftOut: JSON.stringify(buildLeftOutItems(validateCurrentRoutines(NOW).proposedPlan, products, useRoutinesStore.getState().routines)),
       saved: JSON.stringify(useRoutinesStore.getState().routines),
     });
     const before = snapshot();

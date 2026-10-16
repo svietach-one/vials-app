@@ -10,7 +10,6 @@
  *
  *   - `'enzyme_exfoliant'` as an ActiveIngredientKey                (FE-4)  -> ENZYME_TAG below
  *   - `'toner_recommended'` etc. as DecisionReasonCode              (FE-2/4)-> REASON below
- *   - `@/utils/routineLeftOut`          buildLeftOutItems/LeftOutItem (FE-7)
  *
  * Each of those is referenced from ONE place in this file where possible, so a
  * single engineer change clears the type error.
@@ -27,7 +26,6 @@ import type {
 } from '@/types';
 import type { EngineInput, RoutinePlan } from '@/utils/routineEngine/generate';
 import type { PlannedStep } from '@/utils/routineEngine/planTypes';
-import type { LeftOutItem } from '@/utils/routineLeftOut';
 import {
   daysOverlap,
   makeEngineInput,
@@ -114,10 +112,6 @@ export function makeProcedureLogForPeel(datePerformed: string): UserProcedureLog
   return makeProcedureLog({ procedureKey: 'chemical_peel_deep', datePerformed, status: 'rehab' });
 }
 
-/** A LeftOutItem (FE-7). Typed against the real interface so shape drift fails `tsc`. */
-export function makeLeftOutItem(overrides: Partial<LeftOutItem> & Pick<LeftOutItem, 'productId' | 'kind'>): LeftOutItem {
-  return { reasonCode: null, ...overrides };
-}
 
 // ─── Plan readers ────────────────────────────────────────────────────────────
 

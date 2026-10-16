@@ -23,7 +23,6 @@ import { applyRoutinePlan, validateCurrentRoutines } from '@/domain/routinePlanA
 import { useProductsStore } from '@/store/productsStore';
 import { useRoutinesStore } from '@/store/routinesStore';
 import { generatePlan } from '@/utils/routineEngine/generate';
-import { buildLeftOutItems } from '@/utils/routineLeftOut';
 import {
   gapKeys,
   makeEngineInput,
@@ -161,7 +160,7 @@ describe('gap cards never depend on saved steps (Story 5, G6)', () => {
     );
   });
 
-  it('raises no toner gap for an owned toner whose step was removed, and lists the toner as ready', () => {
+  it('raises no toner gap for an owned toner whose step was removed', () => {
     const products = [...makeS3(), shelfProduct('t', 'Toner', 'toner')];
     seed(products);
     useRoutinesStore.getState().removeProductStep('routine-morning', 't');
@@ -171,8 +170,6 @@ describe('gap cards never depend on saved steps (Story 5, G6)', () => {
 
     expect(gapKeys(proposedPlan)).not.toContain('am:toner');
     expect(gapKeys(proposedPlan)).not.toContain('pm:toner');
-    const row = buildLeftOutItems(proposedPlan, products, useRoutinesStore.getState().routines).find((i) => i.productId === 't');
-    expect(row?.kind).toBe('ready');
   });
 
   it('raises the toner gaps once the removed toner is also deleted from the shelf', () => {

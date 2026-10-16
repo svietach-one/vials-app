@@ -394,5 +394,6 @@ row with its own "Add anyway" — so the "must not be silent" rule is met there,
 not on the saved screen. Trade-off accepted by the owner: a product the user
 removed on purpose is no longer listed on the saved Routines screen; it is
 surfaced only when they open the generation page. `buildLeftOutItems` and
-`LeftOutSection` stay in the code, tested, but are not rendered anywhere yet.
+`LeftOutSection` were first kept unused and then DELETED the same day, after the
+owner confirmed that the generation page's "In reserve" block is what she meant.
 

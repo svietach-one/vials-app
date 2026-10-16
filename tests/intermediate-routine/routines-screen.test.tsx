@@ -13,7 +13,7 @@
  */
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
-import { CALENDAR_HINT_COPY, GAP_DISMISS_COPY, LEFT_OUT_COPY } from '@/constants/routineScreenCopy';
+import { CALENDAR_HINT_COPY, GAP_DISMISS_COPY } from '@/constants/routineScreenCopy';
 import type { Product, Routine } from '@/types';
 import { validateRoutines } from '@/utils/routineEngine/validate';
 import { toPersistedAccordionState } from '@/utils/routineAccordion';
@@ -224,7 +224,7 @@ describe('"Not in your routine" is NOT shown on the Routines screen (owner decis
 
     expect(screen.queryByText(/Not in your routine/)).toBeNull();
     expect(screen.queryByText('Face Oil')).toBeNull();
-    expect(screen.queryByText(LEFT_OUT_COPY.readyToAdd)).toBeNull();
+    expect(screen.queryByText('Ready to add')).toBeNull();
   });
 
   it('still turns the toner gap card off when the user adds a toner to the shelf, without listing it', () => {
@@ -353,11 +353,5 @@ describe('calendar discoverability follows the pencil (Story 7)', () => {
 
     expect(screen.getByText(CALENDAR_HINT_COPY.edit)).toBeTruthy();
     expect(screen.queryByText(CALENDAR_HINT_COPY.view)).toBeNull();
-  });
-});
-
-describe('copy contract (spec-literal strings that are NOT placeholders)', () => {
-  it('writes the header as "Not in your routine · N"', () => {
-    expect(LEFT_OUT_COPY.leftOutHeader(3)).toBe('Not in your routine · 3');
   });
 });

@@ -27,7 +27,6 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import type { Product } from '@/types';
 import { isOwnedProduct } from '@/utils/productOwnership';
-import { buildLeftOutItems } from '@/utils/routineLeftOut';
 import { gapKeys, ids, makeS3, NOW, resetFixtureCounters, S3, shelfProduct } from './fixtures';
 
 const wishlistToner = () => shelfProduct('wish-toner', 'Wishlist Toner', 'toner', { status: 'wishlist' });
@@ -77,14 +76,6 @@ describe('one owned-only input', () => {
 
     expect(gapKeys(live)).toEqual(expect.arrayContaining(['am:toner', 'pm:toner']));
     expect(JSON.stringify(live.placeholders)).toBe(JSON.stringify(draft.placeholders));
-  });
-
-  it('does not list the wishlist toner in "Not in your routine"', () => {
-    const { proposedPlan } = validateCurrentRoutines(NOW);
-
-    const listed = buildLeftOutItems(proposedPlan, useProductsStore.getState().products, []);
-
-    expect(listed.map((i) => i.productId)).not.toContain('wish-toner');
   });
 });
 
