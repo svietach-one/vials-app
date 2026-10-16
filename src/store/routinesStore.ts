@@ -10,6 +10,7 @@ import {
 import { generateId } from '@/utils/generateId';
 import { findSameSlotStep } from '@/utils/routineEngine/duplicateSlot';
 import { migrateRoutines } from '@/utils/routineEngine/migrations';
+import { insertStepByLayering } from '@/utils/stepInsertion';
 import type { ProductType, Routine, RoutineStep } from '@/types';
 
 // ─── Default routines ─────────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ export const useRoutinesStore = create<RoutinesState>((set, get) => ({
         ? r.steps.map((s) =>
             s.productId === productId ? { ...s, scheduledDays, hidden: false } : s,
           )
-        : [...r.steps, { id: generateId(), productType, productId, hidden: false, scheduledDays }];
+        : insertStepByLayering(r.steps, { id: generateId(), productType, productId, hidden: false, scheduledDays });
       return { ...r, steps };
     });
     set({ routines });
