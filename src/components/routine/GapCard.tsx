@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/ui/Icon';
 
 import { Button } from '@/components/ui/core/Button';
+import { GAP_DISMISS_COPY } from '@/constants/routineScreenCopy';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 
 /**
@@ -24,20 +25,40 @@ export interface GapCardProps {
    */
   period?: 'morning' | 'evening';
   onFindInCatalog: () => void;
+  /**
+   * "Not for me" — only passed for the optional toner / eye-cream cards
+   * (intermediate-routine, Story 6). Absent ⇒ no second button. The card is a
+   * prompt, not a step, so this is offered with edit mode on or off.
+   */
+  onDismiss?: () => void;
 }
 
-export function GapCard({ label, period, onFindInCatalog }: GapCardProps) {
+export function GapCard({ label, period, onFindInCatalog, onDismiss }: GapCardProps) {
+  // Two actions never fit beside the copy on a phone: a shrinkable text next to
+  // them was squeezed to a few letters ("No Eye Crea|m in your morn|ing"). With
+  // a dismiss action the card therefore STACKS - copy on its own full-width
+  // row, actions on a row below. A lone action keeps the compact one-row card.
+  const stacked = Boolean(onDismiss);
   return (
-    <View style={styles.card}>
-      <View style={styles.iconCircle}>
-        <Icon name="info" size={16} color={colors.statusInfo} />
+    <View style={[styles.card, stacked && styles.cardStacked]}>
+      <View style={styles.header}>
+        <View style={styles.iconCircle}>
+          <Icon name="info" size={16} color={colors.statusInfo} />
+        </View>
+        <Text style={styles.text}>
+          {period ? `No ${label} in your ${period} routine` : `No ${label} in your shelf`}
+        </Text>
       </View>
-      <Text style={styles.text}>
-        {period ? `No ${label} in your ${period} routine` : `No ${label} in your shelf`}
-      </Text>
-      <Button variant="ghost" size="sm" accessibilityRole="button" onPress={onFindInCatalog}>
-        Find in catalog
-      </Button>
+      <View style={[styles.actions, stacked && styles.actionsStacked]}>
+        <Button variant="ghost" size="sm" accessibilityRole="button" onPress={onFindInCatalog}>
+          Find in catalog
+        </Button>
+        {onDismiss ? (
+          <Button variant="ghost" size="sm" accessibilityRole="button" onPress={onDismiss}>
+            {GAP_DISMISS_COPY.action}
+          </Button>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -54,6 +75,16 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     padding: space[3],
   },
+  cardStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  header: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
   iconCircle: {
     width: 28,
     height: 28,
@@ -67,5 +98,16 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textPrimary,
     flex: 1,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+  },
+  // Right-aligned under the copy, and allowed to wrap on the narrowest screens
+  // rather than overflow.
+  actionsStacked: {
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
   },
 });

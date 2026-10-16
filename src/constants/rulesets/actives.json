@@ -1,5 +1,5 @@
 {
-  "version": "2026-07-17",
+  "version": "2026-10-15",
   "legacyKeyMap": {
     "retinol": "retinoid",
     "vitamin_c": "vitamin_c_pure",
@@ -645,6 +645,28 @@
       ],
       "attribution": {
         "requireWithinPosition": 5
+      }
+    },
+    "enzyme_exfoliant": {
+      "displayName": "Enzyme Exfoliant",
+      "matchers": [
+        {
+          "pattern": "\\b(papain|bromelain|subtilisin)\\b"
+        }
+      ],
+      "properties": {
+        "photosensitizing": false,
+        "exfoliating": true,
+        "irritancy": 1,
+        "barrierRepair": false
+      },
+      "allowedPeriods": [
+        "am",
+        "pm"
+      ],
+      "preferredPeriod": "am",
+      "attribution": {
+        "requireWithinPosition": 12
       }
     },
     "physical_exfoliant": {

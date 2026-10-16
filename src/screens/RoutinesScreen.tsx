@@ -69,6 +69,7 @@ import { useTrackingStore } from '@/store/trackingStore';
 import { ConflictEngine, type ConflictStepInput } from '@/utils/conflictEngine';
 import { getRecoveryConditionCaution } from '@/utils/skinConditionModifiers';
 import { normalizeProductType } from '@/utils/productForm/categoryDetector';
+import { gapDismissKey, visibleGaps } from '@/utils/gapDismissal';
 import { dateForDow, isScheduledOnDay } from '@/utils/routineSchedule';
 import { getSkincareDateString } from '@/utils/timeHelpers';
 import {
@@ -87,6 +88,7 @@ import {
   resolveNoticeCollapsed,
   toNoticeCollapseEntry,
 } from '@/utils/noticeCollapse';
+import { routineContentHash } from '@/utils/noticeDismissal';
 import { getAdaptationStatus } from '@/utils/routineEngine/adaptation';
 import { buildRoutineContext } from '@/utils/routineEngine/context';
 import { getDailyView, type FrozenStepView } from '@/utils/routineEngine/dailyView';
@@ -123,6 +125,8 @@ export default function RoutinesScreen({ navigation }: Props) {
   const updateProfile = useProfileStore((s) => s.updateProfile);
   const cycleType = useSettingsStore((s) => s.routineCycleType);
   const gamificationEnabled = useSettingsStore((s) => s.gamificationEnabled);
+  const dismissedGapCards = useSettingsStore((s) => s.dismissedGapCards);
+  const dismissGapCard = useSettingsStore((s) => s.dismissGapCard);
   const applicationStats = useTrackingStore((s) => s.applicationStats);
   const reorderSteps = useRoutinesStore((s) => s.reorderSteps);
   const removeStepFromDay = useRoutinesStore((s) => s.removeStepFromDay);
@@ -218,6 +222,14 @@ export default function RoutinesScreen({ navigation }: Props) {
   const totalSteps =
     (morningRoutine?.steps.length ?? 0) + (eveningRoutine?.steps.length ?? 0);
 
+  // What a dismissed conflict notice is tagged with: the whole SAVED routine
+  // (both periods, every weekday), not the open tab or day - otherwise each tab
+  // would hold its own hash and its dismissal would overwrite the other's.
+  const savedRoutineHash = useMemo(
+    () => routineContentHash(morningRoutine?.steps ?? [], eveningRoutine?.steps ?? []),
+    [morningRoutine, eveningRoutine],
+  );
+
   // Validate mode over the saved routines — avoid-level findings light the
   // bottom Optimize strip (research §3; never a banner, never a modal).
   const validation = useMemo(
@@ -226,7 +238,13 @@ export default function RoutinesScreen({ navigation }: Props) {
     [routines, products, procedures, totalSteps],
   );
 
-  const placeholders: PlaceholderSlot[] = validation?.proposedPlan.placeholders ?? [];
+  // The gap cards to draw: the plan's placeholders minus the toner / eye-cream
+  // cards the user waved off ("Not for me"). Presentation only — the plan, the
+  // draft and the left-out list below still use the unfiltered placeholders.
+  const placeholders: PlaceholderSlot[] = useMemo(
+    () => visibleGaps(validation?.proposedPlan.placeholders ?? [], dismissedGapCards),
+    [validation, dismissedGapCards],
+  );
 
   const handleOpenDraftPreview = useCallback(() => {
     setDraft(validateCurrentRoutines());
@@ -542,15 +560,19 @@ export default function RoutinesScreen({ navigation }: Props) {
   );
 
   function renderGaps(group: RenderGroup) {
-    return group.gaps.map((gap, index) => (
-      <View key={`gap-${gap.reasonCode}-${index}`} style={styles.stepRowWrap}>
-        <GapCard
-          label={PRODUCT_TYPE_LABELS[gap.productTypes[0]] ?? gap.productTypes[0]}
-          period={gap.period === 'am' ? 'morning' : 'evening'}
-          onFindInCatalog={handleFindInCatalog}
-        />
-      </View>
-    ));
+    return group.gaps.map((gap, index) => {
+      const dismissKey = gapDismissKey(gap);
+      return (
+        <View key={`gap-${gap.reasonCode}-${index}`} style={styles.stepRowWrap}>
+          <GapCard
+            label={PRODUCT_TYPE_LABELS[gap.productTypes[0]] ?? gap.productTypes[0]}
+            period={gap.period === 'am' ? 'morning' : 'evening'}
+            onFindInCatalog={handleFindInCatalog}
+            onDismiss={dismissKey ? () => dismissGapCard(dismissKey) : undefined}
+          />
+        </View>
+      );
+    });
   }
 
   // One step GROUP inside a period's draggable list. Each period owns its
@@ -737,6 +759,7 @@ export default function RoutinesScreen({ navigation }: Props) {
         <ConflictWarningInline
           morningSteps={selectedPeriod === 'morning' ? amSteps : []}
           eveningSteps={selectedPeriod === 'evening' ? pmSteps : []}
+          routineHash={savedRoutineHash}
           allSteps={[
             ...amSteps.map((step): ConflictStepInput => ({ ...step, period: 'am' })),
             ...pmSteps.map((step): ConflictStepInput => ({ ...step, period: 'pm' })),
@@ -762,6 +785,7 @@ export default function RoutinesScreen({ navigation }: Props) {
       persistedRehabCollapse,
       setRehabNoticeCollapsed,
       goalCoverageInput,
+      savedRoutineHash,
     ],
   );
 
@@ -808,6 +832,7 @@ export default function RoutinesScreen({ navigation }: Props) {
             products={products}
             onProductPress={openStepSheetForProduct}
             onAddProduct={handleOpenAddSheet}
+            editMode={editMode}
           />
         </View>
       ) : (
@@ -905,6 +930,8 @@ export default function RoutinesScreen({ navigation }: Props) {
 
       <RoutineStepActionSheet
         product={sheetProduct}
+        // Remove/Hide only in edit mode: trimming is deliberate (spec Story 5).
+        allowRemoval={editMode}
         onViewDetails={(p) =>
           navigation.navigate('My Shelf', {
             screen: 'ProductDetail',

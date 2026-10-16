@@ -652,6 +652,18 @@ interface ResolveRun {
   decisions: DecisionLogEntry[];
   /** Keyed by `${period}-${slotIndex}` — one entry per contested slot. */
   slotAlternatives: Map<string, SlotAlternativeAccumulator>;
+  /**
+   * Products that already reached a TERMINAL outcome in a period (admitted,
+   * same-slot loser, or frozen). A product has exactly one outcome per period:
+   * a `relocate` is not terminal — it only moves the product to the other
+   * period — but any later attempt in a period the product is already settled
+   * in is skipped. Without this, a product relocated by a `separate_periods`
+   * rule was tried a second time in the target period (AM → PM joined a twin to
+   * a pool the product was already in; PM → AM re-ran it against an AM it had
+   * already been through), so it could be offered as its own alternative, be
+   * scheduled twice, or be both frozen and scheduled in one period.
+   */
+  settled: Record<Period, Set<string>>;
   optsFor: (relocated: boolean) => AdmitOptions;
 }
 
@@ -683,6 +695,7 @@ function runPeriodPass(
   onRelocate: (candidate: Candidate) => void,
 ): void {
   for (const candidate of pool.sort(compareCandidates)) {
+    if (run.settled[period].has(candidate.product.id)) continue;
     const outcome = tryAdmit(
       candidate,
       period,
@@ -690,6 +703,7 @@ function runPeriodPass(
       run.optsFor(candidate.relocated),
       run.decisions,
     );
+    if (outcome.kind !== 'relocate') run.settled[period].add(candidate.product.id);
     if (outcome.kind === 'admitted') {
       run.admitted[period].push({ step: outcome.step, facts: candidate.facts });
       run.decisions.push({ action: 'admit', productId: candidate.product.id, period });
@@ -717,6 +731,10 @@ function runPeriodPass(
 
 /** PM→AM relocation: one retry against the final AM set; rejection freezes (§1.3). */
 function retryRelocatedInAm(candidate: Candidate, run: ResolveRun): void {
+  // Already settled in AM (admitted, a slot loser or frozen there): the AM pass
+  // gave it its one outcome, so the PM conflict needs no second one.
+  if (run.settled.am.has(candidate.product.id)) return;
+  run.settled.am.add(candidate.product.id); // every branch below is terminal
   const retry = tryAdmit(
     { ...candidate, relocated: true },
     'am',
@@ -743,32 +761,44 @@ function retryRelocatedInAm(candidate: Candidate, run: ResolveRun): void {
   run.decisions.push({ action: 'freeze', productId: candidate.product.id, period: 'am', ruleId: item.ruleId });
 }
 
-/**
- * Resolves both periods: AM first, then PM (research §1.3). AM losers
- * relocated by `separate_periods` re-enter the PM pool; PM losers relocate
- * against the already-final AM set — if that also rejects them, they freeze.
- */
-export function resolvePeriods(input: ResolveInput): ResolveResult {
-  const prioritize = collectPrioritizeTargets(input.context);
-  const limits = collectLimits(input.context);
-  const pairRules = input.context.effectiveRuleset.pairRules;
-  // Adaptation caps merge with skeleton treatment caps, strictest-wins — a
-  // phase-1 retinoid at 2/wk beats the reclassified 4/wk and vice versa.
-  const adaptationLimits = new Map(input.adaptationLimits ?? []);
+/** Adaptation caps merge with skeleton treatment caps, strictest-wins — a
+ *  phase-1 retinoid at 2/wk beats the reclassified 4/wk and vice versa. */
+function mergeFrequencyCaps(input: ResolveInput): Map<string, AdaptationLimit> {
+  const merged = new Map(input.adaptationLimits ?? []);
   for (const [productId, cap] of input.selection?.treatmentCaps ?? []) {
-    const existing = adaptationLimits.get(productId);
+    const existing = merged.get(productId);
     if (!existing || cap.maxDaysPerWeek < existing.maxDaysPerWeek) {
-      adaptationLimits.set(productId, cap);
+      merged.set(productId, cap);
     }
   }
+  return merged;
+}
+
+/** Fresh mutable state for one resolution run. */
+function createResolveRun(input: ResolveInput): ResolveRun {
+  const limits = collectLimits(input.context);
+  const pairRules = input.context.effectiveRuleset.pairRules;
+  const adaptationLimits = mergeFrequencyCaps(input);
   const cycleSplitPairs = input.selection?.cycleSplitPairs ?? [];
-  const run: ResolveRun = {
+  return {
     admitted: { am: [], pm: [] },
     frozen: [],
     decisions: [],
     slotAlternatives: new Map(),
+    settled: { am: new Set(), pm: new Set() },
     optsFor: (relocated) => ({ canRelocate: !relocated, pairRules, limits, adaptationLimits, cycleSplitPairs }),
   };
+}
+
+/**
+ * Resolves both periods: AM first, then PM (research §1.3). AM losers
+ * relocated by `separate_periods` re-enter the PM pool; PM losers relocate
+ * against the already-final AM set — if that also rejects them, they freeze.
+ * A product gets one terminal outcome per period (`ResolveRun.settled`).
+ */
+export function resolvePeriods(input: ResolveInput): ResolveResult {
+  const prioritize = collectPrioritizeTargets(input.context);
+  const run = createResolveRun(input);
 
   const pools = buildPools(input, prioritize);
 

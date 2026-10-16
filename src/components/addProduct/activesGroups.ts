@@ -34,6 +34,13 @@ export const ACTIVES_GROUPS: ActivesGroup[] = [
     keys: ['aha', 'bha', 'pha', 'azelaic_acid'],
   },
   {
+    label: 'Enzymes',
+    color: palette.amber,
+    tint: palette.amberTint,
+    line: palette.amberLine,
+    keys: ['enzyme_exfoliant'],
+  },
+  {
     label: 'Vitamin C',
     color: palette.cobalt,
     tint: palette.cobaltTint,

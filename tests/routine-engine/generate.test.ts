@@ -24,13 +24,15 @@ import {
 beforeEach(() => resetFixtureCounters());
 
 describe('Story 1 AC: generate builds a complete, conflict-free AM/PM draft from the shelf', () => {
-  it('builds a minimal goal-driven routine from a realistic shelf, reserving the rest', () => {
-    // Rewritten for phase-04 skeleton build-up: the routine is CONSTRUCTED
-    // around the goal, not filtered down from the shelf. With goal `aging`,
-    // the PM treatment is the retinoid; vitamin C (also a strong carrier) is
-    // pushed to reserve rather than co-scheduled — never two strong actives in
-    // one PM. Structural slots (cleanser, moisturizer, SPF) fill from the
-    // shelf; a toner has no structural slot and no goal role, so it reserves.
+  it('builds a goal-driven routine from a realistic shelf: structural slots incl. toner, one treatment per period', () => {
+    // Rewritten for phase-04 skeleton build-up, then again for the fuller
+    // routine (intermediate-routine, spec G2): the routine is CONSTRUCTED
+    // around the goal. With goal `aging` the PM treatment is the retinoid;
+    // vitamin C (also a strong carrier) is the AM treatment — never two strong
+    // actives in one period. Structural slots (cleanser, toner, moisturizer,
+    // SPF) fill from the shelf, and a toner is now one of them: it is
+    // scheduled in BOTH periods instead of being reserved. No eye cream is
+    // owned, so the eye-cream step is reported as a gap in both periods.
     const cleanser = makeProduct({ productType: 'cleanser' });
     const toner = makeProduct({ productType: 'toner' });
     const vitC = makeProduct({ activeTags: ['vitamin_c_pure'] });
@@ -44,33 +46,30 @@ describe('Story 1 AC: generate builds a complete, conflict-free AM/PM draft from
       }),
     );
 
-    // AM: cleanser -> vitC (aging treatment, preferredPeriod am) -> moisturizer -> spf
+    // AM: cleanser -> toner -> vitC (aging treatment, preferredPeriod am) -> moisturizer -> spf
     expect(plan.periods.morning.map((s) => s.productId)).toEqual([
       cleanser.id,
+      toner.id,
       vitC.id,
       moisturizer.id,
       spf.id,
     ]);
-    // PM: cleanser -> retinoid (top-ranked aging treatment) -> moisturizer
+    // PM: cleanser -> toner -> retinoid (top-ranked aging treatment) -> moisturizer
     expect(plan.periods.evening.map((s) => s.productId)).toEqual([
       cleanser.id,
+      toner.id,
       retinoid.id,
       moisturizer.id,
     ]);
-    // The toner serves neither a structural slot nor the goal — reserved.
-    expect(plan.reserve).toEqual(
-      expect.arrayContaining([{ productId: toner.id, reasonCode: 'not_needed_for_goals' }]),
-    );
-    // Every product accounted for exactly once (explainability invariant).
-    const scheduled = new Set(
-      [...plan.periods.morning, ...plan.periods.evening].map((s) => s.productId),
-    );
-    const reserved = new Set(plan.reserve.map((r) => r.productId));
-    for (const p of [cleanser, toner, vitC, retinoid, moisturizer, spf]) {
-      expect(scheduled.has(p.id) || reserved.has(p.id)).toBe(true);
-    }
+    // Every product has a role, so nothing is reserved or frozen.
+    expect(plan.reserve).toEqual([]);
     expect(plan.frozen).toHaveLength(0);
-    expect(plan.rulesetVersion).toBe('2026-07-17');
+    // The one step the shelf cannot fill is reported, not silently skipped.
+    expect(plan.placeholders.map((p) => `${p.period}:${p.productTypes[0]}`)).toEqual([
+      'am:eye_cream',
+      'pm:eye_cream',
+    ]);
+    expect(plan.rulesetVersion).toBe('2026-10-15');
   });
 
   it('never places a retinoid and an AHA product in the same period on the same day', () => {
@@ -143,15 +142,33 @@ describe('phase-04 acceptance: skeleton build-up + cumulative exposure end-to-en
     };
   }
 
-  it('maintenance goal → minimal routine; actives in reserve as not_needed_for_goals', () => {
+  it('maintenance goal → structural routine incl. toner; actives, serums, essence and oil in reserve as not_needed_for_goals', () => {
     const s = makeShelf();
     const shelf = Object.values(s);
     const plan = generatePlan(makeEngineInput(shelf, { profile: goal('maintenance') }));
 
-    expect(plan.periods.morning.length).toBeLessThanOrEqual(3);
-    expect(plan.periods.evening.length).toBeLessThanOrEqual(2);
-    expect(plan.reserve.find((r) => r.productId === s.retinoid.id)?.reasonCode).toBe('not_needed_for_goals');
-    expect(plan.reserve.find((r) => r.productId === s.vitC.id)?.reasonCode).toBe('not_needed_for_goals');
+    // Maintenance has no treatment, so each period is exactly its structural
+    // slots: cleanser, toner (now a slot — intermediate-routine), moisturizer,
+    // and SPF in the morning only.
+    expect(plan.periods.morning.map((x) => x.productId)).toEqual([
+      s.cleanser.id,
+      s.misc1.id,
+      s.moisturizer.id,
+      s.spf.id,
+    ]);
+    expect(plan.periods.evening.map((x) => x.productId)).toEqual([
+      s.cleanser.id,
+      s.misc1.id,
+      s.moisturizer.id,
+    ]);
+    // Everything that is not a structural slot is kept in reserve, with the reason.
+    const reserveReasons = Object.fromEntries(plan.reserve.map((r) => [r.productId, r.reasonCode]));
+    for (const p of [s.retinoid, s.vitC, s.ha1, s.ha2, s.misc2, s.misc3]) {
+      expect(reserveReasons[p.id]).toBe('not_needed_for_goals');
+    }
+    expect(plan.reserve).toHaveLength(6);
+    // The toner is no longer reserved.
+    expect(reserveReasons[s.misc1.id]).toBeUndefined();
   });
 
   it('aging goal → retinol is the PM treatment; never two strong actives in one PM', () => {
@@ -279,7 +296,7 @@ describe('a gel-cream fills the moisturiser slot (2026-10-14)', () => {
  *  take their position from, so the placeholder array order IS the screen
  *  order. It must read as a routine, not as the order rules happened to fire. */
 describe('structural gap placeholders read in build order', () => {
-  it('orders an all-gaps morning cleanse → moisturise → protect, not SPF first', () => {
+  it('orders an all-gaps morning cleanse → tone → eye → moisturise → protect, not SPF first', () => {
     const retinoid = makeProduct({ id: 'ret', productType: 'serum', activeTags: ['retinoid'] });
     const plan = generatePlan(
       makeEngineInput([retinoid], {
@@ -289,7 +306,7 @@ describe('structural gap placeholders read in build order', () => {
     );
 
     const am = plan.placeholders.filter((p) => p.period === 'am').map((p) => p.productTypes[0]);
-    expect(am).toEqual(['cleanser', 'moisturizer', 'spf']);
+    expect(am).toEqual(['cleanser', 'toner', 'eye_cream', 'moisturizer', 'spf']);
     // AM gaps all precede PM gaps, so the two tabs never interleave.
     const periods = plan.placeholders.map((p) => p.period);
     expect(periods).toEqual([...periods].sort((a, b) => (a === b ? 0 : a === 'am' ? -1 : 1)));

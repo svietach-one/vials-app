@@ -345,6 +345,36 @@ describe('actives.json — PM-only eligibility lock (§4.2 ruling, 2026-07-17)',
   });
 });
 
+describe('actives.json — enzyme_exfoliant (intermediate-routine, draft values awaiting clinical review)', () => {
+  const enzyme = (activesRuleset.classes as unknown as Record<string, {
+    matchers: { pattern: string }[];
+    properties: { photosensitizing: boolean; exfoliating: boolean; irritancy: number; barrierRepair: boolean };
+    allowedPeriods: string[];
+    preferredPeriod?: string;
+    attribution?: { requireWithinPosition?: number };
+  }>).enzyme_exfoliant;
+
+  it('is a mild, non-photosensitising exfoliant, so it is morning-safe (unlike the PM-only acids)', () => {
+    expect(enzyme.properties).toEqual({ photosensitizing: false, exfoliating: true, irritancy: 1, barrierRepair: false });
+    expect(enzyme.allowedPeriods).toEqual(['am', 'pm']);
+    expect(enzyme.preferredPeriod).toBe('am');
+  });
+
+  it('is attributed from the INCI only within the first 12 ingredients', () => {
+    expect(enzyme.attribution?.requireWithinPosition).toBe(12);
+  });
+
+  it('matches papain, bromelain and subtilisin and nothing else', () => {
+    const regex = new RegExp(enzyme.matchers[0].pattern, 'i');
+    for (const name of ['Papain', 'Bromelain', 'Subtilisin']) expect(regex.test(name)).toBe(true);
+    for (const name of ['Papaya Extract', 'Pineapple Extract', 'Lactic Acid']) expect(regex.test(name)).toBe(false);
+  });
+
+  it('is not a strong active, so it never counts towards the cumulative cap', () => {
+    expect(enzyme.properties.irritancy).toBeLessThan(3);
+  });
+});
+
 describe('actives.json — base mandates block (spec phase-02 §2.1)', () => {
   interface RawMandate {
     id: string;

@@ -9,8 +9,10 @@ import type { Product } from '@/types';
 /**
  * Overflow actions for one routine step (img-03). Mirrors the shelf's
  * ProductActionSheet pattern (modal + backdrop + icon rows, tokens only) so
- * both surfaces feel identical. Exactly four actions — note that "Remove from
- * routine" only drops the step; the product stays on the shelf.
+ * both surfaces feel identical. Four actions — note that "Remove from
+ * routine" only drops the step; the product stays on the shelf. Remove and Hide
+ * exist only when `allowRemoval` is true (Routines edit mode): trimming is
+ * deliberate, so outside edit mode the sheet offers the two product-only rows.
  */
 
 export interface RoutineStepActionSheetProps {
@@ -21,6 +23,8 @@ export interface RoutineStepActionSheetProps {
   onRemoveFromRoutine: (p: Product) => void;
   onHide: (p: Product) => void;
   onClose: () => void;
+  /** Show "Remove from routine" and "Hide from routine". Defaults to true. */
+  allowRemoval?: boolean;
 }
 
 interface RowProps {
@@ -48,6 +52,7 @@ export function RoutineStepActionSheet({
   onRemoveFromRoutine,
   onHide,
   onClose,
+  allowRemoval = true,
 }: RoutineStepActionSheetProps) {
   function run(action: (p: Product) => void) {
     return () => {
@@ -79,18 +84,23 @@ export function RoutineStepActionSheet({
             icon="edit-2"
             label="Edit product"
             onPress={run(onEdit)}
+            divider={allowRemoval}
           />
-          <SheetRow
-            icon="minus-circle"
-            label="Remove from routine"
-            onPress={run(onRemoveFromRoutine)}
-          />
-          <SheetRow
-            icon="eye-off"
-            label="Hide from routine"
-            onPress={run(onHide)}
-            divider={false}
-          />
+          {allowRemoval ? (
+            <>
+              <SheetRow
+                icon="minus-circle"
+                label="Remove from routine"
+                onPress={run(onRemoveFromRoutine)}
+              />
+              <SheetRow
+                icon="eye-off"
+                label="Hide from routine"
+                onPress={run(onHide)}
+                divider={false}
+              />
+            </>
+          ) : null}
         </View>
       </Pressable>
     </Modal>

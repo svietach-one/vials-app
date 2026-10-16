@@ -1,4 +1,5 @@
 import { getActiveSeasonMask } from '@/domain/seasonActions';
+import type { Period } from '@/constants/rulesets/rulesetTypes';
 import { useProceduresStore } from '@/store/proceduresStore';
 import { useProductsStore } from '@/store/productsStore';
 import { useProfileStore } from '@/store/profileStore';
@@ -6,6 +7,7 @@ import { useRoutinesStore } from '@/store/routinesStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrackingStore } from '@/store/trackingStore';
 import { generateId } from '@/utils/generateId';
+import { isOwnedProduct } from '@/utils/productOwnership';
 import { generatePlan, type EngineInput, type RoutinePlan } from '@/utils/routineEngine/generate';
 import { buildStepsFromPlan } from '@/utils/routineEngine/planApply';
 import { validateRoutines, type ValidationResult } from '@/utils/routineEngine/validate';
@@ -20,6 +22,11 @@ import { getSkincareDateString } from '@/utils/timeHelpers';
 /** Which routines a Draft Preview commit writes (research §3 commit scopes). */
 export type PlanCommitScope = 'both' | 'am' | 'pm';
 
+/** The engine periods a commit scope writes. */
+function periodsOfScope(scope: PlanCommitScope): Period[] {
+  return scope === 'both' ? ['am', 'pm'] : [scope];
+}
+
 /**
  * Reset-all (Draft Preview "Reset all" option): empties every routine so the
  * user can rebuild from scratch instead of deleting products one by one.
@@ -32,6 +39,8 @@ export function resetAllRoutines(): void {
   for (const routine of routines) {
     if (routine.steps.length > 0) updateRoutine(routine.id, { steps: [] });
   }
+  // A fresh start brings every waved-off toner / eye-cream card back.
+  useSettingsStore.getState().clearDismissedGapCards(['am', 'pm']);
 }
 
 /**
@@ -51,7 +60,8 @@ export function computeOverrideHash(
 export function currentOverrideHash(): string {
   const profile = useProfileStore.getState().profile;
   return computeOverrideHash(
-    useProductsStore.getState().products.map((p) => p.id),
+    // Owned products only: saving a wishlist item must not discard "Add anyway".
+    useProductsStore.getState().products.filter(isOwnedProduct).map((p) => p.id),
     profile?.primaryGoal ?? 'maintenance',
     profile?.secondaryGoal ?? null,
   );
@@ -66,12 +76,17 @@ export function activeOverrides(): string[] {
   return tracking.overrideHash === currentOverrideHash() ? tracking.overrides : [];
 }
 
-/** Assembles the engine input from the hydrated stores. */
+/**
+ * Assembles the engine input from the hydrated stores. Wishlist products are
+ * excluded here — the one place the stores meet the engine — so the live gap
+ * cards (validateCurrentRoutines) and the Draft Preview (generateDraftPlan)
+ * see the same owned-only shelf.
+ */
 export function buildEngineInputFromStores(now: Date = new Date()): EngineInput {
   const profile = useProfileStore.getState().profile;
   const tracking = useTrackingStore.getState();
   return {
-    products: useProductsStore.getState().products,
+    products: useProductsStore.getState().products.filter(isOwnedProduct),
     procedures: useProceduresStore.getState().procedures,
     profile: {
       fitzpatrick: profile?.fitzpatrick ?? null,
@@ -128,6 +143,10 @@ export function applyRoutinePlan(
       steps: buildStepsFromPlan(planned, routine.steps, plan.frozen, generateId),
     });
   }
+
+  // "Not for me" on a toner / eye-cream card lasts until the next save of its
+  // period: the periods this commit wrote bring their dismissed cards back.
+  useSettingsStore.getState().clearDismissedGapCards(periodsOfScope(scope));
 
   // Usage anchor (phase-05): a product's first appearance in a SAVED plan
   // starts its adaptation clock. Idempotent — an existing anchor is never

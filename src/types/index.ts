@@ -12,6 +12,14 @@ export type ActiveIngredientKey =
   | 'aha'
   | 'bha'
   | 'pha'
+  /**
+   * Proteolytic enzyme exfoliant (papain, bromelain, subtilisin). Non-
+   * photosensitising and mild (irritancy 1), so unlike the acids it may run in
+   * the morning; capped at a few days a week by the routine engine
+   * (intermediate-routine). Attributed from the INCI only within the first 12
+   * ingredients; draft values await post-MVP clinical review.
+   */
+  | 'enzyme_exfoliant'
   | 'vitamin_c_pure'
   | 'vitamin_c_derivative'
   | 'niacinamide'
@@ -717,6 +725,14 @@ export interface AppSettings {
    * 3+ = 3rd/every-30 tier. Drives the next reminder threshold (5/15/30/30…).
    */
   reminderCountShown: number;
+  /**
+   * Toner / eye-cream gap cards the user waved off with "Not for me", as
+   * `'<am|pm>:<toner|eye_cream>'` keys (at most four). Presentation only: the
+   * engine's plan is unchanged. A Draft Preview save clears the keys of the
+   * periods it wrote, "Reset all" clears all (intermediate-routine, Story 6).
+   * Absent in older stored settings; the hydrate merge defaults it to [].
+   */
+  dismissedGapCards: string[];
   /**
    * Per-procedure RehabNoticeCard collapse state on the Routines screen,
    * keyed by RehabNotice.key, so a manual collapse survives a re-visit for

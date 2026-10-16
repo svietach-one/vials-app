@@ -5,12 +5,15 @@ import { Icon } from '@/components/ui/Icon';
 import { CalendarCell } from '@/components/routine/CalendarCell';
 import { EmptyState } from '@/components/ui/core/EmptyState';
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail';
+import { CALENDAR_HINT_COPY } from '@/constants/routineScreenCopy';
 import { colors, palette, radius, space, typography } from '@/constants/tokens';
 import type { Product, Routine } from '@/types';
 import { buildCalendarMatrix, type CalendarRow } from '@/utils/calendarMatrix';
 
 /**
- * Read-only month overview of the routine (img-05). Rows are products, columns
+ * Month overview of the routine (img-05). Tapping a product row opens the
+ * routine action sheet (details, edit and — only in edit mode — remove/hide); the grid
+ * itself is not editable. Rows are products, columns
  * are days; every product row stacks two lanes — a morning lane of sun icons
  * above an evening lane of moon icons — so AM and PM are read by icon rather
  * than by which half of a cell is filled.
@@ -42,6 +45,12 @@ export interface RoutineCalendarViewProps {
   onProductPress: (product: Product) => void;
   /** Add-product entry point for the empty state. */
   onAddProduct: () => void;
+  /**
+   * Whether the Routines screen is in edit mode. Presentational only (this view
+   * reads no store): it switches the caption, the product-column highlight and
+   * the rows' accessibility hint so the user can tell editing from here is on.
+   */
+  editMode?: boolean;
   /** Injected for tests; defaults to the real clock. */
   now?: Date;
 }
@@ -51,6 +60,7 @@ export function RoutineCalendarView({
   products,
   onProductPress,
   onAddProduct,
+  editMode = false,
   now = new Date(),
 }: RoutineCalendarViewProps) {
   const matrix = useMemo(
@@ -99,17 +109,22 @@ export function RoutineCalendarView({
       <Text style={styles.monthLabel}>
         {MONTH_NAMES[matrix.month]} {matrix.year}
       </Text>
+      <Text style={styles.caption}>{editMode ? CALENDAR_HINT_COPY.edit : CALENDAR_HINT_COPY.view}</Text>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.grid}>
           {/* Frozen identity column — outside the horizontal scroll */}
-          <View style={styles.identityColumn}>
+          <View
+            testID="calendar-product-column"
+            style={[styles.identityColumn, editMode && styles.identityColumnEditing]}
+          >
             <View style={styles.identityHeaderSpacer} />
             {matrix.rows.map((row, i) => (
               <IdentityCell
                 key={row.product.id}
                 row={row}
                 isLast={i === matrix.rows.length - 1}
+                editMode={editMode}
                 onPress={onProductPress}
               />
             ))}
@@ -202,10 +217,12 @@ function LegendItem({ period, label }: { period?: 'am' | 'pm'; label: string }) 
 function IdentityCell({
   row,
   isLast,
+  editMode,
   onPress,
 }: {
   row: CalendarRow;
   isLast: boolean;
+  editMode: boolean;
   onPress: (p: Product) => void;
 }) {
   const { product } = row;
@@ -215,6 +232,7 @@ function IdentityCell({
       onPress={() => onPress(product)}
       accessibilityRole="button"
       accessibilityLabel={`${product.name}, open actions`}
+      accessibilityHint={editMode ? CALENDAR_HINT_COPY.rowHintEdit : CALENDAR_HINT_COPY.rowHintView}
     >
       <ProductThumbnail product={product} size={44} />
       <View style={styles.identityText}>
@@ -282,6 +300,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[4],
     paddingBottom: space[3],
   },
+  // One line under the month label. Plain secondary text at the 14px minimum.
+  caption: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    paddingHorizontal: space[4],
+    paddingBottom: space[3],
+  },
   grid: {
     flexDirection: 'row',
     marginHorizontal: space[4],
@@ -297,6 +322,12 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: colors.borderDivider,
     backgroundColor: colors.surfaceCard,
+  },
+  // Edit mode: the information tint and edge (the plum tints read pink), so the
+  // user can see that rows here open a sheet that can remove or hide steps.
+  identityColumnEditing: {
+    backgroundColor: colors.statusInfoTint,
+    borderRightColor: colors.statusInfoLine,
   },
   identityHeaderSpacer: {
     height: HEADER_HEIGHT,

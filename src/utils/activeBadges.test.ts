@@ -90,6 +90,7 @@ describe('getActiveBadgeCategory', () => {
     'aha',
     'bha',
     'pha',
+    'enzyme_exfoliant',
     'benzoyl_peroxide',
     'azelaic_acid',
     'vitamin_c_pure',
@@ -124,6 +125,6 @@ describe('getActiveBadgeCategory', () => {
   it('covers every ActiveIngredientKey exactly once across the four buckets', () => {
     const allKeys = [...exfoliantKeys, ...soothingKeys, ...hydratorKeys, ...otherKeys];
     expect(new Set(allKeys).size).toBe(allKeys.length);
-    expect(allKeys).toHaveLength(18);
+    expect(allKeys).toHaveLength(19);
   });
 });

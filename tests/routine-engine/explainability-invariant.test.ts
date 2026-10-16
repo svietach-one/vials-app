@@ -84,12 +84,29 @@ describe('Explainability invariant (spec §9.7): every shelf product is accounte
       // is both a morning slot-loser and a scheduled evening step. Only the
       // three terminal buckets below are asserted disjoint.
 
-      // Partition: the three buckets are pairwise disjoint. A product is never
-      // simultaneously scheduled AND reserved (the specific case §9.7 calls
-      // out), nor scheduled/frozen, nor frozen/reserved.
+      // Partition: a product is never simultaneously scheduled AND reserved (the
+      // specific case §9.7 calls out), never frozen AND reserved, and never
+      // frozen AND scheduled in the SAME period (see below).
       for (const id of scheduled) {
         expect({ seed, id, alsoReserved: reserve.has(id) }).toEqual({ seed, id, alsoReserved: false });
-        expect({ seed, id, alsoFrozen: frozen.has(id) }).toEqual({ seed, id, alsoFrozen: false });
+      }
+      // scheduled / frozen are NOT disjoint per product: a pair-rule or cap
+      // freeze is per period, so a product may be frozen in one period and
+      // scheduled in the other. The precise partition is per PERIOD: a freeze
+      // decision for a period means the product is not scheduled in it. This
+      // holds with or without the relocation fix in resolve.ts at the seeds
+      // committed here (FE-13's real guards are relocation-single-outcome.test.ts
+      // and resolve.test.ts); hard-gate freezes are asserted in
+      // determinism-and-safety.
+      for (const d of plan.decisions) {
+        if (d.action !== 'freeze' || !d.period || !d.productId) continue;
+        const period = d.period === 'am' ? plan.periods.morning : plan.periods.evening;
+        const scheduledThere = period.some((s) => s.productId === d.productId);
+        expect({ seed, id: d.productId, frozenAndScheduledIn: scheduledThere ? d.period : null }).toEqual({
+          seed,
+          id: d.productId,
+          frozenAndScheduledIn: null,
+        });
       }
       for (const id of frozen) {
         expect({ seed, id, alsoReserved: reserve.has(id) }).toEqual({ seed, id, alsoReserved: false });

@@ -26,8 +26,16 @@ export function periodsForProduct(productType: ProductType, facts: ProductFacts)
 /**
  * The build-order skeleton (V2.1 phase-04 §4.1): which product types may fill
  * each structural slot. Treatment is not listed — it is selected by class
- * ranking, not by format. Types outside this map and outside the treatment
- * ranking do not enter a generated routine at all (minimalism).
+ * ranking, not by format. An enzyme exfoliant is not listed either — it is
+ * placed by its own rule (skeleton.ts `selectExfoliants`, intermediate-routine).
+ * Types outside this map, outside the treatment ranking and not an enzyme
+ * carrier do not enter a generated routine; they sit in the visible reserve.
+ *
+ * `toner` and `eye_cream` joined the skeleton with the intermediate-routine
+ * task (2026-10-15): one fuller routine instead of a minimal one with a hidden
+ * reserve. They also raise per-period gap placeholders when the shelf cannot
+ * fill them (skeleton.ts REQUIRED_SLOTS). A toner or eye cream carrying a
+ * STRONG active is still a treatment, not the toner/eye-cream step.
  *
  * `pre_cleanse` (micellar water, cleansing oils/balms) is a distinct PM-only
  * step ordered BEFORE `cleanser` (the double-cleanse pattern). It is a
@@ -48,6 +56,10 @@ export const SKELETON_SLOTS = {
   // admitting it would let a gel serum win the moisturiser slot outright.
   moisturizer: ['moisturizer', 'cream', 'lotion', 'balm'],
   spf: ['spf'],
+  // Layering indices 3 and 9 are distinct from the moisturiser's 11, so an eye
+  // cream never competes with — or fills — the moisturiser slot.
+  toner: ['toner'],
+  eye_cream: ['eye_cream'],
 } as const satisfies Record<string, readonly ProductType[]>;
 
 export type SkeletonSlotName = keyof typeof SKELETON_SLOTS;

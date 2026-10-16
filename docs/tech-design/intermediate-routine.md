@@ -1,27 +1,28 @@
-# Technical Design: Intermediate routine ("Balanced" style)
+# Technical Design: Intermediate routine (toner, eye cream, enzyme exfoliant, nothing silent)
 Spec: docs/specs/intermediate-routine.md
 Author: tech-designer
-Date: 2026-10-14
+Date: 2026-10-14 (revised 2026-10-15: one routine; owner answers applied; FE-13/FE-14 added for qa-lead findings)
+
+> Revision 2026-10-16 (as built; supersedes FE-5/FE-6 and the enzyme-cleanser assumption below where they differ): `normalizeProductType` reads a NON-strong enzyme
+> carrier of ANY format as a `peeling` (SPF, makeup remover and strong carriers keep their role), so it has its own slot for every consumer and never displaces a plain product;
+> the skeleton extracts only peelings; the enzyme cap (3 days) applies to non-strong carriers only; `RoutineSchedulerSheet` persists the normalised type; INCI position counts top-level tokens.
 
 ## 1. Architecture Overview
 
-A routine style (`RoutineDepth`) is a new engine input that acts BEFORE admission. `selectSkeleton` (pipeline
-step 4.5) decides who enters each period's pool; Balanced widens only that decision: toner and eye cream become
-structural-style slots, enzyme-exfoliant carriers get one weekly exfoliate slot, and the two steps Balanced calls
-for join the required-slot list that raises gap placeholders. `resolvePeriods` (pair rules, caps, same-slot cap),
-mandates, the Phase 9 buckets and determinism are untouched, so Essential reproduces today's engine (throwaway
-spike: 0 plan differences over 600 seeded shelves after one reserve-reason relabel). The live Routines screen
-already renders `validateCurrentRoutines().proposedPlan.placeholders` as `GapCard`s, so Balanced gaps need no UI.
-Products that still miss the routine are listed by a pure util + section fed by the same proposed plan.
-Prerequisite: start after `fix/precleanse-gap-card` merges (uncommitted edits in the shared files); branch from origin/dev.
+One engine behaviour, no style input. `selectSkeleton` decides who enters each period's pool; this task widens only that: toner and eye cream join
+`SKELETON_SLOTS` (candidates AND required slots that raise gap placeholders) and enzyme carriers get one weekly exfoliate slot. `resolvePeriods`
+gains one rule (FE-13: one terminal outcome per product per period); mandates, Phase 9 buckets and determinism are untouched. The Routines screen
+renders `validateCurrentRoutines().proposedPlan.placeholders` as `GapCard`s; that plan is built from OWNED shelf + profile only, never from saved
+steps or UI state, so removing a step can neither raise nor clear a gap. "Not for me" on a toner/eye-cream card is a presentation-only filter over
+it, kept in settings and cleared by the next save of its period. Saved steps are written only by Draft Preview save, Reset all, and manual edits.
 
 ```
-settingsStore.routineDepth ─► buildEngineInputFromStores ─► generatePlan(EngineInput.depth)
-  normalizeProductType (+enzyme cleanser⇒peeling) ─► selectSkeleton(depth)
-     classifyEntries: SKELETON_SLOTS ∪ DEPTH_EXTRA_SLOTS[depth] · selectExfoliants · requiredSlotsFor(period, depth)
-  ─► resolvePeriods (unchanged) ─► RoutinePlan {periods, frozen, reserve, placeholders, slotAlternatives}
-RoutinesScreen: placeholders ─► GapCard (unchanged) · buildLeftOutItems(plan, products, routines) ─► LeftOutSection
-DraftPreviewScreen: SegmentedControl ─► setRoutineDepth ─► regenerate draft
+owned products ─► buildEngineInputFromStores ─► generatePlan(EngineInput — shape unchanged)
+  normalizeProductType (+enzyme⇒peeling) ─► selectSkeleton: SKELETON_SLOTS · REQUIRED_SLOTS (+toner, eye_cream) · selectExfoliants
+  ─► resolvePeriods (one terminal outcome per product per period) ─► RoutinePlan {periods, frozen, reserve, placeholders, slotAlternatives}
+RoutinesScreen: visibleGaps(placeholders, dismissedGapCards) ─► GapCard(onDismiss)
+Edit mode ─► RoutineStepActionSheet(allowRemoval) · RoutineCalendarView(editMode) ─► routinesStore (no tombstones)
+applyRoutinePlan / resetAllRoutines ─► clearDismissedGapCards(periods saved); DraftPreview ─► buildDraftSummaryLines(plan, diff, products, routines)
 ```
 
 ## 2. API Contracts
@@ -30,119 +31,111 @@ N/A — fully local, no network surface (CLAUDE.md local-only constraint).
 
 ## 3. Implementation Tasks
 
-### engineer (scope=frontend/utils — this app has no backend layer)
-
-Phase A — style, toner, eye cream, gap cards:
-- FE-1: `RoutineDepth = 'essential' | 'balanced'` and `AppSettings.routineDepth` in `src/types/index.ts`; new
-  `src/constants/routineDepth.ts` (`DEFAULT_ROUTINE_DEPTH = 'balanced'`, option labels/sublabels). In
-  `src/store/settingsStore.ts`: default, `pickSettings`, `setRoutineDepth`; the hydrate default merge fills old data.
-- FE-2: `src/utils/routineEngine/slotting.ts` — `DEPTH_EXTRA_SLOTS` ({ balanced: toner, eye_cream }) and
-  `slotAtDepth(type, depth)`. `SKELETON_SLOTS` / `structuralSlotFor` stay untouched.
-- FE-3: `src/utils/routineEngine/skeleton.ts` — `SkeletonInput.depth`; `classifyEntries(…, depth)` via `slotAtDepth`;
-  `requiredSlotsFor(period, depth)` (+toner, eye_cream, both periods, at Balanced) feeding
-  `structuralGapPlaceholders(structural, depth)`; reserve `outside_routine_depth` for what Balanced would place (incl. enzymes).
-  New logic goes in helpers: `selectSkeleton` is already 125 lines (tech-lead W6) — do not grow it.
-- FE-4: `src/utils/routineEngine/generate.ts` — `EngineInput.depth?` (absent ⇒ `DEFAULT_ROUTINE_DEPTH`) into
-  `selectSkeleton`; `src/constants/decisionReasons.ts` — `toner_recommended`, `eye_cream_recommended`,
-  `outside_routine_depth` with text (compile-enforced; `rulesetIntegrity` checks emitted literals).
-- FE-5: `src/domain/routinePlanActions.ts` `buildEngineInputFromStores` passes `depth`; `src/screens/RoutinesScreen.tsx`
-  selects `routineDepth` and adds it to the `validation` memo deps (else gap cards go stale on a switch).
-  `computeOverrideHash` is NOT extended.
-
-Phase B — enzyme exfoliant:
-- FE-6: class `enzyme_exfoliant` in `src/constants/rulesets/actives.json`: matchers `papain|bromelain|subtilisin`;
-  `photosensitizing:false, exfoliating:true, irritancy:1, barrierRepair:false`; `allowedPeriods:[am,pm]`;
-  `preferredPeriod:'am'`; `attribution.requireWithinPosition:12`; bump `version`. Add the key to `ActiveIngredientKey`
-  and entries in `src/constants/labels.ts` (compile-enforced; also `FUNCTIONAL_BENEFIT_INGREDIENTS.exfoliation`),
-  `src/utils/activeBadges.ts` (exfoliant bucket), `src/components/addProduct/activesGroups.ts`; reasons
-  `enzyme_exfoliant_cap`, `exfoliant_deferred_barrier_repair`.
-- FE-7: `src/utils/productForm/categoryDetector.ts` — `reclassifyEnzymeExfoliant` (type `cleanser|other` and class
-  present via `getProductActiveKeys` ⇒ `peeling`), composed inside `normalizeProductType`.
-- FE-8: `skeleton.ts` helper `selectExfoliants`: non-strong enzyme carriers at Balanced → at most one per period, in
-  `preferredPeriodFor`; extras ⇒ `duplicate_function`; barrier_repair as either goal ⇒ reserve
-  `exfoliant_deferred_barrier_repair`. `treatmentCapFor` returns `ENZYME_EXFOLIANT_MAX_DAYS = 3` (draft constant beside
-  the other consultant-review caps), applied at selection AND in the override block, where an enzyme override
-  re-enters its preferred period only (unguarded, "Add anyway" schedules it AM and PM every day — spike-verified).
-  No placeholder is ever raised for it.
-
-Phase C — nothing vanishes; style control:
-- FE-9: new `src/utils/routineLeftOut.ts` (pure, no React/stores): `buildLeftOutItems(plan, products, routines)`.
-  For each non-hidden product with no saved step (a hidden step counts as saved) emit one `LeftOutItem` of kind
-  `ready` (scheduled in the plan) | `reserve` | `frozen` | `alternative` (slot loser), in that precedence, shelf
-  order within a kind. Total function: fallback `reserve`/`not_needed_for_goals`, asserted unreachable by test.
-- FE-10: new `src/components/routine/LeftOutSection.tsx` + footer wiring in `RoutinesScreen.tsx` (between
-  `PausedSteps` and "Add product"): collapsed header "Not in your routine · N", rows, actions reuse
-  `handleOverride` (reserve) and `handleOpenDraftPreview` (ready). No store writes, tokens only.
-- FE-11: `DraftPreviewScreen.tsx` — `depth` / `onDepthChange` props, `SegmentedControl` with the selected style's
-  sublabel; `RoutinesScreen.tsx` handler: `setRoutineDepth(d); setDraft(validateCurrentRoutines())`.
-- DOC-1: `docs/specs/routine-engine-v2.1/phase-04-skeleton-buildup.md` §4.1 step 4 — one-line amendment: "Nothing
-  else enters" is the Essential contract; Balanced widens it (intermediate-routine).
-
-### engineer (unit tests, both scopes)
-- Each task ships its tests (`skeleton.test.ts`, `slotting.test.ts`, `categoryDetector.test.ts`,
-  `rulesetIntegrity.test.ts`, new `routineLeftOut.test.ts` incl. the "saved ∪ left-out ⊇ shelf" property).
-- `tests/routine-engine/fixtures.ts`: add `enzyme_exfoliant` to `RANDOM_ACTIVE_KEYS`; parametrize
-  explainability, determinism-and-safety and generate suites over both styles. Pin `depth: 'essential'` in the
-  tier-contract tests (phase-04 acceptance, the minimal-routine test in `generate.test.ts`, the all-gaps ordering
-  test) and update the one assertion expecting `not_needed_for_goals` for a toner/eye cream.
-- Latent gap, not a Balanced regression: `explainability-invariant` and `determinism-and-safety` assert
-  scheduled ∩ frozen = ∅, yet a product frozen in one period and scheduled in the other is legal (seeds 157 and 362
-  of a 1000-seed sweep at today's engine: a cleanser and a balm, frozen by copper-peptide pair rules). Assert per
-  hard gate (clinical, pregnancy, PAO, no_allowed_period) before widening seeds or parametrizing.
+### engineer (scope=frontend/utils — no backend layer; each task includes its own unit tests)
+Phases: A FE-1–3 · B FE-4–6 · C FE-7–10 · D FE-11–12 · E FE-13–14 (qa-lead findings, owner-approved into this task) · docs DOC-1–2.
+- FE-1: `src/utils/routineEngine/slotting.ts` — add `toner: ['toner']`, `eye_cream: ['eye_cream']` to `SKELETON_SLOTS`; fix its "types outside this
+  map do not enter" comment. Safe: other `structuralSlotFor` callers compare to `'cleanser'`/`'pre_cleanse'` only; `classifyEntries` adopts the slots
+  with no edit to `selectSkeleton` (125 lines) or `generatePlan` (118). Tests: `slotting`, `skeleton`.
+- FE-2: `skeleton.ts` `REQUIRED_SLOTS` gains toner and eye_cream in both periods; `decisionReasons.ts` gains `toner_recommended`,
+  `eye_cream_recommended` (compile-enforced). `dedupePlaceholders` unchanged; any late promotion of a slot loser must pass `findViolationsAgainst` and
+  be pruned from `slotAlternatives` (none added). Tests: `skeleton`, `rulesetIntegrity`.
+- FE-3: new `src/utils/productOwnership.ts` `isOwnedProduct` (`status !== 'wishlist'`); `buildEngineInputFromStores` passes owned products only (its
+  only callers are `generateDraftPlan` and `validateCurrentRoutines`, so live gap cards and the Draft Preview share one input); `currentOverrideHash`
+  hashes owned ids too. Tests: `productOwnership`; a wishlist toner neither fills the slot nor is listed.
+- FE-4: class `enzyme_exfoliant` in `src/constants/rulesets/actives.json`: matchers `papain|bromelain|subtilisin`; `photosensitizing:false,
+  exfoliating:true, irritancy:1, barrierRepair:false`; `allowedPeriods:[am,pm]`; `preferredPeriod:'am'`; `attribution.requireWithinPosition:12`; bump
+  `version`. Add the key to `ActiveIngredientKey` and entries in `labels.ts` ("Enzyme Exfoliant"), `activeBadges.ts` (exfoliant bucket),
+  `addProduct/activesGroups.ts`; reasons `enzyme_exfoliant_cap`, `exfoliant_deferred_barrier_repair`. Tests: `rulesetIntegrity`, badges.
+- FE-5: `categoryDetector.ts` — `reclassifyEnzymeExfoliant` (type `cleanser|other`, class via `getProductActiveKeys`, name not matching
+  `isHairProductName`/`isLipProductName` ⇒ `peeling`; type checked first), composed in `normalizeProductType` after `reclassifyMakeupRemover` (a
+  cleansing balm with enzymes stays a pre-cleanse); still the one normalisation entry. Tests: `categoryDetector`.
+- FE-6: `skeleton.ts` helper `selectExfoliants`: non-strong enzyme carriers → at most one per period, in `preferredPeriodFor`; extras ⇒
+  `duplicate_function`; barrier_repair as either goal ⇒ reserve `exfoliant_deferred_barrier_repair`. `treatmentCapFor` returns `ENZYME_EXFOLIANT_MAX_DAYS
+  = 3` for an enzyme carrier BEFORE its `isStrongCarrier` return (draft constant beside `EXFOLIANT_TREATMENT_MAX_DAYS`), applied at selection AND in the
+  override block, which re-enters an enzyme in its preferred period only (unguarded it runs AM and PM daily). `selectSkeleton` must not grow: extract
+  the override block, add one `selectExfoliants` call. No placeholder for an exfoliant. Tests: `skeleton` (cap, override, barrier repair, freeze).
+- FE-7: REMOVED 2026-10-16 (owner). The pure `routineLeftOut.ts` / `buildLeftOutItems` was built, tested and then deleted: the generation page's own
+  "Paused until" rows and collapsed "In reserve · N" (with "Add anyway") are where set-aside products are shown, so the saved Routines screen needs no list.
+- FE-8: now ONLY the copy module `src/constants/routineScreenCopy.ts` (PLACEHOLDER, Q4b): `GAP_DISMISS_COPY { action }`, `CALENDAR_HINT_COPY { view, edit,
+  rowHintView, rowHintEdit }`. The `LeftOutSection` component and `LEFT_OUT_COPY` were deleted with FE-7. Tests: `gap-dismissal`, `calendar-hints`.
+- FE-9: `RoutineStepActionSheet.tsx` gains `allowRemoval?: boolean` (default true; false omits "Remove from routine", "Hide from routine" and the
+  divider on the last visible row); `RoutinesScreen.tsx` passes `allowRemoval={editMode}`. Outside edit mode the sheet keeps "View product details"
+  and "Edit product" (product-only actions). Tests: sheet rows per flag.
+- FE-10: `RoutineCalendarView.tsx` stays presentational: new optional `editMode?: boolean` (default false; no store access). With rows present it renders
+  one caption (`CALENDAR_HINT_COPY.view|edit`, `typography.bodySmall`, `colors.textSecondary`) under the month label; in edit mode the identity column
+  takes `colors.statusInfoTint` and a `colors.statusInfoLine` edge (plum tints read pink); none of it in the empty state. Keep each row's label
+  `${name}, open actions` (a green test finds rows by it; its 2 red tests are unrelated empty-state copy) and add `accessibilityHint` per mode; no
+  "Morning"/"Evening" text or sun/moon icon. `RoutinesScreen` passes `editMode`. Tests: caption/hint/empty per mode.
+- FE-11: new `src/utils/gapDismissal.ts` (pure): `gapDismissKey(p: PlaceholderSlot): string | null` → `'am:toner'` etc. iff `reasonCode` is
+  `toner_recommended`/`eye_cream_recommended` (never a mandate, follow-up or core-slot placeholder); `visibleGaps(placeholders, keys)`;
+  `keysAfterSave(keys, periods)`. `AppSettings.dismissedGapCards: string[]` (default `[]`, add to `pickSettings`) with `dismissGapCard(key)` and
+  `clearDismissedGapCards(periods)` in `settingsStore`; `applyRoutinePlan` clears the periods it wrote, `resetAllRoutines` clears both (cross-store
+  work stays in `src/domain/`). Tests: `gapDismissal`, `settingsStore`, `routinePlanActions` scope clearing.
+- FE-12: `GapCard` gains optional `onDismiss` → a second ghost button (`GAP_DISMISS_COPY.action`); `RoutinesScreen` applies `visibleGaps` to
+  `placeholders` before both `attachPlaceholderGaps` memos and passes `onDismiss` only when `gapDismissKey(gap)` is non-null; works with edit mode on
+  or off. Tests: `GapCard`, screen wiring.
+- FE-13: `src/utils/routineEngine/resolve.ts` — a swap must never offer a scheduled product (spec Story 1 AC3). Cause, measured not guessed: a product
+  relocated by a `separate_periods` rule is attempted twice in the target period (AM→PM adds a twin pool entry; PM→AM `retryRelocatedInAm`), so it
+  also becomes its own alternative, a duplicate alternative or a second scheduled step; day-split is incidental. Fix at the source:
+  `ResolveRun.settled` per period (terminal = admitted, same-slot loser, frozen; a relocate is not terminal, so ping-pong still ends in a bucket);
+  `runPeriodPass` and `retryRelocatedInAm` skip settled products; extract run creation (`resolvePeriods` is 56 lines). Consumers:
+  `fillPreCleanseGapFromAlternatives`, `applySlotAlternativeSwap`, `DraftPreviewScreen` "Change", explainability suites. Invariants: every non-hidden
+  product in a bucket; no scheduled product in ANY same-period alternatives list; no id twice in an entry or a period; entry members share the slot; a
+  stored snapshot is never re-added without `findViolationsAgainst`. Tests: failing-first repro; corpus property of these invariants.
+- FE-14: `src/utils/routineEngine/planApply.ts` — `buildDraftSummaryLines(plan, diff, products, routines?)` (the signature qa-lead's
+  `draft-summary.test.ts` assumes; without `routines` it keeps today's diff-based line). New pure `findReaddedProductIds(plan, routines)`: products
+  with a planned (period, weekday) that no non-hidden saved step of that period covers (`[]` = every day), minus products narrated as `moved`. The line
+  stays "N product(s) added", reserved outside the cap of 3 and last (max 4 lines); update the doc comment. `computeDiff` is unchanged;
+  `DraftPreviewScreen` passes the `routines` it already reads. Tests: `planApply` (replace "never emits more than three lines"; full, one-weekday,
+  un-hide, both periods counted once, crowded draft, nothing to add).
+- DOC-1: `docs/specs/routine-engine-v2.1/phase-04-skeleton-buildup.md` §4.1 — diagram and step 4 "Nothing else enters": toner and eye cream are
+  structural slots; an enzyme exfoliant is placed by its own rule (intermediate-routine).
+- DOC-2: comments only — `planApply.ts`: a hidden step survives `buildStepsFromPlan` untouched ONLY when the plan does not schedule its product, else
+  it is un-hidden with the plan's days; `RoutineCalendarView.tsx` header: drop "Read-only".
+- Cross-cutting tests: pin in `planApply.test.ts` (removed step re-created; hidden step un-hidden, id and pin kept; unplanned hidden stays hidden);
+  `tests/routine-engine/fixtures.ts`: `enzyme_exfoliant` in `RANDOM_ACTIVE_KEYS`, weight toner/eye cream/enzyme/wishlist into the sweeps; update the old
+  minimal-routine assertions (`generate.test.ts` "minimal goal-driven routine", "maintenance goal → minimal routine", "all-gaps morning"; `skeleton.test.ts`
+  "minimalism"). The old scheduled∩frozen "latent gap" was partly FE-13 (12 of 35 shelves); 23 legitimate freezes remain, so keep asserting per hard gate.
 
 ## 4. Assumptions
 
-- The style changes slot SELECTION before admission, not a filter over a finished plan.
-  Alternative: generate one maximal plan and drop steps for Essential.
-  Reason: a post-hoc drop leaves day-splits, freezes and slot winners computed with the dropped steps present;
-  selection upstream keeps the ladder authoritative, is small, and leaves Essential equal to today's engine (spike).
-- Balanced slots live in a new `DEPTH_EXTRA_SLOTS`, a view over existing `LAYERING_ORDER` types.
-  Alternative: add toner and eye_cream to `SKELETON_SLOTS`.
-  Reason: `structuralSlotFor` also drives grouping, pre-cleanse coverage and validate; widening it would change
-  Essential and saved-routine checks.
-- Default is `balanced` for everyone through one constant (settings default and engine fallback); no migration.
-  Alternative: engine fallback `essential` (tests untouched) while the app passes `balanced`.
-  Reason: no release and no users (product owner). Balanced is best for a new user: it is the
-  cosmetologist-aligned default, turns two common silently-reserved items (toner, eye cream) into steps, and every
-  gap or exclusion is visible and reversible in one tap. Two defaults would be a footgun; the flip costs ~3 test pins.
-- The style is a device preference in `AppSettings`; `computeOverrideHash` is unchanged.
-  Alternative: a `UserProfile` field, or hashing the style into the override key.
-  Reason: it changes engine behaviour like `routineCycleType`; hashing it would discard "Add anyway" on a switch.
-- Balanced calls for toner and eye cream only; a missing one raises a per-period `PlaceholderSlot`, using
-  candidacy exactly as the core slots do.
-  Alternative: owned-only placement, or one consolidated "complete your routine" card.
-  Reason: product owner — never silent. Per-slot cards reuse `dedupePlaceholders`, `attachPlaceholderGaps` and
-  `GapCard` unchanged, sit where the step belongs, and are bounded (spike: at most 5 per period view).
-- Exfoliation is opportunistic: placed when owned, never prompts a purchase (open question Q2).
-  Alternative: a card when no enzyme product is owned.
-  Reason: it depends on skin state (barrier_repair, post-procedure freeze, tone and season caps); a card could ask
-  for what the engine then forbids. Goal coverage remains the channel for actives.
-- Morning exfoliation decided: enzymes prefer AM, may run PM, one product per period, at most 3 days a week.
+- Toner and eye cream join `SKELETON_SLOTS` directly and raise per-period gap placeholders by candidacy, like the core slots.
+  Alternative: a separate extras table; owned-only placement; one consolidated card.
+  Reason: one mode leaves no tier to protect; owner: never silent; reuses dedupe, `attachPlaceholderGaps`, `GapCard`.
+- Morning exfoliation: enzymes prefer AM, may run PM, one product per period, at most 3 days a week; no purchase prompt.
   Alternative: PM like the acids, or both periods.
-  Reason: non-photosensitizing and irritancy 1, so the PM-only ruling for retinoid/AHA/BHA does not apply (`pha`
-  is already morning-safe; that lock's test is untouched); matches the memo; Fitzpatrick 4–6 and summer already
-  clamp any `exfoliating:true` product to 1 day and procedure rehab rules already freeze it (spike-verified).
-- Enzyme cleansers read as `peeling`, never the daily cleanse step.
+  Reason: non-photosensitizing, irritancy 1, so the PM-only ruling for retinoid/AHA/BHA does not apply; phototype, summer and rehab limits already act.
+- Enzyme cleansers read as `peeling`, never the daily cleanse step; hair and lip names are skipped.
   Alternative: let them compete for the cleanser slot under a day cap.
-  Reason: the same-slot cap would drop the plain cleanser on non-enzyme days; reclassifying follows the existing
-  `normalizeProductType` pattern and surfaces a cleanser gap instead of hiding it.
-- The left-out list reuses the proposed plan; no new persisted state.
-  Alternative: persist dismissals, or show leftovers only in the Draft Preview.
-  Reason: Draft-only leaves the saved screen (where reserve is invisible today) unchanged; dismissals need a new store.
-- `LAYERING_ORDER` is unchanged (eye cream renders before the moisturiser), and tier-excluded products get a new
-  reserve reason `outside_routine_depth`.
-  Alternative: reorder to match the memo; keep `not_needed_for_goals`.
-  Reason: ordering is global (saved routines, validation) and the memo's order is one consultant's preference; the
-  old text blames the user's goals when the cause is the style.
-- Balanced is not a strict superset of Essential (spike, 1000 shelves: 10 steps dropped, mostly cleansers carrying an
-  active displaced by an admitted toner/eye cream's pair rule; 17 others added, mainly gels/serums that win the single
-  treatment slot a mild-active toner/eye cream used to hold).
-  Alternative: keep them in the treatment pool as well.
-  Reason: simplicity; each effect is explained through frozen/reserve/left-out and the invariant holds. UI copy
-  never promises "everything from Essential".
+  Reason: the cap would drop the plain cleanser on non-enzyme days; this surfaces a cleanser gap instead of hiding it.
+- (Superseded 2026-10-16: no left-out list.) Remove and Hide both yield to the plan; a removed step returns when the plan schedules it again.
+  Alternative: persist removal markers, or keep `hidden` through a save.
+  Reason: owner — regeneration shows steps again; the list cannot tell removed-on-purpose from never-added; a hidden step is un-hidden by a save.
+- Calendar: Remove/Hide rows are omitted outside edit mode; caption and highlight follow `editMode`.
+  Alternative: no sheet outside edit mode; an always-on caption and highlight.
+  Reason: keeps details reachable and applies her rule at the one ungated entry; outside edit mode "tap to edit" would be false.
+- "Not for me" state is `AppSettings.dismissedGapCards` (at most 4 keys `am|pm:toner|eye_cream`), cleared per period by `applyRoutinePlan`, wholly by
+  `resetAllRoutines`; "next save" = a Draft Preview save covering the period (manual edits, shelf edits and restarts do not reset it).
+  Alternative: screen state (returns on every restart); `routineNoticeDismissedAt` (its hash changes on manual edits, not on a no-op save); `dismissedBanners`.
+  Reason: only a persisted field cleared by the save path is "until the next save"; keys are per period and type, never per product or step: no tombstones.
+- The dismissal filter runs after the engine, with edit mode on or off, and checks `reasonCode`.
+  Alternative: edit-mode only; filter inside `generatePlan`.
+  Reason: a card is a prompt, reversible at the next save; the engine stays UI-free; a mandate or follow-up card winning the (period, type) dedupe is safe.
+- Wishlist products are excluded at the engine boundary (FE-3).
+  Alternative: filter in each consumer.
+  Reason: one owned-only input keeps live cards, Draft Preview and list in agreement.
+- A product has one terminal outcome per period (FE-13).
+  Alternative: hide self-offers in `applySlotAlternativeSwap`/Draft Preview; prune alternatives after the engine; only skip the relocation twin.
+  Reason: pruning leaves 17 double-scheduled period views (a duplicate step id on save), 1 avoid-pair co-schedule and 12 spurious "frozen while scheduled"
+  records; skipping the twin misses PM→AM retries. Scratch prototype, 6,000 seeded shelves: self-offers 259 and duplicates 90 of 8,867 alternatives (all
+  with a relocate) → 0; every product still in a bucket; 43 engine suites green; 343 plans (5.7%) change. Re-measure after FE-1/FE-2.
+- The summary's added line comes from the saved routines and sits outside the cap of 3 (max 4 lines), always last (FE-14).
+  Alternative: widen `computeDiff` to weekdays; let "added" outrank inside 3; raise the cap to 4.
+  Reason: `computeDiff` compares period membership and only feeds this summary; outranking drops the set-aside/reserve/moved narration that exists so
+  nothing vanishes silently; a uniform 4 still crowds "added" out. Cost: one more line on a busy draft (research asked for 2–3 quiet lines).
 
 ## 5. Open Questions
 
-All non-blocking (planner default implemented; the answer changes a constant or copy); owners in spec §10:
-Q1 third "Complete" style now? (default no) · Q2 gap card for a missing exfoliant? (default no) · Q3 clinical review
-of draft values (matchers, 3 days, 12-ingredient window, barrier-repair deferral, AM) · Q4 style names and copy.
+- None blocking: Q5 (option B), Q6, Q7, the wishlist question and both qa-lead findings are decided by the owner (spec §10, this revision).
+- Q4b — PLACEHOLDER copy ("Not for me", calendar hints) → design. For her read-through (vetoable): calendar gating, dismissal in view mode,
+  the calendar entry's unchanged limits, the summary's fourth line.

@@ -1,7 +1,8 @@
 {
   "task": "intermediate-routine",
-  "phase": "design",
-  "status": "DESIGNED",
+  "phase": "engineer",
+  "status": "IN_PROGRESS",
+  "revision": "2026-10-15 second pass: one mode (routine-style concept removed); owner answers applied (Q5 option B, Q6 yes, Q7 yes, wishlist yes) plus the calendar-discoverability requirement; spec and tech design revised in place, nothing committed",
   "flags": {
     "backend_layer": false,
     "frontend_layer": true,
@@ -11,37 +12,167 @@
     "spec": "docs/specs/intermediate-routine.md",
     "tech_design": "docs/tech-design/intermediate-routine.md"
   },
+  "spec_status": "DRAFT (unchanged). The owner answered the review questions but has not said she read the whole spec; she reviews the diff before the engineer starts.",
+  "authorization_note": "The coordinating session relayed the product owner's in-session words and decisions (Russian originals for the style removal, the removal-in-edit-mode answer and the calendar requirement are quoted in the spec's 'Revision 2026-10-15'; the Q5/Q6/Q7/wishlist answers were relayed as decisions without verbatim text). The planner has no channel to the human and could not verify any of it; it treated the relay as the task brief and left every artifact DRAFT and uncommitted. Revert with: git checkout -- docs progress",
   "prerequisites": [
-    "fix/precleanse-gap-card merged into dev; branch intermediate-routine from origin/dev afterwards (shared files carry that branch's uncommitted work)"
+    "fix/precleanse-gap-card is merged (PR #60, 5ed283f is an ancestor of HEAD) - satisfied",
+    "Owner's read-through of the revised spec diff (the DRAFT gate) BEFORE the engineer starts",
+    "qa-lead reworks tests/intermediate-routine/ (see qa) BEFORE the engineer starts"
   ],
   "decisions_from_product_owner": {
-    "no_release_no_users": "No migration or back-compat; default routine style is Balanced for everyone (one constant).",
-    "not_silent": "Steps the style calls for (toner, eye cream) raise gap cards when the shelf cannot fill them; shelf products not in the routine are listed with a reason on the Routines screen.",
-    "filter_vs_selection": "Technical decision, recorded as an assumption: the style changes slot selection before admission."
+    "single_mode": "No routine-style concept at all: one mode, the fuller one (2026-10-15).",
+    "user_trims": "The user removes anything extra herself (2026-10-15).",
+    "removal_in_edit_mode_only": "A step is removed only in edit mode so it cannot happen accidentally, in the list and in the calendar (2026-10-15; Q7 yes).",
+    "regeneration_restores": "After the routine is regenerated the removed step is shown again; no persistence of 'user removed this' (no tombstones, no dismissed-steps store) (2026-10-15).",
+    "gap_card_dismissal_option_b": "'Not for me' on the toner and eye-cream gap cards ONLY, hiding that card until the next save of the routine; cleanser, moisturiser, SPF, pre-cleanse follow-up and mandate cards have no dismissal (Q5, 2026-10-15).",
+    "left_out_includes_removed": "A product removed on purpose still appears in 'Not in your routine' (owned, not hidden on the shelf, no non-hidden saved step in either routine on any weekday). Known trade-off: the list cannot tell removed-on-purpose from never-added (Q6, 2026-10-15).",
+    "owned_only_engine_input": "The engine sees only owned products; wishlist excluded in buildEngineInputFromStores, so live gap cards and the Draft Preview share one input (Q8, 2026-10-15).",
+    "calendar_discoverability": "A caption above the calendar grid and a highlight on the product column make editing from the calendar discoverable (2026-10-15).",
+    "no_release_no_users": "No migration or back-compat.",
+    "not_silent": "Steps the app calls for (toner, eye cream) are scheduled or raise a visible gap card; an explicit 'Not for me' hides an optional card until the next save and is the user's choice, not an omission; shelf products that miss the routine stay visible with a reason.",
+    "no_exfoliant_purchase_prompt": "No gap card for a missing enzyme exfoliant; an owned enzyme product is still scheduled (Q2, 2026-10-14).",
+    "clinical_review_deferred": "Enzyme values ship as named constants; clinical review after the MVP, before the global release (Q3, 2026-10-14).",
+    "style_names_moot": "Q4a (approved style names) is moot; the retired names must not appear in code, UI copy or tests."
   },
   "unblocked_scope": {
-    "summary": "All of FE-1..FE-11 and DOC-1 in the tech design. Phase A (style, toner, eye cream, gap cards), Phase B (enzyme exfoliant) and Phase C (left-out list, style control) can be built in that order; each phase is independently shippable.",
+    "summary": "FE-1..FE-12, DOC-1, DOC-2 in the tech design. Phases are independently shippable in order A, B, C, D. Nothing starts until the DRAFT gate (owner's read-through) and the QA rework are done.",
     "phases": [
-      "A: FE-1..FE-5",
-      "B: FE-6..FE-8",
-      "C: FE-9..FE-11, DOC-1"
+      "A: FE-1..FE-3 (toner and eye cream as structural slots + required gap slots; owned-only engine input)",
+      "B: FE-4..FE-6 (enzyme exfoliant class, reclassification, selection and cap)",
+      "C: FE-7..FE-10 (left-out util and section + the one copy module; calendar Remove/Hide gate; calendar caption and highlight)",
+      "D: FE-11..FE-12 ('Not for me': pure util + settings state + domain clearing; GapCard button and screen wiring)",
+      "Docs: DOC-1 (phase-04 amendment), DOC-2 (planApply comment; stale 'Read-only' comment in RoutineCalendarView)"
     ]
   },
-  "needs_clarification_non_blocking": {
-    "Q1": "NEEDS_CLARIFICATION -> owner: product owner. Selectable third 'Complete' style now? Default: no.",
-    "Q2": "NEEDS_CLARIFICATION -> owner: product owner. Gap card for a missing enzyme exfoliant? Default: no (exfoliation is skin-state dependent).",
-    "Q3": "NEEDS_CLARIFICATION -> owner: clinical consultant. Review of draft values: enzyme matchers, 3 days a week, 12-ingredient window, barrier-repair deferral, AM preference.",
-    "Q4": "NEEDS_CLARIFICATION -> owner: design. Style names and PLACEHOLDER copy in spec section 5."
+  "blocked_items": [],
+  "status_reevaluation": "Nothing is BLOCKED after the owner's answers: no Type A gap remains. Q4b is PLACEHOLDER copy owned by design and non-blocking by convention.",
+  "needs_clarification": {
+    "Q4b": "owner: design. PLACEHOLDER copy (left-out section, 'Not for me', calendar caption and row hints). Non-blocking.",
+    "derived_details_vetoable": "owner: product owner, at read-through. (a) 'Not for me' is available with edit mode on or off; (b) manual edits do not reset a dismissal, only a save does; (c) calendar caption and highlight follow edit mode (no highlight outside it); (d) the calendar entry's unchanged limits."
   },
-  "key_findings_from_planning": [
-    "The reserve bucket is rendered in the Draft Preview (collapsed, with per-row 'Add anyway') but never on the saved Routines screen.",
-    "Live gap cards come from validateCurrentRoutines().proposedPlan.placeholders (a fresh hypothetical plan), so Balanced gap cards need no UI and an engine change reaches the live screen without a save.",
-    "Essential equals today's engine over 600 seeded shelves except one relabelled reserve reason (outside_routine_depth).",
+  "verified_answers": {
+    "q1_resurrection": "Only an explicit Draft Preview save (applyRoutinePlan -> buildStepsFromPlan) or Reset all writes plan-derived steps; validation is a pure read. A removed step is re-created and a hidden step is un-hidden iff the fresh plan schedules the product; otherwise a removed step stays gone and a hidden step stays hidden. Both match her intent: no behaviour change. The code comment claiming hidden steps survive untouched is only true for unplanned products (DOC-2).",
+    "q2_gap_cards": "The plan, hence the gap cards, is built from shelf + profile only, never from saved steps; an owned toner keeps the slot filled, so removal neither raises nor clears a card. The remaining case (no toner/eye cream owned, deleted, or hidden on the shelf) is now handled by 'Not for me' (Q5 option B).",
+    "q3_left_out_membership": "Decided YES: listed iff owned, not hidden on the shelf, and no non-hidden saved step in either routine on any weekday; removed and hidden-step products are listed. Supersedes the earlier 'a hidden step counts as saved'."
+  },
+  "design_notes": {
+    "until_next_save": "State: AppSettings.dismissedGapCards, at most 4 keys (am|pm x toner|eye_cream), persisted via settingsStore/saveJson (add to pickSettings; hydrate merges the default). 'Next save' = a Draft Preview save clears the keys of the periods it wrote (both, Morning only, Evening only); Reset all clears both; manual add/remove/hide/reorder, shelf edits, period switches and restarts do not. Filter applied after the engine's dedupe (utils gapDismissal: gapDismissKey, visibleGaps, keysAfterSave); only generic toner_recommended / eye_cream_recommended survivors are dismissible. Orchestration in src/domain/routinePlanActions.ts.",
+    "calendar": "RoutineCalendarView stays presentational with optional editMode (default false). Off: neutral caption, no highlight, sheet shows only 'View product details' and 'Edit product'. On: caption 'Tap a product to edit or remove it.', identity column highlighted with statusInfoTint/statusInfoLine (not plum tints, which read pink), sheet shows all four rows. No caption/highlight in the empty state. Row label '<name>, open actions' unchanged (an existing green test needs it) plus a per-mode accessibilityHint."
+  },
+  "key_findings": [
+    "Nothing from the retired style design exists in src/: the deletions are confined to docs and the QA suite.",
+    "Wishlist-status products share productsStore.products and the engine has no status check; buildEngineInputFromStores has exactly two callers (generateDraftPlan, validateCurrentRoutines), so one owned-only filter there keeps cards, draft and list in agreement. currentOverrideHash must hash owned ids too.",
+    "buildStepsFromPlan writes hidden:false for every planned step, so a hidden step whose product is planned is un-hidden on save; only the unplanned case was tested.",
+    "Hiding a product on the shelf drops it silently from the engine, so hiding the only toner raises the toner gap cards and lists nothing (now dismissible with 'Not for me').",
+    "routineNoticeDismissedAt cannot give 'until the next save': routineContentHash changes on any add/remove/reschedule and does not change on a no-op save.",
+    "Calendar entry limits, unchanged and easier to reach: Remove/Hide act on the product's first visible step (morning before evening) and the 'this weekday only' confirmation names today's weekday.",
+    "tests/product-images/RoutineCalendarView.test.tsx: 9 pass, 2 fail on empty-state copy drift ('No products scheduled this month.' expected; the EmptyState renders a title and description). FE-10 does not touch that branch; keep the 9 green (label '<name>, open actions', legend text, sun/moon icon counts).",
+    "The calendar's existing 10-12px labels pre-date the 14px minimum and are untouched; the new caption uses typography.bodySmall (14px).",
     "Unguarded, 'Add anyway' on an enzyme product schedules it AM and PM every day; the override block must re-enter the preferred period only and apply the cap.",
-    "Latent test gap at today's engine: scheduled-and-frozen disjointness is asserted per product but is legal per period (seeds 157 and 362 of a 1000-seed sweep); assert per hard gate before widening seeds or parametrizing."
+    "Latent test gap at today's engine: scheduled-and-frozen disjointness is asserted per product but is legal per period (seeds 157 and 362 of a 1000-seed sweep); assert per hard gate before widening seeds.",
+    "selectSkeleton (125 lines) and generatePlan (118 lines) exceed the 50-line guideline: do not grow them."
   ],
-  "notes_for_qa_lead": [
-    "Reference shelves R9, S3, E4 and their expected results are in spec section 4.",
-    "Parametrize the explainability, determinism-and-safety and generate suites over both styles; pin depth essential in the tier-contract tests."
-  ]
+  "qa": {
+    "status": "TESTS_WRITTEN",
+    "note": "2026-10-15: suite rewritten for the single-mode design (spec APPROVED). Supersedes the 2026-10-14 two-mode suite.",
+    "run_command": "npx jest tests/intermediate-routine --testPathIgnorePatterns=\"worktrees\"",
+    "previous_run": {
+      "agent": "qa-lead",
+      "date": "2026-10-14",
+      "superseded_by": "2026-10-15 rewrite"
+    },
+    "files": {
+      "deleted": [
+        "balanced-vs-essential.test.ts",
+        "essential-regression.test.ts",
+        "golden/",
+        "routine-depth-store.test.ts",
+        "draft-preview-style-control.test.tsx",
+        "balanced-plan.test.ts (renamed)"
+      ],
+      "reworked": [
+        "fixtures.ts",
+        "routine-plan.test.ts",
+        "gap-cards.test.ts",
+        "enzyme-exfoliant.test.ts",
+        "left-out-items.test.ts",
+        "LeftOutSection.test.tsx",
+        "determinism-and-safety.test.ts",
+        "routines-screen.test.tsx"
+      ],
+      "new": [
+        "trimming.test.ts",
+        "draft-summary.test.ts",
+        "gap-dismissal.test.ts",
+        "step-action-sheet.test.tsx",
+        "calendar-hints.test.tsx",
+        "wishlist-exclusion.test.ts"
+      ]
+    },
+    "decisions_recorded": {
+      "twelve_ingredient_rule": "plain comma-separated list of top-level tokens, 1-based; parenthesised sub-ingredient takes no position; Aqua = 1; 12-vs-13 boundary tested",
+      "mild_active_toner_or_eye_cream": "neither outcome asserted",
+      "swap_never_offers_scheduled_product": "owner: FIX in engine; strict test in routine-plan.test.ts fails until fixed",
+      "draft_summary": "owner: IMPROVE; must name re-added steps incl. one-weekday removal and hidden un-hide, and not lose other lines to the 3-line cap"
+    },
+    "assumed_interfaces": [
+      "buildDraftSummaryLines(plan, diff, products, routines?: Routine[]): string[] - new optional 4th argument = SAVED routines (existing function name kept)",
+      "The summary may exceed 3 lines when needed: the test requires day-split, paused, reserve AND \"N products added\" together",
+      "Summary wording: \"1 product added\" / \"2 products added\" (existing text); a product counts once even if re-added in both periods",
+      "testID \"calendar-product-column\" on the frozen product column in BOTH modes; highlighted = flattened style backgroundColor colors.statusInfoTint and colors.statusInfoLine as an edge colour (never plum)",
+      "RoutineCalendarView prop editMode?: boolean; caption text = CALENDAR_HINT_COPY.view|edit; row accessibilityHint = rowHintView|rowHintEdit; caption fontSize >= 14",
+      "GapCard dismiss control = a button whose text is GAP_DISMISS_COPY.action; toner card precedes eye-cream card in the same period (build order)",
+      "keysAfterSave(keys, periods: ('am'|'pm')[]) returns the keys that REMAIN; clearDismissedGapCards takes the same periods; dismissGapCard(key) is idempotent",
+      "applyRoutinePlan(plan, scope) clears the periods it wrote (both=am+pm, am, pm); resetAllRoutines clears both",
+      "RoutinesScreen reads dismissedGapCards / dismissGapCard via useSettingsStore selectors, passes allowRemoval={editMode} to RoutineStepActionSheet and editMode to RoutineCalendarView; the list footer renders LeftOutSection above the \"Add product to routine\" button",
+      "LeftOutSection a11y (not pinned by design): header is a button with accessibilityState.expanded; row action labels `${addAction} ${name}` and `${reviewAction} ${name}`; text >= 14px",
+      "Wishlist: isOwnedProduct(p) = p.status !== 'wishlist' (absent = owned); buildEngineInputFromStores filters; currentOverrideHash hashes owned ids only",
+      "Reason codes toner_recommended, eye_cream_recommended, exfoliant_deferred_barrier_repair (texts per spec); enzyme step productType peeling, morning, 3 weekdays (1 in summer / Fitzpatrick 4-6)"
+    ],
+    "owed_interfaces": [
+      "@/constants/routineScreenCopy",
+      "@/utils/routineLeftOut",
+      "@/utils/productOwnership",
+      "@/utils/gapDismissal",
+      "@/components/routine/LeftOutSection",
+      "ActiveIngredientKey enzyme_exfoliant",
+      "DecisionReasonCode toner_recommended/eye_cream_recommended/exfoliant_deferred_barrier_repair",
+      "AppSettings.dismissedGapCards + settingsStore.dismissGapCard/clearDismissedGapCards",
+      "RoutineStepActionSheetProps.allowRemoval",
+      "RoutineCalendarViewProps.editMode",
+      "buildDraftSummaryLines 4th argument"
+    ]
+  },
+  "owed_by_coordinator": [
+    "Roadmap sync per .claude/rules/roadmap-sync.md (spec and tech design materially edited again); the planner has no WebFetch/Artifact tools."
+  ],
+  "engineer": {
+    "agent": "engineer",
+    "date": "2026-10-15",
+    "status": "IMPLEMENTED_PENDING_REVIEW",
+    "commits": {
+      "A": "f3b42da",
+      "A2": "e7c6391",
+      "B": "6306790",
+      "C": "156fddf",
+      "D": "c100d52",
+      "E": "0135f0b",
+      "final": "see git log (sweeps + progress log)"
+    },
+    "gates": "tsc: zero errors outside tests/intermediate-routine after every phase; full jest after every phase: only the 9 baseline suites red plus the not-yet-built QA suites of later phases",
+    "open_items": [
+      "QA test bug: tests/intermediate-routine/routines-screen.test.tsx 'records the morning toner key when its card is dismissed' presses dismissButtons()[0] assuming the toner card is first on screen; on S3 the eye-cream card renders first (Moisturize group) and the toner card is in the trailing block, so the key recorded is am:eye_cream. Implementation is correct; test must select the toner card's button.",
+      "Known pre-existing, left as is: 24/6000 shelves have a product with two FrozenItem rows (frozen in both periods); explainability sweep seed size kept at 100.",
+      "Roadmap sync owed by the coordinator."
+    ],
+    "deviations": [
+      "enzyme cap applies to non-strong carriers only (FE-6 letter would loosen AHA+papain)",
+      "FE-7 into phase A, FE-13 as A2",
+      "hydrate/dismissGapCard sanitise to the four known keys",
+      "legacy buildDraftSummaryLines path (no routines) keeps cap 3",
+      "INCI position counts top-level ingredients for all classes",
+      "own 'Enzymes' wizard group",
+      "no wishlist weighting in engine-level sweeps (filter lives at the store boundary)"
+    ]
+  }
 }

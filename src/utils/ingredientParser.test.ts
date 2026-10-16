@@ -13,6 +13,7 @@ import {
   parseActiveIngredientDetails,
   getProductActiveKeys,
   normalizeActiveKey,
+  splitInciTopLevel,
 } from '@/utils/ingredientParser';
 import type { ActiveIngredientKey } from '@/types';
 
@@ -459,5 +460,87 @@ describe('position-gated attribution (phase-03 §consultant items)', () => {
       'Aqua, Salicylic Acid, Squalane, Willow Bark Extract',
     ).find((d) => d.key === 'bha');
     expect(detail?.position).toBe(2);
+  });
+});
+
+describe('splitInciTopLevel — a parenthesised sub-list is one ingredient', () => {
+  it('splits a plain list on commas and trims each token', () => {
+    expect(splitInciTopLevel('Aqua,  Glycerin ,Niacinamide')).toEqual(['Aqua', 'Glycerin', 'Niacinamide']);
+  });
+
+  it('keeps a parenthesised group together as a single token', () => {
+    expect(splitInciTopLevel('Aqua, Base Blend (Sub1, Sub2, Sub3), Papain')).toEqual([
+      'Aqua',
+      'Base Blend (Sub1, Sub2, Sub3)',
+      'Papain',
+    ]);
+  });
+
+  it('handles nested parentheses', () => {
+    expect(splitInciTopLevel('A (b (c, d), e), F')).toEqual(['A (b (c, d), e)', 'F']);
+  });
+
+  it('degrades to a plain comma split on an unbalanced closing parenthesis', () => {
+    expect(splitInciTopLevel('Aqua), Glycerin, Papain')).toEqual(['Aqua)', 'Glycerin', 'Papain']);
+  });
+
+  it('falls back to the plain comma split when a parenthesis is never closed', () => {
+    // An unclosed "(" used to swallow the rest of the list into one token, so
+    // Papain/Bromelain here counted as position 2 and over-attributed classes
+    // gated by `requireWithinPosition`.
+    expect(splitInciTopLevel('Aqua, Glycerin (Vegetable, Niacinamide, Papain, Bromelain')).toEqual([
+      'Aqua',
+      'Glycerin (Vegetable',
+      'Niacinamide',
+      'Papain',
+      'Bromelain',
+    ]);
+  });
+
+  it('does not let an unclosed parenthesis pull a late enzyme into the first-12 window', () => {
+    const filler = Array.from({ length: 12 }, (_, i) => `Filler${i + 1}`);
+    const inci = ['Aqua', 'Base (broken', ...filler, 'Papain'].join(', ');
+
+    expect(parseActiveIngredientsFromInci(inci)).not.toContain('enzyme_exfoliant');
+  });
+
+  it('the fallback is all-or-nothing: a balanced group before an unclosed one is split on commas too', () => {
+    // The fallback is all-or-nothing: one unclosed "(" anywhere makes the text unreliable.
+    expect(splitInciTopLevel('A (b, c), D (e, f')).toEqual(['A (b', 'c)', 'D (e', 'f']);
+  });
+
+  it('returns one token for text without commas', () => {
+    expect(splitInciTopLevel('contains papain')).toEqual(['contains papain']);
+  });
+});
+
+describe('enzyme_exfoliant attribution (intermediate-routine, first-12-ingredients window)', () => {
+  const at = (name: string, position: number) =>
+    Array.from({ length: 25 }, (_, i) => (i + 1 === position ? name : `Filler${i + 1}`)).join(', ');
+
+  it.each(['Papain', 'Bromelain', 'Subtilisin'])('attributes %s at position 12', (name) => {
+    expect(parseActiveIngredientsFromInci(at(name, 12))).toContain('enzyme_exfoliant');
+  });
+
+  it('does not attribute papain at position 13', () => {
+    expect(parseActiveIngredientsFromInci(at('Papain', 13))).not.toContain('enzyme_exfoliant');
+  });
+
+  it('counts a parenthesised sub-list as one position, so papain after it stays inside the window', () => {
+    const inci = ['Aqua', 'Base (a, b, c, d, e, f, g, h)', ...Array.from({ length: 9 }, (_, i) => `F${i}`), 'Papain'].join(', ');
+
+    expect(parseActiveIngredientsFromInci(inci)).toContain('enzyme_exfoliant');
+  });
+
+  it('reports the enzyme position as the top-level index', () => {
+    const detail = parseActiveIngredientDetails('Aqua, Base (a, b, c), Papain').find((d) => d.key === 'enzyme_exfoliant');
+
+    expect(detail?.position).toBe(3);
+  });
+
+  it('does not match "papaya" or "pineapple extract" — only the enzyme names', () => {
+    expect(parseActiveIngredientsFromInci('Aqua, Carica Papaya Fruit Extract, Ananas Sativus Fruit Extract')).not.toContain(
+      'enzyme_exfoliant',
+    );
   });
 });

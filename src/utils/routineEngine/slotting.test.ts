@@ -7,6 +7,7 @@ import {
   orderSteps,
   periodsForProduct,
   preferredPeriodFor,
+  structuralSlotFor,
 } from '@/utils/routineEngine/slotting';
 
 const NOW = new Date('2026-07-04T12:00:00Z');
@@ -131,5 +132,29 @@ describe('orderSteps', () => {
     const steps = [makeStep({ productId: 'b', slotIndex: 9 }), makeStep({ productId: 'a', slotIndex: 1 })];
     orderSteps(steps);
     expect(steps[0].productId).toBe('b');
+  });
+});
+
+describe('structuralSlotFor — toner and eye cream are structural slots (intermediate-routine)', () => {
+  it('maps toner and eye cream to their own slots', () => {
+    expect(structuralSlotFor('toner')).toBe('toner');
+    expect(structuralSlotFor('eye_cream')).toBe('eye_cream');
+  });
+
+  it('never lets an eye cream fill the moisturiser slot, nor a moisturiser fill the eye-cream slot', () => {
+    expect(structuralSlotFor('eye_cream')).not.toBe('moisturizer');
+    expect(structuralSlotFor('moisturizer')).not.toBe('eye_cream');
+    expect(getSlotIndex('eye_cream')).not.toBe(getSlotIndex('moisturizer'));
+  });
+
+  it('leaves the slots the pre-cleanse logic relies on unchanged', () => {
+    expect(structuralSlotFor('makeup_remover')).toBe('pre_cleanse');
+    expect(structuralSlotFor('cleanser')).toBe('cleanser');
+  });
+
+  it('still gives essence, oil, ampoule, mask and peeling no structural slot', () => {
+    for (const type of ['essence', 'oil', 'ampoule', 'mask', 'peeling', 'spot_treatment'] as const) {
+      expect(structuralSlotFor(type)).toBeNull();
+    }
   });
 });

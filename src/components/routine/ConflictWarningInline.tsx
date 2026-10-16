@@ -36,6 +36,17 @@ export interface ConflictWarningInlineProps {
   /** The evening steps the user is actually looking at. Same contract. */
   eveningSteps: RoutineStep[];
   /**
+   * Signature of the WHOLE saved routine (both periods, every weekday) that a
+   * dismissal is tagged with. A caller that scopes `morningSteps` /
+   * `eveningSteps` to the open tab and weekday MUST pass this: hashing those
+   * scoped lists gave the same notice a different hash on each tab, so each
+   * tab's dismissal overwrote the other's and a closed notice came back after
+   * a Morning/Evening switch (field report 2026-10-16). It also meant an edit
+   * to a step on another weekday never re-surfaced a dismissed notice. Absent
+   * ⇒ derived from `morningSteps` / `eveningSteps` as before.
+   */
+  routineHash?: string;
+  /**
    * Optional override of the step set used ONLY for pairwise ingredient
    * conflict detection (`ConflictEngine.detectConflicts`). Product-pair
    * chemistry doesn't care which tab is currently open — a retinoid used in
@@ -214,6 +225,7 @@ function DensityRow({
 export function ConflictWarningInline({
   morningSteps,
   eveningSteps,
+  routineHash,
   allSteps: allStepsOverride,
   products,
   skinConditions = [],
@@ -231,7 +243,7 @@ export function ConflictWarningInline({
   // The step cards' own reason text still explains things once it's gone.
   const dismissedAt = useSettingsStore((s) => s.routineNoticeDismissedAt);
   const setRoutineNoticeDismissed = useSettingsStore((s) => s.setRoutineNoticeDismissed);
-  const currentRoutineHash = routineContentHash(morningSteps, eveningSteps);
+  const currentRoutineHash = routineHash ?? routineContentHash(morningSteps, eveningSteps);
   const isDismissed = (key: string) => isNoticeDismissed(dismissedAt[key], currentRoutineHash);
   const noticeProps = (key: string): RowCollapseProps => {
     const collapsed = resolveNoticeCollapsed(persistedCollapse[key]);
